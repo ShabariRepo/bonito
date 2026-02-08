@@ -1,0 +1,12 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.env
+.venv/
+dist/
+*.egg-info/
+.env.secrets
+secrets/age-key.txt
+secrets/*.yaml
+!secrets/*.enc.yaml
