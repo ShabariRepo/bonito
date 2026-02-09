@@ -1,18 +1,9 @@
 FROM hashicorp/vault:1.15
 
-# Copy production config
-COPY config-prod.hcl /vault/config/vault.hcl
-COPY init-prod.sh /vault/init-prod.sh
-
-RUN chmod +x /vault/init-prod.sh
-
-# Vault data directory — ensure writable
-RUN mkdir -p /vault/data && chown -R vault:vault /vault/data
+ENV VAULT_DEV_ROOT_TOKEN_ID=bonito-prod-token
+ENV VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
 
 EXPOSE 8200
 
-# Run as vault user
-USER vault
-
-# Start Vault server
-CMD ["vault", "server", "-config=/vault/config/vault.hcl"]
+# Run in dev mode — data is ephemeral but we seed on backend startup
+CMD ["vault", "server", "-dev"]
