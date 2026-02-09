@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.redis import redis_client
+from app.core.redis import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +66,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         key = f"rl:{bucket}:{ip}"
 
         try:
-            pipe = redis_client.pipeline()
+            client = await get_redis()
+            pipe = client.pipeline()
             pipe.incr(key)
             pipe.ttl(key)
             count, ttl = await pipe.execute()
 
             if ttl == -1:  # no expiry set yet
-                await redis_client.expire(key, window)
+                await client.expire(key, window)
 
             if count > limit:
                 retry_after = ttl if ttl > 0 else window
@@ -81,9 +82,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Rate limit exceeded. Try again later."},
                     headers={"Retry-After": str(retry_after)},
                 )
-        except Exception:
-            # Redis down — fail open (don't block requests)
-            logger.warning("Rate limiter: Redis unavailable, passing through")
+        except Exception as e:
+            # Redis down — fail closed (return 429) in production for security
+            logger.error(f"Rate limiter: Redis unavailable: {e}")
+            if not _is_dev():
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limiting service unavailable. Please try again later."},
+                    headers={"Retry-After": "60"},
+                )
+            # In dev mode, log warning but continue
+            logger.warning("Rate limiter: Redis unavailable in dev mode, passing through")
 
         return await call_next(request)
 
@@ -95,7 +104,23 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = request_id
+        
+        start_time = time.time()
         response: Response = await call_next(request)
+        duration_ms = round((time.time() - start_time) * 1000, 2)
+        
+        # Log the request
+        logger.info(
+            f"{request.method} {request.url.path} -> {response.status_code}",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            }
+        )
+        
         response.headers["X-Request-ID"] = request_id
         return response
 

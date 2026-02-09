@@ -6,9 +6,9 @@
     "buildTarget": "production"
   },
   "deploy": {
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4",
+    "startCommand": "sh start-prod.sh",
     "healthcheckPath": "/api/health",
-    "healthcheckTimeout": 10,
+    "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }

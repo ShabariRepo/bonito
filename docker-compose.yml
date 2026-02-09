@@ -14,7 +14,7 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8001
       - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=dev-secret-change-in-production
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-in-production}
     depends_on:
       - backend
 
@@ -33,13 +33,16 @@ services:
       - DATABASE_URL=postgresql+asyncpg://bonito:bonito@postgres:5432/bonito
       - REDIS_URL=redis://redis:6379/0
       - CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-      - SECRET_KEY=dev-secret-change-in-production
-      - GROQ_API_KEY=gsk_LEYfAMDCMlJGSKvHMrHKWGdyb3FYKq8cJxN3OZ2QloBmrb4yXr4
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=bonito-dev-token
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
+      vault:
+        condition: service_healthy
 
   postgres:
     image: postgres:16-alpine

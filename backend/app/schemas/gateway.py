@@ -62,6 +62,7 @@ class GatewayKeyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     team_id: Optional[str] = None
     rate_limit: int = Field(default=60, ge=1, le=10000)
+    allowed_models: Optional[dict] = None  # {"models": ["gpt-4o"], "providers": ["aws"]}
 
 
 class GatewayKeyResponse(BaseModel):
@@ -70,6 +71,7 @@ class GatewayKeyResponse(BaseModel):
     key_prefix: str
     team_id: Optional[str] = None
     rate_limit: int
+    allowed_models: Optional[dict] = None
     created_at: datetime
     revoked_at: Optional[datetime] = None
 
@@ -115,3 +117,28 @@ class ModelInfo(BaseModel):
     object: str = "model"
     created: int = 0
     owned_by: str = ""
+
+
+# ─── Gateway Configuration ───
+
+class GatewayConfigResponse(BaseModel):
+    id: uuid.UUID
+    enabled_providers: dict
+    routing_strategy: RoutingStrategy
+    fallback_models: dict
+    default_rate_limit: int
+    cost_tracking_enabled: bool
+    custom_routing_rules: dict
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class GatewayConfigUpdate(BaseModel):
+    enabled_providers: Optional[dict] = None
+    routing_strategy: Optional[RoutingStrategy] = None
+    fallback_models: Optional[dict] = None
+    default_rate_limit: Optional[int] = Field(None, ge=1, le=10000)
+    cost_tracking_enabled: Optional[bool] = None
+    custom_routing_rules: Optional[dict] = None

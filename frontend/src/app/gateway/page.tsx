@@ -18,6 +18,9 @@ import {
   DollarSign,
   Code,
   Terminal,
+  Settings,
+  BarChart3,
+  ArrowRight,
 } from "lucide-react";
 import { API_URL } from "@/lib/utils";
 
@@ -218,6 +221,46 @@ export default function GatewayPage() {
         title="API Gateway"
         description="Route AI requests through a unified OpenAI-compatible endpoint with automatic failover, cost tracking, and rate limiting."
       />
+
+      {/* Quick Navigation */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="/gateway/keys" className="group">
+          <Card className="border-violet-500/20 hover:border-violet-500/50 transition-colors">
+            <CardContent className="flex items-center gap-4 py-4">
+              <Key className="h-8 w-8 text-violet-500" />
+              <div className="flex-1">
+                <h3 className="font-semibold">API Keys</h3>
+                <p className="text-sm text-muted-foreground">Manage keys and permissions</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </CardContent>
+          </Card>
+        </a>
+        
+        <a href="/gateway/usage" className="group">
+          <Card className="border-blue-500/20 hover:border-blue-500/50 transition-colors">
+            <CardContent className="flex items-center gap-4 py-4">
+              <BarChart3 className="h-8 w-8 text-blue-500" />
+              <div className="flex-1">
+                <h3 className="font-semibold">Usage Analytics</h3>
+                <p className="text-sm text-muted-foreground">Detailed usage insights</p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </CardContent>
+          </Card>
+        </a>
+        
+        <Card className="border-green-500/20">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Settings className="h-8 w-8 text-green-500" />
+            <div className="flex-1">
+              <h3 className="font-semibold">Configuration</h3>
+              <p className="text-sm text-muted-foreground">Routing & fallback rules</p>
+            </div>
+            <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">Soon</span>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Endpoint URL */}
       <Card className="border-violet-500/30 bg-violet-500/5">

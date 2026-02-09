@@ -145,7 +145,7 @@ async def get_router() -> litellm.Router:
     return _router
 
 
-def reset_router():
+async def reset_router():
     """Force router re-initialization (e.g. after adding a new provider)."""
     global _router
     _router = None

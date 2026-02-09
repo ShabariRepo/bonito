@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -11,6 +12,13 @@ from app.models import Organization, CloudProvider, Model, Deployment  # noqa: F
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# Override sqlalchemy.url from DATABASE_URL env var if set (production)
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # Alembic needs synchronous URL — swap asyncpg for psycopg2
+    sync_url = database_url.replace("+asyncpg", "")
+    config.set_main_option("sqlalchemy.url", sync_url)
 
 target_metadata = Base.metadata
 

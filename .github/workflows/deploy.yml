@@ -1,0 +1,72 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Railway
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd backend
+          railway up --service bonito-backend --detach
+
+      - name: Health Check
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.RAILWAY_BACKEND_URL }}/api/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Backend healthy (attempt $i)"
+              exit 0
+            fi
+            echo "⏳ Attempt $i: got $STATUS, retrying in 15s..."
+            sleep 15
+          done
+          echo "❌ Backend health check failed"
+          exit 1
+
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npm install -g vercel
+          cd frontend
+          vercel --prod --token=$VERCEL_TOKEN --yes
+
+  post-deploy:
+    name: Post-Deploy Checks
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    steps:
+      - name: Verify services
+        run: |
+          echo "🐟 Bonito deployment complete!"
+          echo "Backend:  ${{ vars.RAILWAY_BACKEND_URL }}"
+          echo "Frontend: ${{ vars.VERCEL_FRONTEND_URL }}"

@@ -2,11 +2,25 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index
+from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+
+
+class GatewayConfig(Base):
+    __tablename__ = "gateway_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), nullable=False, unique=True)
+    enabled_providers: Mapped[dict] = mapped_column(JSON, default=dict)  # {"aws": True, "azure": False, ...}
+    routing_strategy: Mapped[str] = mapped_column(String(50), default="cost-optimized")  # cost-optimized, latency-optimized, balanced, failover
+    fallback_models: Mapped[dict] = mapped_column(JSON, default=dict)  # {"gpt-4o": ["claude-3-5-sonnet", "gemini-pro"], ...}
+    default_rate_limit: Mapped[int] = mapped_column(Integer, default=60)
+    cost_tracking_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    custom_routing_rules: Mapped[dict] = mapped_column(JSON, default=dict)  # Advanced routing configuration
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class GatewayRequest(Base):
@@ -44,6 +58,7 @@ class GatewayKey(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     team_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     rate_limit: Mapped[int] = mapped_column(Integer, default=60)  # requests per minute
+    allowed_models: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # {"models": ["gpt-4o", "claude-3"], "providers": ["aws", "azure"]}
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

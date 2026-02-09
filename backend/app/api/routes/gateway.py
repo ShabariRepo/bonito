@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
-from app.models.gateway import GatewayKey, GatewayRequest
+from app.models.gateway import GatewayKey, GatewayRequest, GatewayConfig
 from app.schemas.gateway import (
     ChatCompletionRequest,
     CompletionRequest,
@@ -28,6 +28,8 @@ from app.schemas.gateway import (
     GatewayKeyCreated,
     GatewayLogEntry,
     UsageSummary,
+    GatewayConfigResponse,
+    GatewayConfigUpdate,
 )
 from app.services import gateway as gateway_service
 
@@ -166,6 +168,7 @@ async def create_key(
         name=body.name,
         team_id=body.team_id,
         rate_limit=body.rate_limit,
+        allowed_models=body.allowed_models,
     )
     db.add(key)
     await db.flush()
@@ -217,3 +220,69 @@ async def get_logs(
         db, user.org_id, limit=limit, offset=offset, model=model, status=status_filter
     )
     return logs
+
+
+@router.get("/api/gateway/config", response_model=GatewayConfigResponse)
+async def get_gateway_config(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get gateway configuration for the organization."""
+    result = await db.execute(
+        select(GatewayConfig).where(GatewayConfig.org_id == user.org_id)
+    )
+    config = result.scalar_one_or_none()
+    
+    if not config:
+        # Create default config if none exists
+        config = GatewayConfig(
+            org_id=user.org_id,
+            enabled_providers={"aws": True, "azure": True, "gcp": True},
+            routing_strategy="cost-optimized",
+            fallback_models={},
+            default_rate_limit=60,
+            cost_tracking_enabled=True,
+            custom_routing_rules={}
+        )
+        db.add(config)
+        await db.flush()
+    
+    return config
+
+
+@router.put("/api/gateway/config", response_model=GatewayConfigResponse)
+async def update_gateway_config(
+    body: GatewayConfigUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update gateway configuration for the organization."""
+    result = await db.execute(
+        select(GatewayConfig).where(GatewayConfig.org_id == user.org_id)
+    )
+    config = result.scalar_one_or_none()
+    
+    if not config:
+        # Create new config if none exists
+        config = GatewayConfig(
+            org_id=user.org_id,
+            enabled_providers={"aws": True, "azure": True, "gcp": True},
+            routing_strategy="cost-optimized",
+            fallback_models={},
+            default_rate_limit=60,
+            cost_tracking_enabled=True,
+            custom_routing_rules={}
+        )
+        db.add(config)
+    
+    # Update provided fields
+    update_data = body.model_dump(exclude_none=True)
+    for field, value in update_data.items():
+        setattr(config, field, value)
+    
+    await db.flush()
+    
+    # Reset router to pick up configuration changes
+    await gateway_service.reset_router()
+    
+    return config

@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.responses import handle_http_exception, handle_general_exception
 from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway
 from app.middleware.security import (
     RateLimitMiddleware,
@@ -15,7 +18,33 @@ from app.middleware.audit import AuditMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: Initialize logging, Redis, and load secrets from Vault
+    setup_logging(
+        level="INFO", 
+        json_logs=settings.production_mode
+    )
+    await settings.load_secrets_from_vault()
+    
+    # Initialize Redis connection
+    from app.core.redis import init_redis
+    await init_redis()
+    
     yield
+    
+    # Shutdown: Clean up connections
+    from app.core.database import database
+    from app.core.redis import close_redis
+    
+    try:
+        if database:
+            await database.disconnect()
+    except Exception:
+        pass
+    
+    try:
+        await close_redis()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -24,6 +53,10 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add global exception handlers
+app.add_exception_handler(HTTPException, handle_http_exception)
+app.add_exception_handler(Exception, handle_general_exception)
 
 # Middleware is applied in reverse order (last added = first executed)
 # Order of execution: RequestID → SecurityHeaders → RateLimit → CORS → AuditMiddleware → route
@@ -42,6 +75,9 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # Request ID (outermost — ensures all responses get an ID)
 app.add_middleware(RequestIDMiddleware)
+
+# GZip compression (very outer layer)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Routes
 app.include_router(health.router, prefix="/api")
