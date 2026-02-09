@@ -1,124 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import Script from "next/script";
 import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight } from "lucide-react";
-
-// ---------- Polygon Background ----------
-
-function PolygonBackground() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    interface Polygon {
-      x: number;
-      y: number;
-      size: number;
-      sides: number;
-      rotation: number;
-      rotationSpeed: number;
-      vx: number;
-      vy: number;
-      opacity: number;
-    }
-
-    const polygons: Polygon[] = [];
-
-    function resize() {
-      if (!canvas) return;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * 3 * dpr;
-      canvas.style.width = "100%";
-      canvas.style.height = "300vh";
-    }
-
-    function createPolygons() {
-      const count = Math.min(20, Math.floor(window.innerWidth / 80));
-      polygons.length = 0;
-      for (let i = 0; i < count; i++) {
-        polygons.push({
-          x: Math.random() * window.innerWidth * dpr,
-          y: Math.random() * window.innerHeight * 3 * dpr,
-          size: (30 + Math.random() * 60) * dpr,
-          sides: [3, 4, 5, 6][Math.floor(Math.random() * 4)],
-          rotation: Math.random() * Math.PI * 2,
-          rotationSpeed: (Math.random() - 0.5) * 0.003,
-          vx: (Math.random() - 0.5) * 0.15 * dpr,
-          vy: (Math.random() - 0.5) * 0.1 * dpr,
-          opacity: 0.03 + Math.random() * 0.05,
-        });
-      }
-    }
-
-    function drawPolygon(p: Polygon) {
-      if (!ctx) return;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
-      ctx.beginPath();
-      for (let i = 0; i < p.sides; i++) {
-        const angle = (Math.PI * 2 / p.sides) * i - Math.PI / 2;
-        const x = Math.cos(angle) * p.size;
-        const y = Math.sin(angle) * p.size;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.strokeStyle = `rgba(245, 240, 232, ${p.opacity})`;
-      ctx.lineWidth = 1.5 * dpr;
-      ctx.stroke();
-      ctx.fillStyle = `rgba(245, 240, 232, ${p.opacity * 0.3})`;
-      ctx.fill();
-      ctx.restore();
-    }
-
-    function animate() {
-      if (!ctx || !canvas) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const p of polygons) {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.rotation += p.rotationSpeed;
-        if (p.x < -p.size) p.x = canvas.width + p.size;
-        if (p.x > canvas.width + p.size) p.x = -p.size;
-        if (p.y < -p.size) p.y = canvas.height + p.size;
-        if (p.y > canvas.height + p.size) p.y = -p.size;
-        drawPolygon(p);
-      }
-      animId = requestAnimationFrame(animate);
-    }
-
-    resize();
-    createPolygons();
-    animate();
-    window.addEventListener("resize", () => { resize(); createPolygons(); });
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="fixed inset-0 pointer-events-none"
-      style={{ zIndex: 0 }}
-    />
-  );
-}
+import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
 
 // ---------- Section Animations ----------
 
@@ -193,8 +82,10 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden">
-      <PolygonBackground />
+    <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden scroll-smooth">
+      <NeuralNetworkBackground />
+      {/* Top gradient overlay for contrast */}
+      <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" style={{ height: "40vh" }} />
 
       <Script
         id="json-ld-org"
