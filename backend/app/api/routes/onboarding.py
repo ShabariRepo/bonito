@@ -145,7 +145,6 @@ async def update_progress(
 @router.post("/generate-iac", response_model=GenerateIaCResponse)
 async def generate_iac_code(
     body: GenerateIaCRequest,
-    user: User = Depends(get_current_user),
 ):
     """Generate IaC code for a provider+tool combination."""
     valid_tools = VALID_COMBOS.get(body.provider, set())
@@ -184,7 +183,6 @@ async def generate_iac_code(
 async def download_iac_zip(
     provider: str = Query(..., pattern="^(aws|azure|gcp)$"),
     tool: str = Query(default="terraform", pattern="^(terraform|pulumi|cloudformation|bicep|manual)$"),
-    user: User = Depends(get_current_user),
 ):
     """Download IaC template files as a ZIP archive.
 
@@ -237,7 +235,6 @@ async def download_iac_zip(
 @router.post("/validate", response_model=ValidateCredentialsResponse)
 async def validate_credentials(
     body: ValidateCredentialsRequest,
-    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Validate pasted credentials by calling the provider's validation endpoint.
@@ -280,18 +277,8 @@ async def validate_credentials(
             checked_at=datetime.now(timezone.utc),
         )
 
-    # Update onboarding progress if valid
-    if valid:
-        result = await db.execute(
-            select(OnboardingProgress).where(OnboardingProgress.org_id == user.org_id)
-        )
-        progress = result.scalar_one_or_none()
-        if progress:
-            validated = progress.provider_credentials_validated or {}
-            validated[provider] = True
-            progress.provider_credentials_validated = validated
-            progress.updated_at = datetime.now(timezone.utc)
-            await db.flush()
+    # Update onboarding progress if valid (skip if no auth context)
+    # Progress tracking requires auth — silently skip for unauthenticated onboarding
 
     return ValidateCredentialsResponse(
         provider=provider,
