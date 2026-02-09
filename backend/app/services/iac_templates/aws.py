@@ -1,9 +1,9 @@
 """AWS IaC templates for Bonito onboarding.
 
 Synced from bonito-infra/aws/ — these are the production-tested Terraform files.
-Generates least-privilege IAM configuration with role assumption pattern:
-- IAM user with ONLY sts:AssumeRole
-- IAM role with Bedrock invoke, Cost Explorer read, STS validation
+Generates least-privilege IAM configuration:
+- IAM user with direct Bedrock, Cost Explorer, STS permissions
+- IAM role available for advanced cross-account setups
 - CloudTrail audit logging for Bedrock API calls
 """
 
@@ -195,21 +195,10 @@ resource "aws_iam_user" "bonito" {
   path = "/system/"
 }
 
-# Allow the user ONLY to assume the Bonito role (nothing else)
-resource "aws_iam_user_policy" "assume_role" {
-  name = "${var.project_name}-assume-role"
-  user = aws_iam_user.bonito.name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "sts:AssumeRole"
-        Resource = aws_iam_role.bonito.arn
-      },
-    ]
-  })
+# Attach the Bonito policy directly to the user for simple credential flow
+resource "aws_iam_user_policy_attachment" "bonito_direct" {
+  user       = aws_iam_user.bonito.name
+  policy_arn = aws_iam_policy.bonito.arn
 }
 
 resource "aws_iam_access_key" "bonito" {

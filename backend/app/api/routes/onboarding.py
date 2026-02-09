@@ -265,9 +265,9 @@ async def validate_credentials(
 
     valid = len(errors) == 0
 
-    # Build health status
+    # Build health status (always, even if some checks failed)
     health = None
-    if valid:
+    if health_checks:
         all_healthy = all(c.get("status") == "healthy" for c in health_checks)
         any_error = any(c.get("status") == "error" for c in health_checks)
         health = ConnectionHealth(
