@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
 import { Providers } from "@/components/layout/providers";
-import { CommandBar } from "@/components/ai/command-bar";
-import { ChatPanel } from "@/components/ai/chat-panel";
-import { NotificationBell } from "@/components/layout/notification-bell";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,17 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <Providers>
           <ErrorBoundary>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <main className="flex-1 overflow-y-auto">
-                <div className="flex justify-end px-8 pt-4">
-                  <NotificationBell />
-                </div>
-                <div className="p-8 pt-2">{children}</div>
-              </main>
-            </div>
-            <CommandBar />
-            <ChatPanel />
+            {children}
           </ErrorBoundary>
         </Providers>
       </body>
