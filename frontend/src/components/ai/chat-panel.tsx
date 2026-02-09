@@ -389,7 +389,7 @@ function formatMarkdown(text: string): string {
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
     .replace(/`(.+?)`/g, '<code class="bg-accent/60 px-1 rounded text-xs">$1</code>')
     .replace(/^- (.+)$/gm, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>)/gs, "<ul class='list-disc pl-4'>$1</ul>")
+    .replace(/(<li>[\s\S]*<\/li>)/g, "<ul class='list-disc pl-4'>$1</ul>")
     .replace(/\n{2,}/g, "</p><p>")
     .replace(/\n/g, "<br/>")
     .replace(/^(.*)$/, "<p>$1</p>");

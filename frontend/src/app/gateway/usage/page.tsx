@@ -258,7 +258,7 @@ export default function GatewayUsagePage() {
       <PageHeader
         title="Usage Analytics"
         description="Detailed analysis of API gateway usage, costs, and performance metrics."
-        action={
+        actions={
           <div className="flex gap-2">
             <button
               onClick={exportData}
