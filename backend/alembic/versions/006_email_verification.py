@@ -1,14 +1,14 @@
 """Add email verification fields to users
 
 Revision ID: 006_email_verification
-Revises: 005_compliance
+Revises: 010_gateway_enhancements
 Create Date: 2026-02-09
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = "006_email_verification"
-down_revision = "005_compliance"
+down_revision = "010_gateway_enhancements"
 branch_labels = None
 depends_on = None
 
