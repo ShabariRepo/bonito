@@ -585,7 +585,7 @@ async def _validate_gcp(creds: dict) -> tuple[str | None, list[str] | None, list
             async with httpx.AsyncClient() as client:
                 start = time.monotonic()
                 resp = await client.get(
-                    f"https://us-central1-aiplatform.googleapis.com/v1/projects/{effective_project}/locations/us-central1/publishers/google/models",
+                    f"https://us-central1-aiplatform.googleapis.com/v1/projects/{effective_project}/locations/us-central1/models",
                     headers={"Authorization": f"Bearer {credentials.token}"},
                 )
                 latency = int((time.monotonic() - start) * 1000)

@@ -86,7 +86,6 @@ const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; descri
   azure: [
     { key: "auth", name: "OAuth Authentication", description: "Service principal authentication via client credentials", required: true },
     { key: "subscription", name: "Subscription Access", description: "Read access to your Azure subscription", required: true },
-    { key: "rg", name: "Resource Group", description: "Access to AI Services resource group", required: false },
   ],
   gcp: [
     { key: "auth", name: "Service Account Auth", description: "JWT authentication with service account key", required: true },
