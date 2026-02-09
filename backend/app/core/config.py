@@ -8,6 +8,13 @@ from app.core.vault import vault_client
 class Settings(BaseSettings):
     # Environment-based settings (OK to have defaults)
     database_url: str = "postgresql+asyncpg://bonito:bonito@localhost:5432/bonito"
+    
+    def get_async_database_url(self) -> str:
+        """Convert standard postgresql:// URL to asyncpg format."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     redis_url: str = "redis://localhost:6379/0"
     cors_origins: str = "http://localhost:3000"
     
