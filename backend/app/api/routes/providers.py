@@ -262,8 +262,12 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
     await db.flush()
     await db.refresh(provider)
 
-    models = await get_models_for_provider(provider.provider_type, str(provider.id))
-    return _to_response(provider, len(models))
+    # Sync discovered models into DB
+    from app.api.routes.models import sync_provider_models
+    model_count = await sync_provider_models(provider, db)
+    logger.info(f"Synced {model_count} models for {data.provider_type} provider {provider_id}")
+
+    return _to_response(provider, model_count)
 
 
 @router.post("/{provider_id}/verify", response_model=VerifyResponse)

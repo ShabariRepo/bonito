@@ -10,14 +10,18 @@ import { Box, Sparkles, MessageSquare, Image, Code, Search } from "lucide-react"
 import { API_URL } from "@/lib/utils";
 
 interface Model {
+  id: string;
   model_id: string;
-  model_name: string;
-  provider: string;
+  display_name: string;
+  provider_id: string;
+  capabilities: Record<string, any>;
+  pricing_info: Record<string, any>;
+  created_at: string;
+  // fields from provider-level model list
+  model_name?: string;
+  provider?: string;
   provider_type?: string;
-  capabilities?: string[];
   status?: string;
-  input_pricing?: string;
-  output_pricing?: string;
   [key: string]: any;
 }
 
@@ -50,9 +54,16 @@ export default function ModelsPage() {
   useEffect(() => {
     async function fetchModels() {
       try {
-        const res = await fetch(`${API_URL}/api/models/`);
+        // Try DB models first; if empty, trigger a sync then retry
+        let res = await fetch(`${API_URL}/api/models/`);
         if (res.ok) {
-          const data = await res.json();
+          let data = await res.json();
+          if (data.length === 0) {
+            // Auto-sync from providers
+            await fetch(`${API_URL}/api/models/sync`, { method: "POST" });
+            res = await fetch(`${API_URL}/api/models/`);
+            if (res.ok) data = await res.json();
+          }
           setModels(data);
         }
       } catch (e) {
@@ -64,11 +75,22 @@ export default function ModelsPage() {
     fetchModels();
   }, []);
 
-  const providers = Array.from(new Set(models.map(m => m.provider || m.provider_type || "unknown")));
+  // Derive provider name from model_id heuristics or provider field
+  const getProviderLabel = (m: Model) => {
+    if (m.provider) return m.provider;
+    if (m.provider_type) return m.provider_type;
+    const id = m.model_id?.toLowerCase() || "";
+    if (id.includes("anthropic") || id.includes("claude") || id.includes("amazon") || id.includes("meta") || id.includes("mistral") || id.includes("cohere") || id.includes("ai21") || id.includes("stability")) return "aws";
+    if (id.includes("gpt") || id.includes("dall-e") || id.includes("whisper") || id.includes("phi")) return "azure";
+    if (id.includes("gemini") || id.includes("palm") || id.includes("imagen") || id.includes("code-bison") || id.includes("text-bison")) return "gcp";
+    return "unknown";
+  };
+
+  const providers = Array.from(new Set(models.map(m => getProviderLabel(m))));
 
   const filtered = models.filter(m => {
-    const name = (m.model_name || m.model_id || "").toLowerCase();
-    const prov = (m.provider || m.provider_type || "").toLowerCase();
+    const name = (m.display_name || m.model_name || m.model_id || "").toLowerCase();
+    const prov = getProviderLabel(m).toLowerCase();
     const matchesSearch = !search || name.includes(search.toLowerCase()) || m.model_id.toLowerCase().includes(search.toLowerCase());
     const matchesProvider = providerFilter === "all" || prov.includes(providerFilter.toLowerCase());
     return matchesSearch && matchesProvider;
@@ -131,10 +153,16 @@ export default function ModelsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((model, i) => {
-            const capabilities = model.capabilities || inferCapabilities(model.model_id);
+            const capsRaw = model.capabilities;
+            const capabilities: string[] = Array.isArray(capsRaw)
+              ? capsRaw
+              : capsRaw?.types && Array.isArray(capsRaw.types)
+              ? capsRaw.types
+              : inferCapabilities(model.model_id);
+            const status = model.pricing_info?.status || model.status || "available";
             return (
               <motion.div
-                key={model.model_id}
+                key={model.id || model.model_id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.03, 0.5) }}
@@ -147,11 +175,11 @@ export default function ModelsPage() {
                           <Box className="h-5 w-5 text-violet-400" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold truncate">{model.model_name || model.model_id}</h3>
-                          <p className="text-sm text-muted-foreground capitalize">{model.provider || model.provider_type}</p>
+                          <h3 className="font-semibold truncate">{model.display_name || model.model_name || model.model_id}</h3>
+                          <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
                         </div>
                       </div>
-                      <Badge variant="success">{model.status || "available"}</Badge>
+                      <Badge variant="success">{status}</Badge>
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
@@ -162,6 +190,12 @@ export default function ModelsPage() {
                         </Badge>
                       ))}
                     </div>
+
+                    {model.pricing_info?.pricing_tier && (
+                      <div className="mt-2">
+                        <Badge variant="outline" className="text-xs capitalize">{model.pricing_info.pricing_tier}</Badge>
+                      </div>
+                    )}
 
                     <div className="mt-4 border-t border-border pt-4">
                       <code className="text-xs text-muted-foreground break-all">{model.model_id}</code>
