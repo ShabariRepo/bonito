@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings,
@@ -13,18 +13,36 @@ import {
   AlertTriangle,
   Database,
   Plus,
-  Eye,
-  EyeOff,
   Copy,
   Check,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { API_URL } from "@/lib/utils";
+
+interface GatewayKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  rate_limit: number;
+  created_at: string;
+  revoked_at: string | null;
+}
 
 export default function SettingsPage() {
   const [orgName, setOrgName] = useState("Bonito Enterprise");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // API Keys from backend
+  const [apiKeys, setApiKeys] = useState<GatewayKey[]>([]);
+  const [keysLoading, setKeysLoading] = useState(true);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
+  const [creatingKey, setCreatingKey] = useState(false);
+
   const [notifications, setNotifications] = useState({
     deployments: true,
     costAlerts: true,
@@ -40,15 +58,85 @@ export default function SettingsPage() {
   });
   const [retention, setRetention] = useState("90");
 
-  const apiKeys = [
-    { name: "Production Key", prefix: "bnt_prod_****a8f2", created: "2026-01-15", lastUsed: "2 hours ago", id: "1" },
-    { name: "Development Key", prefix: "bnt_dev_****c4e1", created: "2026-01-20", lastUsed: "5 min ago", id: "2" },
-    { name: "CI/CD Pipeline", prefix: "bnt_ci_****9b3d", created: "2026-02-01", lastUsed: "12 min ago", id: "3" },
-  ];
+  // Load notification preferences from backend
+  useEffect(() => {
+    fetch(`${API_URL}/api/notifications/preferences`)
+      .then(r => r.json())
+      .then(prefs => {
+        if (prefs) {
+          setNotifications(prev => ({
+            ...prev,
+            deployments: prefs.deployments ?? prev.deployments,
+            costAlerts: prefs.cost_alerts ?? prev.costAlerts,
+            modelUpdates: prefs.model_updates ?? prev.modelUpdates,
+            weeklyReports: prefs.weekly_reports ?? prev.weeklyReports,
+            email: prefs.email || prev.email,
+            slackWebhook: prefs.slack_webhook || prev.slackWebhook,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
-  const copyKey = (id: string) => {
+  // Load API keys from gateway
+  const fetchKeys = async () => {
+    setKeysLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/gateway/keys`);
+      if (res.ok) setApiKeys(await res.json());
+    } catch {} finally {
+      setKeysLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchKeys(); }, []);
+
+  const createKey = async () => {
+    if (!newKeyName.trim()) return;
+    setCreatingKey(true);
+    try {
+      const res = await fetch(`${API_URL}/api/gateway/keys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newKeyName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNewKeyResult(data.key);
+        setNewKeyName("");
+        fetchKeys();
+      }
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
+  const revokeKey = async (id: string) => {
+    await fetch(`${API_URL}/api/gateway/keys/${id}`, { method: "DELETE" });
+    fetchKeys();
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
     setCopiedKey(id);
     setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const saveNotificationPrefs = async () => {
+    try {
+      await fetch(`${API_URL}/api/notifications/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deployments: notifications.deployments,
+          cost_alerts: notifications.costAlerts,
+          model_updates: notifications.modelUpdates,
+          weekly_reports: notifications.weeklyReports,
+          email: notifications.email,
+          slack_webhook: notifications.slackWebhook,
+        }),
+      });
+    } catch {}
   };
 
   const Toggle = ({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) => (
@@ -101,15 +189,6 @@ export default function SettingsPage() {
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Organization ID</label>
-                  <input
-                    type="text"
-                    value="org_bnt_a1b2c3d4"
-                    readOnly
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm opacity-50 cursor-not-allowed"
-                  />
-                </div>
               </div>
             </div>
             <button className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition-colors">
@@ -119,7 +198,7 @@ export default function SettingsPage() {
         </Card>
       </motion.div>
 
-      {/* API Keys */}
+      {/* API Keys — wired to gateway */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
         <Card>
           <CardHeader>
@@ -127,44 +206,97 @@ export default function SettingsPage() {
               <Key className="h-5 w-5 text-violet-500" />
               API Keys
             </CardTitle>
-            <CardDescription>Manage API keys for programmatic access</CardDescription>
+            <CardDescription>Manage API keys for programmatic access to the gateway</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {apiKeys.map((k, i) => (
-                <motion.div
-                  key={k.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-violet-500/20 transition-colors group"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{k.name}</p>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{k.prefix}</code>
-                      <span className="ml-2">Created {k.created}</span>
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">Last used {k.lastUsed}</span>
-                    <button
-                      onClick={() => copyKey(k.id)}
-                      className="text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copiedKey === k.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-                    </button>
-                    <button className="text-muted-foreground hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+            {/* Create key */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Key name..."
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createKey()}
+                className="flex-1 bg-accent/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              <button
+                onClick={createKey}
+                disabled={creatingKey || !newKeyName.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-violet-600 text-white rounded-md text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors"
+              >
+                {creatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Generate Key
+              </button>
             </div>
-            <button className="mt-4 inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors">
-              <Plus className="h-4 w-4" />
-              Generate New Key
-            </button>
+
+            {/* New key banner */}
+            <AnimatePresence>
+              {newKeyResult && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4"
+                >
+                  <p className="text-xs text-green-400 mb-1 font-medium">
+                    ⚠️ Copy your API key now — it won&apos;t be shown again!
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-mono text-green-300 break-all flex-1">{newKeyResult}</code>
+                    <button onClick={() => copyToClipboard(newKeyResult, "new")} className="p-1.5 rounded hover:bg-accent transition-colors">
+                      {copiedKey === "new" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                  <button onClick={() => setNewKeyResult(null)} className="text-xs text-muted-foreground mt-2 hover:text-foreground">Dismiss</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {keysLoading ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="space-y-3">
+                {apiKeys.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No API keys yet. Generate one to get started.</p>
+                ) : (
+                  apiKeys.map((k, i) => (
+                    <motion.div
+                      key={k.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-violet-500/20 transition-colors group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{k.name}</p>
+                          {k.revoked_at ? (
+                            <Badge variant="destructive" className="text-xs">Revoked</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Active</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{k.key_prefix}</code>
+                          <span className="ml-2">Created {new Date(k.created_at).toLocaleDateString()}</span>
+                          <span className="ml-2">· {k.rate_limit} req/min</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!k.revoked_at && (
+                          <button
+                            onClick={() => revokeKey(k.id)}
+                            className="text-muted-foreground hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -217,6 +349,12 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+            <button
+              onClick={saveNotificationPrefs}
+              className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+            >
+              Save Preferences
+            </button>
           </CardContent>
         </Card>
       </motion.div>
