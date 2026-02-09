@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
+import Script from "next/script";
 import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight } from "lucide-react";
 
 // ---------- Polygon Background ----------
@@ -195,9 +196,35 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden">
       <PolygonBackground />
 
+      <Script
+        id="json-ld-org"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "Bonito",
+            url: "https://getbonito.com",
+            logo: "https://getbonito.com/icon-512.png",
+            description: "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure.",
+            contactPoint: {
+              "@type": "ContactPoint",
+              email: "support@getbonito.com",
+              contactType: "customer support",
+            },
+          }),
+        }}
+      />
+
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
         <div className="text-2xl font-bold tracking-tight">Bonito</div>
+        <div className="hidden md:flex items-center gap-6">
+          <Link href="/pricing" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Pricing</Link>
+          <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>
+          <Link href="/blog" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Blog</Link>
+          <Link href="/about" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">About</Link>
+        </div>
         <div className="flex items-center gap-4">
           <Link href="/login" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">
             Sign In
@@ -349,10 +376,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</div>
           <div className="flex items-center gap-6 text-sm text-[#666]">
-            <Link href="#" className="hover:text-[#999] transition">Privacy</Link>
-            <Link href="#" className="hover:text-[#999] transition">Terms</Link>
-            <Link href="#" className="hover:text-[#999] transition">Docs</Link>
-            <span className="text-[#444]">getbonito.com</span>
+            <Link href="/pricing" className="hover:text-[#999] transition">Pricing</Link>
+            <Link href="/about" className="hover:text-[#999] transition">About</Link>
+            <Link href="/blog" className="hover:text-[#999] transition">Blog</Link>
+            <Link href="/docs" className="hover:text-[#999] transition">Docs</Link>
+            <Link href="/contact" className="hover:text-[#999] transition">Contact</Link>
+            <Link href="/privacy" className="hover:text-[#999] transition">Privacy</Link>
+            <Link href="/terms" className="hover:text-[#999] transition">Terms</Link>
           </div>
         </div>
       </footer>
