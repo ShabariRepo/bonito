@@ -54,7 +54,7 @@ class GatewayKey(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     key_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
-    key_prefix: Mapped[str] = mapped_column(String(12), nullable=False)  # e.g. "bn-abc123..."
+    key_prefix: Mapped[str] = mapped_column(String(20), nullable=False)  # e.g. "bn-abc123..."
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     team_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     rate_limit: Mapped[int] = mapped_column(Integer, default=60)  # requests per minute
