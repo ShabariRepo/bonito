@@ -265,6 +265,43 @@ Deployed → monitoring → polished → ready to demo to real prospects
 
 ---
 
+## Phase 15 — Model Details & Playground
+
+- [ ] Clickable models on the Models page → opens model detail view
+- [ ] Model info: provider, pricing/token costs, capabilities, context window, availability
+- [ ] Usage history for that model across the org
+- [ ] Built-in playground: chat interface to test models live
+- [ ] Requests routed through Bonito gateway → customer's cloud (Bedrock/Azure/Vertex)
+- [ ] Governance rules applied (token limits, budget) even in playground
+- **Goal:** Complete the "connect provider → see models → use them" loop
+
+---
+
+## Phase 16 — Routing Policies
+
+- [ ] Visual routing policy builder
+- [ ] Assign models to named routes (e.g., "production-chat", "internal-coding")
+- [ ] Primary/fallback model configuration per route
+- [ ] Routing rules: by cost, latency, provider, model capability
+- [ ] Load balancing across providers
+- [ ] A/B testing support (% split between models)
+- [ ] API endpoint generation per route (for app integration)
+
+---
+
+## Phase 17 — Deployment Provisioning
+
+- [ ] Deploy/provision model endpoints on customer's cloud infra from Bonito UI
+- [ ] Support AWS Bedrock model access, Azure AI model deployments, GCP Vertex endpoints
+- [ ] Configure: instance type, scaling (min/max), throughput
+- [ ] IaC generation (Terraform) for each deployment
+- [ ] Start/stop/scale endpoints from dashboard
+- [ ] Cost estimation before deployment
+- [ ] Status monitoring of deployed endpoints
+
+---
+
 ## Current Status
 - **Completed:** Phases 1-14 (full platform built)
+- **Up Next:** Phase 15 (Model Details & Playground), Phase 16 (Routing Policies), Phase 17 (Deployment Provisioning)
 - **Remaining:** SSO/SAML, production deployment to getbonito.com (Vercel + Railway), real cloud credential testing

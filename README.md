@@ -114,10 +114,20 @@ With the backend running: http://localhost:8001/docs (Swagger UI)
 
 ## Roadmap
 
-- [x] Phase 1: Foundation (scaffold, DB, secrets, Notion tracking)
-- [ ] Phase 2: Core Platform (cloud providers, model catalog, dashboard)
-- [ ] Phase 3: Enterprise (cost tracking, RBAC, governance, AI UX)
-- [ ] Phase 4: Scale (routing optimization, compliance, IaC export)
+- [x] Phase 1–4: Foundation, core platform, enterprise features, scale
+- [x] Phase 5: Real cloud integrations (AWS Bedrock, Azure AI, GCP Vertex)
+- [x] Phase 6: Real AI integration (chat, intelligent routing)
+- [x] Phase 7: Authentication & security (JWT, rate limiting, audit)
+- [x] Phase 8: Compliance & governance (SOC2, HIPAA, GDPR checks)
+- [x] Phase 9: Cost intelligence (aggregation, optimization, forecasting)
+- [x] Phase 10: Production readiness (Docker, CI/CD, deployment configs)
+- [x] Phase 11: Onboarding wizard (IaC templates, credential validation)
+- [x] Phase 12: API Gateway (LiteLLM, OpenAI-compatible proxy)
+- [x] Phase 13: AI Agent (Groq-powered copilot)
+- [x] Phase 14: Engagement & retention (notifications, analytics, digests)
+- [ ] Phase 15: Model Details & Playground (detail views, live testing)
+- [ ] Phase 16: Routing Policies (visual builder, A/B testing, load balancing)
+- [ ] Phase 17: Deployment Provisioning (cloud endpoints, Terraform, scaling)
 
 ---
 
