@@ -6,11 +6,14 @@ Auth model:
 - /api/gateway/* endpoints: authenticated via JWT (dashboard user)
 """
 
+import json
 import uuid
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,10 +35,16 @@ from app.schemas.gateway import (
     GatewayConfigUpdate,
 )
 from app.services import gateway as gateway_service
+from app.services.gateway import PolicyViolation
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["gateway"])
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+# Maximum request body size for /v1/* endpoints (1 MB)
+MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
 
 
 # ─── Gateway API key auth dependency ───
@@ -68,59 +77,227 @@ async def get_gateway_key(
 
 @router.post("/v1/chat/completions")
 async def chat_completions(
+    raw_request: Request,
     request: ChatCompletionRequest,
     key: GatewayKey = Depends(get_gateway_key),
     db: AsyncSession = Depends(get_db),
 ):
     """OpenAI-compatible chat completions endpoint."""
+    # Body size check — reject oversized payloads before any processing
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    # Policy enforcement — check before forwarding to upstream
+    try:
+        await gateway_service.enforce_policies(db, key, request.model)
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
     try:
         data = request.model_dump(exclude_none=True)
+
+        # Streaming path
+        if request.stream:
+            return await _handle_streaming_completion(data, key, db)
+
+        # Non-streaming path (existing behavior)
         result = await gateway_service.chat_completion(data, key.org_id, key.id, db)
         return result
     except HTTPException:
         raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
+async def _handle_streaming_completion(
+    request_data: dict,
+    key: GatewayKey,
+    db: AsyncSession,
+):
+    """Handle a streaming chat completion — returns SSE StreamingResponse."""
+    import time
+    import litellm
+
+    router = await gateway_service.get_router(db, key.org_id)
+    model = request_data.get("model", "")
+    start = time.time()
+
+    # Ensure stream=True in the request data
+    request_data["stream"] = True
+
+    log_entry = GatewayRequest(
+        org_id=key.org_id,
+        key_id=key.id,
+        model_requested=model,
+        status="success",
+    )
+
+    async def sse_generator():
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        model_used = model
+        error_occurred = False
+
+        try:
+            response = await router.acompletion(**request_data)
+
+            async for chunk in response:
+                # Extract usage from chunks if available
+                chunk_dict = chunk.model_dump()
+                if chunk_dict.get("model"):
+                    model_used = chunk_dict["model"]
+
+                # Accumulate token counts from the last chunk (OpenAI includes usage in final chunk)
+                usage = chunk_dict.get("usage")
+                if usage:
+                    total_prompt_tokens = usage.get("prompt_tokens", total_prompt_tokens)
+                    total_completion_tokens = usage.get("completion_tokens", total_completion_tokens)
+
+                yield f"data: {json.dumps(chunk_dict)}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            error_occurred = True
+            log_entry.status = "error"
+            log_entry.error_message = str(e)[:1000]
+            # Send error as SSE event before closing
+            error_data = {
+                "error": {
+                    "message": str(e),
+                    "type": "upstream_error",
+                }
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        finally:
+            # Log the completed request
+            elapsed_ms = int((time.time() - start) * 1000)
+            log_entry.model_used = model_used
+            log_entry.input_tokens = total_prompt_tokens
+            log_entry.output_tokens = total_completion_tokens
+            log_entry.latency_ms = elapsed_ms
+
+            # Attempt to compute cost from token counts
+            try:
+                if total_prompt_tokens or total_completion_tokens:
+                    log_entry.cost = litellm.completion_cost(
+                        model=model_used,
+                        prompt_tokens=total_prompt_tokens,
+                        completion_tokens=total_completion_tokens,
+                    ) or 0.0
+                else:
+                    log_entry.cost = 0.0
+            except Exception:
+                log_entry.cost = 0.0
+
+            # Determine provider
+            if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
+                log_entry.provider = "aws"
+            elif "azure" in model_used:
+                log_entry.provider = "azure"
+            elif "vertex" in model_used or "gemini" in model_used:
+                log_entry.provider = "gcp"
+
+            try:
+                db.add(log_entry)
+                await db.flush()
+            except Exception as log_err:
+                logger.error(f"Failed to log streaming request: {log_err}")
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/v1/completions")
 async def completions(
+    raw_request: Request,
     request: CompletionRequest,
     key: GatewayKey = Depends(get_gateway_key),
     db: AsyncSession = Depends(get_db),
 ):
     """Legacy completions endpoint."""
+    # Body size check
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    # Policy enforcement
+    try:
+        await gateway_service.enforce_policies(db, key, request.model)
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
     try:
         data = request.model_dump(exclude_none=True)
         result = await gateway_service.completion(data, key.org_id, key.id, db)
         return result
     except HTTPException:
         raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
 @router.post("/v1/embeddings")
 async def embeddings(
+    raw_request: Request,
     request: EmbeddingRequest,
     key: GatewayKey = Depends(get_gateway_key),
     db: AsyncSession = Depends(get_db),
 ):
     """Embeddings endpoint."""
+    # Body size check
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    # Policy enforcement
+    try:
+        await gateway_service.enforce_policies(db, key, request.model)
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+
     try:
         data = request.model_dump(exclude_none=True)
         result = await gateway_service.embedding(data, key.org_id, key.id, db)
         return result
     except HTTPException:
         raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
 @router.get("/v1/models")
-async def list_models(key: GatewayKey = Depends(get_gateway_key)):
+async def list_models(
+    key: GatewayKey = Depends(get_gateway_key),
+    db: AsyncSession = Depends(get_db),
+):
     """List available models."""
-    models = await gateway_service.get_available_models()
+    models = await gateway_service.get_available_models(db, key.org_id)
     return {"object": "list", "data": models}
 
 
@@ -283,6 +460,6 @@ async def update_gateway_config(
     await db.flush()
     
     # Reset router to pick up configuration changes
-    await gateway_service.reset_router()
+    await gateway_service.reset_router(org_id=user.org_id)
     
     return config

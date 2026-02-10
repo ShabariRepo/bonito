@@ -26,24 +26,24 @@ router = APIRouter(prefix="/compliance", tags=["compliance"])
 
 @router.get("/status", response_model=ComplianceStatus)
 async def status(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    return await get_compliance_status(db)
+    return await get_compliance_status(db, org_id=user.org_id)
 
 
 @router.get("/checks", response_model=List[ComplianceCheckResponse])
 async def checks(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    return await get_compliance_checks(db)
+    return await get_compliance_checks(db, org_id=user.org_id)
 
 
 @router.post("/scan", response_model=ScanResult)
 async def scan(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    return await run_scan(db)
+    return await run_scan(db, org_id=user.org_id)
 
 
 @router.get("/frameworks", response_model=List[FrameworkInfo])
 async def frameworks(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    return await get_frameworks(db)
+    return await get_frameworks(db, org_id=user.org_id)
 
 
 @router.get("/report", response_model=ComplianceReport)
 async def report(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    return await get_compliance_report(db)
+    return await get_compliance_report(db, org_id=user.org_id)

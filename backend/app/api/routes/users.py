@@ -1,72 +1,88 @@
 import uuid
-from uuid import UUID
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
-from app.services.audit_service import MOCK_USERS
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-
-# In-memory store seeded with mock data
-_users: dict[str, dict] = {}
-
-def _seed():
-    if _users:
-        return
-    roles = ["admin", "admin", "editor", "viewer"]
-    for i, u in enumerate(MOCK_USERS):
-        _users[u["id"]] = {
-            "id": u["id"],
-            "org_id": str(DEFAULT_ORG_ID),
-            "email": u["email"],
-            "name": u["name"],
-            "role": roles[i],
-            "avatar_url": None,
-            "created_at": "2026-01-15T10:00:00Z",
-        }
-
-_seed()
-
 
 @router.get("/", response_model=List[UserResponse])
-async def list_users(user: User = Depends(get_current_user)):
-    return [u for u in _users.values() if u["org_id"] == str(user.org_id)]
+async def list_users(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(User).where(User.org_id == user.org_id).order_by(User.created_at)
+    )
+    return result.scalars().all()
 
 
 @router.post("/", response_model=UserResponse, status_code=201)
-async def create_user(data: UserCreate, user: User = Depends(get_current_user)):
-    uid = str(uuid.uuid4())
-    new_user = {
-        "id": uid,
-        "org_id": str(user.org_id),
-        "email": data.email,
-        "name": data.name,
-        "role": data.role,
-        "avatar_url": None,
-        "created_at": "2026-02-07T10:00:00Z",
-    }
-    _users[uid] = new_user
+async def create_user(
+    data: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Check for duplicate email
+    existing = await db.execute(select(User).where(User.email == data.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Email already exists")
+
+    new_user = User(
+        id=uuid.uuid4(),
+        org_id=user.org_id,
+        email=data.email,
+        name=data.name,
+        role=data.role,
+    )
+    db.add(new_user)
+    await db.flush()
+    await db.refresh(new_user)
     return new_user
 
 
 @router.patch("/{user_id}/role", response_model=UserResponse)
-async def update_user_role(user_id: str, data: UserUpdate, user: User = Depends(get_current_user)):
-    if user_id not in _users or _users[user_id]["org_id"] != str(user.org_id):
-        raise HTTPException(status_code=404, detail="User not found")
+async def update_user_role(
+    user_id: str,
+    data: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     if data.role not in ("admin", "editor", "viewer"):
         raise HTTPException(status_code=422, detail="Invalid role")
-    _users[user_id]["role"] = data.role
-    return _users[user_id]
+
+    target = await db.execute(
+        select(User).where(User.id == uuid.UUID(user_id), User.org_id == user.org_id)
+    )
+    target_user = target.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    target_user.role = data.role
+    await db.flush()
+    await db.refresh(target_user)
+    return target_user
 
 
 @router.delete("/{user_id}", status_code=204)
-async def delete_user(user_id: str, user: User = Depends(get_current_user)):
-    if user_id not in _users or _users[user_id]["org_id"] != str(user.org_id):
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    target = await db.execute(
+        select(User).where(User.id == uuid.UUID(user_id), User.org_id == user.org_id)
+    )
+    target_user = target.scalar_one_or_none()
+    if not target_user:
         raise HTTPException(status_code=404, detail="User not found")
-    del _users[user_id]
+
+    await db.delete(target_user)
+    await db.flush()

@@ -166,21 +166,11 @@ async def get_cost_breakdown_real(db: AsyncSession) -> CostBreakdownResponse:
             ))
     by_model.sort(key=lambda x: -x.total)
 
-    # Department breakdown (placeholder — needs team/project mapping)
+    # TODO: Real department attribution requires team/project tagging on API keys.
+    # Once API keys carry team_id or project_id, query gateway_requests grouped by
+    # that tag to get actual per-department cost attribution.
+    # For now, we skip the fake department breakdown — just show provider + model costs.
     by_department = []
-    if grand > 0:
-        dept_weights = {
-            "Engineering": 0.40, "Research": 0.25, "Product": 0.20,
-            "Marketing": 0.10, "Support": 0.05,
-        }
-        by_department = [
-            DepartmentCostBreakdown(
-                department=dept,
-                total=round(grand * w, 2),
-                percentage=round(w * 100, 1),
-            )
-            for dept, w in dept_weights.items()
-        ]
 
     breakdown = CostBreakdownResponse(
         by_provider=by_provider,

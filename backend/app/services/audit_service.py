@@ -32,10 +32,15 @@ MOCK_AUDIT_EVENTS = [
 
 IPS = ["10.0.1.42", "10.0.1.87", "10.0.2.15", "192.168.1.100", "10.0.3.201"]
 
-ORG_ID = "00000000-0000-0000-0000-000000000001"
 
+def generate_mock_audit_logs(count: int = 50, org_id: str | None = None) -> list:
+    """Generate mock audit log entries.
 
-def generate_mock_audit_logs(count: int = 50) -> list:
+    Args:
+        count: Number of entries to generate.
+        org_id: The organization ID to associate with entries.
+                If not provided, entries will have a None org_id.
+    """
     random.seed(123)
     logs = []
     now = datetime.now(timezone.utc)
@@ -44,7 +49,7 @@ def generate_mock_audit_logs(count: int = 50) -> list:
         user = random.choice(MOCK_USERS)
         logs.append({
             "id": str(uuid.uuid4()),
-            "org_id": ORG_ID,
+            "org_id": org_id,
             "user_id": user["id"],
             "user_name": user["name"],
             "action": event["action"],

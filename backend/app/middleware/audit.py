@@ -24,8 +24,6 @@ AUDITED_PREFIXES = [
 # Also audit any path containing /invoke
 AUDITED_PATTERNS = ["/invoke"]
 
-DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-
 
 def _should_audit(path: str, method: str) -> bool:
     # Always audit mutating methods on sensitive paths
@@ -84,6 +82,25 @@ class AuditMiddleware(BaseHTTPMiddleware):
             user_name = getattr(request.state, "user_name", None)
             request_id = getattr(request.state, "request_id", None)
 
+            # Extract org_id from the JWT bearer token
+            org_id = None
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                try:
+                    from app.services.auth_service import decode_token
+                    payload = decode_token(auth_header[7:])
+                    org_id_str = payload.get("org_id")
+                    if org_id_str:
+                        org_id = uuid.UUID(org_id_str)
+                    if not user_id:
+                        user_id = payload.get("sub")
+                except Exception:
+                    pass  # Token may be invalid/expired — audit still proceeds
+
+            # Skip audit entry if we can't determine the organization
+            if org_id is None:
+                return response
+
             # Extract resource_id from path (e.g. provider UUID)
             resource_id = None
             parts = path.strip("/").split("/")
@@ -106,7 +123,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             async with async_session_factory() as session:
                 log_entry = AuditLog(
                     id=uuid.uuid4(),
-                    org_id=DEFAULT_ORG_ID,
+                    org_id=org_id,
                     user_id=user_id,
                     action=action,
                     resource_type=resource_type,

@@ -37,6 +37,45 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+// ── Token refresh mutex ──
+// Prevents multiple concurrent 401 responses from triggering parallel refreshes.
+let _refreshPromise: Promise<boolean> | null = null;
+
+async function _doTokenRefresh(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const tokens: AuthTokens = await res.json();
+    setTokens(tokens);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Attempt to refresh the access token. Uses a mutex so only one refresh
+ * runs at a time — concurrent callers share the same promise.
+ */
+async function refreshAccessToken(): Promise<boolean> {
+  if (_refreshPromise) return _refreshPromise;
+
+  _refreshPromise = _doTokenRefresh().finally(() => {
+    _refreshPromise = null;
+  });
+
+  return _refreshPromise;
+}
+
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const token = getAccessToken();
   const headers: Record<string, string> = {
@@ -46,7 +85,31 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
-  return fetch(`${API_URL}${path}`, { ...options, headers });
+
+  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+
+  // On 401, attempt a silent token refresh and retry once
+  if (res.status === 401 && token) {
+    const refreshed = await refreshAccessToken();
+
+    if (refreshed) {
+      // Retry the original request with the new token
+      const newToken = getAccessToken();
+      const retryHeaders: Record<string, string> = {
+        ...headers,
+        Authorization: `Bearer ${newToken}`,
+      };
+      return fetch(`${API_URL}${path}`, { ...options, headers: retryHeaders });
+    }
+
+    // Refresh failed — session is dead, redirect to login
+    clearTokens();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+  }
+
+  return res;
 }
 
 export async function register(email: string, password: string, name: string) {

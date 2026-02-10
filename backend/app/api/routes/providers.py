@@ -44,8 +44,6 @@ from app.services.provider_service import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/providers", tags=["providers"])
 
-DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-
 
 def _to_response(p: CloudProvider, model_count: int = None) -> dict:
     creds = {}

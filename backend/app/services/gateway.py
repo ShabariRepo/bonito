@@ -1,16 +1,18 @@
 """
 LiteLLM Gateway Service — wraps LiteLLM for multi-provider AI routing.
 
-Reads provider credentials from Vault, configures LiteLLM model list,
-and provides completion/embedding calls with automatic failover.
+Reads provider credentials from Vault (per-provider UUID), configures
+LiteLLM model list, and provides completion/embedding calls with
+automatic failover.
 """
 
+import json
 import time
 import uuid
 import hashlib
 import secrets
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import litellm
@@ -19,7 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.vault import vault_client
 from app.core.redis import redis_client
+from app.models.cloud_provider import CloudProvider
 from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit
+from app.models.policy import Policy
 from app.schemas.gateway import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -38,16 +42,39 @@ PROVIDER_MODEL_PREFIXES = {
 }
 
 
-async def _get_provider_credentials() -> dict:
-    """Fetch all provider credentials from Vault."""
-    creds = {}
-    for provider in ("aws", "azure", "gcp"):
+async def _get_provider_credentials(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+) -> dict[str, dict]:
+    """Fetch provider credentials from Vault using org-specific provider UUIDs.
+
+    Credentials are stored at ``providers/{provider_uuid}`` — not at a
+    generic ``providers/aws`` path.  We query the org's active
+    CloudProvider rows, then fetch each one's secrets from Vault.
+    """
+    result = await db.execute(
+        select(CloudProvider).where(
+            and_(
+                CloudProvider.org_id == org_id,
+                CloudProvider.status == "active",
+            )
+        )
+    )
+    providers = result.scalars().all()
+
+    creds: dict[str, dict] = {}
+    for provider in providers:
         try:
-            data = await vault_client.get_secrets(f"providers/{provider}")
+            data = await vault_client.get_secrets(f"providers/{provider.id}")
             if data:
-                creds[provider] = data
+                creds[provider.provider_type] = data
         except Exception as e:
-            logger.warning(f"Failed to fetch {provider} credentials: {e}")
+            logger.warning(
+                "Failed to fetch %s credentials for provider %s: %s",
+                provider.provider_type,
+                provider.id,
+                e,
+            )
     return creds
 
 
@@ -76,7 +103,10 @@ async def _build_model_list(creds: dict) -> list[dict]:
     if "azure" in creds:
         c = creds["azure"]
         base_url = c.get("endpoint", "")
-        api_key = c.get("client_secret", "")
+        # Azure OpenAI uses a resource-level API key, NOT the AD
+        # client_secret.  Prefer the dedicated ``api_key`` field;
+        # fall back to ``client_secret`` only for legacy configs.
+        api_key = c.get("api_key") or c.get("client_secret", "")
         if base_url and api_key:
             for model, deployment in [
                 ("gpt-4o", "gpt-4o"),
@@ -97,43 +127,58 @@ async def _build_model_list(creds: dict) -> list[dict]:
         c = creds["gcp"]
         project = c.get("project_id", "")
         region = c.get("region", "us-central1")
+        # LiteLLM needs the full service-account JSON to authenticate
+        # with Vertex AI.  The value is stored as either a JSON string
+        # or a dict under ``service_account_json``.
+        sa_json = c.get("service_account_json")
+        vertex_credentials = None
+        if sa_json:
+            vertex_credentials = (
+                json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
+            )
         for model in [
             "gemini-1.5-pro",
             "gemini-1.5-flash",
             "text-embedding-004",
         ]:
+            params: dict = {
+                "model": f"vertex_ai/{model}",
+                "vertex_project": project,
+                "vertex_location": region,
+            }
+            if vertex_credentials:
+                params["vertex_credentials"] = vertex_credentials
             model_list.append({
                 "model_name": model,
-                "litellm_params": {
-                    "model": f"vertex_ai/{model}",
-                    "vertex_project": project,
-                    "vertex_location": region,
-                },
+                "litellm_params": params,
             })
 
     return model_list
 
 
-# ─── Router singleton ───
+# ─── Per-org router cache ───
 
-_router: Optional[litellm.Router] = None
+_routers: dict[uuid.UUID, litellm.Router] = {}
 
 
-async def get_router() -> litellm.Router:
-    """Get or create the LiteLLM router with current provider configs."""
-    global _router
-    if _router is not None:
-        return _router
+async def get_router(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+) -> litellm.Router:
+    """Get or create a LiteLLM router for *org_id*."""
+    if org_id in _routers:
+        return _routers[org_id]
 
-    creds = await _get_provider_credentials()
+    creds = await _get_provider_credentials(db, org_id)
     model_list = await _build_model_list(creds)
 
     if not model_list:
         # Return a router with empty model list — calls will fail gracefully
-        _router = litellm.Router(model_list=[], routing_strategy="simple-shuffle")
-        return _router
+        router = litellm.Router(model_list=[], routing_strategy="simple-shuffle")
+        _routers[org_id] = router
+        return router
 
-    _router = litellm.Router(
+    router = litellm.Router(
         model_list=model_list,
         routing_strategy="simple-shuffle",
         num_retries=2,
@@ -142,20 +187,30 @@ async def get_router() -> litellm.Router:
         allowed_fails=2,
         cooldown_time=30,
     )
-    return _router
+    _routers[org_id] = router
+    return router
 
 
-async def reset_router():
-    """Force router re-initialization (e.g. after adding a new provider)."""
-    global _router
-    _router = None
+async def reset_router(org_id: uuid.UUID | None = None):
+    """Force router re-initialization.
+
+    If *org_id* is given only that org's router is cleared; otherwise
+    all cached routers are dropped.
+    """
+    if org_id is not None:
+        _routers.pop(org_id, None)
+    else:
+        _routers.clear()
 
 
-async def get_available_models() -> list[dict]:
-    """Return list of available models from all configured providers."""
-    creds = await _get_provider_credentials()
+async def get_available_models(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+) -> list[dict]:
+    """Return list of available models from the org's configured providers."""
+    creds = await _get_provider_credentials(db, org_id)
     model_list = await _build_model_list(creds)
-    seen = set()
+    seen: set[str] = set()
     models = []
     for m in model_list:
         name = m["model_name"]
@@ -173,6 +228,134 @@ async def get_available_models() -> list[dict]:
     return models
 
 
+# ─── Policy enforcement ───
+
+
+class PolicyViolation(Exception):
+    """Raised when a gateway request violates an active policy."""
+
+    def __init__(self, message: str, status_code: int = 403):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(message)
+
+
+async def check_model_allowed(key: GatewayKey, model: str) -> None:
+    """Check if the requested model is in the key's allowed_models list.
+
+    The allowed_models field is a JSON dict like:
+        {"models": ["gpt-4o", "claude-3-5-sonnet"], "providers": ["aws", "azure"]}
+
+    If allowed_models is null/empty, all models are allowed (unrestricted key).
+    """
+    if not key.allowed_models:
+        return  # unrestricted key
+
+    allowed = key.allowed_models.get("models") or []
+    if allowed and model not in allowed:
+        raise PolicyViolation(
+            f"Model '{model}' is not allowed for this API key. "
+            f"Allowed models: {', '.join(allowed)}",
+            status_code=403,
+        )
+
+
+async def check_spend_cap(db: AsyncSession, org_id: uuid.UUID) -> None:
+    """Check if the org has exceeded its daily spend cap.
+
+    Reads the active 'spend_limits' policy from the DB and compares
+    today's total cost from gateway_requests against max_daily_spend.
+    """
+    # Fetch active spend_limits policy for this org
+    result = await db.execute(
+        select(Policy).where(
+            and_(
+                Policy.org_id == org_id,
+                Policy.type == "spend_limits",
+                Policy.enabled.is_(True),
+            )
+        )
+    )
+    policy = result.scalar_one_or_none()
+    if not policy:
+        return  # no spend cap configured
+
+    rules = policy.rules_json or {}
+    max_daily_spend = rules.get("max_daily_spend")
+    if max_daily_spend is None:
+        return  # no cap set in rules
+
+    # Query today's total cost
+    today_start = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    today_cost_result = await db.execute(
+        select(func.coalesce(func.sum(GatewayRequest.cost), 0)).where(
+            and_(
+                GatewayRequest.org_id == org_id,
+                GatewayRequest.created_at >= today_start,
+                GatewayRequest.status == "success",
+            )
+        )
+    )
+    today_cost = float(today_cost_result.scalar())
+
+    if today_cost >= float(max_daily_spend):
+        raise PolicyViolation(
+            f"Daily spend cap of ${max_daily_spend:.2f} exceeded "
+            f"(today's spend: ${today_cost:.2f}). "
+            f"Contact your admin to increase the limit.",
+            status_code=429,
+        )
+
+
+async def check_model_access_policy(db: AsyncSession, org_id: uuid.UUID, model: str) -> None:
+    """Check org-level model_access policies from the DB.
+
+    These are org-wide restrictions beyond per-key allowed_models.
+    """
+    result = await db.execute(
+        select(Policy).where(
+            and_(
+                Policy.org_id == org_id,
+                Policy.type == "model_access",
+                Policy.enabled.is_(True),
+            )
+        )
+    )
+    policy = result.scalar_one_or_none()
+    if not policy:
+        return  # no org-level model restriction
+
+    rules = policy.rules_json or {}
+    allowed_models = rules.get("allowed_models") or []
+    if allowed_models and model not in allowed_models:
+        raise PolicyViolation(
+            f"Model '{model}' is not approved by organization policy "
+            f"'{policy.name}'. Approved models: {', '.join(allowed_models)}",
+            status_code=403,
+        )
+
+
+async def enforce_policies(
+    db: AsyncSession,
+    key: GatewayKey,
+    model: str,
+) -> None:
+    """Run all policy checks before forwarding a gateway request.
+
+    Raises PolicyViolation if any check fails.
+    """
+    # 1. Per-key model allow-list
+    await check_model_allowed(key, model)
+
+    # 2. Org-level model access policy (from DB)
+    await check_model_access_policy(db, key.org_id, model)
+
+    # 3. Daily spend cap
+    await check_spend_cap(db, key.org_id)
+
+
 # ─── Completions ───
 
 async def chat_completion(
@@ -182,7 +365,7 @@ async def chat_completion(
     db: AsyncSession,
 ) -> dict:
     """Execute a chat completion via LiteLLM router and log the request."""
-    router = await get_router()
+    router = await get_router(db, org_id)
     model = request_data.get("model", "")
     start = time.time()
 
@@ -230,7 +413,7 @@ async def chat_completion(
 
 async def completion(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, db: AsyncSession) -> dict:
     """Legacy text completion."""
-    router = await get_router()
+    router = await get_router(db, org_id)
     model = request_data.get("model", "")
     start = time.time()
 
@@ -260,7 +443,7 @@ async def completion(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, d
 
 async def embedding(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, db: AsyncSession) -> dict:
     """Embedding via LiteLLM."""
-    router = await get_router()
+    router = await get_router(db, org_id)
     model = request_data.get("model", "")
     start = time.time()
 
@@ -337,8 +520,6 @@ async def get_usage_stats(
     team_id: Optional[str] = None,
 ) -> dict:
     """Get usage statistics for the org."""
-    from datetime import timedelta
-
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     base_filter = and_(

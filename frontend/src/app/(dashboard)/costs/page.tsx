@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { DollarSign, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Download, PieChart, BarChart3, Activity } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 /* ─── Animated counter ─── */
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0, duration = 1.2 }: {
@@ -140,26 +141,30 @@ export default function CostsPage() {
   const [forecast, setForecast] = useState<any>(null);
   const [period, setPeriod] = useState("monthly");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadCosts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [s, b, f] = await Promise.all([
+        apiRequest(`/api/costs/?period=${period}`).then(r => { if (!r.ok) throw new Error("costs"); return r.json(); }),
+        apiRequest("/api/costs/breakdown").then(r => { if (!r.ok) throw new Error("breakdown"); return r.json(); }),
+        apiRequest("/api/costs/forecast").then(r => { if (!r.ok) throw new Error("forecast"); return r.json(); }),
+      ]);
+      setSummary(s);
+      setBreakdown(b);
+      setForecast(f);
+    } catch (e) {
+      console.error("Failed to load costs", e);
+      setError("Failed to load cost data. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [s, b, f] = await Promise.all([
-          apiRequest(`/api/costs/?period=${period}`).then(r => r.json()),
-          apiRequest("/api/costs/breakdown").then(r => r.json()),
-          apiRequest("/api/costs/forecast").then(r => r.json()),
-        ]);
-        setSummary(s);
-        setBreakdown(b);
-        setForecast(f);
-      } catch (e) {
-        console.error("Failed to load costs", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    loadCosts();
   }, [period]);
 
   const exportCSV = useCallback(() => {
@@ -213,6 +218,8 @@ export default function CostsPage() {
           </div>
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={loadCosts} />}
 
       {/* Top stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

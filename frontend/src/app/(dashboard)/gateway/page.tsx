@@ -23,6 +23,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { API_URL } from "@/lib/utils";
 
 /* ─── Types ─── */
@@ -156,6 +157,7 @@ export default function GatewayPage() {
   const [keys, setKeys] = useState<GatewayKey[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -164,6 +166,7 @@ export default function GatewayPage() {
   const gatewayUrl = `${baseUrl}/v1/chat/completions`;
 
   const fetchData = useCallback(async () => {
+    setError(null);
     try {
       const [usageRes, keysRes, logsRes] = await Promise.all([
         apiRequest("/api/gateway/usage"),
@@ -173,8 +176,13 @@ export default function GatewayPage() {
       if (usageRes.ok) setUsage(await usageRes.json());
       if (keysRes.ok) setKeys(await keysRes.json());
       if (logsRes.ok) setLogs(await logsRes.json());
+      // If all requests failed, show error
+      if (!usageRes.ok && !keysRes.ok && !logsRes.ok) {
+        throw new Error("All gateway requests failed");
+      }
     } catch (e) {
       console.error("Failed to fetch gateway data:", e);
+      setError("Failed to load gateway data. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -222,6 +230,8 @@ export default function GatewayPage() {
         title="API Gateway"
         description="Route AI requests through a unified OpenAI-compatible endpoint with automatic failover, cost tracking, and rate limiting."
       />
+
+      {error && <ErrorBanner message={error} onRetry={fetchData} />}
 
       {/* Quick Navigation */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

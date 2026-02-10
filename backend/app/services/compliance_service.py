@@ -32,7 +32,6 @@ from app.services.compliance.frameworks import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 CACHE_KEY = "compliance:results"
 CACHE_TTL = 3600  # 1 hour
 
@@ -68,7 +67,7 @@ async def _get_checker_for_provider(provider: CloudProvider):
     return None
 
 
-def _check_to_response(check: ComplianceCheck) -> ComplianceCheckResponse:
+def _check_to_response(check: ComplianceCheck, org_id: uuid.UUID) -> ComplianceCheckResponse:
     """Convert internal ComplianceCheck to API response schema."""
     frameworks = get_frameworks_for_check(check.check_id)
     details = dict(check.details)
@@ -79,7 +78,7 @@ def _check_to_response(check: ComplianceCheck) -> ComplianceCheckResponse:
 
     return ComplianceCheckResponse(
         id=uuid.uuid5(uuid.NAMESPACE_DNS, check.check_id),
-        org_id=DEFAULT_ORG_ID,
+        org_id=org_id,
         check_name=check.check_name,
         category=check.category,
         status=check.result.value,
@@ -144,11 +143,14 @@ def _deserialize_checks(data: str) -> list[ComplianceCheckResponse]:
 
 # ── Core engine ──────────────────────────────────────────────────
 
-async def _run_checks(db: Optional[AsyncSession] = None) -> list[ComplianceCheckResponse]:
+async def _run_checks(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> list[ComplianceCheckResponse]:
     """Run real compliance checks against all connected providers."""
+    # Use org-scoped cache key so tenants don't share cached results
+    cache_key = f"{CACHE_KEY}:{org_id}" if org_id else CACHE_KEY
+
     # Try cache first
     try:
-        cached = await redis_client.get(CACHE_KEY)
+        cached = await redis_client.get(cache_key)
         if cached:
             return _deserialize_checks(cached)
     except Exception:
@@ -157,10 +159,11 @@ async def _run_checks(db: Optional[AsyncSession] = None) -> list[ComplianceCheck
     raw_checks: list[ComplianceCheck] = []
 
     if db:
-        # Get all active providers from DB
-        result = await db.execute(
-            select(CloudProvider).where(CloudProvider.status == "active")
-        )
+        # Get active providers scoped to the requesting user's org
+        query = select(CloudProvider).where(CloudProvider.status == "active")
+        if org_id:
+            query = query.where(CloudProvider.org_id == org_id)
+        result = await db.execute(query)
         providers = result.scalars().all()
 
         for provider in providers:
@@ -177,12 +180,13 @@ async def _run_checks(db: Optional[AsyncSession] = None) -> list[ComplianceCheck
         logger.info("No connected providers found; returning empty compliance results")
         return []
 
-    # Convert to response format
-    responses = [_check_to_response(c) for c in raw_checks]
+    # Convert to response format — use the requesting user's org_id
+    effective_org_id = org_id or uuid.UUID(int=0)
+    responses = [_check_to_response(c, effective_org_id) for c in raw_checks]
 
     # Cache results
     try:
-        await redis_client.setex(CACHE_KEY, CACHE_TTL, _serialize_checks(responses))
+        await redis_client.setex(cache_key, CACHE_TTL, _serialize_checks(responses))
     except Exception:
         pass
 
@@ -191,8 +195,8 @@ async def _run_checks(db: Optional[AsyncSession] = None) -> list[ComplianceCheck
 
 # ── Public API (used by routes) ──────────────────────────────────
 
-async def get_compliance_status(db: Optional[AsyncSession] = None) -> ComplianceStatus:
-    checks = await _run_checks(db)
+async def get_compliance_status(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> ComplianceStatus:
+    checks = await _run_checks(db, org_id)
     passing = sum(1 for c in checks if c.status == "pass")
     failing = sum(1 for c in checks if c.status == "fail")
     warnings = sum(1 for c in checks if c.status in ("warning", "error"))
@@ -210,23 +214,24 @@ async def get_compliance_status(db: Optional[AsyncSession] = None) -> Compliance
     )
 
 
-async def get_compliance_checks(db: Optional[AsyncSession] = None) -> list[ComplianceCheckResponse]:
-    return await _run_checks(db)
+async def get_compliance_checks(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> list[ComplianceCheckResponse]:
+    return await _run_checks(db, org_id)
 
 
-async def get_frameworks(db: Optional[AsyncSession] = None) -> list[FrameworkInfo]:
-    return (await get_compliance_status(db)).frameworks
+async def get_frameworks(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> list[FrameworkInfo]:
+    return (await get_compliance_status(db, org_id)).frameworks
 
 
-async def run_scan(db: Optional[AsyncSession] = None) -> ScanResult:
+async def run_scan(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> ScanResult:
     # Invalidate cache to force fresh scan
+    cache_key = f"{CACHE_KEY}:{org_id}" if org_id else CACHE_KEY
     try:
-        await redis_client.delete(CACHE_KEY)
+        await redis_client.delete(cache_key)
     except Exception:
         pass
 
     start = time.monotonic()
-    checks = await _run_checks(db)
+    checks = await _run_checks(db, org_id)
     duration_ms = int((time.monotonic() - start) * 1000)
 
     return ScanResult(
@@ -239,9 +244,9 @@ async def run_scan(db: Optional[AsyncSession] = None) -> ScanResult:
     )
 
 
-async def get_compliance_report(db: Optional[AsyncSession] = None) -> ComplianceReport:
-    status = await get_compliance_status(db)
-    checks = await _run_checks(db)
+async def get_compliance_report(db: Optional[AsyncSession] = None, org_id: Optional[uuid.UUID] = None) -> ComplianceReport:
+    status = await get_compliance_status(db, org_id)
+    checks = await _run_checks(db, org_id)
     recommendations = []
     for c in checks:
         if c.status == "fail":

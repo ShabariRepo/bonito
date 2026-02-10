@@ -22,8 +22,6 @@ from app.services.routing_service import simulate_routing, simulate_routing_real
 
 router = APIRouter(prefix="/routing", tags=["routing"])
 
-DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
-
 
 @router.get("/rules", response_model=List[RoutingRuleResponse])
 async def list_rules(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):

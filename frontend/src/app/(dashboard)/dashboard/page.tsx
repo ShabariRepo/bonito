@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Box, Cloud, Rocket, Activity, TrendingUp, Zap, Plus, ArrowRight, DollarSign } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -64,52 +65,59 @@ export default function DashboardPage() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [topModels, setTopModels] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAll = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      // Fetch providers
+      const provRes = await apiRequest("/api/providers/");
+      let provs: Provider[] = [];
+      if (provRes.ok) {
+        provs = await provRes.json();
+        setProviders(provs);
+        const totalModels = provs.reduce((sum: number, p: any) => sum + (p.model_count || 0), 0);
+        setModelCount(totalModels);
+        if (provs.length === 0) {
+          router.replace("/onboarding");
+          return;
+        }
+      } else {
+        throw new Error("Failed to load providers");
+      }
+
+      // Fetch in parallel: costs, audit, models
+      const [costRes, auditRes, modelsRes] = await Promise.allSettled([
+        apiRequest("/api/costs/?period=monthly"),
+        apiRequest("/api/audit/"),
+        apiRequest("/api/models/"),
+      ]);
+
+      if (costRes.status === "fulfilled" && costRes.value.ok) {
+        setCostSummary(await costRes.value.json());
+      }
+
+      if (auditRes.status === "fulfilled" && auditRes.value.ok) {
+        const auditData = await auditRes.value.json();
+        // Handle both array and {items: []} response shapes
+        setAuditLog(Array.isArray(auditData) ? auditData.slice(0, 8) : (auditData.items || []).slice(0, 8));
+      }
+
+      if (modelsRes.status === "fulfilled" && modelsRes.value.ok) {
+        const allModels = await modelsRes.value.json();
+        // Show a sample of models grouped by provider
+        setTopModels(allModels.slice(0, 6));
+      }
+    } catch (e) {
+      console.error("Dashboard fetch error:", e);
+      setError("Failed to load dashboard data. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchAll() {
-      try {
-        // Fetch providers
-        const provRes = await apiRequest("/api/providers/");
-        let provs: Provider[] = [];
-        if (provRes.ok) {
-          provs = await provRes.json();
-          setProviders(provs);
-          const totalModels = provs.reduce((sum: number, p: any) => sum + (p.model_count || 0), 0);
-          setModelCount(totalModels);
-          if (provs.length === 0) {
-            router.replace("/onboarding");
-            return;
-          }
-        }
-
-        // Fetch in parallel: costs, audit, models
-        const [costRes, auditRes, modelsRes] = await Promise.allSettled([
-          apiRequest("/api/costs/?period=monthly"),
-          apiRequest("/api/audit/"),
-          apiRequest("/api/models/"),
-        ]);
-
-        if (costRes.status === "fulfilled" && costRes.value.ok) {
-          setCostSummary(await costRes.value.json());
-        }
-
-        if (auditRes.status === "fulfilled" && auditRes.value.ok) {
-          const auditData = await auditRes.value.json();
-          // Handle both array and {items: []} response shapes
-          setAuditLog(Array.isArray(auditData) ? auditData.slice(0, 8) : (auditData.items || []).slice(0, 8));
-        }
-
-        if (modelsRes.status === "fulfilled" && modelsRes.value.ok) {
-          const allModels = await modelsRes.value.json();
-          // Show a sample of models grouped by provider
-          setTopModels(allModels.slice(0, 6));
-        }
-      } catch (e) {
-        console.error("Dashboard fetch error:", e);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchAll();
   }, [router]);
 
@@ -141,6 +149,9 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground mt-1">Overview of your AI infrastructure</p>
       </motion.div>
+
+      {/* Error banner */}
+      {error && <ErrorBanner message={error} onRetry={fetchAll} />}
 
       {/* Stats grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

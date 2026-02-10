@@ -1,11 +1,17 @@
-"""Notification service — in-app notifications with pluggable email/webhook delivery."""
+"""Notification service — in-app notifications with pluggable email/webhook delivery.
+
+All notification/alert-rule/preference data is now backed by the database.
+"""
 
 import uuid
 import logging
-from datetime import datetime
 from typing import Optional, Protocol
 
 import httpx
+from sqlalchemy import select, func, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.notifications import Notification, AlertRule, NotificationPreference
 
 logger = logging.getLogger(__name__)
 
@@ -54,162 +60,157 @@ class NotificationService:
     def __init__(self, email_backend: Optional[EmailBackend] = None):
         self.email_backend = email_backend or NoopEmailBackend()
 
-    # ─── Mock data for demo ───
+    # ─── Notifications ───
 
-    _mock_notifications = [
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "user_id": "00000000-0000-0000-0000-000000000001",
-            "type": "cost_alert",
-            "title": "Budget threshold reached",
-            "body": "Your organization has used 85% of the monthly budget ($8,500 of $10,000).",
-            "read": False,
-            "created_at": "2026-02-08T10:00:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "user_id": "00000000-0000-0000-0000-000000000001",
-            "type": "model_deprecation",
-            "title": "GPT-4 Turbo deprecation notice",
-            "body": "OpenAI will deprecate gpt-4-turbo on March 15, 2026. Consider migrating to gpt-4o.",
-            "read": False,
-            "created_at": "2026-02-07T14:30:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "user_id": "00000000-0000-0000-0000-000000000001",
-            "type": "compliance_alert",
-            "title": "Data residency policy violation",
-            "body": "3 requests were routed to a non-EU region, violating your GDPR data residency policy.",
-            "read": True,
-            "created_at": "2026-02-06T09:15:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "user_id": "00000000-0000-0000-0000-000000000001",
-            "type": "digest",
-            "title": "Weekly digest — Feb 1–7",
-            "body": "This week: 12,450 requests, $4,230 spend (+8% vs last week). Top model: Claude 3.5 Sonnet (45% of traffic).",
-            "read": True,
-            "created_at": "2026-02-03T08:00:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "user_id": "00000000-0000-0000-0000-000000000001",
-            "type": "cost_alert",
-            "title": "Unusual spending spike",
-            "body": "Daily spend jumped 340% on Feb 5 ($1,200 vs $350 average). Review recent usage for anomalies.",
-            "read": False,
-            "created_at": "2026-02-05T16:45:00Z",
-        },
-    ]
-
-    _mock_alert_rules = [
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "type": "budget_threshold",
-            "threshold": 80.0,
-            "channel": "in_app",
-            "enabled": True,
-            "created_at": "2026-01-15T10:00:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "type": "budget_threshold",
-            "threshold": 95.0,
-            "channel": "email",
-            "enabled": True,
-            "created_at": "2026-01-15T10:00:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "type": "compliance_violation",
-            "threshold": None,
-            "channel": "in_app",
-            "enabled": True,
-            "created_at": "2026-01-20T12:00:00Z",
-        },
-        {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "type": "model_deprecation",
-            "threshold": None,
-            "channel": "in_app",
-            "enabled": False,
-            "created_at": "2026-01-20T12:00:00Z",
-        },
-    ]
-
-    _mock_preferences = {
-        "weekly_digest": True,
-        "cost_alerts": True,
-        "compliance_alerts": True,
-        "model_updates": True,
-    }
-
-    def get_notifications(self, notification_type: Optional[str] = None):
-        items = list(self._mock_notifications)
+    async def get_notifications(
+        self, db: AsyncSession, org_id, user_id, notification_type: Optional[str] = None
+    ) -> dict:
+        query = (
+            select(Notification)
+            .where(Notification.org_id == org_id, Notification.user_id == user_id)
+        )
         if notification_type:
-            items = [n for n in items if n["type"] == notification_type]
-        items.sort(key=lambda x: x["created_at"], reverse=True)
-        unread = sum(1 for n in self._mock_notifications if not n["read"])
-        return {"items": items, "total": len(items), "unread_count": unread}
+            query = query.where(Notification.type == notification_type)
+        query = query.order_by(Notification.created_at.desc())
 
-    def mark_read(self, notification_id: str):
-        for n in self._mock_notifications:
-            if n["id"] == notification_id:
-                n["read"] = True
-                return n
-        return None
+        result = await db.execute(query)
+        items = result.scalars().all()
 
-    def get_unread_count(self):
-        return sum(1 for n in self._mock_notifications if not n["read"])
+        unread_q = await db.execute(
+            select(func.count(Notification.id)).where(
+                Notification.org_id == org_id,
+                Notification.user_id == user_id,
+                Notification.read == False,  # noqa: E712
+            )
+        )
+        unread_count = unread_q.scalar_one() or 0
 
-    def get_alert_rules(self):
-        return list(self._mock_alert_rules)
+        return {"items": items, "total": len(items), "unread_count": unread_count}
 
-    def create_alert_rule(self, data: dict):
-        rule = {
-            "id": str(uuid.uuid4()),
-            "org_id": "00000000-0000-0000-0000-000000000001",
-            "type": data["type"],
-            "threshold": data.get("threshold"),
-            "channel": data.get("channel", "in_app"),
-            "enabled": data.get("enabled", True),
-            "created_at": datetime.utcnow().isoformat() + "Z",
-        }
-        self._mock_alert_rules.append(rule)
+    async def mark_read(self, db: AsyncSession, org_id, user_id, notification_id: str):
+        result = await db.execute(
+            select(Notification).where(
+                Notification.id == uuid.UUID(notification_id),
+                Notification.org_id == org_id,
+                Notification.user_id == user_id,
+            )
+        )
+        notification = result.scalar_one_or_none()
+        if not notification:
+            return None
+        notification.read = True
+        await db.flush()
+        await db.refresh(notification)
+        return notification
+
+    async def get_unread_count(self, db: AsyncSession, org_id, user_id) -> int:
+        result = await db.execute(
+            select(func.count(Notification.id)).where(
+                Notification.org_id == org_id,
+                Notification.user_id == user_id,
+                Notification.read == False,  # noqa: E712
+            )
+        )
+        return result.scalar_one() or 0
+
+    # ─── Alert Rules ───
+
+    async def get_alert_rules(self, db: AsyncSession, org_id) -> list:
+        result = await db.execute(
+            select(AlertRule)
+            .where(AlertRule.org_id == org_id)
+            .order_by(AlertRule.created_at)
+        )
+        return result.scalars().all()
+
+    async def create_alert_rule(self, db: AsyncSession, org_id, data: dict):
+        rule = AlertRule(
+            id=uuid.uuid4(),
+            org_id=org_id,
+            type=data["type"],
+            threshold=data.get("threshold"),
+            channel=data.get("channel", "in_app"),
+            enabled=data.get("enabled", True),
+        )
+        db.add(rule)
+        await db.flush()
+        await db.refresh(rule)
         return rule
 
-    def update_alert_rule(self, rule_id: str, data: dict):
-        for rule in self._mock_alert_rules:
-            if rule["id"] == rule_id:
-                for k, v in data.items():
-                    if v is not None:
-                        rule[k] = v
-                return rule
-        return None
+    async def update_alert_rule(self, db: AsyncSession, org_id, rule_id: str, data: dict):
+        result = await db.execute(
+            select(AlertRule).where(
+                AlertRule.id == uuid.UUID(rule_id),
+                AlertRule.org_id == org_id,
+            )
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return None
+        for k, v in data.items():
+            if v is not None and hasattr(rule, k):
+                setattr(rule, k, v)
+        await db.flush()
+        await db.refresh(rule)
+        return rule
 
-    def delete_alert_rule(self, rule_id: str):
-        self._mock_alert_rules[:] = [r for r in self._mock_alert_rules if r["id"] != rule_id]
+    async def delete_alert_rule(self, db: AsyncSession, org_id, rule_id: str) -> bool:
+        result = await db.execute(
+            select(AlertRule).where(
+                AlertRule.id == uuid.UUID(rule_id),
+                AlertRule.org_id == org_id,
+            )
+        )
+        rule = result.scalar_one_or_none()
+        if not rule:
+            return False
+        await db.delete(rule)
+        await db.flush()
         return True
 
-    def get_preferences(self):
-        return dict(self._mock_preferences)
+    # ─── Preferences ───
 
-    def update_preferences(self, data: dict):
+    async def get_preferences(self, db: AsyncSession, user_id) -> dict:
+        result = await db.execute(
+            select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+        )
+        pref = result.scalar_one_or_none()
+        if not pref:
+            # Return defaults
+            return {
+                "weekly_digest": True,
+                "cost_alerts": True,
+                "compliance_alerts": True,
+                "model_updates": True,
+            }
+        return {
+            "weekly_digest": pref.weekly_digest,
+            "cost_alerts": pref.cost_alerts,
+            "compliance_alerts": pref.compliance_alerts,
+            "model_updates": pref.model_updates,
+        }
+
+    async def update_preferences(self, db: AsyncSession, user_id, data: dict) -> dict:
+        result = await db.execute(
+            select(NotificationPreference).where(NotificationPreference.user_id == user_id)
+        )
+        pref = result.scalar_one_or_none()
+        if not pref:
+            pref = NotificationPreference(user_id=user_id)
+            db.add(pref)
         for k, v in data.items():
-            if v is not None and k in self._mock_preferences:
-                self._mock_preferences[k] = v
-        return dict(self._mock_preferences)
+            if v is not None and hasattr(pref, k):
+                setattr(pref, k, v)
+        await db.flush()
+        await db.refresh(pref)
+        return {
+            "weekly_digest": pref.weekly_digest,
+            "cost_alerts": pref.cost_alerts,
+            "compliance_alerts": pref.compliance_alerts,
+            "model_updates": pref.model_updates,
+        }
+
+    # ─── Delivery helpers ───
 
     async def send_email(self, to: str, subject: str, body: str) -> bool:
         return await self.email_backend.send(to, subject, body)

@@ -9,6 +9,7 @@ from app.core.responses import handle_http_exception, handle_general_exception
 from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway
 from app.middleware.security import (
     RateLimitMiddleware,
+    RequestBodySizeLimitMiddleware,
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
     configure_cors,
@@ -59,7 +60,7 @@ app.add_exception_handler(HTTPException, handle_http_exception)
 app.add_exception_handler(Exception, handle_general_exception)
 
 # Middleware is applied in reverse order (last added = first executed)
-# Order of execution: RequestID → SecurityHeaders → RateLimit → CORS → AuditMiddleware → route
+# Order of execution: RequestID → SecurityHeaders → BodySizeLimit → RateLimit → CORS → AuditMiddleware → route
 
 # Audit (innermost — runs closest to route handler, captures response status)
 app.add_middleware(AuditMiddleware)
@@ -69,6 +70,9 @@ configure_cors(app)
 
 # Rate limiting
 app.add_middleware(RateLimitMiddleware)
+
+# Request body size limit for /v1/* gateway endpoints (rejects before rate-limit slot is consumed)
+app.add_middleware(RequestBodySizeLimitMiddleware)
 
 # Security headers
 app.add_middleware(SecurityHeadersMiddleware)

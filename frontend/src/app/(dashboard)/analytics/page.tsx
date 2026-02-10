@@ -17,6 +17,7 @@ import {
   Zap,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 /* ─── Animated counter ─── */
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: {

@@ -47,6 +47,38 @@ def _client_ip(request: Request) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Request Body Size Limit Middleware
+# ---------------------------------------------------------------------------
+# Maximum body size for /v1/* gateway endpoints (1 MB).
+# Other endpoints (dashboard API) are not restricted here.
+GATEWAY_MAX_BODY_BYTES = 1 * 1024 * 1024
+
+
+class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
+    """Reject oversized request bodies on gateway /v1/* endpoints.
+
+    This prevents attackers from sending massive prompts that incur
+    cloud costs. Returns 413 Payload Too Large if exceeded.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith("/v1/"):
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > GATEWAY_MAX_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={
+                        "error": {
+                            "message": f"Request body too large. Maximum size is {GATEWAY_MAX_BODY_BYTES // 1024}KB.",
+                            "type": "invalid_request_error",
+                            "code": "payload_too_large",
+                        }
+                    },
+                )
+        return await call_next(request)
+
+
+# ---------------------------------------------------------------------------
 # Rate Limiting Middleware
 # ---------------------------------------------------------------------------
 class RateLimitMiddleware(BaseHTTPMiddleware):

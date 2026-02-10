@@ -2,80 +2,98 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.models.policy import Policy
 from app.schemas.policy import PolicyCreate, PolicyUpdate, PolicyResponse
 
 router = APIRouter(prefix="/policies", tags=["policies"])
 
-DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001"
-
-_policies: dict[str, dict] = {}
-
-def _seed():
-    if _policies:
-        return
-    seeds = [
-        {"name": "Production Model Whitelist", "type": "model_access",
-         "description": "Only approved models can be deployed to production environments",
-         "rules_json": {"allowed_models": ["GPT-4o", "Claude 3.5 Sonnet"], "environment": "production"},
-         "enabled": True},
-        {"name": "Daily Spend Cap", "type": "spend_limits",
-         "description": "Maximum daily spend across all providers",
-         "rules_json": {"max_daily_spend": 500, "alert_at_percentage": 80, "action": "alert_and_block"},
-         "enabled": True},
-        {"name": "EU Data Residency", "type": "region_restrictions",
-         "description": "Customer data must stay within EU regions",
-         "rules_json": {"allowed_regions": ["eu-west-1", "eu-central-1", "westeurope"], "applies_to": "customer_data"},
-         "enabled": False},
-        {"name": "PII Detection Required", "type": "data_classification",
-         "description": "All inputs must be scanned for PII before processing",
-         "rules_json": {"scan_inputs": True, "scan_outputs": True, "block_on_detection": False, "log_detections": True},
-         "enabled": True},
-    ]
-    for s in seeds:
-        pid = str(uuid.uuid4())
-        _policies[pid] = {"id": pid, "org_id": DEFAULT_ORG_ID, "created_at": "2026-01-20T10:00:00Z", **s}
-
-_seed()
-
 
 @router.get("/", response_model=List[PolicyResponse])
-async def list_policies(user: User = Depends(get_current_user)):
-    return [p for p in _policies.values() if p["org_id"] == str(user.org_id)]
+async def list_policies(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Policy).where(Policy.org_id == user.org_id).order_by(Policy.created_at)
+    )
+    return result.scalars().all()
 
 
 @router.post("/", response_model=PolicyResponse, status_code=201)
-async def create_policy(data: PolicyCreate, user: User = Depends(get_current_user)):
-    pid = str(uuid.uuid4())
-    policy = {
-        "id": pid, "org_id": str(user.org_id),
-        "name": data.name, "type": data.type,
-        "rules_json": data.rules_json,
-        "description": data.description,
-        "enabled": data.enabled,
-        "created_at": "2026-02-07T10:00:00Z",
-    }
-    _policies[pid] = policy
+async def create_policy(
+    data: PolicyCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    policy = Policy(
+        id=uuid.uuid4(),
+        org_id=user.org_id,
+        name=data.name,
+        type=data.type,
+        rules_json=data.rules_json,
+        description=data.description,
+        enabled=data.enabled,
+    )
+    db.add(policy)
+    await db.flush()
+    await db.refresh(policy)
     return policy
 
 
 @router.patch("/{policy_id}", response_model=PolicyResponse)
-async def update_policy(policy_id: str, data: PolicyUpdate, user: User = Depends(get_current_user)):
-    if policy_id not in _policies or _policies[policy_id]["org_id"] != str(user.org_id):
+async def update_policy(
+    policy_id: str,
+    data: PolicyUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Policy).where(
+            Policy.id == uuid.UUID(policy_id),
+            Policy.org_id == user.org_id,
+        )
+    )
+    policy = result.scalar_one_or_none()
+    if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
-    p = _policies[policy_id]
-    if data.name is not None: p["name"] = data.name
-    if data.type is not None: p["type"] = data.type
-    if data.rules_json is not None: p["rules_json"] = data.rules_json
-    if data.description is not None: p["description"] = data.description
-    if data.enabled is not None: p["enabled"] = data.enabled
-    return p
+
+    if data.name is not None:
+        policy.name = data.name
+    if data.type is not None:
+        policy.type = data.type
+    if data.rules_json is not None:
+        policy.rules_json = data.rules_json
+    if data.description is not None:
+        policy.description = data.description
+    if data.enabled is not None:
+        policy.enabled = data.enabled
+
+    await db.flush()
+    await db.refresh(policy)
+    return policy
 
 
 @router.delete("/{policy_id}", status_code=204)
-async def delete_policy(policy_id: str, user: User = Depends(get_current_user)):
-    if policy_id not in _policies or _policies[policy_id]["org_id"] != str(user.org_id):
+async def delete_policy(
+    policy_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Policy).where(
+            Policy.id == uuid.UUID(policy_id),
+            Policy.org_id == user.org_id,
+        )
+    )
+    policy = result.scalar_one_or_none()
+    if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
-    del _policies[policy_id]
+
+    await db.delete(policy)
+    await db.flush()
