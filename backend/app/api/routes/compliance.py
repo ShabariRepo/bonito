@@ -11,6 +11,8 @@ from app.schemas.compliance import (
     ComplianceReport,
     ScanResult,
 )
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.compliance_service import (
     get_compliance_status,
     get_compliance_checks,
@@ -23,25 +25,25 @@ router = APIRouter(prefix="/compliance", tags=["compliance"])
 
 
 @router.get("/status", response_model=ComplianceStatus)
-async def status(db: AsyncSession = Depends(get_db)):
+async def status(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     return await get_compliance_status(db)
 
 
 @router.get("/checks", response_model=List[ComplianceCheckResponse])
-async def checks(db: AsyncSession = Depends(get_db)):
+async def checks(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     return await get_compliance_checks(db)
 
 
 @router.post("/scan", response_model=ScanResult)
-async def scan(db: AsyncSession = Depends(get_db)):
+async def scan(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     return await run_scan(db)
 
 
 @router.get("/frameworks", response_model=List[FrameworkInfo])
-async def frameworks(db: AsyncSession = Depends(get_db)):
+async def frameworks(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     return await get_frameworks(db)
 
 
 @router.get("/report", response_model=ComplianceReport)
-async def report(db: AsyncSession = Depends(get_db)):
+async def report(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     return await get_compliance_report(db)

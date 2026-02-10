@@ -10,6 +10,8 @@ from app.core.database import get_db
 from app.models.model import Model
 from app.models.cloud_provider import CloudProvider
 from app.schemas.model import ModelCreate, ModelUpdate, ModelResponse
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.provider_service import get_models_for_provider
 
 logger = logging.getLogger(__name__)
@@ -60,9 +62,9 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> int
 
 
 @router.post("/sync")
-async def sync_all_models(db: AsyncSession = Depends(get_db)):
+async def sync_all_models(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Sync models from all connected providers into the DB."""
-    result = await db.execute(select(CloudProvider).where(CloudProvider.status == "active"))
+    result = await db.execute(select(CloudProvider).where(CloudProvider.status == "active", CloudProvider.org_id == user.org_id))
     providers = result.scalars().all()
     total = 0
     details = {}
@@ -74,9 +76,9 @@ async def sync_all_models(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/sync/{provider_id}")
-async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
+async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Sync models for a specific provider."""
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(404, "Provider not found")
@@ -85,14 +87,18 @@ async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/", response_model=List[ModelResponse])
-async def list_models(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Model))
+async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(
+        select(Model).join(CloudProvider, Model.provider_id == CloudProvider.id).where(CloudProvider.org_id == user.org_id)
+    )
     return result.scalars().all()
 
 
 @router.get("/{model_id}", response_model=ModelResponse)
-async def get_model(model_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Model).where(Model.id == model_id))
+async def get_model(model_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(
+        select(Model).join(CloudProvider, Model.provider_id == CloudProvider.id).where(Model.id == model_id, CloudProvider.org_id == user.org_id)
+    )
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -100,7 +106,7 @@ async def get_model(model_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=ModelResponse, status_code=201)
-async def create_model(data: ModelCreate, db: AsyncSession = Depends(get_db)):
+async def create_model(data: ModelCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     model = Model(
         provider_id=data.provider_id,
         model_id=data.model_id,
@@ -115,8 +121,10 @@ async def create_model(data: ModelCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{model_id}", response_model=ModelResponse)
-async def update_model(model_id: UUID, data: ModelUpdate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Model).where(Model.id == model_id))
+async def update_model(model_id: UUID, data: ModelUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(
+        select(Model).join(CloudProvider, Model.provider_id == CloudProvider.id).where(Model.id == model_id, CloudProvider.org_id == user.org_id)
+    )
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -132,8 +140,10 @@ async def update_model(model_id: UUID, data: ModelUpdate, db: AsyncSession = Dep
 
 
 @router.delete("/{model_id}", status_code=204)
-async def delete_model(model_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Model).where(Model.id == model_id))
+async def delete_model(model_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(
+        select(Model).join(CloudProvider, Model.provider_id == CloudProvider.id).where(Model.id == model_id, CloudProvider.org_id == user.org_id)
+    )
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")

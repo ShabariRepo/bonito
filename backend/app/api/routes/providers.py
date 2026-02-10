@@ -26,6 +26,8 @@ from app.schemas.provider import (
     DailyCostItem,
 )
 from app.utils.masking import mask_credentials
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.provider_service import (
     get_models_for_provider,
     get_provider_display_name,
@@ -65,8 +67,8 @@ def _to_response(p: CloudProvider, model_count: int = None) -> dict:
 
 
 @router.get("/", response_model=List[ProviderResponse])
-async def list_providers(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider))
+async def list_providers(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.org_id == user.org_id))
     providers = result.scalars().all()
     responses = []
     for p in providers:
@@ -79,8 +81,8 @@ async def list_providers(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{provider_id}", response_model=ProviderDetail)
-async def get_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def get_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -94,9 +96,9 @@ async def get_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{provider_id}/summary", response_model=ProviderSummary)
-async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get provider info with masked credentials — safe for display."""
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -127,10 +129,10 @@ async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get
 
 @router.put("/{provider_id}/credentials", response_model=ProviderSummary)
 async def update_provider_credentials(
-    provider_id: UUID, data: CredentialUpdate, db: AsyncSession = Depends(get_db)
+    provider_id: UUID, data: CredentialUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user),
 ):
     """Update credentials for an existing provider. Validates before saving."""
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -201,7 +203,7 @@ async def update_provider_credentials(
 
 
 @router.post("/connect", response_model=ProviderResponse, status_code=201)
-async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get_db)):
+async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     # Validate credential format
     valid, error = validate_credentials(data.provider_type, data.credentials)
     if not valid:
@@ -253,7 +255,7 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
 
     provider = CloudProvider(
         id=provider_id,
-        org_id=DEFAULT_ORG_ID,
+        org_id=user.org_id,
         provider_type=data.provider_type,
         credentials_encrypted=f"vault:providers/{provider_id}",
         status="active",
@@ -271,8 +273,8 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
 
 
 @router.post("/{provider_id}/verify", response_model=VerifyResponse)
-async def verify_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def verify_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -314,8 +316,8 @@ async def verify_provider(provider_id: UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/{provider_id}/invoke", response_model=InvocationResponse)
-async def invoke_model(provider_id: UUID, req: InvocationRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def invoke_model(provider_id: UUID, req: InvocationRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -351,8 +353,8 @@ async def invoke_model(provider_id: UUID, req: InvocationRequest, db: AsyncSessi
 
 
 @router.get("/{provider_id}/models", response_model=List[ModelInfo])
-async def list_provider_models(provider_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def list_provider_models(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -365,8 +367,9 @@ async def get_provider_costs(
     start_date: str = None,
     end_date: str = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -406,8 +409,8 @@ async def get_provider_costs(
 
 
 @router.delete("/{provider_id}", status_code=204)
-async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -415,7 +418,7 @@ async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/", response_model=ProviderResponse, status_code=201)
-async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_db)):
+async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     provider = CloudProvider(
         org_id=data.org_id,
         provider_type=data.provider_type,
@@ -429,8 +432,8 @@ async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/{provider_id}", response_model=ProviderResponse)
-async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id))
+async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")

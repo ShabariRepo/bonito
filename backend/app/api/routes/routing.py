@@ -16,6 +16,8 @@ from app.schemas.routing import (
     SimulationResult,
     RoutingAnalytics,
 )
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.routing_service import simulate_routing, simulate_routing_real, route_and_invoke, get_routing_analytics
 
 router = APIRouter(prefix="/routing", tags=["routing"])
@@ -24,17 +26,17 @@ DEFAULT_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 @router.get("/rules", response_model=List[RoutingRuleResponse])
-async def list_rules(db: AsyncSession = Depends(get_db)):
+async def list_rules(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(
-        select(RoutingRule).where(RoutingRule.org_id == DEFAULT_ORG_ID).order_by(RoutingRule.priority)
+        select(RoutingRule).where(RoutingRule.org_id == user.org_id).order_by(RoutingRule.priority)
     )
     return result.scalars().all()
 
 
 @router.post("/rules", response_model=RoutingRuleResponse, status_code=201)
-async def create_rule(data: RoutingRuleCreate, db: AsyncSession = Depends(get_db)):
+async def create_rule(data: RoutingRuleCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     rule = RoutingRule(
-        org_id=DEFAULT_ORG_ID,
+        org_id=user.org_id,
         name=data.name,
         strategy=data.strategy,
         conditions_json=data.conditions_json,
@@ -48,8 +50,8 @@ async def create_rule(data: RoutingRuleCreate, db: AsyncSession = Depends(get_db
 
 
 @router.patch("/rules/{rule_id}", response_model=RoutingRuleResponse)
-async def update_rule(rule_id: UUID, data: RoutingRuleUpdate, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id))
+async def update_rule(rule_id: UUID, data: RoutingRuleUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id, RoutingRule.org_id == user.org_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Routing rule not found")
@@ -61,8 +63,8 @@ async def update_rule(rule_id: UUID, data: RoutingRuleUpdate, db: AsyncSession =
 
 
 @router.delete("/rules/{rule_id}", status_code=204)
-async def delete_rule(rule_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id))
+async def delete_rule(rule_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id, RoutingRule.org_id == user.org_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Routing rule not found")
@@ -70,7 +72,7 @@ async def delete_rule(rule_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/simulate", response_model=SimulationResult)
-async def simulate(req: SimulationRequest, strategy: str = "balanced", db: AsyncSession = Depends(get_db)):
+async def simulate(req: SimulationRequest, strategy: str = "balanced", db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Simulate routing using real connected providers."""
     return await simulate_routing_real(req, strategy, db)
 
@@ -83,6 +85,7 @@ async def invoke_routed(
     max_tokens: int = 1024,
     temperature: float = 0.7,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Route a prompt to the best provider and invoke the model."""
     try:
@@ -92,5 +95,5 @@ async def invoke_routed(
 
 
 @router.get("/analytics", response_model=RoutingAnalytics)
-async def analytics():
+async def analytics(user: User = Depends(get_current_user)):
     return get_routing_analytics()

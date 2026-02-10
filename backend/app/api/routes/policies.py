@@ -1,8 +1,10 @@
 import uuid
 from typing import List
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.schemas.policy import PolicyCreate, PolicyUpdate, PolicyResponse
 
 router = APIRouter(prefix="/policies", tags=["policies"])
@@ -40,15 +42,15 @@ _seed()
 
 
 @router.get("/", response_model=List[PolicyResponse])
-async def list_policies():
-    return list(_policies.values())
+async def list_policies(user: User = Depends(get_current_user)):
+    return [p for p in _policies.values() if p["org_id"] == str(user.org_id)]
 
 
 @router.post("/", response_model=PolicyResponse, status_code=201)
-async def create_policy(data: PolicyCreate):
+async def create_policy(data: PolicyCreate, user: User = Depends(get_current_user)):
     pid = str(uuid.uuid4())
     policy = {
-        "id": pid, "org_id": DEFAULT_ORG_ID,
+        "id": pid, "org_id": str(user.org_id),
         "name": data.name, "type": data.type,
         "rules_json": data.rules_json,
         "description": data.description,
@@ -60,8 +62,8 @@ async def create_policy(data: PolicyCreate):
 
 
 @router.patch("/{policy_id}", response_model=PolicyResponse)
-async def update_policy(policy_id: str, data: PolicyUpdate):
-    if policy_id not in _policies:
+async def update_policy(policy_id: str, data: PolicyUpdate, user: User = Depends(get_current_user)):
+    if policy_id not in _policies or _policies[policy_id]["org_id"] != str(user.org_id):
         raise HTTPException(status_code=404, detail="Policy not found")
     p = _policies[policy_id]
     if data.name is not None: p["name"] = data.name
@@ -73,7 +75,7 @@ async def update_policy(policy_id: str, data: PolicyUpdate):
 
 
 @router.delete("/{policy_id}", status_code=204)
-async def delete_policy(policy_id: str):
-    if policy_id not in _policies:
+async def delete_policy(policy_id: str, user: User = Depends(get_current_user)):
+    if policy_id not in _policies or _policies[policy_id]["org_id"] != str(user.org_id):
         raise HTTPException(status_code=404, detail="Policy not found")
     del _policies[policy_id]

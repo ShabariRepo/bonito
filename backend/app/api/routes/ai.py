@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.api.dependencies import get_current_user
+from app.models.user import User
 from app.services.ai_service import chat_with_llm, parse_intent
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,7 @@ def _groq_available() -> bool:
 
 
 @router.post("/chat")
-async def chat(data: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat(data: ChatRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Full AI chat — uses Groq copilot when available, falls back to provider LLMs."""
     if _groq_available():
         try:
@@ -61,7 +63,7 @@ async def chat(data: ChatRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/copilot")
-async def copilot(data: CopilotRequest, db: AsyncSession = Depends(get_db)):
+async def copilot(data: CopilotRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Dedicated copilot endpoint with streaming support."""
     if not _groq_available():
         return {"error": "Copilot requires Groq API key", "message": "Configure GROQ_API_KEY to enable the AI copilot."}
@@ -85,7 +87,7 @@ async def copilot(data: CopilotRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/suggestions")
-async def suggestions(db: AsyncSession = Depends(get_db)):
+async def suggestions(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Proactive suggestions based on org state."""
     if not _groq_available():
         return {"suggestions": [
@@ -99,7 +101,7 @@ async def suggestions(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/command")
-async def command(data: QuickCommandRequest, db: AsyncSession = Depends(get_db)):
+async def command(data: QuickCommandRequest, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Quick command parsing for Cmd+K bar — uses Groq when available."""
     if _groq_available():
         try:
