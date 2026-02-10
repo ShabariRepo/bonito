@@ -20,6 +20,21 @@ from app.services import email_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# ---------- Datetime Helpers ----------
+
+def _ensure_utc_aware(dt: datetime | None) -> datetime | None:
+    """Make a datetime timezone-aware (UTC) if it's naive.
+
+    SQLite doesn't store timezone info, so values come back naive.
+    PostgreSQL returns timezone-aware datetimes.  This normalises both.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 # ---------- Password Validation ----------
 
 def _validate_password(password: str) -> None:
@@ -139,7 +154,7 @@ async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
 
     # Check token expiry
-    if user.verification_token_expires_at and datetime.now(timezone.utc) > user.verification_token_expires_at:
+    if user.verification_token_expires_at and datetime.now(timezone.utc) > _ensure_utc_aware(user.verification_token_expires_at):
         user.verification_token = None
         user.verification_token_expires_at = None
         await db.flush()
@@ -206,7 +221,7 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
 
     # Check token expiry
-    if user.reset_token_expires_at and datetime.now(timezone.utc) > user.reset_token_expires_at:
+    if user.reset_token_expires_at and datetime.now(timezone.utc) > _ensure_utc_aware(user.reset_token_expires_at):
         user.reset_token = None
         user.reset_token_expires_at = None
         await db.flush()

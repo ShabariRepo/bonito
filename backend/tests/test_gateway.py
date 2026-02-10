@@ -41,6 +41,7 @@ class TestGatewayKeyManagement:
         })
         assert resp.status_code == 201
         data = resp.json()
+        assert data["allowed_models"] is not None
         assert data["allowed_models"]["models"] == ["gpt-4o", "claude-3-5-sonnet"]
 
     @pytest.mark.asyncio
@@ -187,7 +188,7 @@ class TestGatewayChat:
             },
         )
         assert resp.status_code == 401
-        assert "Invalid API key format" in resp.json()["detail"]
+        assert "Invalid API key format" in resp.json()["error"]["message"]
 
     @pytest.mark.asyncio
     async def test_chat_rejects_unknown_key(self, client: AsyncClient):
@@ -200,7 +201,7 @@ class TestGatewayChat:
             },
         )
         assert resp.status_code == 401
-        assert "Invalid or revoked" in resp.json()["detail"]
+        assert "Invalid or revoked" in resp.json()["error"]["message"]
 
 
 class TestGatewayConfig:

@@ -35,8 +35,12 @@ class TestProviderType:
 
 
 class TestProviderConnect:
+    # Valid credential payloads for each provider type
+    _AWS_CREDS = {"access_key_id": "A" * 20, "secret_access_key": "B" * 40, "region": "us-east-1"}
+    _GCP_CREDS = {"project_id": "my-project", "service_account_json": '{"type":"sa"}', "region": "us-central1"}
+
     def test_valid_aws(self):
-        pc = ProviderConnect(provider_type="aws", credentials={"key": "val"})
+        pc = ProviderConnect(provider_type="aws", credentials=self._AWS_CREDS)
         assert pc.provider_type == ProviderType.aws
 
     def test_invalid_provider_type(self):
@@ -48,11 +52,11 @@ class TestProviderConnect:
             ProviderConnect(provider_type="aws")
 
     def test_name_optional(self):
-        pc = ProviderConnect(provider_type="gcp", credentials={"a": "b"})
+        pc = ProviderConnect(provider_type="gcp", credentials=self._GCP_CREDS)
         assert pc.name is None
 
     def test_name_provided(self):
-        pc = ProviderConnect(provider_type="gcp", credentials={"a": "b"}, name="My GCP")
+        pc = ProviderConnect(provider_type="gcp", credentials=self._GCP_CREDS, name="My GCP")
         assert pc.name == "My GCP"
 
 

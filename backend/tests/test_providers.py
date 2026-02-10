@@ -119,7 +119,7 @@ async def test_get_provider_not_found(client: AsyncClient, auth_headers):
     fake_id = str(uuid.uuid4())
     resp = await client.get(f"/api/providers/{fake_id}", headers=auth_headers)
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "Provider not found"
+    assert resp.json()["error"]["message"] == "Provider not found"
 
 
 @pytest.mark.asyncio

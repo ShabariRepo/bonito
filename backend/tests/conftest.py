@@ -1,10 +1,11 @@
 """Pytest fixtures for Bonito backend tests."""
 
 import asyncio
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -21,8 +22,21 @@ from app.models.organization import Organization
 # Import all models so Base.metadata.create_all creates all tables
 import app.models  # noqa: F401
 
-# Use in-memory SQLite for tests
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Mark the test environment so middleware (e.g. rate limiter) can skip
+os.environ["TESTING"] = "1"
+
+# Ensure required secrets are available for tests (vault isn't running locally)
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests")
+os.environ.setdefault("JWT_SECRET", "test-secret-key-for-unit-tests")
+
+# Patch the already-instantiated settings object so auth_service picks up the key
+from app.core.config import settings as _settings
+if not _settings.secret_key:
+    _settings.secret_key = "test-secret-key-for-unit-tests"
+
+# Use DATABASE_URL from environment if available (CI sets PostgreSQL),
+# otherwise fall back to in-memory SQLite for local dev.
+TEST_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 
 @pytest.fixture(scope="session")
@@ -111,6 +125,29 @@ async def client_no_redis(test_engine) -> AsyncGenerator[AsyncClient, None]:
         yield ac
 
     fastapi_app.dependency_overrides.clear()
+
+
+# ── Cloud Provider / Vault mocks (auto-use) ─────────────────────
+
+class _FakeCredentialInfo:
+    valid = True
+    account_id = "123456789012"
+    arn = "arn:aws:iam::123456789012:user/test"
+    user_id = "AIDAEXAMPLE"
+    message = "Credentials valid (test)"
+
+
+@pytest.fixture(autouse=True)
+def mock_cloud_providers():
+    """Prevent tests from calling real cloud APIs (AWS STS, Azure, GCP)."""
+    fake = AsyncMock(return_value=_FakeCredentialInfo())
+    with (
+        patch("app.services.providers.aws_bedrock.AWSBedrockProvider.validate_credentials", fake),
+        patch("app.services.providers.azure_foundry.AzureFoundryProvider.validate_credentials", fake),
+        patch("app.services.providers.gcp_vertex.GCPVertexProvider.validate_credentials", fake),
+        patch("app.services.provider_service.store_credentials_in_vault", AsyncMock(return_value="vault:test")),
+    ):
+        yield
 
 
 # ── Auth helpers ─────────────────────────────────────────────────

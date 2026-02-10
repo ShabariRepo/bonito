@@ -1,5 +1,6 @@
 """Security middleware: rate limiting, request IDs, security headers."""
 
+import os
 import uuid
 import time
 import logging
@@ -83,6 +84,10 @@ class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        # Skip rate limiting in test environment
+        if os.environ.get("TESTING"):
+            return await call_next(request)
+
         ip = _client_ip(request)
         path = request.url.path
         limit, window = _get_rate_limit(path)

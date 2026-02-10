@@ -31,7 +31,7 @@ async def test_register_with_weak_password_no_uppercase(client: AsyncClient):
         "name": "Weak User",
     })
     assert resp.status_code == 422
-    assert "uppercase" in resp.json()["detail"].lower()
+    assert "uppercase" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -42,7 +42,7 @@ async def test_register_with_weak_password_no_digit(client: AsyncClient):
         "name": "Weak User",
     })
     assert resp.status_code == 422
-    assert "number" in resp.json()["detail"].lower()
+    assert "number" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_register_with_short_password(client: AsyncClient):
         "name": "Short Pass",
     })
     assert resp.status_code == 422
-    assert "8 characters" in resp.json()["detail"]
+    assert "8 characters" in resp.json()["error"]["message"]
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_register_with_weak_password_no_lowercase(client: AsyncClient):
         "name": "No Lower",
     })
     assert resp.status_code == 422
-    assert "lowercase" in resp.json()["detail"].lower()
+    assert "lowercase" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ async def test_register_duplicate_email(client: AsyncClient):
         "name": "Second User",
     })
     assert resp.status_code == 409
-    assert "already registered" in resp.json()["detail"].lower()
+    assert "already registered" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -106,7 +106,7 @@ async def test_login_wrong_password(client: AsyncClient, test_user):
         "password": "WrongPass123",
     })
     assert resp.status_code == 401
-    assert "Invalid credentials" in resp.json()["detail"]
+    assert "Invalid credentials" in resp.json()["error"]["message"]
 
 
 @pytest.mark.asyncio
@@ -116,7 +116,7 @@ async def test_login_nonexistent_email(client: AsyncClient):
         "password": "Whatever123",
     })
     assert resp.status_code == 401
-    assert "Invalid credentials" in resp.json()["detail"]
+    assert "Invalid credentials" in resp.json()["error"]["message"]
 
 
 @pytest.mark.asyncio
@@ -149,7 +149,7 @@ async def test_login_unverified_email(client: AsyncClient, test_engine):
         "password": "TestPass123",
     })
     assert resp.status_code == 403
-    assert "verify your email" in resp.json()["detail"].lower()
+    assert "verify your email" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -238,7 +238,7 @@ async def test_reset_password_with_expired_token(client: AsyncClient, test_engin
         "password": "NewStrongPass1",
     })
     assert resp.status_code == 400
-    assert "expired" in resp.json()["detail"].lower()
+    assert "expired" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -248,7 +248,7 @@ async def test_reset_password_with_invalid_token(client: AsyncClient):
         "password": "NewStrongPass1",
     })
     assert resp.status_code == 400
-    assert "invalid" in resp.json()["detail"].lower()
+    assert "invalid" in resp.json()["error"]["message"].lower()
 
 
 @pytest.mark.asyncio

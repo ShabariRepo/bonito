@@ -3,10 +3,25 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from sqlalchemy import select, func, cast, Date, String
+from sqlalchemy import select, func, cast, Date, String, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.gateway import GatewayRequest
+
+
+def _is_sqlite(db: AsyncSession) -> bool:
+    """Detect if the session is connected to SQLite."""
+    return db.bind.dialect.name == "sqlite" if db.bind else False
+
+
+def _date_trunc_expr(unit: str, column, db: AsyncSession):
+    """Return a date_trunc expression compatible with both PostgreSQL and SQLite."""
+    if _is_sqlite(db):
+        if unit == "hour":
+            return func.strftime("%Y-%m-%d %H:00:00", column)
+        elif unit == "day":
+            return func.strftime("%Y-%m-%d", column)
+    return func.date_trunc(unit, column)
 
 
 class UsageAnalytics:
@@ -112,12 +127,14 @@ class UsageAnalytics:
             start = now - timedelta(days=30)
 
         # Group by date (day-level granularity for week/month, hour-level for day)
+        sqlite = _is_sqlite(db)
+
         if period == "day":
             # Group by hour
-            # Use date_trunc-style grouping via extract
+            bucket_expr = _date_trunc_expr("hour", GatewayRequest.created_at, db)
             rows = await db.execute(
                 select(
-                    func.date_trunc("hour", GatewayRequest.created_at).label("bucket"),
+                    bucket_expr.label("bucket"),
                     func.count(GatewayRequest.id).label("requests"),
                     func.coalesce(func.sum(GatewayRequest.input_tokens + GatewayRequest.output_tokens), 0).label("tokens"),
                     func.coalesce(func.sum(GatewayRequest.cost), 0).label("cost"),
@@ -129,17 +146,22 @@ class UsageAnalytics:
             )
             data = []
             for row in rows:
+                if sqlite:
+                    label = row.bucket[11:16] if row.bucket else ""
+                else:
+                    label = row.bucket.strftime("%H:00") if row.bucket else ""
                 data.append({
-                    "label": row.bucket.strftime("%H:00") if row.bucket else "",
+                    "label": label,
                     "requests": row.requests,
                     "tokens": int(row.tokens),
                     "cost": round(float(row.cost), 2),
                 })
         else:
             # Group by day
+            bucket_expr = _date_trunc_expr("day", GatewayRequest.created_at, db)
             rows = await db.execute(
                 select(
-                    func.date_trunc("day", GatewayRequest.created_at).label("bucket"),
+                    bucket_expr.label("bucket"),
                     func.count(GatewayRequest.id).label("requests"),
                     func.coalesce(func.sum(GatewayRequest.input_tokens + GatewayRequest.output_tokens), 0).label("tokens"),
                     func.coalesce(func.sum(GatewayRequest.cost), 0).label("cost"),
@@ -152,8 +174,16 @@ class UsageAnalytics:
             fmt = "%a" if period == "week" else "%b %d"
             data = []
             for row in rows:
+                if sqlite:
+                    from datetime import datetime as _dt
+                    try:
+                        label = _dt.strptime(row.bucket, "%Y-%m-%d").strftime(fmt) if row.bucket else ""
+                    except Exception:
+                        label = row.bucket or ""
+                else:
+                    label = row.bucket.strftime(fmt) if row.bucket else ""
                 data.append({
-                    "label": row.bucket.strftime(fmt) if row.bucket else "",
+                    "label": label,
                     "requests": row.requests,
                     "tokens": int(row.tokens),
                     "cost": round(float(row.cost), 2),

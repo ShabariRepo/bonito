@@ -356,6 +356,7 @@ async def create_key(
         key_prefix=key.key_prefix,
         team_id=key.team_id,
         rate_limit=key.rate_limit,
+        allowed_models=key.allowed_models,
         created_at=key.created_at,
         key=raw_key,
     )
@@ -458,6 +459,7 @@ async def update_gateway_config(
         setattr(config, field, value)
     
     await db.flush()
+    await db.refresh(config)
     
     # Reset router to pick up configuration changes
     await gateway_service.reset_router(org_id=user.org_id)
