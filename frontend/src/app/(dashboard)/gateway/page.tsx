@@ -22,6 +22,7 @@ import {
   BarChart3,
   ArrowRight,
 } from "lucide-react";
+import { apiRequest } from "@/lib/auth";
 import { API_URL } from "@/lib/utils";
 
 /* ─── Types ─── */
@@ -165,9 +166,9 @@ export default function GatewayPage() {
   const fetchData = useCallback(async () => {
     try {
       const [usageRes, keysRes, logsRes] = await Promise.all([
-        fetch(`${API_URL}/api/gateway/usage`),
-        fetch(`${API_URL}/api/gateway/keys`),
-        fetch(`${API_URL}/api/gateway/logs?limit=20`),
+        apiRequest("/api/gateway/usage"),
+        apiRequest("/api/gateway/keys"),
+        apiRequest("/api/gateway/logs?limit=20"),
       ]);
       if (usageRes.ok) setUsage(await usageRes.json());
       if (keysRes.ok) setKeys(await keysRes.json());
@@ -185,7 +186,7 @@ export default function GatewayPage() {
     if (!newKeyName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch(`${API_URL}/api/gateway/keys`, {
+      const res = await apiRequest("/api/gateway/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName }),
@@ -203,7 +204,7 @@ export default function GatewayPage() {
 
   const revokeKey = async (id: string) => {
     if (!confirm("Revoke this API key? This cannot be undone.")) return;
-    const res = await fetch(`${API_URL}/api/gateway/keys/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`/api/gateway/keys/${id}`, { method: "DELETE" });
     if (res.ok) fetchData();
   };
 

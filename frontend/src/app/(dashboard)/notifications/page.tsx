@@ -15,7 +15,7 @@ import {
   Check,
   Filter,
 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const TYPE_CONFIG: Record<string, { icon: any; color: string; label: string }> = {
   cost_alert: { icon: DollarSign, color: "text-amber-500", label: "Cost Alert" },
@@ -35,9 +35,9 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const url = filter
-        ? `${API_URL}/api/notifications/?type=${filter}`
-        : `${API_URL}/api/notifications/`;
-      const res = await fetch(url);
+        ? `/api/notifications/?type=${filter}`
+        : `/api/notifications/`;
+      const res = await apiRequest(url);
       const data = await res.json();
       setNotifications(data.items);
       setTotal(data.total);
@@ -53,7 +53,7 @@ export default function NotificationsPage() {
 
   async function markRead(id: string) {
     try {
-      await fetch(`${API_URL}/api/notifications/${id}/read`, { method: "PUT" });
+      await apiRequest(`/api/notifications/${id}/read`, { method: "PUT" });
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );

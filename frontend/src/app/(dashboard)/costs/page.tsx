@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { DollarSign, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Download, PieChart, BarChart3, Activity } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 /* ─── Animated counter ─── */
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0, duration = 1.2 }: {
@@ -146,9 +146,9 @@ export default function CostsPage() {
       setLoading(true);
       try {
         const [s, b, f] = await Promise.all([
-          fetch(`${API_URL}/api/costs/?period=${period}`).then(r => r.json()),
-          fetch(`${API_URL}/api/costs/breakdown`).then(r => r.json()),
-          fetch(`${API_URL}/api/costs/forecast`).then(r => r.json()),
+          apiRequest(`/api/costs/?period=${period}`).then(r => r.json()),
+          apiRequest("/api/costs/breakdown").then(r => r.json()),
+          apiRequest("/api/costs/forecast").then(r => r.json()),
         ]);
         setSummary(s);
         setBreakdown(b);

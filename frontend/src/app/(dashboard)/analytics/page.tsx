@@ -16,7 +16,7 @@ import {
   Minus,
   Zap,
 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 /* ─── Animated counter ─── */
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: {
@@ -114,10 +114,10 @@ export default function AnalyticsPage() {
       setLoading(true);
       try {
         const [o, u, c, t] = await Promise.all([
-          fetch(`${API_URL}/api/analytics/overview`).then(r => r.json()),
-          fetch(`${API_URL}/api/analytics/usage?period=${period}`).then(r => r.json()),
-          fetch(`${API_URL}/api/analytics/costs`).then(r => r.json()),
-          fetch(`${API_URL}/api/analytics/trends`).then(r => r.json()),
+          apiRequest("/api/analytics/overview").then(r => r.json()),
+          apiRequest(`/api/analytics/usage?period=${period}`).then(r => r.json()),
+          apiRequest("/api/analytics/costs").then(r => r.json()),
+          apiRequest("/api/analytics/trends").then(r => r.json()),
         ]);
         setOverview(o);
         setUsage(u);

@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, RefreshCw, Trash2, Activity, Box, Zap, Shield, Globe, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
@@ -60,7 +60,7 @@ export default function ProviderDetailPage() {
 
   const fetchProvider = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/providers/${params.id}`);
+      const res = await apiRequest(`/api/providers/${params.id}`);
       if (res.ok) setProvider(await res.json());
     } catch (err) {
       console.error(err);
@@ -74,7 +74,7 @@ export default function ProviderDetailPage() {
   const handleVerify = async () => {
     setVerifying(true);
     try {
-      const res = await fetch(`${API_URL}/api/providers/${params.id}/verify`, { method: "POST" });
+      const res = await apiRequest(`/api/providers/${params.id}/verify`, { method: "POST" });
       if (res.ok) await fetchProvider();
     } finally {
       setVerifying(false);
@@ -85,7 +85,7 @@ export default function ProviderDetailPage() {
     if (!confirm("Disconnect this provider? This won't delete any deployed models.")) return;
     setDeleting(true);
     try {
-      await fetch(`${API_URL}/api/providers/${params.id}`, { method: "DELETE" });
+      await apiRequest(`/api/providers/${params.id}`, { method: "DELETE" });
       router.push("/providers");
     } finally {
       setDeleting(false);

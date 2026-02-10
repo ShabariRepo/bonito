@@ -19,7 +19,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 import { AnimatedCard } from "@/components/ui/animated-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHeader } from "@/components/ui/page-header";
@@ -116,7 +116,7 @@ export default function ProvidersPage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/providers/`);
+      const res = await apiRequest("/api/providers/");
       if (res.ok) {
         const data: Provider[] = await res.json();
         setProviders(data);
@@ -125,7 +125,7 @@ export default function ProvidersPage() {
         await Promise.all(
           data.map(async (p) => {
             try {
-              const sRes = await fetch(`${API_URL}/api/providers/${p.id}/summary`);
+              const sRes = await apiRequest(`/api/providers/${p.id}/summary`);
               if (sRes.ok) {
                 summaryMap[p.id] = await sRes.json();
               }
@@ -149,7 +149,7 @@ export default function ProvidersPage() {
     setRevalidating(providerId);
     setRevalidateResult((prev) => ({ ...prev, [providerId]: undefined as any }));
     try {
-      const res = await fetch(`${API_URL}/api/providers/${providerId}/verify`, {
+      const res = await apiRequest(`/api/providers/${providerId}/verify`, {
         method: "POST",
       });
       if (res.ok) {
@@ -179,7 +179,7 @@ export default function ProvidersPage() {
   const handleDisconnect = async (providerId: string) => {
     setDisconnecting(providerId);
     try {
-      const res = await fetch(`${API_URL}/api/providers/${providerId}`, {
+      const res = await apiRequest(`/api/providers/${providerId}`, {
         method: "DELETE",
       });
       if (res.ok || res.status === 204) {
@@ -219,8 +219,8 @@ export default function ProvidersPage() {
     setEditError(null);
     setEditSuccess(false);
     try {
-      const res = await fetch(
-        `${API_URL}/api/providers/${editingProvider.id}/credentials`,
+      const res = await apiRequest(
+        `/api/providers/${editingProvider.id}/credentials`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

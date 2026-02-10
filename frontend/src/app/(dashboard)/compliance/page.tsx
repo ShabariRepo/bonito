@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 interface Framework {
   name: string;
@@ -111,8 +111,8 @@ export default function CompliancePage() {
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
 
   const loadData = () => {
-    fetch(`${API_URL}/api/compliance/status`).then(r => r.json()).then(setStatus).catch(() => {});
-    fetch(`${API_URL}/api/compliance/checks`).then(r => r.json()).then(setChecks).catch(() => {});
+    apiRequest("/api/compliance/status").then(r => r.json()).then(setStatus).catch(() => {});
+    apiRequest("/api/compliance/checks").then(r => r.json()).then(setChecks).catch(() => {});
   };
 
   useEffect(() => { loadData(); }, []);
@@ -120,7 +120,7 @@ export default function CompliancePage() {
   const runScan = async () => {
     setScanning(true);
     try {
-      await fetch(`${API_URL}/api/compliance/scan`, { method: "POST" });
+      await apiRequest("/api/compliance/scan", { method: "POST" });
       await new Promise(r => setTimeout(r, 2000));
       loadData();
     } finally {
@@ -129,7 +129,7 @@ export default function CompliancePage() {
   };
 
   const exportReport = async () => {
-    const res = await fetch(`${API_URL}/api/compliance/report`);
+    const res = await apiRequest("/api/compliance/report");
     const data = await res.json();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Rocket, MoreVertical, Globe, Cpu, Clock, Plus, Trash2, RefreshCw } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 interface Deployment {
   id: string;
@@ -41,7 +41,7 @@ export default function DeploymentsPage() {
 
   const fetchDeployments = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/deployments/`);
+      const res = await apiRequest("/api/deployments/");
       if (res.ok) setDeployments(await res.json());
     } catch (e) {
       console.error("Failed to fetch deployments", e);
@@ -56,7 +56,7 @@ export default function DeploymentsPage() {
     if (!newName || !newModel) return;
     setCreating(true);
     try {
-      const res = await fetch(`${API_URL}/api/deployments/`, {
+      const res = await apiRequest("/api/deployments/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName, model_id: newModel }),
@@ -74,7 +74,7 @@ export default function DeploymentsPage() {
 
   const deleteDeployment = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/deployments/${id}`, { method: "DELETE" });
+      await apiRequest(`/api/deployments/${id}`, { method: "DELETE" });
       setDeleteConfirm(null);
       fetchDeployments();
     } catch {}
@@ -83,7 +83,7 @@ export default function DeploymentsPage() {
   const toggleStatus = async (d: Deployment) => {
     const newStatus = d.status === "active" ? "stopped" : "active";
     try {
-      await fetch(`${API_URL}/api/deployments/${d.id}`, {
+      await apiRequest(`/api/deployments/${d.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),

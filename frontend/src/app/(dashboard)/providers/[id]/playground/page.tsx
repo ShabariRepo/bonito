@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Send, Loader2, Zap, Clock, DollarSign, Hash, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,7 @@ export default function PlaygroundPage() {
   const textRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/providers/${providerId}/models`)
+    apiRequest(`/api/providers/${providerId}/models`)
       .then((r) => r.json())
       .then((data) => {
         // Filter to text-capable models only
@@ -82,7 +82,7 @@ export default function PlaygroundPage() {
     setError(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/providers/${providerId}/invoke`, {
+      const res = await apiRequest(`/api/providers/${providerId}/invoke`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const strategies = [
   { id: "cost-optimized", name: "Cost Optimized", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", desc: "Route to cheapest provider" },
@@ -70,13 +70,13 @@ export default function RoutingPage() {
   const [activeTab, setActiveTab] = useState<"rules" | "simulate" | "analytics">("rules");
 
   useEffect(() => {
-    fetch(`${API_URL}/api/routing/rules`).then(r => r.json()).then(setRules).catch(() => {});
-    fetch(`${API_URL}/api/routing/analytics`).then(r => r.json()).then(setAnalytics).catch(() => {});
+    apiRequest("/api/routing/rules").then(r => r.json()).then(setRules).catch(() => {});
+    apiRequest("/api/routing/analytics").then(r => r.json()).then(setAnalytics).catch(() => {});
   }, []);
 
   const createRule = async () => {
     if (!newRuleName) return;
-    const res = await fetch(`${API_URL}/api/routing/rules`, {
+    const res = await apiRequest("/api/routing/rules", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newRuleName, strategy: newRuleStrategy, priority: rules.length }),
@@ -90,7 +90,7 @@ export default function RoutingPage() {
   };
 
   const deleteRule = async (id: string) => {
-    await fetch(`${API_URL}/api/routing/rules/${id}`, { method: "DELETE" });
+    await apiRequest(`/api/routing/rules/${id}`, { method: "DELETE" });
     setRules(rules.filter(r => r.id !== id));
   };
 
@@ -99,7 +99,7 @@ export default function RoutingPage() {
     setSimulating(true);
     setSimResult(null);
     try {
-      const res = await fetch(`${API_URL}/api/routing/simulate`, {
+      const res = await apiRequest("/api/routing/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt_description: simPrompt, model_type: "chat" }),

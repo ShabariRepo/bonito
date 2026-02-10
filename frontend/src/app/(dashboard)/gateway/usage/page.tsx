@@ -17,7 +17,7 @@ import {
   Download,
   BarChart3,
 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 /* ─── Types ─── */
 
@@ -199,8 +199,8 @@ export default function GatewayUsagePage() {
     setLoading(true);
     try {
       const [usageRes, logsRes] = await Promise.all([
-        fetch(`${API_URL}/api/gateway/usage?days=${timeRange}`),
-        fetch(`${API_URL}/api/gateway/logs?limit=1000${selectedModel ? `&model=${selectedModel}` : ''}`),
+        apiRequest(`/api/gateway/usage?days=${timeRange}`),
+        apiRequest(`/api/gateway/logs?limit=1000${selectedModel ? `&model=${selectedModel}` : ''}`),
       ]);
       if (usageRes.ok) setUsage(await usageRes.json());
       if (logsRes.ok) setLogs(await logsRes.json());
@@ -215,7 +215,7 @@ export default function GatewayUsagePage() {
 
   const exportData = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/gateway/logs?limit=10000`);
+      const res = await apiRequest("/api/gateway/logs?limit=10000");
       if (res.ok) {
         const logs = await res.json();
         const csvContent = [

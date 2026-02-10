@@ -16,7 +16,7 @@ import {
   Shield,
   X,
 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 /* ─── Types ─── */
 
@@ -260,7 +260,7 @@ export default function GatewayKeysPage() {
 
   const fetchKeys = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/gateway/keys`);
+      const res = await apiRequest("/api/gateway/keys");
       if (res.ok) setKeys(await res.json());
     } catch (e) {
       console.error("Failed to fetch keys:", e);
@@ -272,7 +272,7 @@ export default function GatewayKeysPage() {
   useEffect(() => { fetchKeys(); }, [fetchKeys]);
 
   const createKey = async (keyData: any) => {
-    const res = await fetch(`${API_URL}/api/gateway/keys`, {
+    const res = await apiRequest("/api/gateway/keys", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(keyData),
@@ -286,7 +286,7 @@ export default function GatewayKeysPage() {
 
   const revokeKey = async (id: string) => {
     if (!confirm("Revoke this API key? This cannot be undone.")) return;
-    const res = await fetch(`${API_URL}/api/gateway/keys/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`/api/gateway/keys/${id}`, { method: "DELETE" });
     if (res.ok) fetchKeys();
   };
 

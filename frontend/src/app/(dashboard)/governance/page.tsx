@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Shield, Plus, X, Lock, DollarSign, Globe, Database, Trash2 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const TYPE_META: Record<string, { icon: typeof Shield; color: string; label: string }> = {
   model_access: { icon: Lock, color: "text-violet-400", label: "Model Access" },
@@ -38,7 +38,7 @@ export default function GovernancePage() {
 
   const fetchPolicies = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/policies/`);
+      const res = await apiRequest("/api/policies/");
       if (res.ok) setPolicies(await res.json());
     } catch {} finally { setLoading(false); }
   };
@@ -46,7 +46,7 @@ export default function GovernancePage() {
   useEffect(() => { fetchPolicies(); }, []);
 
   const togglePolicy = async (id: string, enabled: boolean) => {
-    await fetch(`${API_URL}/api/policies/${id}`, {
+    await apiRequest(`/api/policies/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: !enabled }),
@@ -56,7 +56,7 @@ export default function GovernancePage() {
 
   const createPolicy = async () => {
     if (!newName) return;
-    await fetch(`${API_URL}/api/policies/`, {
+    await apiRequest("/api/policies/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newName, type: newType, description: newDesc, rules_json: {}, enabled: true }),
@@ -66,7 +66,7 @@ export default function GovernancePage() {
   };
 
   const deletePolicy = async (id: string) => {
-    await fetch(`${API_URL}/api/policies/${id}`, { method: "DELETE" });
+    await apiRequest(`/api/policies/${id}`, { method: "DELETE" });
     setDeleteConfirm(null);
     fetchPolicies();
   };

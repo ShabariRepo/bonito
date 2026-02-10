@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 interface GatewayKey {
   id: string;
@@ -60,7 +60,7 @@ export default function SettingsPage() {
 
   // Load notification preferences from backend
   useEffect(() => {
-    fetch(`${API_URL}/api/notifications/preferences`)
+    apiRequest("/api/notifications/preferences")
       .then(r => r.json())
       .then(prefs => {
         if (prefs) {
@@ -82,7 +82,7 @@ export default function SettingsPage() {
   const fetchKeys = async () => {
     setKeysLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/gateway/keys`);
+      const res = await apiRequest("/api/gateway/keys");
       if (res.ok) setApiKeys(await res.json());
     } catch {} finally {
       setKeysLoading(false);
@@ -95,7 +95,7 @@ export default function SettingsPage() {
     if (!newKeyName.trim()) return;
     setCreatingKey(true);
     try {
-      const res = await fetch(`${API_URL}/api/gateway/keys`, {
+      const res = await apiRequest("/api/gateway/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName }),
@@ -112,7 +112,7 @@ export default function SettingsPage() {
   };
 
   const revokeKey = async (id: string) => {
-    await fetch(`${API_URL}/api/gateway/keys/${id}`, { method: "DELETE" });
+    await apiRequest(`/api/gateway/keys/${id}`, { method: "DELETE" });
     fetchKeys();
   };
 
@@ -124,7 +124,7 @@ export default function SettingsPage() {
 
   const saveNotificationPrefs = async () => {
     try {
-      await fetch(`${API_URL}/api/notifications/preferences`, {
+      await apiRequest("/api/notifications/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

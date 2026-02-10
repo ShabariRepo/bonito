@@ -18,7 +18,7 @@ import {
   Smartphone,
   X,
 } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const TYPE_OPTIONS = [
   { value: "budget_threshold", label: "Budget Threshold", icon: DollarSign, description: "Alert when spending exceeds a percentage of budget" },
@@ -41,7 +41,7 @@ export default function AlertsPage() {
   async function loadRules() {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/alert-rules/`);
+      const res = await apiRequest("/api/alert-rules/");
       setRules(await res.json());
     } catch (e) {
       console.error("Failed to load alert rules", e);
@@ -54,7 +54,7 @@ export default function AlertsPage() {
 
   async function createRule() {
     try {
-      const res = await fetch(`${API_URL}/api/alert-rules/`, {
+      const res = await apiRequest("/api/alert-rules/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newRule),
@@ -71,7 +71,7 @@ export default function AlertsPage() {
 
   async function toggleRule(id: string, enabled: boolean) {
     try {
-      await fetch(`${API_URL}/api/alert-rules/${id}`, {
+      await apiRequest(`/api/alert-rules/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled: !enabled }),
@@ -84,7 +84,7 @@ export default function AlertsPage() {
 
   async function deleteRule(id: string) {
     try {
-      await fetch(`${API_URL}/api/alert-rules/${id}`, { method: "DELETE" });
+      await apiRequest(`/api/alert-rules/${id}`, { method: "DELETE" });
       setRules((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error("Failed to delete rule", e);

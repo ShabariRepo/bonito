@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Users, Plus, Mail, Shield, Edit, Trash2, X, ChevronDown, UserPlus } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const ROLE_STYLES: Record<string, { color: string; bg: string }> = {
   admin: { color: "text-violet-400", bg: "bg-violet-500/15" },
@@ -48,7 +48,7 @@ export default function TeamPage() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/users/`);
+      const res = await apiRequest("/api/users/");
       if (res.ok) setUsers(await res.json());
     } catch {} finally { setLoading(false); }
   };
@@ -58,7 +58,7 @@ export default function TeamPage() {
   const inviteUser = async () => {
     if (!inviteEmail || !inviteName) return;
     try {
-      await fetch(`${API_URL}/api/users/`, {
+      await apiRequest("/api/users/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail, name: inviteName, role: inviteRole }),
@@ -71,7 +71,7 @@ export default function TeamPage() {
 
   const changeRole = async (id: string, role: string) => {
     try {
-      await fetch(`${API_URL}/api/users/${id}/role`, {
+      await apiRequest(`/api/users/${id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
@@ -83,7 +83,7 @@ export default function TeamPage() {
 
   const removeUser = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/users/${id}`, { method: "DELETE" });
+      await apiRequest(`/api/users/${id}`, { method: "DELETE" });
       setDeleteConfirm(null);
       fetchUsers();
     } catch {}

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { PageHeader } from "@/components/ui/page-header";
 import { Box, Sparkles, MessageSquare, Image, Code, Search } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 interface Model {
   id: string;
@@ -55,13 +55,13 @@ export default function ModelsPage() {
     async function fetchModels() {
       try {
         // Try DB models first; if empty, trigger a sync then retry
-        let res = await fetch(`${API_URL}/api/models/`);
+        let res = await apiRequest("/api/models/");
         if (res.ok) {
           let data = await res.json();
           if (data.length === 0) {
             // Auto-sync from providers
-            await fetch(`${API_URL}/api/models/sync`, { method: "POST" });
-            res = await fetch(`${API_URL}/api/models/`);
+            await apiRequest("/api/models/sync", { method: "POST" });
+            res = await apiRequest("/api/models/");
             if (res.ok) data = await res.json();
           }
           setModels(data);

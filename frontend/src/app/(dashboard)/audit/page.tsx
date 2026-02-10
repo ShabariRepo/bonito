@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { ScrollText, Download, ChevronDown, ChevronRight, Filter, Search, X } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const ACTION_STYLES: Record<string, { color: string; bg: string; label: string }> = {
   create: { color: "text-emerald-400", bg: "bg-emerald-500/15", label: "Created" },
@@ -52,7 +52,7 @@ export default function AuditPage() {
       const params = new URLSearchParams({ page: String(p), page_size: "20" });
       if (filterAction) params.set("action", filterAction);
       if (filterUser) params.set("user_name", filterUser);
-      const res = await fetch(`${API_URL}/api/audit/?${params}`);
+      const res = await apiRequest(`/api/audit/?${params}`);
       if (res.ok) {
         const data = await res.json();
         setLogs(prev => append ? [...prev, ...data.items] : data.items);

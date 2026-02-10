@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Box, Cloud, Rocket, Activity, TrendingUp, Zap, Plus, ArrowRight, DollarSign } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -69,7 +69,7 @@ export default function DashboardPage() {
     async function fetchAll() {
       try {
         // Fetch providers
-        const provRes = await fetch(`${API_URL}/api/providers/`);
+        const provRes = await apiRequest("/api/providers/");
         let provs: Provider[] = [];
         if (provRes.ok) {
           provs = await provRes.json();
@@ -84,9 +84,9 @@ export default function DashboardPage() {
 
         // Fetch in parallel: costs, audit, models
         const [costRes, auditRes, modelsRes] = await Promise.allSettled([
-          fetch(`${API_URL}/api/costs/?period=monthly`),
-          fetch(`${API_URL}/api/audit/`),
-          fetch(`${API_URL}/api/models/`),
+          apiRequest("/api/costs/?period=monthly"),
+          apiRequest("/api/audit/"),
+          apiRequest("/api/models/"),
         ]);
 
         if (costRes.status === "fulfilled" && costRes.value.ok) {

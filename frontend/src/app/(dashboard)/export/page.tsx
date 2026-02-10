@@ -11,7 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 const formats = [
   {
@@ -58,7 +58,7 @@ export default function ExportPage() {
     setLoading(true);
     setCode("");
     try {
-      const res = await fetch(`${API_URL}/api/export/${format}`, {
+      const res = await apiRequest(`/api/export/${format}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ providers: selectedProviders, naming_prefix: namingPrefix }),
