@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Shield, Plus, X, Lock, DollarSign, Globe, Database, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 const TYPE_META: Record<string, { icon: typeof Shield; color: string; label: string }> = {
   model_access: { icon: Lock, color: "text-violet-400", label: "Model Access" },
@@ -30,6 +31,7 @@ function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: () =>
 export default function GovernancePage() {
   const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("model_access");
@@ -37,10 +39,18 @@ export default function GovernancePage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const fetchPolicies = async () => {
+    setError(null);
     try {
       const res = await apiRequest("/api/policies/");
-      if (res.ok) setPolicies(await res.json());
-    } catch {} finally { setLoading(false); }
+      if (res.ok) {
+        setPolicies(await res.json());
+      } else {
+        throw new Error("Failed to load policies");
+      }
+    } catch (e) {
+      console.error("Failed to load policies", e);
+      setError("Failed to load governance policies. Please check your connection and try again.");
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchPolicies(); }, []);
@@ -90,6 +100,8 @@ export default function GovernancePage() {
           </motion.button>
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={fetchPolicies} />}
 
       {policies.length === 0 ? (
         <motion.div

@@ -109,28 +109,32 @@ export default function AnalyticsPage() {
   const [trends, setTrends] = useState<any>(null);
   const [period, setPeriod] = useState("day");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAnalytics = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [o, u, c, t] = await Promise.all([
+        apiRequest("/api/analytics/overview").then(r => { if (!r.ok) throw new Error("overview"); return r.json(); }),
+        apiRequest(`/api/analytics/usage?period=${period}`).then(r => { if (!r.ok) throw new Error("usage"); return r.json(); }),
+        apiRequest("/api/analytics/costs").then(r => { if (!r.ok) throw new Error("costs"); return r.json(); }),
+        apiRequest("/api/analytics/trends").then(r => { if (!r.ok) throw new Error("trends"); return r.json(); }),
+      ]);
+      setOverview(o);
+      setUsage(u);
+      setCosts(c);
+      setTrends(t);
+    } catch (e) {
+      console.error("Failed to load analytics", e);
+      setError("Failed to load analytics data. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [o, u, c, t] = await Promise.all([
-          apiRequest("/api/analytics/overview").then(r => r.json()),
-          apiRequest(`/api/analytics/usage?period=${period}`).then(r => r.json()),
-          apiRequest("/api/analytics/costs").then(r => r.json()),
-          apiRequest("/api/analytics/trends").then(r => r.json()),
-        ]);
-        setOverview(o);
-        setUsage(u);
-        setCosts(c);
-        setTrends(t);
-      } catch (e) {
-        console.error("Failed to load analytics", e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    loadAnalytics();
   }, [period]);
 
   if (loading) {
@@ -158,6 +162,8 @@ export default function AnalyticsPage() {
           </div>
         }
       />
+
+      {error && <ErrorBanner message={error} onRetry={loadAnalytics} />}
 
       {/* Overview cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
