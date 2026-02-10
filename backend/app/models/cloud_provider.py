@@ -21,5 +21,5 @@ class CloudProvider(Base):
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     organization = relationship("Organization", back_populates="cloud_providers")
-    models = relationship("Model", back_populates="provider")
-    deployments = relationship("Deployment", back_populates="provider")
+    models = relationship("Model", back_populates="provider", passive_deletes=True)
+    deployments = relationship("Deployment", back_populates="provider", passive_deletes=True)
