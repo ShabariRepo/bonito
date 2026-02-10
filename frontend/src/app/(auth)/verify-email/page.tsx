@@ -3,8 +3,8 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { verifyEmail } from "@/lib/auth";
-import { CheckCircle, XCircle, Mail, Loader2 } from "lucide-react";
+import { verifyEmail, resendVerification } from "@/lib/auth";
+import { CheckCircle, XCircle, Mail, Loader2, RefreshCw } from "lucide-react";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
@@ -67,6 +67,23 @@ function VerifyEmailContent() {
   }
 
   // Pending - show "check your email" message
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
+
+  const handleResend = async () => {
+    if (!email || resending) return;
+    setResending(true);
+    setResendMsg("");
+    try {
+      await resendVerification(email);
+      setResendMsg("Verification email sent!");
+    } catch (err: unknown) {
+      setResendMsg(err instanceof Error ? err.message : "Failed to resend");
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
     <div className="text-center">
       <Mail className="w-16 h-16 text-[#7c3aed] mx-auto mb-4" />
@@ -76,12 +93,25 @@ function VerifyEmailContent() {
         {email ? <span className="text-[#f5f0e8] font-medium">{email}</span> : "your email"}
       </p>
       <p className="text-[#666] text-sm mb-6">Click the link in the email to verify your account.</p>
-      <Link
-        href="/login"
-        className="text-[#7c3aed] hover:text-[#8b5cf6] text-sm transition"
-      >
-        Back to login
-      </Link>
+      {email && (
+        <button
+          onClick={handleResend}
+          disabled={resending}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#333] text-[#f5f0e8] text-sm rounded-lg transition mb-4 disabled:opacity-50"
+        >
+          {resending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Resend verification email
+        </button>
+      )}
+      {resendMsg && <p className="text-sm text-[#888] mb-4">{resendMsg}</p>}
+      <div>
+        <Link
+          href="/login"
+          className="text-[#7c3aed] hover:text-[#8b5cf6] text-sm transition"
+        >
+          Back to login
+        </Link>
+      </div>
     </div>
   );
 }

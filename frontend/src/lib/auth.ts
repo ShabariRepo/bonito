@@ -90,6 +90,19 @@ export async function verifyEmail(token: string) {
   return res.json();
 }
 
+export async function resendVerification(email: string) {
+  const res = await fetch(`${API_URL}/api/auth/resend-verification`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to resend");
+  }
+  return res.json();
+}
+
 export async function forgotPassword(email: string) {
   const res = await fetch(`${API_URL}/api/auth/forgot-password`, {
     method: "POST",
