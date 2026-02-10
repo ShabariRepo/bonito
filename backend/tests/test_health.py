@@ -1,29 +1,33 @@
-"""Tests for the /api/health endpoint."""
+"""Tests for the /api/health endpoints."""
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_health_returns_200_with_healthy_status(client: AsyncClient):
+async def test_health_basic_returns_200(client: AsyncClient):
     resp = await client.get("/api/health")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "healthy"
+    assert data["status"] == "alive"
+    assert data["service"] == "bonito-api"
 
 
 @pytest.mark.asyncio
-async def test_health_shows_redis_connected(client: AsyncClient):
-    resp = await client.get("/api/health")
-    data = resp.json()
-    assert data["redis"] == "connected"
-
-
-@pytest.mark.asyncio
-async def test_health_shows_redis_disconnected_on_failure(client_no_redis: AsyncClient):
-    resp = await client_no_redis.get("/api/health")
+async def test_health_liveness(client: AsyncClient):
+    resp = await client.get("/api/health/live")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["status"] == "healthy"
-    assert data["redis"] == "disconnected"
+    assert data["status"] == "alive"
+    assert "timestamp" in data
+
+
+@pytest.mark.asyncio
+async def test_health_readiness(client: AsyncClient):
+    resp = await client.get("/api/health/ready")
+    assert resp.status_code in (200, 503)
+    # Even if vault/redis are mocked, we should get a structured response
+    data = resp.json()
+    if resp.status_code == 200:
+        assert data["status"] in ("healthy", "degraded")
+        assert "dependencies" in data

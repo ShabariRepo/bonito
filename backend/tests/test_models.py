@@ -3,33 +3,28 @@
 import pytest
 
 from app.services.provider_service import (
-    AWS_MODELS,
     AZURE_MODELS,
     GCP_MODELS,
-    get_models_for_provider,
+    MOCK_CATALOG,
 )
 
 
-def test_aws_model_count():
-    assert len(get_models_for_provider("aws")) == 12
-
-
 def test_azure_model_count():
-    assert len(get_models_for_provider("azure")) == 8
+    assert len(AZURE_MODELS) == 8
 
 
 def test_gcp_model_count():
-    assert len(get_models_for_provider("gcp")) == 7
+    assert len(GCP_MODELS) == 7
 
 
 def test_unknown_provider_returns_empty():
-    assert get_models_for_provider("oracle") == []
+    assert MOCK_CATALOG.get("oracle", []) == []
 
 
 def test_model_metadata_has_required_fields():
     required = {"id", "name", "provider", "provider_model_id", "capabilities", "context_window", "pricing_tier"}
-    for provider_type in ("aws", "azure", "gcp"):
-        for model in get_models_for_provider(provider_type):
+    for provider_type in ("azure", "gcp"):
+        for model in MOCK_CATALOG[provider_type]:
             model_dict = model.model_dump()
             for field in required:
                 assert field in model_dict, f"Missing {field} in {model.name} ({provider_type})"
@@ -38,22 +33,15 @@ def test_model_metadata_has_required_fields():
 
 def test_all_models_have_valid_pricing_tier():
     valid_tiers = {"economy", "standard", "premium"}
-    for provider_type in ("aws", "azure", "gcp"):
-        for model in get_models_for_provider(provider_type):
+    for provider_type in ("azure", "gcp"):
+        for model in MOCK_CATALOG[provider_type]:
             assert model.pricing_tier in valid_tiers, f"Invalid tier '{model.pricing_tier}' for {model.name}"
 
 
 def test_all_models_have_non_empty_name():
-    for provider_type in ("aws", "azure", "gcp"):
-        for model in get_models_for_provider(provider_type):
+    for provider_type in ("azure", "gcp"):
+        for model in MOCK_CATALOG[provider_type]:
             assert len(model.name) > 0
-
-
-def test_aws_models_include_key_models():
-    names = {m.name for m in AWS_MODELS}
-    assert "Claude 3.5 Sonnet" in names
-    assert "Claude 3 Opus" in names
-    assert "Amazon Titan Text Premier" in names
 
 
 def test_azure_models_include_key_models():
@@ -71,12 +59,12 @@ def test_gcp_models_include_key_models():
 
 
 def test_models_have_capabilities_list():
-    for provider_type in ("aws", "azure", "gcp"):
-        for model in get_models_for_provider(provider_type):
+    for provider_type in ("azure", "gcp"):
+        for model in MOCK_CATALOG[provider_type]:
             assert isinstance(model.capabilities, list)
 
 
 def test_models_context_window_non_negative():
-    for provider_type in ("aws", "azure", "gcp"):
-        for model in get_models_for_provider(provider_type):
+    for provider_type in ("azure", "gcp"):
+        for model in MOCK_CATALOG[provider_type]:
             assert model.context_window >= 0

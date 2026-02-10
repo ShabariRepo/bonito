@@ -2,6 +2,7 @@
 
 import asyncio
 import uuid
+from datetime import datetime, timezone
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,7 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.database import Base, get_db
 from app.core.redis import get_redis
-from app.main import app
+from app.main import app as fastapi_app
+from app.services import auth_service
+from app.models.user import User
+from app.models.organization import Organization
 
 # Import all models so Base.metadata.create_all creates all tables
 import app.models  # noqa: F401
@@ -47,7 +51,20 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(test_engine) -> AsyncGenerator[AsyncClient, None]:
+async def mock_redis():
+    """Create a mock Redis that supports basic operations."""
+    mock = AsyncMock()
+    mock.ping = AsyncMock(return_value=True)
+    mock.get = AsyncMock(return_value=None)
+    mock.set = AsyncMock(return_value=True)
+    mock.delete = AsyncMock(return_value=1)
+    mock.incr = AsyncMock(return_value=1)
+    mock.expire = AsyncMock(return_value=True)
+    return mock
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(test_engine, mock_redis) -> AsyncGenerator[AsyncClient, None]:
     session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
@@ -59,17 +76,14 @@ async def client(test_engine) -> AsyncGenerator[AsyncClient, None]:
                 await session.rollback()
                 raise
 
-    mock_redis = AsyncMock()
-    mock_redis.ping = AsyncMock(return_value=True)
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_redis] = lambda: mock_redis
 
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_redis] = lambda: mock_redis
-
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -89,14 +103,106 @@ async def client_no_redis(test_engine) -> AsyncGenerator[AsyncClient, None]:
     mock_redis = AsyncMock()
     mock_redis.ping = AsyncMock(side_effect=ConnectionError("Redis down"))
 
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_redis] = lambda: mock_redis
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_redis] = lambda: mock_redis
 
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
-    app.dependency_overrides.clear()
+    fastapi_app.dependency_overrides.clear()
+
+
+# ── Auth helpers ─────────────────────────────────────────────────
+
+@pytest_asyncio.fixture(scope="function")
+async def test_org(test_engine) -> Organization:
+    """Create a test organization and return it."""
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        org = Organization(name="Test Organization")
+        session.add(org)
+        await session.commit()
+        await session.refresh(org)
+        return org
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_org_b(test_engine) -> Organization:
+    """Create a second test organization for multi-tenancy tests."""
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        org = Organization(name="Other Organization")
+        session.add(org)
+        await session.commit()
+        await session.refresh(org)
+        return org
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_user(test_engine, test_org) -> User:
+    """Create a verified test user with known credentials."""
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        user = User(
+            email="test@bonito.ai",
+            hashed_password=auth_service.hash_password("TestPass123"),
+            name="Test User",
+            org_id=test_org.id,
+            role="admin",
+            email_verified=True,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_user_b(test_engine, test_org_b) -> User:
+    """Create a verified test user in org B."""
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        user = User(
+            email="other@bonito.ai",
+            hashed_password=auth_service.hash_password("TestPass123"),
+            name="Other User",
+            org_id=test_org_b.id,
+            role="admin",
+            email_verified=True,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def auth_token(test_user, test_org) -> str:
+    """Get a valid JWT access token for the test user."""
+    return auth_service.create_access_token(
+        str(test_user.id), str(test_org.id), test_user.role
+    )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def auth_token_b(test_user_b, test_org_b) -> str:
+    """Get a valid JWT access token for the test user in org B."""
+    return auth_service.create_access_token(
+        str(test_user_b.id), str(test_org_b.id), test_user_b.role
+    )
+
+
+@pytest_asyncio.fixture(scope="function")
+async def auth_headers(auth_token) -> dict:
+    """Return authorization headers for the test user."""
+    return {"Authorization": f"Bearer {auth_token}"}
+
+
+@pytest_asyncio.fixture(scope="function")
+async def auth_headers_b(auth_token_b) -> dict:
+    """Return authorization headers for org B's test user."""
+    return {"Authorization": f"Bearer {auth_token_b}"}
 
 
 # ── Test Data Helpers ──────────────────────────────────────────────
