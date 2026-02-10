@@ -38,9 +38,11 @@ def _get_rate_limit(path: str) -> tuple[int, int]:
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """Return the direct connection IP for rate-limiting.
+
+    Never trust X-Forwarded-For blindly — it can be spoofed by any client.
+    We use the socket-level peer address which cannot be forged.
+    """
     return request.client.host if request.client else "unknown"
 
 

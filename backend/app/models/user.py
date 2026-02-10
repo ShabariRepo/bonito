@@ -21,5 +21,7 @@ class User(Base):
     avatar_url: Mapped[str] = mapped_column(String(500), nullable=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     verification_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    verification_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     reset_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    reset_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

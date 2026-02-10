@@ -1,3 +1,4 @@
+import re
 import uuid
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,26 @@ from app.services import auth_service
 from app.services import email_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+# ---------- Password Validation ----------
+
+def _validate_password(password: str) -> None:
+    """Enforce password complexity: min 8 chars, 1 upper, 1 lower, 1 digit."""
+    errors: list[str] = []
+    if len(password) < 8:
+        errors.append("at least 8 characters")
+    if not re.search(r"[A-Z]", password):
+        errors.append("at least one uppercase letter")
+    if not re.search(r"[a-z]", password):
+        errors.append("at least one lowercase letter")
+    if not re.search(r"[0-9]", password):
+        errors.append("at least one number")
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Password must contain {', '.join(errors)}.",
+        )
 
 
 # ---------- Schemas ----------
@@ -76,6 +97,8 @@ class MessageResponse(BaseModel):
 
 @router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    _validate_password(body.password)
+
     existing = await auth_service.get_user_by_email(db, body.email)
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -90,9 +113,10 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     user = await auth_service.create_user(db, body.email, body.password, body.name, org_id, role="admin")
 
-    # Generate verification token and store it
+    # Generate verification token and store it (expires in 24 hours)
     token = secrets.token_urlsafe(48)
     user.verification_token = token
+    user.verification_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     user.email_verified = False
     await db.flush()
 
@@ -114,8 +138,16 @@ async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
 
+    # Check token expiry
+    if user.verification_token_expires_at and datetime.now(timezone.utc) > user.verification_token_expires_at:
+        user.verification_token = None
+        user.verification_token_expires_at = None
+        await db.flush()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification token has expired. Please request a new one.")
+
     user.email_verified = True
     user.verification_token = None
+    user.verification_token_expires_at = None
     await db.flush()
 
     # Send welcome email
@@ -152,6 +184,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     if user:
         token = secrets.token_urlsafe(48)
         user.reset_token = token
+        user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         await db.flush()
         try:
             await email_service.send_password_reset_email(body.email, token)
@@ -163,6 +196,8 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
 
 @router.post("/reset-password", response_model=MessageResponse)
 async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    _validate_password(body.password)
+
     result = await db.execute(
         select(User).where(User.reset_token == body.token)
     )
@@ -170,8 +205,16 @@ async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset token")
 
+    # Check token expiry
+    if user.reset_token_expires_at and datetime.now(timezone.utc) > user.reset_token_expires_at:
+        user.reset_token = None
+        user.reset_token_expires_at = None
+        await db.flush()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset token has expired. Please request a new one.")
+
     user.hashed_password = auth_service.hash_password(body.password)
     user.reset_token = None
+    user.reset_token_expires_at = None
     await db.flush()
 
     return MessageResponse(message="Password reset successfully. You can now log in.")
@@ -183,6 +226,7 @@ async def resend_verification(body: ForgotPasswordRequest, db: AsyncSession = De
     if user and not user.email_verified:
         token = secrets.token_urlsafe(48)
         user.verification_token = token
+        user.verification_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
         await db.flush()
         try:
             await email_service.send_verification_email(body.email, token)

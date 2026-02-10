@@ -1,3 +1,4 @@
+import json
 import uuid
 import logging
 from datetime import date
@@ -50,8 +51,8 @@ def _to_response(p: CloudProvider, model_count: int = None) -> dict:
     creds = {}
     if p.credentials_encrypted:
         try:
-            creds = eval(p.credentials_encrypted) if isinstance(p.credentials_encrypted, str) else {}
-        except Exception:
+            creds = json.loads(p.credentials_encrypted) if isinstance(p.credentials_encrypted, str) else {}
+        except (json.JSONDecodeError, TypeError):
             pass
     region = extract_region(p.provider_type, creds)
     return {
@@ -422,7 +423,7 @@ async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_d
     provider = CloudProvider(
         org_id=data.org_id,
         provider_type=data.provider_type,
-        credentials_encrypted=str(data.credentials) if data.credentials else None,
+        credentials_encrypted=json.dumps(dict(data.credentials)) if data.credentials else None,
         status="pending",
     )
     db.add(provider)
@@ -442,7 +443,7 @@ async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSess
     if data.status is not None:
         provider.status = data.status
     if data.credentials is not None:
-        provider.credentials_encrypted = str(data.credentials)
+        provider.credentials_encrypted = json.dumps(dict(data.credentials))
     await db.flush()
     await db.refresh(provider)
     return _to_response(provider)
