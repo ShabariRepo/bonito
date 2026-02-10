@@ -22,6 +22,7 @@ class ModelUpdate(BaseModel):
 class ModelResponse(BaseModel):
     id: UUID
     provider_id: UUID
+    provider_type: Optional[str] = None
     model_id: str
     display_name: str
     capabilities: dict

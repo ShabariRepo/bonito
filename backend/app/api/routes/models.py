@@ -89,9 +89,13 @@ async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), u
 @router.get("/", response_model=List[ModelResponse])
 async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(
-        select(Model).join(CloudProvider, Model.provider_id == CloudProvider.id).where(CloudProvider.org_id == user.org_id)
+        select(Model, CloudProvider.provider_type).join(CloudProvider, Model.provider_id == CloudProvider.id).where(CloudProvider.org_id == user.org_id)
     )
-    return result.scalars().all()
+    models = []
+    for model, provider_type in result.all():
+        model.provider_type = provider_type
+        models.append(model)
+    return models
 
 
 @router.get("/{model_id}", response_model=ModelResponse)
