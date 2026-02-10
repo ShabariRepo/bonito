@@ -29,6 +29,7 @@ import {
   PartyPopper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 // --- Types ---
 type Provider = "aws" | "azure" | "gcp";
@@ -69,7 +70,6 @@ interface ValidationResult {
 }
 
 // --- Constants ---
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") + "/api";
 
 const PROVIDERS: { id: Provider; name: string; icon: string; color: string; desc: string }[] = [
   { id: "aws", name: "AWS", icon: "☁️", color: "from-orange-500 to-yellow-500", desc: "Amazon Bedrock — Claude, Llama, Titan" },
@@ -217,7 +217,7 @@ export default function OnboardingPage() {
     }));
 
     try {
-      const res = await fetch(`${API_BASE}/onboarding/validate`, {
+      const res = await apiRequest(`/api/onboarding/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, credentials: creds }),
@@ -286,7 +286,7 @@ export default function OnboardingPage() {
               delete backendCreds.resource_group_name;
             }
           }
-          await fetch(`${API_BASE}/providers/connect`, {
+          await apiRequest(`/api/providers/connect`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ provider_type: provider, credentials: backendCreds }),
@@ -332,7 +332,7 @@ export default function OnboardingPage() {
     setActiveProvider(provider);
     setIacLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/onboarding/generate-iac`, {
+      const res = await apiRequest(`/api/onboarding/generate-iac`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, iac_tool: iacTool }),
@@ -352,7 +352,7 @@ export default function OnboardingPage() {
     if (!iacTool) return;
     setDownloading(true);
     try {
-      const res = await fetch(`${API_BASE}/onboarding/download-iac?provider=${provider}&tool=${iacTool}`);
+      const res = await apiRequest(`/api/onboarding/download-iac?provider=${provider}&tool=${iacTool}`);
       if (!res.ok) throw new Error("Download failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
