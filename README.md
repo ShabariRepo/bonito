@@ -1,14 +1,41 @@
 # 🐟 Bonito
 
-**The enterprise AI control plane.**
+**Unified AI operations — governance, routing, cost management, and deployment across any AI provider.**
 
-Provision, configure, manage, and govern AI workloads across AWS Bedrock, Azure AI Foundry, and Google Vertex AI — from one seamless platform.
+Bonito gives engineering and platform teams a single operational layer to manage AI workloads across AWS Bedrock, Azure AI Foundry, Google Vertex AI, and more. Connect providers, enforce governance policies, track costs in real time, and manage team access — all from one platform with an AI copilot that helps you move faster.
 
 ## Why Bonito?
 
-Every enterprise is under pressure to adopt AI. But the tooling is fragmented — AWS has Bedrock, Azure has AI Foundry, Google has Vertex. Each siloed, each complex, each locked in.
+AI adoption is accelerating, but operational tooling hasn't kept up. Teams juggle separate consoles for each cloud provider, have no unified view of costs, and struggle to enforce consistent governance across providers.
 
-Bonito is the unified layer. Connect your clouds, deploy models, track costs, enforce governance — all from one place, with an AI-native UX that does the thinking for you.
+Bonito solves this with:
+
+- **Operational control** — One dashboard for all your AI providers. Manage models, deployments, and routing policies without switching between cloud consoles.
+- **Governance & compliance** — Built-in policy engine for SOC-2, HIPAA, and GDPR compliance checks. Audit logging across every action.
+- **Cost visibility** — Real-time cost aggregation, forecasting, and optimization recommendations across all providers.
+- **Team management** — Role-based access control, team seats, and (coming soon) SSO/SAML for enterprise identity management.
+- **AI copilot** — An intelligent assistant that helps with onboarding, configuration, troubleshooting, and infrastructure-as-code generation.
+- **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, failover, and load balancing across providers.
+
+## How Bonito Compares
+
+We're not the only platform in this space. Here's an honest look at how we fit:
+
+| Capability | Bonito | Portkey | LiteLLM | Helicone |
+|---|---|---|---|---|
+| Multi-cloud gateway | ✅ | ✅ | ✅ | ✅ |
+| Governance & compliance checks | ✅ Built-in | ❌ | ❌ | ❌ |
+| Infrastructure-as-Code (Terraform) | ✅ Built-in | ❌ | ❌ | ❌ |
+| AI copilot for operations | ✅ Built-in | ❌ | ❌ | ❌ |
+| Cost management & forecasting | ✅ | ✅ | Basic | ✅ |
+| Provider count | 3 (growing) | 200+ | 100+ | 30+ |
+| Open source | No | Partial | Yes | Yes |
+| SOC-2 certified | Roadmap | Yes | No | Yes |
+| Self-hosted option | Yes (Docker) | Yes | Yes | Yes |
+
+**Where Bonito shines:** Integrated governance, IaC generation, and an AI copilot that ties it all together — not just a proxy layer, but a full operations platform.
+
+**Where others lead:** Provider breadth (Portkey/LiteLLM support far more providers today), open-source community (LiteLLM), and compliance certifications (Portkey and Helicone have SOC-2 today).
 
 ## Quick Start
 
@@ -114,20 +141,34 @@ With the backend running: http://localhost:8001/docs (Swagger UI)
 
 ## Roadmap
 
-- [x] Phase 1–4: Foundation, core platform, enterprise features, scale
-- [x] Phase 5: Real cloud integrations (AWS Bedrock, Azure AI, GCP Vertex)
-- [x] Phase 6: Real AI integration (chat, intelligent routing)
-- [x] Phase 7: Authentication & security (JWT, rate limiting, audit)
-- [x] Phase 8: Compliance & governance (SOC2, HIPAA, GDPR checks)
-- [x] Phase 9: Cost intelligence (aggregation, optimization, forecasting)
-- [x] Phase 10: Production readiness (Docker, CI/CD, deployment configs)
-- [x] Phase 11: Onboarding wizard (IaC templates, credential validation)
-- [x] Phase 12: API Gateway (LiteLLM, OpenAI-compatible proxy)
-- [x] Phase 13: AI Agent (Groq-powered copilot)
-- [x] Phase 14: Engagement & retention (notifications, analytics, digests)
-- [ ] Phase 15: Model Details & Playground (detail views, live testing)
-- [ ] Phase 16: Routing Policies (visual builder, A/B testing, load balancing)
-- [ ] Phase 17: Deployment Provisioning (cloud endpoints, Terraform, scaling)
+### Completed
+- ✅ Core platform (auth, RBAC, multi-cloud connections)
+- ✅ Cloud integrations (AWS Bedrock, Azure AI Foundry, GCP Vertex AI)
+- ✅ AI-powered chat & intelligent routing
+- ✅ Compliance & governance engine (SOC-2, HIPAA, GDPR policy checks)
+- ✅ Cost intelligence (aggregation, optimization, forecasting)
+- ✅ Production deployment (Docker, CI/CD, deployment configs)
+- ✅ Onboarding wizard with IaC template generation
+- ✅ API Gateway (OpenAI-compatible proxy via LiteLLM)
+- ✅ AI Copilot (Groq-powered operations assistant)
+- ✅ Engagement & retention (notifications, analytics, digests)
+
+### In Progress
+- 🔧 Model details & playground (live testing, parameter tuning)
+- 🔧 Visual routing policy builder (A/B testing, load balancing)
+- 🔧 Deployment provisioning (cloud endpoints, Terraform, auto-scaling)
+
+### Planned
+- 📋 SSO/SAML integration (OIDC first, then SAML 2.0) — [Scoping doc](docs/SSO-SCOPE.md)
+- 📋 SOC-2 Type II certification — [Roadmap](docs/SOC2-ROADMAP.md)
+- 📋 Additional provider integrations (Anthropic, Cohere, Mistral)
+- 📋 Advanced audit log export & SIEM integration
+
+## Documentation
+
+- [Pricing](docs/PRICING.md) — Plans and pricing structure
+- [SOC-2 Roadmap](docs/SOC2-ROADMAP.md) — Path to SOC-2 Type II certification
+- [SSO Scoping](docs/SSO-SCOPE.md) — SSO/SAML implementation plan
 
 ---
 
