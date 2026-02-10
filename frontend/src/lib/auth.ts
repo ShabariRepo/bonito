@@ -57,7 +57,7 @@ export async function register(email: string, password: string, name: string) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Registration failed");
+    throw new Error(data.error?.message || data.detail || "Registration failed");
   }
   return res.json();
 }
@@ -70,7 +70,7 @@ export async function login(email: string, password: string): Promise<AuthTokens
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Login failed");
+    throw new Error(data.error?.message || data.detail || "Login failed");
   }
   const tokens = await res.json();
   setTokens(tokens);
@@ -85,7 +85,7 @@ export async function verifyEmail(token: string) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Verification failed");
+    throw new Error(data.error?.message || data.detail || "Verification failed");
   }
   return res.json();
 }
@@ -98,7 +98,7 @@ export async function resendVerification(email: string) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Failed to resend");
+    throw new Error(data.error?.message || data.detail || "Failed to resend");
   }
   return res.json();
 }
@@ -120,7 +120,7 @@ export async function resetPassword(token: string, password: string) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "Reset failed");
+    throw new Error(data.error?.message || data.detail || "Reset failed");
   }
   return res.json();
 }
