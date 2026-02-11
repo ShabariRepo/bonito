@@ -169,6 +169,10 @@ const IAM_POLICIES: Record<Provider, string> = {
 • roles/aiplatform.user (Vertex AI User)
 • roles/billing.viewer (Billing Viewer)
 • roles/monitoring.viewer (Monitoring Viewer)`,
+  openai: `No IAM setup needed — just an API key.
+Get yours at platform.openai.com/api-keys`,
+  anthropic: `No IAM setup needed — just an API key.
+Get yours at console.anthropic.com/settings/keys`,
 };
 
 
