@@ -262,10 +262,18 @@ GCP_CREDENTIALS = {
     "service_account_json": '{"type":"service_account","project_id":"my-bonito-project"}',
 }
 
+OPENAI_CREDENTIALS = {
+    "api_key": "sk-test123456789012345678901234567890123456789012345678901234567890"
+}
+
+ANTHROPIC_CREDENTIALS = {
+    "api_key": "sk-ant-api03-test123456789012345678901234567890123456789012345678901234567890"
+}
+
 
 async def create_provider(client: AsyncClient, provider_type: str = "aws", credentials: dict | None = None) -> dict:
     """Helper to create a provider and return the response JSON."""
-    cred_map = {"aws": AWS_CREDENTIALS, "azure": AZURE_CREDENTIALS, "gcp": GCP_CREDENTIALS}
+    cred_map = {"aws": AWS_CREDENTIALS, "azure": AZURE_CREDENTIALS, "gcp": GCP_CREDENTIALS, "openai": OPENAI_CREDENTIALS, "anthropic": ANTHROPIC_CREDENTIALS}
     creds = credentials or cred_map[provider_type]
     resp = await client.post("/api/providers/connect", json={"provider_type": provider_type, "credentials": creds})
     assert resp.status_code == 201

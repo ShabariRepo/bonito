@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
 
 // --- Types ---
-type Provider = "aws" | "azure" | "gcp";
+type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic";
 type IaCTool = "terraform" | "pulumi" | "cloudformation" | "bicep" | "manual";
 type OnboardingPath = "quick" | "iac" | null;
 
@@ -75,6 +75,8 @@ const PROVIDERS: { id: Provider; name: string; icon: string; color: string; desc
   { id: "aws", name: "AWS", icon: "☁️", color: "from-orange-500 to-yellow-500", desc: "Amazon Bedrock — Claude, Llama, Titan" },
   { id: "azure", name: "Azure", icon: "🔷", color: "from-blue-500 to-cyan-500", desc: "Azure AI Foundry — GPT-4o, Phi, Mistral" },
   { id: "gcp", name: "Google Cloud", icon: "🌐", color: "from-green-500 to-emerald-500", desc: "Vertex AI — Gemini, PaLM, Claude" },
+  { id: "openai", name: "OpenAI", icon: "🤖", color: "from-green-500 to-blue-500", desc: "Direct API — GPT-4o, o1, o3-mini" },
+  { id: "anthropic", name: "Anthropic", icon: "🧠", color: "from-purple-500 to-pink-500", desc: "Direct API — Claude 3.5 Sonnet, Claude Opus" },
 ];
 
 const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; description: string; required: boolean }[]> = {
@@ -90,6 +92,14 @@ const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; descri
   gcp: [
     { key: "auth", name: "Service Account Auth", description: "JWT authentication with service account key", required: true },
     { key: "vertex", name: "Vertex AI Access", description: "aiplatform.models.list, aiplatform.endpoints.predict — List & use AI models", required: true },
+  ],
+  openai: [
+    { key: "api_key", name: "API Key Authentication", description: "Valid OpenAI API key with model access", required: true },
+    { key: "models", name: "Model Access", description: "Access to GPT-4o, o1, and other OpenAI models", required: true },
+  ],
+  anthropic: [
+    { key: "api_key", name: "API Key Authentication", description: "Valid Anthropic API key with model access", required: true },
+    { key: "models", name: "Model Access", description: "Access to Claude 3.5 Sonnet, Opus, and other models", required: true },
   ],
 };
 
@@ -108,6 +118,13 @@ const CRED_FIELDS: Record<Provider, { key: string; label: string; type?: string;
   gcp: [
     { key: "project_id", label: "Project ID", placeholder: "my-project-123" },
     { key: "key_file", label: "Service Account Key (JSON)", type: "file", required: true },
+  ],
+  openai: [
+    { key: "api_key", label: "API Key", type: "password", placeholder: "sk-...", required: true },
+    { key: "organization_id", label: "Organization ID (Optional)", placeholder: "org-..." },
+  ],
+  anthropic: [
+    { key: "api_key", label: "API Key", type: "password", placeholder: "sk-ant-api03-...", required: true },
   ],
 };
 

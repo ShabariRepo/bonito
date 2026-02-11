@@ -8,7 +8,7 @@ import { StepWizard } from "@/components/ui/step-wizard";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { API_URL } from "@/lib/utils";
 
-type ProviderType = "aws" | "azure" | "gcp";
+type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic";
 
 interface ConnectModalProps {
   open: boolean;
@@ -20,6 +20,8 @@ const providers: { type: ProviderType; name: string; description: string; color:
   { type: "aws", name: "AWS Bedrock", description: "Claude, Llama, Titan, Mistral and more", color: "text-amber-500", bgColor: "bg-amber-500/10", icon: "☁️" },
   { type: "azure", name: "Azure OpenAI", description: "GPT-4o, DALL-E, Whisper and more", color: "text-blue-500", bgColor: "bg-blue-500/10", icon: "🔷" },
   { type: "gcp", name: "GCP Vertex AI", description: "Gemini, PaLM, Imagen and more", color: "text-red-500", bgColor: "bg-red-500/10", icon: "🔺" },
+  { type: "openai", name: "OpenAI", description: "GPT-4o, o1, o3-mini — direct API", color: "text-green-500", bgColor: "bg-green-500/10", icon: "🤖" },
+  { type: "anthropic", name: "Anthropic", description: "Claude 3.5 Sonnet, Opus — direct API", color: "text-purple-500", bgColor: "bg-purple-500/10", icon: "🧠" },
 ];
 
 const AWS_BEDROCK_REGIONS = [
@@ -88,6 +90,8 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
   const handleSelectProvider = (type: ProviderType) => {
     setSelectedProvider(type);
     setCredentials(type === "aws" ? { region: "us-east-1" } : {});
+    // Direct API providers skip IAM/policy setup
+    setShowPolicy(false);
     setStep(1);
   };
 
@@ -134,6 +138,8 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
     if (selectedProvider === "aws") return (credentials.access_key_id?.length || 0) >= 16 && (credentials.secret_access_key?.length || 0) >= 20;
     if (selectedProvider === "azure") return ["tenant_id", "client_id", "client_secret", "subscription_id"].every((k) => credentials[k]?.length > 0);
     if (selectedProvider === "gcp") return (credentials.project_id?.length || 0) > 0 && (credentials.service_account_json?.length || 0) > 10;
+    if (selectedProvider === "openai") return (credentials.api_key?.length || 0) >= 20;
+    if (selectedProvider === "anthropic") return (credentials.api_key?.length || 0) >= 20;
     return false;
   };
 
@@ -258,6 +264,27 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
                 </>
               )}
 
+              {selectedProvider === "openai" && (
+                <>
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-1">
+                    <p className="text-sm text-green-400 font-medium">🤖 Direct OpenAI API</p>
+                    <p className="text-xs text-muted-foreground">Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">platform.openai.com</a></p>
+                  </div>
+                  <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="sk-..." type="password" />
+                  <Field label="Organization ID (Optional)" value={credentials.organization_id || ""} onChange={(v) => updateCred("organization_id", v)} placeholder="org-..." />
+                </>
+              )}
+
+              {selectedProvider === "anthropic" && (
+                <>
+                  <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-1">
+                    <p className="text-sm text-purple-400 font-medium">🧠 Direct Anthropic API</p>
+                    <p className="text-xs text-muted-foreground">Get your API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">console.anthropic.com</a></p>
+                  </div>
+                  <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="sk-ant-api03-..." type="password" />
+                </>
+              )}
+
               <motion.button
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
@@ -283,7 +310,7 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
                   <LoadingDots size="lg" className="justify-center" />
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Validating credentials...</p>
-                    <p className="text-xs text-muted-foreground">Connecting to {selectedProvider === "aws" ? "AWS" : selectedProvider === "azure" ? "Azure" : "GCP"} and verifying access</p>
+                    <p className="text-xs text-muted-foreground">Connecting to {selectedProvider === "aws" ? "AWS" : selectedProvider === "azure" ? "Azure" : selectedProvider === "gcp" ? "GCP" : selectedProvider === "openai" ? "OpenAI" : "Anthropic"} and verifying access</p>
                   </div>
                 </motion.div>
               )}

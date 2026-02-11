@@ -41,6 +41,8 @@ PROVIDER_MODEL_PREFIXES = {
     "aws": "bedrock/",
     "azure": "azure/",
     "gcp": "vertex_ai/",
+    "openai": "openai/",
+    "anthropic": "anthropic/",
 }
 
 
@@ -154,6 +156,50 @@ async def _build_model_list(creds: dict) -> list[dict]:
                 "model_name": model,
                 "litellm_params": params,
             })
+
+    if "openai" in creds:
+        c = creds["openai"]
+        api_key = c.get("api_key", "")
+        org_id = c.get("organization_id")
+        if api_key:
+            for model in [
+                "gpt-4o",
+                "gpt-4o-mini",
+                "o1",
+                "o3-mini",
+                "gpt-3.5-turbo",
+                "text-embedding-3-large",
+                "text-embedding-3-small",
+            ]:
+                params: dict = {
+                    "model": f"openai/{model}",
+                    "api_key": api_key,
+                }
+                if org_id:
+                    params["organization"] = org_id
+                model_list.append({
+                    "model_name": model,
+                    "litellm_params": params,
+                })
+
+    if "anthropic" in creds:
+        c = creds["anthropic"]
+        api_key = c.get("api_key", "")
+        if api_key:
+            for model in [
+                "claude-3-5-sonnet-20241022",
+                "claude-3-5-haiku-20241022",
+                "claude-3-opus-20240229",
+                "claude-3-sonnet-20240229",
+                "claude-3-haiku-20240307",
+            ]:
+                model_list.append({
+                    "model_name": model,
+                    "litellm_params": {
+                        "model": f"anthropic/{model}",
+                        "api_key": api_key,
+                    },
+                })
 
     return model_list
 
