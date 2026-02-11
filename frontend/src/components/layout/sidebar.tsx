@@ -17,21 +17,25 @@ import {
   ScrollText,
   Sparkles,
   Radio,
+  GitBranch,
   BarChart3,
   Bell,
   AlertTriangle,
+  Play,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Models", href: "/models", icon: Box },
+  { name: "Playground", href: "/playground", icon: Play },
   { name: "Deployments", href: "/deployments", icon: Rocket },
   { name: "Providers", href: "/providers", icon: Cloud },
   { name: "Costs", href: "/costs", icon: DollarSign },
   { name: "Team", href: "/team", icon: Users },
   { name: "Governance", href: "/governance", icon: Shield },
   { name: "API Gateway", href: "/gateway", icon: Radio },
+  { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Audit", href: "/audit", icon: ScrollText },
   { name: "Notifications", href: "/notifications", icon: Bell },

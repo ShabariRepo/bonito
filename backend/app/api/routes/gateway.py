@@ -22,6 +22,7 @@ from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.models.gateway import GatewayKey, GatewayRequest, GatewayConfig
+from app.models.routing_policy import RoutingPolicy
 from app.schemas.gateway import (
     ChatCompletionRequest,
     CompletionRequest,
@@ -73,13 +74,48 @@ async def get_gateway_key(
     return key
 
 
+# Custom auth dependency that handles both gateway keys and routing policies
+async def get_auth_context(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> tuple[Optional[GatewayKey], Optional[RoutingPolicy]]:
+    """Get authentication context - either a gateway key or routing policy."""
+    if not credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key")
+
+    raw_key = credentials.credentials
+    
+    # Check for routing policy key (rt-xxxxxxxx format)
+    if raw_key.startswith("rt-"):
+        policy = await gateway_service.resolve_routing_policy_by_key(raw_key, db)
+        if not policy:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid routing policy key")
+        return None, policy
+    
+    # Check for regular gateway key (bn- format)
+    elif raw_key.startswith("bn-"):
+        key = await gateway_service.validate_api_key(db, raw_key)
+        if not key:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or revoked API key")
+
+        # Check rate limit
+        allowed = await gateway_service.check_rate_limit(key.id, key.rate_limit)
+        if not allowed:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
+
+        return key, None
+    
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key format")
+
+
 # ─── OpenAI-compatible endpoints (/v1/*) ───
 
 @router.post("/v1/chat/completions")
 async def chat_completions(
     raw_request: Request,
     request: ChatCompletionRequest,
-    key: GatewayKey = Depends(get_gateway_key),
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
     db: AsyncSession = Depends(get_db),
 ):
     """OpenAI-compatible chat completions endpoint."""
@@ -91,28 +127,62 @@ async def chat_completions(
             detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
         )
 
-    # Policy enforcement — check before forwarding to upstream
-    try:
-        await gateway_service.enforce_policies(db, key, request.model)
-    except PolicyViolation as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
+    key, policy = auth_context
+    
+    # Handle routing policy requests
+    if policy:
+        try:
+            data = request.model_dump(exclude_none=True)
+            
+            # Apply routing policy to select model
+            selected_model = await gateway_service.apply_routing_policy(policy, data, db)
+            data["model"] = selected_model
+            
+            # Log which policy was used
+            logger.info(f"Applied routing policy {policy.name} (id: {policy.id}) for request")
+            
+            # Use the policy's org_id and create a dummy key_id for logging
+            org_id = policy.org_id
+            key_id = policy.id  # Use policy ID as key_id for logging
+            
+            # Streaming path
+            if request.stream:
+                return await _handle_streaming_completion_policy(data, org_id, key_id, db)
+            
+            # Non-streaming path
+            result = await gateway_service.chat_completion(data, org_id, key_id, db)
+            return result
+            
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Routing error: {str(e)}")
+    
+    # Handle regular gateway key requests
+    elif key:
+        # Policy enforcement — check before forwarding to upstream
+        try:
+            await gateway_service.enforce_policies(db, key, request.model)
+        except PolicyViolation as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
 
-    try:
-        data = request.model_dump(exclude_none=True)
+        try:
+            data = request.model_dump(exclude_none=True)
 
-        # Streaming path
-        if request.stream:
-            return await _handle_streaming_completion(data, key, db)
+            # Streaming path
+            if request.stream:
+                return await _handle_streaming_completion(data, key, db)
 
-        # Non-streaming path (existing behavior)
-        result = await gateway_service.chat_completion(data, key.org_id, key.id, db)
-        return result
-    except HTTPException:
-        raise
-    except PolicyViolation as e:
-        raise HTTPException(status_code=e.status_code, detail=e.message)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+            # Non-streaming path (existing behavior)
+            result = await gateway_service.chat_completion(data, key.org_id, key.id, db)
+            return result
+        except HTTPException:
+            raise
+        except PolicyViolation as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+    
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
 
 
 async def _handle_streaming_completion(
@@ -211,6 +281,115 @@ async def _handle_streaming_completion(
                 await db.flush()
             except Exception as log_err:
                 logger.error(f"Failed to log streaming request: {log_err}")
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def _handle_streaming_completion_policy(
+    request_data: dict,
+    org_id: uuid.UUID,
+    policy_id: uuid.UUID,
+    db: AsyncSession,
+):
+    """Handle a streaming chat completion with routing policy — returns SSE StreamingResponse."""
+    import time
+    import litellm
+
+    router = await gateway_service.get_router(db, org_id)
+    model = request_data.get("model", "")
+    start = time.time()
+
+    # Ensure stream=True in the request data
+    request_data["stream"] = True
+
+    log_entry = GatewayRequest(
+        org_id=org_id,
+        key_id=policy_id,  # Use policy_id as key_id
+        model_requested=model,
+        status="success",
+    )
+
+    async def sse_generator():
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        model_used = model
+        error_occurred = False
+
+        try:
+            response = await router.acompletion(**request_data)
+
+            async for chunk in response:
+                # Extract usage from chunks if available
+                chunk_dict = chunk.model_dump()
+                if chunk_dict.get("model"):
+                    model_used = chunk_dict["model"]
+
+                # Accumulate token counts from the last chunk (OpenAI includes usage in final chunk)
+                usage = chunk_dict.get("usage")
+                if usage:
+                    total_prompt_tokens = usage.get("prompt_tokens", total_prompt_tokens)
+                    total_completion_tokens = usage.get("completion_tokens", total_completion_tokens)
+
+                yield f"data: {json.dumps(chunk_dict)}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+        except Exception as e:
+            error_occurred = True
+            log_entry.status = "error"
+            log_entry.error_message = str(e)[:1000]
+            # Send error as SSE event before closing
+            error_data = {
+                "error": {
+                    "message": str(e),
+                    "type": "upstream_error",
+                }
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        finally:
+            # Log the completed request
+            elapsed_ms = int((time.time() - start) * 1000)
+            log_entry.model_used = model_used
+            log_entry.input_tokens = total_prompt_tokens
+            log_entry.output_tokens = total_completion_tokens
+            log_entry.latency_ms = elapsed_ms
+
+            # Attempt to compute cost from token counts
+            try:
+                if total_prompt_tokens or total_completion_tokens:
+                    log_entry.cost = litellm.completion_cost(
+                        model=model_used,
+                        prompt_tokens=total_prompt_tokens,
+                        completion_tokens=total_completion_tokens,
+                    ) or 0.0
+                else:
+                    log_entry.cost = 0.0
+            except Exception:
+                log_entry.cost = 0.0
+
+            # Determine provider
+            if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
+                log_entry.provider = "aws"
+            elif "azure" in model_used:
+                log_entry.provider = "azure"
+            elif "vertex" in model_used or "gemini" in model_used:
+                log_entry.provider = "gcp"
+
+            try:
+                db.add(log_entry)
+                await db.flush()
+            except Exception as log_err:
+                logger.error(f"Failed to log streaming policy request: {log_err}")
 
     return StreamingResponse(
         sse_generator(),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -167,20 +168,21 @@ export default function ModelsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.03, 0.5) }}
               >
-                <Card className="hover:border-violet-500/50 transition-colors cursor-pointer">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
-                          <Box className="h-5 w-5 text-violet-400" />
+                <Link href={`/models/${model.id}`}>
+                  <Card className="hover:border-violet-500/50 transition-colors cursor-pointer">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
+                            <Box className="h-5 w-5 text-violet-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold truncate hover:text-violet-600 transition-colors">{model.display_name || model.model_name || model.model_id}</h3>
+                            <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold truncate">{model.display_name || model.model_name || model.model_id}</h3>
-                          <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
-                        </div>
+                        <Badge variant="success">{status}</Badge>
                       </div>
-                      <Badge variant="success">{status}</Badge>
-                    </div>
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {capabilities.map((cap: string) => (
@@ -202,6 +204,7 @@ export default function ModelsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </Link>
               </motion.div>
             );
           })}

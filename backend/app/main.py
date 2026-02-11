@@ -6,7 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
-from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway
+from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -89,6 +89,7 @@ app.include_router(providers.router, prefix="/api")
 app.include_router(models.router, prefix="/api")
 app.include_router(deployments.router, prefix="/api")
 app.include_router(routing.router, prefix="/api")
+app.include_router(routing_policies.router, prefix="/api")
 app.include_router(compliance.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
 app.include_router(costs.router, prefix="/api")

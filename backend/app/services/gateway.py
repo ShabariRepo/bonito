@@ -24,6 +24,8 @@ from app.core.redis import redis_client
 from app.models.cloud_provider import CloudProvider
 from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit
 from app.models.policy import Policy
+from app.models.routing_policy import RoutingPolicy
+from app.models.model import Model
 from app.schemas.gateway import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -509,6 +511,122 @@ async def check_rate_limit(key_id: uuid.UUID, rate_limit: int) -> bool:
         await redis_client.expire(redis_key, 120)  # expire after 2 minutes
 
     return count <= rate_limit
+
+
+# ─── Routing Policy Support ───
+
+async def resolve_routing_policy_by_key(api_key: str, db: AsyncSession) -> Optional[RoutingPolicy]:
+    """Resolve a routing policy by API key prefix."""
+    # Extract potential routing policy prefix from API key (rt-xxxxxxxx)
+    if not api_key.startswith('rt-'):
+        return None
+    
+    # The API key format should be: rt-xxxxxxxx (16 chars total)
+    api_key_prefix = api_key[:16] if len(api_key) >= 16 else api_key
+    
+    result = await db.execute(
+        select(RoutingPolicy).where(
+            and_(
+                RoutingPolicy.api_key_prefix == api_key_prefix,
+                RoutingPolicy.is_active == True
+            )
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def apply_routing_policy(
+    policy: RoutingPolicy, 
+    request_data: dict, 
+    db: AsyncSession
+) -> str:
+    """Apply routing policy strategy to select the best model."""
+    if not policy.models:
+        raise ValueError("Routing policy has no models configured")
+    
+    # Get available models with their display names
+    model_ids = [uuid.UUID(model["model_id"]) for model in policy.models]
+    result = await db.execute(
+        select(Model.id, Model.display_name, Model.model_id)
+        .join(CloudProvider, Model.provider_id == CloudProvider.id)
+        .where(
+            and_(
+                Model.id.in_(model_ids),
+                CloudProvider.org_id == policy.org_id,
+                CloudProvider.status == "active"
+            )
+        )
+    )
+    available_models = {str(model.id): model for model in result.scalars().all()}
+    
+    if not available_models:
+        raise ValueError("No available models found for routing policy")
+    
+    # Apply strategy-specific logic
+    selected_model_config = None
+    
+    if policy.strategy == "cost_optimized":
+        # Select model with lowest cost (for demo, just select first)
+        selected_model_config = policy.models[0]
+    
+    elif policy.strategy == "latency_optimized":
+        # Select model with lowest latency (for demo, just select first)  
+        selected_model_config = policy.models[0]
+    
+    elif policy.strategy == "balanced":
+        # Balance between cost and latency (for demo, just select first)
+        selected_model_config = policy.models[0]
+    
+    elif policy.strategy == "failover":
+        # Try primary first, then fallbacks
+        for model_config in policy.models:
+            if model_config.get("role") == "primary" or not model_config.get("role"):
+                model_id = model_config["model_id"]
+                if model_id in available_models:
+                    selected_model_config = model_config
+                    break
+        
+        # If no primary available, try first fallback
+        if not selected_model_config:
+            for model_config in policy.models:
+                if model_config.get("role") == "fallback":
+                    model_id = model_config["model_id"]
+                    if model_id in available_models:
+                        selected_model_config = model_config
+                        break
+    
+    elif policy.strategy == "ab_test":
+        # Simple weight-based selection (for demo, select by weight)
+        import random
+        rand = random.random() * 100
+        cumulative_weight = 0
+        
+        for model_config in policy.models:
+            weight = model_config.get("weight", 0)
+            cumulative_weight += weight
+            if rand <= cumulative_weight:
+                selected_model_config = model_config
+                break
+    
+    # Default to first available model if strategy didn't select one
+    if not selected_model_config:
+        selected_model_config = policy.models[0]
+    
+    selected_model_id = selected_model_config["model_id"]
+    if selected_model_id not in available_models:
+        raise ValueError(f"Selected model {selected_model_id} is not available")
+    
+    selected_model = available_models[selected_model_id]
+    
+    # Return the provider-prefixed model name for LiteLLM
+    provider_model_name = f"{selected_model.model_id}"  # This should include provider prefix
+    
+    logger.info(
+        f"Routing policy {policy.name} selected model {selected_model.display_name} "
+        f"using strategy {policy.strategy}"
+    )
+    
+    return provider_model_name
 
 
 # ─── Usage queries ───
