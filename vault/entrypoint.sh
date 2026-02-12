@@ -58,10 +58,13 @@ if [ "$INITIALIZED" = "false" ]; then
     echo ""
     echo "🆕 First run — initializing Vault..."
     
-    INIT_OUTPUT=$(vault operator init -key-shares=1 -key-threshold=1 -format=json)
+    vault operator init -key-shares=1 -key-threshold=1 -format=json > /tmp/vault-init.json
     
-    NEW_UNSEAL_KEY=$(echo "$INIT_OUTPUT" | sed -n 's/.*"unseal_keys_b64": *\["\([^"]*\)".*/\1/p')
-    NEW_ROOT_TOKEN=$(echo "$INIT_OUTPUT" | sed -n 's/.*"root_token": *"\([^"]*\)".*/\1/p')
+    # Parse JSON without jq (Alpine minimal image)
+    NEW_UNSEAL_KEY=$(grep -A1 'unseal_keys_b64' /tmp/vault-init.json | tail -1 | tr -d ' ",[]')
+    NEW_ROOT_TOKEN=$(grep 'root_token' /tmp/vault-init.json | tr -d ' ",' | cut -d: -f2)
+    
+    rm -f /tmp/vault-init.json
     
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
