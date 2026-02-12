@@ -265,27 +265,30 @@ Deployed → monitoring → polished → ready to demo to real prospects
 
 ---
 
-## Phase 15 — Model Details & Playground
+## Phase 15 — Model Details & Playground ✅
 
-- [ ] Clickable models on the Models page → opens model detail view
-- [ ] Model info: provider, pricing/token costs, capabilities, context window, availability
-- [ ] Usage history for that model across the org
-- [ ] Built-in playground: chat interface to test models live
-- [ ] Requests routed through Bonito gateway → customer's cloud (Bedrock/Azure/Vertex)
-- [ ] Governance rules applied (token limits, budget) even in playground
-- **Goal:** Complete the "connect provider → see models → use them" loop
+- [x] Clickable models on the Models page → opens model detail view
+- [x] Model info: provider, pricing/token costs, capabilities, context window, availability
+- [x] Usage history for that model across the org
+- [x] Built-in playground: chat interface to test models live
+- [x] Requests routed through Bonito gateway → customer's cloud (Bedrock/Azure/Vertex)
+- [x] Governance rules applied (token limits, budget) even in playground
+- [x] Side-by-side multi-model comparison (max 4 models)
+- **Goal:** Complete the "connect provider → see models → use them" loop ✅
 
 ---
 
-## Phase 16 — Routing Policies
+## Phase 16 — Routing Policies ✅
 
-- [ ] Visual routing policy builder
-- [ ] Assign models to named routes (e.g., "production-chat", "internal-coding")
-- [ ] Primary/fallback model configuration per route
-- [ ] Routing rules: by cost, latency, provider, model capability
-- [ ] Load balancing across providers
-- [ ] A/B testing support (% split between models)
-- [ ] API endpoint generation per route (for app integration)
+- [x] Visual routing policy builder with strategy cards, model selector, rules panel
+- [x] Assign models to named routes (e.g., "production-chat", "internal-coding")
+- [x] Primary/fallback model configuration per route
+- [x] Routing rules: 5 strategies (cost_optimized, latency_optimized, balanced, failover, ab_test)
+- [x] Load balancing across providers
+- [x] A/B testing support (% split between models, weights sum to 100)
+- [x] Auto-generated API key prefixes (rt-xxx) per route
+- [x] Policy test endpoint (dry-run model selection)
+- [x] Policy stats endpoint
 
 ---
 
@@ -302,6 +305,6 @@ Deployed → monitoring → polished → ready to demo to real prospects
 ---
 
 ## Current Status
-- **Completed:** Phases 1-14 (full platform built)
-- **Up Next:** Phase 15 (Model Details & Playground), Phase 16 (Routing Policies), Phase 17 (Deployment Provisioning)
+- **Completed:** Phases 1-16 (full platform + model playground + routing policies)
+- **Up Next:** Phase 17 (Deployment Provisioning)
 - **Remaining:** SSO/SAML, production deployment to getbonito.com (Vercel + Railway), real cloud credential testing
