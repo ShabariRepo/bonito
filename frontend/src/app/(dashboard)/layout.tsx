@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -69,16 +69,27 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   const router = useRouter();
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
+      // Token might exist but auth context hasn't loaded it yet (e.g. after login redirect).
+      // Try one refresh before giving up.
+      const token = typeof window !== "undefined" ? localStorage.getItem("bonito_access_token") : null;
+      if (token && !checked) {
+        setChecked(true);
+        refresh();
+        return;
+      }
       router.replace("/login");
     }
-  }, [loading, user, router]);
+  }, [loading, user, router, refresh, checked]);
 
-  if (loading) {
+  if (loading || (!user && !checked)) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a]">
         <div className="w-8 h-8 border-2 border-[#7c3aed] border-t-transparent rounded-full animate-spin" />
