@@ -1,9 +1,13 @@
 FROM hashicorp/vault:1.15
 
-ENV VAULT_DEV_ROOT_TOKEN_ID=bonito-prod-token
-ENV VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+# Copy config and entrypoint
+COPY config.hcl /vault/config/config.hcl
+COPY entrypoint.sh /vault/entrypoint.sh
+RUN chmod +x /vault/entrypoint.sh
+
+# Data directory — mount a Railway persistent volume here
+VOLUME /vault/data
 
 EXPOSE 8200
 
-# Run in dev mode — data is ephemeral but we seed on backend startup
-CMD ["vault", "server", "-dev"]
+ENTRYPOINT ["/vault/entrypoint.sh"]
