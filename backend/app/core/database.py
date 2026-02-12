@@ -33,3 +33,17 @@ async def get_db() -> AsyncSession:
         except Exception:
             await session.rollback()
             raise
+
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def get_db_session() -> AsyncSession:
+    """Standalone async context manager for use outside of FastAPI dependencies."""
+    async with async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

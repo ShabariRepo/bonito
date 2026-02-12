@@ -139,12 +139,58 @@ def extract_region(provider_type: str, credentials: dict) -> str:
     return ""
 
 
-async def get_aws_provider(provider_id: str) -> AWSBedrockProvider:
-    """Create an AWSBedrockProvider from Vault-stored credentials."""
+async def _get_provider_secrets(provider_id: str) -> dict:
+    """
+    Get provider credentials with fallback chain: Vault → encrypted DB column.
+    
+    Vault is the primary store but runs in dev mode on Railway (in-memory),
+    so credentials are lost on restart. The DB column holds AES-256-GCM
+    encrypted credentials as a durable fallback.
+    """
     vault_path = f"providers/{provider_id}"
-    secrets = await vault_client.get_secrets(vault_path)
-    if not secrets:
-        raise RuntimeError("No credentials found for this provider")
+
+    # 1. Try Vault first
+    try:
+        secrets = await vault_client.get_secrets(vault_path)
+        if secrets:
+            return secrets
+    except Exception as e:
+        logger.warning(f"Vault read failed for {provider_id}: {e}")
+
+    # 2. Fall back to encrypted DB column
+    try:
+        from app.core.database import get_db_session
+        from app.models.cloud_provider import CloudProvider as CPModel
+        from app.core.encryption import decrypt_credentials
+        from sqlalchemy import select
+        import os
+
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if not secret_key:
+            raise RuntimeError("No SECRET_KEY available for DB credential decryption")
+
+        async with get_db_session() as db:
+            result = await db.execute(select(CPModel).where(CPModel.id == uuid.UUID(provider_id)))
+            provider = result.scalar_one_or_none()
+            if provider and provider.credentials_encrypted and not provider.credentials_encrypted.startswith("vault:"):
+                secrets = decrypt_credentials(provider.credentials_encrypted, secret_key)
+                if secrets:
+                    # Re-populate Vault for next time
+                    try:
+                        await vault_client.put_secrets(vault_path, secrets)
+                        logger.info(f"Re-seeded Vault from DB for provider {provider_id}")
+                    except Exception:
+                        pass
+                    return secrets
+    except Exception as e:
+        logger.warning(f"DB credential fallback failed for {provider_id}: {e}")
+
+    raise RuntimeError("No credentials found for this provider")
+
+
+async def get_aws_provider(provider_id: str) -> AWSBedrockProvider:
+    """Create an AWSBedrockProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
     return AWSBedrockProvider(
         access_key_id=secrets["access_key_id"],
         secret_access_key=secrets["secret_access_key"],
@@ -153,11 +199,8 @@ async def get_aws_provider(provider_id: str) -> AWSBedrockProvider:
 
 
 async def get_azure_provider(provider_id: str) -> AzureFoundryProvider:
-    """Create an AzureFoundryProvider from Vault-stored credentials."""
-    vault_path = f"providers/{provider_id}"
-    secrets = await vault_client.get_secrets(vault_path)
-    if not secrets:
-        raise RuntimeError("No credentials found for this provider")
+    """Create an AzureFoundryProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
     return AzureFoundryProvider(
         tenant_id=secrets["tenant_id"],
         client_id=secrets["client_id"],
@@ -169,11 +212,8 @@ async def get_azure_provider(provider_id: str) -> AzureFoundryProvider:
 
 
 async def get_gcp_provider(provider_id: str) -> GCPVertexProvider:
-    """Create a GCPVertexProvider from Vault-stored credentials."""
-    vault_path = f"providers/{provider_id}"
-    secrets = await vault_client.get_secrets(vault_path)
-    if not secrets:
-        raise RuntimeError("No credentials found for this provider")
+    """Create a GCPVertexProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
     return GCPVertexProvider(
         project_id=secrets["project_id"],
         service_account_json=secrets["service_account_json"],
@@ -182,11 +222,8 @@ async def get_gcp_provider(provider_id: str) -> GCPVertexProvider:
 
 
 async def get_openai_provider(provider_id: str) -> OpenAIDirectProvider:
-    """Create an OpenAIDirectProvider from Vault-stored credentials."""
-    vault_path = f"providers/{provider_id}"
-    secrets = await vault_client.get_secrets(vault_path)
-    if not secrets:
-        raise RuntimeError("No credentials found for this provider")
+    """Create an OpenAIDirectProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
     return OpenAIDirectProvider(
         api_key=secrets["api_key"],
         organization_id=secrets.get("organization_id"),
@@ -194,21 +231,57 @@ async def get_openai_provider(provider_id: str) -> OpenAIDirectProvider:
 
 
 async def get_anthropic_provider(provider_id: str) -> AnthropicDirectProvider:
-    """Create an AnthropicDirectProvider from Vault-stored credentials."""
-    vault_path = f"providers/{provider_id}"
-    secrets = await vault_client.get_secrets(vault_path)
-    if not secrets:
-        raise RuntimeError("No credentials found for this provider")
+    """Create an AnthropicDirectProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
     return AnthropicDirectProvider(
         api_key=secrets["api_key"],
     )
 
 
-async def store_credentials_in_vault(provider_id: str, credentials: dict) -> str:
-    """Store credentials in Vault, return vault path."""
+async def store_credentials(provider_id: str, credentials: dict, db_provider=None) -> str:
+    """
+    Store credentials in both Vault and encrypted DB column.
+    
+    Vault is primary (fast, cached). DB is durable fallback.
+    Returns the vault path.
+    """
+    import os
+    from app.core.encryption import encrypt_credentials
+
     vault_path = f"providers/{provider_id}"
-    await vault_client.put_secrets(vault_path, credentials)
+
+    # 1. Try Vault
+    try:
+        await vault_client.put_secrets(vault_path, credentials)
+    except Exception as e:
+        logger.warning(f"Vault write failed for {provider_id}: {e}")
+
+    # 2. Always store encrypted in DB
+    try:
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key and db_provider:
+            db_provider.credentials_encrypted = encrypt_credentials(credentials, secret_key)
+        elif secret_key:
+            from app.core.database import get_db_session
+            from app.models.cloud_provider import CloudProvider as CPModel
+            from sqlalchemy import select
+
+            async with get_db_session() as db:
+                result = await db.execute(select(CPModel).where(CPModel.id == uuid.UUID(provider_id)))
+                prov = result.scalar_one_or_none()
+                if prov:
+                    prov.credentials_encrypted = encrypt_credentials(credentials, secret_key)
+                    await db.commit()
+    except Exception as e:
+        logger.warning(f"DB credential storage failed for {provider_id}: {e}")
+
     return vault_path
+
+
+# Backward compat alias
+async def store_credentials_in_vault(provider_id: str, credentials: dict) -> str:
+    """Store credentials in Vault + DB. Legacy alias for store_credentials."""
+    return await store_credentials(provider_id, credentials)
 
 
 async def get_models_for_provider(provider_type: str, provider_id: str = None) -> list:

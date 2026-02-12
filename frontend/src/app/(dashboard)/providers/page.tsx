@@ -160,16 +160,23 @@ export default function ProvidersPage() {
         }));
         // Refresh provider list to reflect status change
         fetchProviders();
-      } else {
+      } else if (res.status === 429) {
         setRevalidateResult((prev) => ({
           ...prev,
-          [providerId]: { success: false, message: "Verification request failed" },
+          [providerId]: { success: false, message: "Rate limited — wait a moment and try again" },
+        }));
+      } else {
+        const body = await res.json().catch(() => null);
+        const msg = body?.error?.message || body?.detail || "Verification request failed";
+        setRevalidateResult((prev) => ({
+          ...prev,
+          [providerId]: { success: false, message: msg },
         }));
       }
     } catch {
       setRevalidateResult((prev) => ({
         ...prev,
-        [providerId]: { success: false, message: "Network error" },
+        [providerId]: { success: false, message: "Network error — check your connection" },
       }));
     } finally {
       setRevalidating(null);

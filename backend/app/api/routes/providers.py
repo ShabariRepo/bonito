@@ -178,11 +178,21 @@ async def update_provider_credentials(
         if not cred_info.valid:
             raise HTTPException(status_code=422, detail=f"GCP credential validation failed: {cred_info.message}")
 
-    # Update in Vault
+    # Update in Vault + encrypted DB column
+    import os
+    from app.core.encryption import encrypt_credentials
+
     try:
         await store_credentials_in_vault(str(provider_id), data.credentials)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update credentials in Vault: {e}")
+        logger.warning(f"Vault storage failed on update: {e}")
+
+    try:
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key:
+            provider.credentials_encrypted = encrypt_credentials(data.credentials, secret_key)
+    except Exception as e:
+        logger.warning(f"DB credential encryption failed on update: {e}")
 
     # Update provider status
     provider.status = "active"
@@ -264,18 +274,28 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
         if not cred_info.valid:
             raise HTTPException(status_code=422, detail=f"Anthropic credential validation failed: {cred_info.message}")
 
-    # Store credentials in Vault
+    # Store credentials in Vault + encrypted DB column
+    import os
+    from app.core.encryption import encrypt_credentials
+
+    encrypted_creds = f"vault:providers/{provider_id}"  # fallback reference
     try:
-        vault_path = await store_credentials_in_vault(str(provider_id), data.credentials)
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key:
+            encrypted_creds = encrypt_credentials(data.credentials, secret_key)
     except Exception as e:
-        logger.warning(f"Vault storage failed, using DB fallback: {e}")
-        vault_path = None
+        logger.warning(f"Credential encryption failed: {e}")
+
+    try:
+        await store_credentials_in_vault(str(provider_id), data.credentials)
+    except Exception as e:
+        logger.warning(f"Vault storage failed (DB fallback will be used): {e}")
 
     provider = CloudProvider(
         id=provider_id,
         org_id=user.org_id,
         provider_type=data.provider_type,
-        credentials_encrypted=f"vault:providers/{provider_id}",
+        credentials_encrypted=encrypted_creds,
         status="active",
     )
     db.add(provider)
