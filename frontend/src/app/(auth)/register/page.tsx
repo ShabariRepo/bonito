@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/lib/auth";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
@@ -41,6 +42,7 @@ export default function RegisterPage() {
   return (
     <div className="w-full max-w-md mx-auto px-6">
       <div className="text-center mb-8">
+        <Image src="/logo.png" alt="Bonito" width={64} height={42} className="mx-auto mb-3" />
         <h1 className="text-3xl font-bold text-[#f5f0e8] tracking-tight">Bonito</h1>
         <p className="text-[#888] mt-2">Create your account</p>
       </div>

@@ -15,6 +15,15 @@ export const metadata: Metadata = {
   description:
     "Unified multi-cloud AI management platform. Connect OpenAI, Anthropic, AWS Bedrock, and Google Vertex from one control plane. Route intelligently, control costs, ship faster.",
   metadataBase: new URL("https://getbonito.com"),
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: [
+      { url: "/icon-512.png", sizes: "512x512" },
+    ],
+  },
   openGraph: {
     type: "website",
     locale: "en_US",

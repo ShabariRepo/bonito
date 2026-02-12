@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Box,
   Rocket,
   Settings,
   Cloud,
-  Zap,
   DollarSign,
   Users,
   Shield,
@@ -84,13 +84,8 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-16 items-center gap-2 border-b border-border px-6 shrink-0">
-        <motion.div
-          animate={{ rotate: [0, 10, -10, 0] }}
-          transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
-        >
-          <Zap className="h-6 w-6 text-violet-500 shrink-0" />
-        </motion.div>
+      <div className="flex h-16 items-center gap-2 border-b border-border px-4 shrink-0">
+        <Image src="/logo.png" alt="Bonito" width={36} height={24} className="shrink-0" />
         <AnimatePresence>
           {(!isCollapsed || isMobile) && (
             <motion.span

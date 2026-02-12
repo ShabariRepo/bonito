@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Menu, Zap } from "lucide-react";
+import Image from "next/image";
+import { Menu } from "lucide-react";
 import { useSidebar } from "./sidebar-context";
 import { NotificationBell } from "./notification-bell";
 
@@ -25,12 +26,7 @@ export function MobileTopBar() {
         </motion.button>
         
         <div className="flex items-center gap-2">
-          <motion.div
-            animate={{ rotate: [0, 10, -10, 0] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
-          >
-            <Zap className="h-6 w-6 text-violet-500" />
-          </motion.div>
+          <Image src="/logo.png" alt="Bonito" width={32} height={21} />
           <span className="text-xl font-bold tracking-tight">Bonito</span>
         </div>
       </div>
