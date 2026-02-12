@@ -111,7 +111,7 @@ export default function ModelsPage() {
         title="Model Catalog"
         description={`${models.length} models available across your connected providers`}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -119,13 +119,13 @@ export default function ModelsPage() {
                 placeholder="Search models..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="rounded-md border bg-background pl-9 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="rounded-md border bg-background pl-9 pr-3 py-2 text-sm w-full sm:w-64 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
                 onClick={() => setProviderFilter("all")}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${providerFilter === "all" ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                className={`px-3 py-2 text-xs font-medium transition-colors min-h-[44px] ${providerFilter === "all" ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
               >
                 All
               </button>
@@ -133,7 +133,7 @@ export default function ModelsPage() {
                 <button
                   key={p}
                   onClick={() => setProviderFilter(p)}
-                  className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${providerFilter.toLowerCase() === p.toLowerCase() ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`px-3 py-2 text-xs font-medium capitalize transition-colors min-h-[44px] ${providerFilter.toLowerCase() === p.toLowerCase() ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   {p}
                 </button>
@@ -152,7 +152,7 @@ export default function ModelsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((model, i) => {
             const capsRaw = model.capabilities;
             const capabilities: string[] = Array.isArray(capsRaw)

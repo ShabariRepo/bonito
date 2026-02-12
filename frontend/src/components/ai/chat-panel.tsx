@@ -209,17 +209,17 @@ export function ChatPanel() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] lg:hidden"
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:bg-black/20 lg:backdrop-blur-[2px]"
               onClick={() => setOpen(false)}
             />
 
-            {/* Panel — slides from right */}
+            {/* Panel — full screen on mobile, side panel on desktop */}
             <motion.div
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
-              className="fixed top-0 right-0 z-50 h-full w-full max-w-md border-l border-border bg-card shadow-2xl flex flex-col"
+              className="fixed top-0 right-0 z-50 h-full w-full lg:max-w-md border-l border-border bg-card shadow-2xl flex flex-col"
             >
               {/* Header */}
               <div className="flex items-center gap-2 border-b border-border px-4 py-3 shrink-0">

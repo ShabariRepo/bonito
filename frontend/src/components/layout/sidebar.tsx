@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Box,
@@ -24,6 +24,7 @@ import {
   Play,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
+import { useSidebar } from "./sidebar-context";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -45,6 +46,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isCollapsed, isMobile, isOpen, setOpen } = useSidebar();
   const [setupIncomplete, setSetupIncomplete] = useState(false);
 
   useEffect(() => {
@@ -62,18 +64,50 @@ export function Sidebar() {
     checkSetup();
   }, []);
 
-  return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center gap-2 border-b border-border px-6">
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    if (isMobile) {
+      setOpen(false);
+    }
+  }, [pathname, isMobile, setOpen]);
+
+  const sidebarVariants = {
+    expanded: { width: 256 },
+    collapsed: { width: 64 },
+  };
+
+  const contentVariants = {
+    expanded: { opacity: 1, x: 0 },
+    collapsed: { opacity: 0, x: -20 },
+  };
+
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex h-16 items-center gap-2 border-b border-border px-6 shrink-0">
         <motion.div
           animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 5 }}
         >
-          <Zap className="h-6 w-6 text-violet-500" />
+          <Zap className="h-6 w-6 text-violet-500 shrink-0" />
         </motion.div>
-        <span className="text-xl font-bold tracking-tight">Bonito</span>
+        <AnimatePresence>
+          {(!isCollapsed || isMobile) && (
+            <motion.span
+              variants={contentVariants}
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              transition={{ duration: 0.2 }}
+              className="text-xl font-bold tracking-tight"
+            >
+              Bonito
+            </motion.span>
+          )}
+        </AnimatePresence>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {/* Onboarding link */}
         <Link href="/onboarding" className="relative block mb-2">
@@ -84,23 +118,37 @@ export function Sidebar() {
               transition={{ type: "spring", stiffness: 350, damping: 30 }}
             />
           )}
-          <span
+          <div
             className={cn(
-              "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+              "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
               pathname === "/onboarding" || pathname?.startsWith("/onboarding/")
                 ? "text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+              isCollapsed && !isMobile && "justify-center"
             )}
           >
-            <Sparkles className="h-4 w-4" />
-            Setup Wizard
-            {setupIncomplete && (
-              <span className="ml-auto flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-violet-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
-              </span>
-            )}
-          </span>
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <AnimatePresence>
+              {(!isCollapsed || isMobile) && (
+                <motion.span
+                  variants={contentVariants}
+                  initial="collapsed"
+                  animate="expanded"
+                  exit="collapsed"
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center justify-between flex-1"
+                >
+                  Setup Wizard
+                  {setupIncomplete && (
+                    <span className="flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-violet-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500" />
+                    </span>
+                  )}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </div>
         </Link>
 
         <div className="border-b border-border mb-2" />
@@ -116,31 +164,98 @@ export function Sidebar() {
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
               )}
-              <span
+              <div
                 className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  isCollapsed && !isMobile && "justify-center"
                 )}
               >
-                <item.icon className="h-4 w-4" />
-                {item.name}
-              </span>
+                <item.icon className="h-4 w-4 shrink-0" />
+                <AnimatePresence>
+                  {(!isCollapsed || isMobile) && (
+                    <motion.span
+                      variants={contentVariants}
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-violet-600 flex items-center justify-center text-xs font-bold">
+      {/* Footer */}
+      <div className="border-t border-border p-4 shrink-0">
+        <div className={cn("flex items-center gap-3", isCollapsed && !isMobile && "justify-center")}>
+          <div className="h-8 w-8 rounded-full bg-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
             B
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Bonito Org</p>
-            <p className="text-xs text-muted-foreground truncate">Enterprise</p>
-          </div>
+          <AnimatePresence>
+            {(!isCollapsed || isMobile) && (
+              <motion.div
+                variants={contentVariants}
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                transition={{ duration: 0.2 }}
+                className="flex-1 min-w-0"
+              >
+                <p className="text-sm font-medium truncate">Bonito Org</p>
+                <p className="text-xs text-muted-foreground truncate">Enterprise</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+              onClick={() => setOpen(false)}
+            />
+
+            {/* Mobile Sidebar */}
+            <motion.aside
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed left-0 top-0 z-50 h-full w-64 border-r border-border bg-card shadow-2xl lg:hidden"
+            >
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  // Desktop sidebar
+  return (
+    <motion.aside
+      variants={sidebarVariants}
+      animate={isCollapsed ? "collapsed" : "expanded"}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      className="hidden lg:flex h-screen flex-col border-r border-border bg-card"
+    >
+      <SidebarContent />
+    </motion.aside>
   );
 }

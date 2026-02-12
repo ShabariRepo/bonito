@@ -150,7 +150,7 @@ export function CommandBar() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center pt-4 sm:pt-[15vh] p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <motion.div
@@ -190,7 +190,7 @@ export function CommandBar() {
                   <button
                     key={s.text}
                     onClick={() => { setQuery(s.text); submit(s.text); }}
-                    className={`w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-left transition-colors ${
+                    className={`w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-left transition-colors min-h-[44px] touch-manipulation ${
                       selectedIdx === i ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
                     }`}
                   >
@@ -205,7 +205,7 @@ export function CommandBar() {
                       <button
                         key={h}
                         onClick={() => { setQuery(h); submit(h); }}
-                        className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-sm text-left text-muted-foreground hover:bg-accent/50 transition-colors"
+                        className="w-full flex items-center gap-3 rounded-md px-3 py-2.5 text-sm text-left text-muted-foreground hover:bg-accent/50 transition-colors min-h-[44px] touch-manipulation"
                       >
                         <Search className="h-4 w-4 shrink-0" />
                         {h}

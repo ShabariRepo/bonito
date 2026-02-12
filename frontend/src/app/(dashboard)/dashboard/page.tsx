@@ -154,7 +154,7 @@ export default function DashboardPage() {
       {error && <ErrorBanner message={error} onRetry={fetchAll} />}
 
       {/* Stats grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.name}
@@ -187,9 +187,9 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 p-6"
+          className="rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 p-4 md:p-6"
         >
-          <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
             <motion.div
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 2.5, repeat: Infinity }}
@@ -230,14 +230,14 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {providers.map((p, i) => (
                 <motion.div
                   key={p.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 + i * 0.08 }}
-                  className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors"
+                  className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors min-h-[60px] touch-manipulation"
                 >
                   <span className="text-2xl">{providerEmoji[p.provider_type] || "☁️"}</span>
                   <div className="flex-1 min-w-0">
@@ -270,14 +270,14 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {topModels.map((m, i) => (
                 <motion.div
                   key={m.model_id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + i * 0.06 }}
-                  className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors"
+                  className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors min-h-[60px] touch-manipulation"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
                     <Box className="h-4 w-4 text-violet-400" />
@@ -314,7 +314,7 @@ export default function DashboardPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + i * 0.08 }}
-                  className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors"
+                  className="flex items-center justify-between rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors min-h-[60px] touch-manipulation"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">

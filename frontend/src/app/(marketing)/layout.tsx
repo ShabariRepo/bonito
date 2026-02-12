@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
 
 const navLinks = [
   { href: "/pricing", label: "Pricing" },
@@ -34,15 +36,18 @@ const footerLinks = {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8]">
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-[#1a1a1a] bg-[#0a0a0a]/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 flex items-center justify-between h-16">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 flex items-center justify-between h-16">
           <Link href="/" className="text-2xl font-bold tracking-tight">
             Bonito
           </Link>
+          
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
               <Link
@@ -56,7 +61,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               </Link>
             ))}
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center gap-4">
             <Link href="/login" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">
               Sign In
             </Link>
@@ -67,7 +74,64 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               Get Started
             </Link>
           </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-md hover:bg-[#1a1a1a] transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Toggle mobile menu"
+          >
+            {isMobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden border-t border-[#1a1a1a] bg-[#0a0a0a]"
+            >
+              <div className="px-4 py-4 space-y-4">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`block text-sm transition min-h-[44px] flex items-center ${
+                      pathname === link.href ? "text-[#f5f0e8]" : "text-[#999] hover:text-[#f5f0e8]"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="pt-4 space-y-3 border-t border-[#1a1a1a]">
+                  <Link 
+                    href="/login" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block text-sm text-[#999] hover:text-[#f5f0e8] transition min-h-[44px] flex items-center"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="block w-full text-center px-5 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold rounded-lg transition touch-manipulation"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Content */}
@@ -81,9 +145,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
       {/* Footer */}
       <footer className="border-t border-[#1a1a1a] bg-[#0a0a0a]">
-        <div className="max-w-7xl mx-auto px-6 md:px-12 py-16">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-            <div className="col-span-2 md:col-span-1">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-12 md:py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-1">
               <Link href="/" className="text-xl font-bold tracking-tight">
                 Bonito
               </Link>

@@ -215,7 +215,7 @@ export default function PlaygroundPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] space-y-6">
+    <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] space-y-6">
       <PageHeader
         title="AI Playground"
         description="Test and compare AI models with interactive chat"
@@ -252,7 +252,7 @@ export default function PlaygroundPage() {
         }
       />
 
-      <div className="flex flex-1 gap-6 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 gap-6 min-h-0">
         {/* Main chat area */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Model selection */}
@@ -264,7 +264,7 @@ export default function PlaygroundPage() {
                     <h3 className="font-medium">Select Models to Compare (max 4)</h3>
                     <Badge variant="secondary">{selectedModels.length}/4</Badge>
                   </div>
-                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {models.map(model => (
                       <button
                         key={model.id}
@@ -409,7 +409,7 @@ export default function PlaygroundPage() {
                 <button
                   onClick={handleSendMessage}
                   disabled={!currentInput.trim() || isLoading || (!compareMode && !selectedModel) || (compareMode && selectedModels.length < 2)}
-                  className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-end"
+                  className="px-4 py-3 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-end min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
                 >
                   {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
@@ -418,16 +418,39 @@ export default function PlaygroundPage() {
           </Card>
         </div>
 
-        {/* Settings sidebar */}
+        {/* Settings sidebar - desktop sidebar, mobile modal */}
         <AnimatePresence>
           {showSettings && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
+            <>
+              {/* Mobile backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+                onClick={() => setShowSettings(false)}
+              />
+
+              {/* Settings panel */}
+              <motion.div
+                initial={{ 
+                  width: 0, 
+                  opacity: 0,
+                  x: "100%" 
+                }}
+                animate={{ 
+                  width: "auto", 
+                  opacity: 1,
+                  x: 0 
+                }}
+                exit={{ 
+                  width: 0, 
+                  opacity: 0,
+                  x: "100%" 
+                }}
+                transition={{ duration: 0.2 }}
+                className="fixed top-0 right-0 z-50 h-full w-80 lg:relative lg:w-80 overflow-hidden"
+              >
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -492,7 +515,8 @@ export default function PlaygroundPage() {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>

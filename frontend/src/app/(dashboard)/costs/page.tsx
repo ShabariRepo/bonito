@@ -222,7 +222,7 @@ export default function CostsPage() {
       {error && <ErrorBanner message={error} onRetry={loadCosts} />}
 
       {/* Top stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             title: "Total Spend",
@@ -280,7 +280,7 @@ export default function CostsPage() {
       </div>
 
       {/* Spend trend chart + budget gauge */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -360,7 +360,7 @@ export default function CostsPage() {
       </motion.div>
 
       {/* Top models + Departments */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

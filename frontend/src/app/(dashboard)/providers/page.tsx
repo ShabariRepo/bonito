@@ -303,7 +303,7 @@ export default function ProvidersPage() {
           </Link>
         </motion.div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence>
             {providers.map((p) => {
               const style = providerStyles[p.provider_type] || providerStyles.aws;
@@ -409,11 +409,11 @@ export default function ProvidersPage() {
                     )}
 
                     {/* Action buttons */}
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex flex-col sm:flex-row gap-2">
                       <button
                         onClick={() => handleRevalidate(p.id)}
                         disabled={revalidating === p.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50 min-h-[44px] touch-manipulation"
                       >
                         {revalidating === p.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -425,14 +425,14 @@ export default function ProvidersPage() {
                       <button
                         onClick={() => summary && openEditModal(summary)}
                         disabled={!summary}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50 min-h-[44px] touch-manipulation"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Update
                       </button>
                       <button
                         onClick={() => setConfirmDisconnect(p.id)}
-                        className="flex items-center justify-center gap-1.5 rounded-md border border-red-500/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="flex items-center justify-center gap-1.5 rounded-md border border-red-500/30 px-3 py-2.5 text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors min-h-[44px] min-w-[44px] touch-manipulation"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
