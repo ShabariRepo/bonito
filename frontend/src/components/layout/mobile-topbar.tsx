@@ -25,10 +25,7 @@ export function MobileTopBar() {
           <Menu className="h-5 w-5" />
         </motion.button>
         
-        <div className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Bonito" width={32} height={21} />
-          <span className="text-xl font-bold tracking-tight">Bonito</span>
-        </div>
+        <Image src="/logo-text-dark.png" alt="Bonito" width={110} height={36} />
       </div>
 
       {/* Right: Notification Bell */}

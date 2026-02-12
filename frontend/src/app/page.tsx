@@ -110,10 +110,7 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
-        <div className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Image src="/logo.png" alt="Bonito" width={36} height={24} />
-          Bonito
-        </div>
+        <Image src="/logo-text-dark.png" alt="Bonito" width={130} height={43} priority />
         <div className="hidden md:flex items-center gap-6">
           <Link href="/pricing" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Pricing</Link>
           <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>

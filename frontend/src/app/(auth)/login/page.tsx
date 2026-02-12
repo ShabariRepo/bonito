@@ -37,8 +37,7 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-md mx-auto px-6">
       <div className="text-center mb-8">
-        <Image src="/logo.png" alt="Bonito" width={64} height={42} className="mx-auto mb-3" />
-        <h1 className="text-3xl font-bold text-[#f5f0e8] tracking-tight">Bonito</h1>
+        <Image src="/logo-text-dark.png" alt="Bonito" width={160} height={53} className="mx-auto mb-4" />
         <p className="text-[#888] mt-2">Sign in to your account</p>
       </div>
       <div className="bg-[#111] border border-[#222] rounded-xl p-8">

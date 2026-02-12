@@ -31,22 +31,26 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "https://getbonito.com")
 FROM_EMAIL = "Bonito <noreply@getbonito.com>"
 
 
+LOGO_URL = f"{FRONTEND_URL}/logo-text.png"
+LOGO_ICON_URL = f"{FRONTEND_URL}/logo.png"
+
+
 def _base_template(content: str) -> str:
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 20px;">
 <tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="background:#111111;border-radius:12px;border:1px solid #222;">
-<tr><td style="padding:40px 40px 20px;">
-  <div style="font-size:24px;font-weight:700;color:#f5f0e8;letter-spacing:-0.5px;">Bonito</div>
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #e4e4e7;">
+<tr><td style="padding:32px 40px 24px;" align="center">
+  <a href="{FRONTEND_URL}"><img src="{LOGO_URL}" alt="Bonito" width="140" style="display:block;border:0;" /></a>
 </td></tr>
 <tr><td style="padding:0 40px 40px;">
   {content}
 </td></tr>
-<tr><td style="padding:20px 40px;border-top:1px solid #222;">
-  <div style="font-size:12px;color:#666;">© Bonito · getbonito.com</div>
+<tr><td style="padding:20px 40px;border-top:1px solid #e4e4e7;" align="center">
+  <div style="font-size:12px;color:#a1a1aa;">© 2026 Bonito · <a href="{FRONTEND_URL}" style="color:#7c3aed;text-decoration:none;">getbonito.com</a></div>
 </td></tr>
 </table>
 </td></tr>
@@ -63,12 +67,12 @@ async def send_verification_email(to: str, token: str):
     await _ensure_initialized()
     url = f"{FRONTEND_URL}/verify-email?token={token}"
     html = _base_template(f"""
-    <h2 style="color:#f5f0e8;margin:0 0 12px;font-size:20px;">Verify your email</h2>
-    <p style="color:#999;font-size:15px;line-height:1.6;margin:0 0 24px;">
+    <h2 style="color:#18181b;margin:0 0 12px;font-size:20px;">Verify your email</h2>
+    <p style="color:#52525b;font-size:15px;line-height:1.6;margin:0 0 24px;">
       Welcome to Bonito! Click below to verify your email and get started with your unified AI control plane.
     </p>
     <div style="margin:24px 0;">{_button(url, "Verify Email")}</div>
-    <p style="color:#666;font-size:13px;margin:16px 0 0;">This link expires in 24 hours. If you didn't create an account, ignore this email.</p>
+    <p style="color:#a1a1aa;font-size:13px;margin:16px 0 0;">This link expires in 24 hours. If you didn't create an account, ignore this email.</p>
     """)
     resend.Emails.send({
         "from": FROM_EMAIL,
@@ -82,12 +86,12 @@ async def send_password_reset_email(to: str, token: str):
     await _ensure_initialized()
     url = f"{FRONTEND_URL}/reset-password?token={token}"
     html = _base_template(f"""
-    <h2 style="color:#f5f0e8;margin:0 0 12px;font-size:20px;">Reset your password</h2>
-    <p style="color:#999;font-size:15px;line-height:1.6;margin:0 0 24px;">
+    <h2 style="color:#18181b;margin:0 0 12px;font-size:20px;">Reset your password</h2>
+    <p style="color:#52525b;font-size:15px;line-height:1.6;margin:0 0 24px;">
       We received a request to reset your password. Click below to choose a new one.
     </p>
     <div style="margin:24px 0;">{_button(url, "Reset Password")}</div>
-    <p style="color:#666;font-size:13px;margin:16px 0 0;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+    <p style="color:#a1a1aa;font-size:13px;margin:16px 0 0;">This link expires in 1 hour. If you didn't request this, ignore this email.</p>
     """)
     resend.Emails.send({
         "from": FROM_EMAIL,
@@ -100,8 +104,8 @@ async def send_password_reset_email(to: str, token: str):
 async def send_welcome_email(to: str, name: str):
     await _ensure_initialized()
     html = _base_template(f"""
-    <h2 style="color:#f5f0e8;margin:0 0 12px;font-size:20px;">Welcome to Bonito, {name}!</h2>
-    <p style="color:#999;font-size:15px;line-height:1.6;margin:0 0 24px;">
+    <h2 style="color:#18181b;margin:0 0 12px;font-size:20px;">Welcome to Bonito, {name}! 🐟</h2>
+    <p style="color:#52525b;font-size:15px;line-height:1.6;margin:0 0 24px;">
       Your email has been verified. You're all set to manage your AI infrastructure from a single control plane.
     </p>
     <div style="margin:24px 0;">{_button(f"{FRONTEND_URL}/dashboard", "Go to Dashboard")}</div>

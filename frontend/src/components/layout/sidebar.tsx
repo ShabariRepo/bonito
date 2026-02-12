@@ -84,20 +84,30 @@ export function Sidebar() {
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex h-16 items-center gap-2 border-b border-border px-4 shrink-0">
-        <Image src="/logo.png" alt="Bonito" width={36} height={24} className="shrink-0" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.span
+      <div className="flex h-16 items-center border-b border-border px-4 shrink-0">
+        <AnimatePresence mode="wait">
+          {(!isCollapsed || isMobile) ? (
+            <motion.div
+              key="full"
               variants={contentVariants}
               initial="collapsed"
               animate="expanded"
               exit="collapsed"
               transition={{ duration: 0.2 }}
-              className="text-xl font-bold tracking-tight"
             >
-              Bonito
-            </motion.span>
+              <Image src="/logo-text-dark.png" alt="Bonito" width={120} height={40} className="shrink-0" priority />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="icon"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mx-auto"
+            >
+              <Image src="/logo.png" alt="Bonito" width={32} height={21} className="shrink-0" priority />
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
