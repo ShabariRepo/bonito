@@ -8,14 +8,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
+  { href: "/use-cases", label: "Use Cases" },
   { href: "/pricing", label: "Pricing" },
   { href: "/docs", label: "Docs" },
-  { href: "/blog", label: "Blog" },
   { href: "/about", label: "About" },
 ];
 
 const footerLinks = {
   Product: [
+    { href: "/use-cases", label: "Use Cases" },
     { href: "/pricing", label: "Pricing" },
     { href: "/changelog", label: "Changelog" },
     { href: "/docs", label: "Documentation" },
