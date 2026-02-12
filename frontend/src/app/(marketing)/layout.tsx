@@ -32,6 +32,7 @@ const footerLinks = {
   Support: [
     { href: "/contact", label: "Contact Us" },
     { href: "/docs", label: "Documentation" },
+    { href: "/testing", label: "Testing Guide" },
   ],
 };
 

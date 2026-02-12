@@ -61,12 +61,73 @@ jobs:
           vercel --prod --token=$VERCEL_TOKEN --yes
 
   post-deploy:
-    name: Post-Deploy Checks
+    name: Post-Deploy Smoke Tests
     runs-on: ubuntu-latest
     needs: [deploy-backend, deploy-frontend]
     steps:
-      - name: Verify services
+      - uses: actions/checkout@v4
+
+      - name: Wait for deployments to stabilize
+        run: sleep 15
+
+      - name: Health checks
         run: |
-          echo "🐟 Bonito deployment complete!"
-          echo "Backend:  ${{ vars.RAILWAY_BACKEND_URL }}"
-          echo "Frontend: ${{ vars.VERCEL_FRONTEND_URL }}"
+          echo "🐟 Running post-deploy smoke tests..."
+          BACKEND="${{ vars.RAILWAY_BACKEND_URL }}"
+          FRONTEND="${{ vars.VERCEL_FRONTEND_URL }}"
+          FAIL=0
+
+          check() {
+            local label="$1" url="$2" expected="$3"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$url" --max-time 15 || echo "000")
+            if [ "$STATUS" = "$expected" ]; then
+              echo "  ✓ $label ($STATUS)"
+            else
+              echo "  ✗ $label (got $STATUS, expected $expected)"
+              FAIL=$((FAIL+1))
+            fi
+          }
+
+          echo "━━━ Backend Health ━━━"
+          check "API health"       "$BACKEND/api/health"       200
+          check "Liveness probe"   "$BACKEND/api/health/live"  200
+          check "Readiness probe"  "$BACKEND/api/health/ready" 200
+
+          echo "━━━ Frontend ━━━"
+          check "Homepage"         "$FRONTEND"                 200
+          check "Login page"       "$FRONTEND/login"           200
+          check "Register page"    "$FRONTEND/register"        200
+
+          echo "━━━ Auth API ━━━"
+          check "Bad login rejected" "$BACKEND/api/auth/login" 405  # GET should be method not allowed
+          REG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BACKEND/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"smoke@test.dev","password":"WrongPass1"}' --max-time 10 || echo "000")
+          if [ "$REG_STATUS" = "401" ]; then
+            echo "  ✓ Invalid login returns 401"
+          else
+            echo "  ✗ Invalid login returned $REG_STATUS (expected 401)"
+            FAIL=$((FAIL+1))
+          fi
+
+          echo "━━━ Protected endpoints (no auth) ━━━"
+          check "Providers (401)"  "$BACKEND/api/providers/"   401
+          check "Models (401)"     "$BACKEND/api/models/"      401
+
+          echo ""
+          if [ $FAIL -eq 0 ]; then
+            echo "🐟 All smoke tests passed!"
+          else
+            echo "⚠ $FAIL smoke test(s) failed"
+            exit 1
+          fi
+
+      - name: Run full API tests (if credentials available)
+        if: ${{ vars.SMOKE_TEST_EMAIL != '' }}
+        run: |
+          chmod +x scripts/test-api.sh
+          API_BASE="${{ vars.RAILWAY_BACKEND_URL }}" \
+          ./scripts/test-api.sh \
+            "${{ vars.VERCEL_FRONTEND_URL }}" \
+            "${{ vars.SMOKE_TEST_EMAIL }}" \
+            "${{ secrets.SMOKE_TEST_PASSWORD }}"
