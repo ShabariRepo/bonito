@@ -113,27 +113,48 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 }
 
 export async function register(email: string, password: string, name: string) {
-  const res = await fetch(`${API_URL}/api/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, name }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, name }),
+    });
+  } catch {
+    throw new Error("Unable to reach the server. Please check your connection and try again.");
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error?.message || data.detail || "Registration failed");
+    const msg = data.error?.message || data.detail || "";
+    if (res.status === 409) throw new Error("An account with this email already exists.");
+    if (res.status === 422) throw new Error(msg || "Please check your password meets the requirements.");
+    if (res.status === 429) throw new Error("Too many attempts. Please wait a minute and try again.");
+    if (res.status >= 500) throw new Error("Something went wrong on our end. Please try again in a moment.");
+    throw new Error(msg || "Registration failed. Please try again.");
   }
   return res.json();
 }
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
-  const res = await fetch(`${API_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    throw new Error("Unable to reach the server. Please check your connection and try again.");
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error?.message || data.detail || "Login failed");
+    const msg = data.error?.message || data.detail || "";
+    // Translate cryptic backend codes to human-friendly messages
+    if (res.status === 401) throw new Error("Invalid email or password.");
+    if (res.status === 403) throw new Error(msg || "Please verify your email before logging in.");
+    if (res.status === 429) throw new Error("Too many login attempts. Please wait a minute and try again.");
+    if (res.status >= 500) throw new Error("Something went wrong on our end. Please try again in a moment.");
+    throw new Error(msg || "Login failed. Please try again.");
   }
   const tokens = await res.json();
   setTokens(tokens);

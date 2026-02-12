@@ -2,6 +2,16 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://celebrated-contentment-production-0fc4.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/v1/:path*",
+      "destination": "https://celebrated-contentment-production-0fc4.up.railway.app/v1/:path*"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

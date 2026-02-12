@@ -25,11 +25,11 @@ class VaultClient:
         self,
         addr: str = None,
         token: str = None,
-        mount: str = "bonito",
+        mount: str = None,
     ):
         self.addr = addr or os.getenv("VAULT_ADDR", "http://vault:8200")
         self.token = token or os.getenv("VAULT_TOKEN", "bonito-dev-token")
-        self.mount = mount
+        self.mount = mount or os.getenv("VAULT_MOUNT", "secret")
         self._cache: dict = {}
 
     async def get_secrets(self, path: str) -> dict:

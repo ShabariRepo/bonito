@@ -99,9 +99,9 @@ async def handle_general_exception(request: Request, exc: Exception) -> JSONResp
     """Global exception handler for unhandled errors."""
     request_id = getattr(request.state, 'request_id', None)
     
-    # Log the full traceback
+    # Log the full traceback — always, so we can actually debug production issues
     logger.error(
-        f"Unhandled exception: {str(exc)}",
+        f"Unhandled exception on {request.method} {request.url.path}: {type(exc).__name__}: {str(exc)}",
         extra={
             "request_id": request_id,
             "path": request.url.path,
@@ -109,11 +109,14 @@ async def handle_general_exception(request: Request, exc: Exception) -> JSONResp
             "traceback": traceback.format_exc()
         }
     )
+    # Also print to stderr for Railway log capture
+    import sys
+    print(f"[ERROR] {request.method} {request.url.path} → {type(exc).__name__}: {str(exc)}", file=sys.stderr)
     
-    # Don't expose internal errors in production
+    # User-facing message: hide internals in production but give a useful hint
     from app.core.config import settings
     if settings.production_mode:
-        message = "An internal error occurred"
+        message = "Something went wrong. Please try again or contact support."
     else:
         message = str(exc)
     
