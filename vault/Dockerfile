@@ -5,8 +5,8 @@ COPY config.hcl /vault/config/config.hcl
 COPY entrypoint.sh /vault/entrypoint.sh
 RUN chmod +x /vault/entrypoint.sh
 
-# Data directory — mount a Railway persistent volume here
-VOLUME /vault/data
+# Data directory — attach a Railway persistent volume at /vault/data
+RUN mkdir -p /vault/data
 
 EXPOSE 8200
 
