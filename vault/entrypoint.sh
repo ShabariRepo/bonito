@@ -28,17 +28,20 @@ chown -R vault:vault /vault/data 2>/dev/null || true
 vault server -config=/vault/config/config.hcl &
 VAULT_PID=$!
 
-# Wait for Vault to be responsive
+# Wait for Vault to be responsive (vault status exits non-zero when
+# uninitialized or sealed, so check if it responds at all, not exit code)
 echo "⏳ Waiting for Vault to start..."
 for i in $(seq 1 30); do
-    if vault status -format=json > /dev/null 2>&1; then
+    # vault status returns 0=unsealed, 1=error, 2=sealed — all mean "running"
+    # Only a connection failure means "not ready yet"
+    if vault status -format=json 2>&1 | grep -q '"initialized"'; then
         break
     fi
     sleep 1
 done
 
-# Check if reachable
-if ! vault status -format=json > /dev/null 2>&1; then
+# Verify Vault is actually responding
+if ! vault status -format=json 2>&1 | grep -q '"initialized"'; then
     echo "❌ Vault failed to start after 30s"
     exit 1
 fi
@@ -46,7 +49,10 @@ fi
 echo "✅ Vault is up"
 
 # ── Check initialization status ───────────────────────────
-INITIALIZED=$(vault status -format=json 2>/dev/null | sed -n 's/.*"initialized": *\([a-z]*\).*/\1/p')
+STATUS_JSON=$(vault status -format=json 2>&1 || true)
+INITIALIZED=$(echo "$STATUS_JSON" | sed -n 's/.*"initialized": *\([a-z]*\).*/\1/p')
+
+echo "   Initialized: $INITIALIZED"
 
 if [ "$INITIALIZED" = "false" ]; then
     echo ""
@@ -75,7 +81,8 @@ if [ "$INITIALIZED" = "false" ]; then
 fi
 
 # ── Unseal ────────────────────────────────────────────────
-SEALED=$(vault status -format=json 2>/dev/null | sed -n 's/.*"sealed": *\([a-z]*\).*/\1/p')
+STATUS_JSON=$(vault status -format=json 2>&1 || true)
+SEALED=$(echo "$STATUS_JSON" | sed -n 's/.*"sealed": *\([a-z]*\).*/\1/p')
 
 if [ "$SEALED" = "true" ]; then
     if [ -z "$VAULT_UNSEAL_KEY" ]; then
