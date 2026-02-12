@@ -9,8 +9,13 @@ echo "REDIS_URL set: $([ -n "$REDIS_URL" ] && echo 'yes' || echo 'NO!')"
 
 # Run database migrations
 echo "⏳ Running Alembic migrations..."
-python -m alembic upgrade head 2>&1 || echo "⚠️ Migration failed (may be OK on first deploy)"
-echo "✅ Migrations step complete."
+if python -m alembic upgrade head 2>&1; then
+    echo "✅ Migrations complete."
+else
+    echo "❌ Migration FAILED — check alembic history. Continuing startup but DB may be out of sync."
+    # Don't exit — the app can still serve health checks and help diagnose.
+    # But log loudly so it shows up in Railway logs.
+fi
 
 # Start the server
 echo "🚀 Starting uvicorn on port ${PORT:-8000}..."
