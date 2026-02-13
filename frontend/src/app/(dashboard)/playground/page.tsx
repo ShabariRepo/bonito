@@ -339,7 +339,7 @@ export default function PlaygroundPage() {
 
                   {/* Dropdown */}
                   {modelDropdownOpen && (
-                    <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-xl max-h-80 flex flex-col">
+                    <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-xl max-h-[60vh] flex flex-col">
                       {/* Search */}
                       <div className="p-2 border-b border-border">
                         <input
@@ -353,7 +353,7 @@ export default function PlaygroundPage() {
                         />
                       </div>
                       {/* Provider filter tabs */}
-                      <div className="flex gap-1 p-2 border-b border-border overflow-x-auto">
+                      <div className="flex flex-wrap gap-1 p-2 border-b border-border">
                         <button
                           onClick={(e) => { e.stopPropagation(); setProviderFilter("all"); }}
                           className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
