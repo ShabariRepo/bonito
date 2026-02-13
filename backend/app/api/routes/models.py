@@ -311,16 +311,43 @@ async def playground_execute(
         "stream": stream
     }
     
-    # Route through the gateway service
+    # Route directly through provider using litellm (supports any model in catalog)
     start_time = time.time()
     try:
-        from uuid import uuid4
+        import litellm
+        from app.services.provider_service import _get_provider_secrets
         from app.models.gateway import GatewayRequest as LogEntry
         
-        # Log the request manually instead of using chat_completion
-        # which requires a real gateway key
-        router = await get_router(db, user.org_id)
-        response = await router.acompletion(**gateway_request)
+        secrets = await _get_provider_secrets(str(provider.id))
+        
+        # Build litellm model string + auth params based on provider type
+        litellm_params: dict = {}
+        if provider.provider_type == "aws":
+            gateway_request["model"] = f"bedrock/{model.model_id}"
+            litellm_params["aws_access_key_id"] = secrets.get("access_key_id", "")
+            litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
+            litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")
+        elif provider.provider_type == "azure":
+            gateway_request["model"] = f"azure/{model.model_id}"
+            litellm_params["api_base"] = secrets.get("endpoint", "")
+            litellm_params["api_key"] = secrets.get("api_key") or secrets.get("client_secret", "")
+            litellm_params["api_version"] = "2024-02-01"
+        elif provider.provider_type == "gcp":
+            gateway_request["model"] = f"vertex_ai/{model.model_id}"
+            litellm_params["vertex_project"] = secrets.get("project_id", "")
+            litellm_params["vertex_location"] = secrets.get("region", "us-central1")
+            sa_json = secrets.get("service_account_json")
+            if sa_json:
+                import json as _json
+                litellm_params["vertex_credentials"] = _json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
+        elif provider.provider_type == "openai":
+            gateway_request["model"] = f"openai/{model.model_id}"
+            litellm_params["api_key"] = secrets.get("api_key", "")
+        elif provider.provider_type == "anthropic":
+            gateway_request["model"] = f"anthropic/{model.model_id}"
+            litellm_params["api_key"] = secrets.get("api_key", "")
+        
+        response = await litellm.acompletion(**gateway_request, **litellm_params)
         
         # Create log entry
         log_entry = LogEntry(
