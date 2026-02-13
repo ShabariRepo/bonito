@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -257,10 +258,12 @@ export function Sidebar() {
   );
 
   if (isMobile) {
-    return (
+    // Render mobile sidebar via portal to avoid overflow-hidden clipping on iOS
+    if (typeof document === "undefined") return null;
+    return createPortal(
       <AnimatePresence>
         {isOpen && (
-          <>
+          <div key="mobile-sidebar-overlay">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -280,9 +283,10 @@ export function Sidebar() {
             >
               <SidebarContent />
             </motion.aside>
-          </>
+          </div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body,
     );
   }
 
