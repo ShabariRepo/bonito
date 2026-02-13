@@ -2,10 +2,12 @@ from datetime import datetime
 from uuid import UUID
 from typing import Optional, List, Dict, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ModelCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     provider_id: UUID
     model_id: str
     display_name: str
@@ -20,6 +22,8 @@ class ModelUpdate(BaseModel):
 
 
 class ModelResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: UUID
     provider_id: UUID
     provider_type: Optional[str] = None
@@ -28,8 +32,6 @@ class ModelResponse(BaseModel):
     capabilities: dict
     pricing_info: dict
     created_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 class UsageStats(BaseModel):
@@ -47,6 +49,8 @@ class ProviderInfo(BaseModel):
 
 
 class ModelDetailsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: UUID
     provider_id: UUID
     model_id: str
@@ -60,8 +64,6 @@ class ModelDetailsResponse(BaseModel):
     context_window: Optional[int] = None
     input_price_per_1k: Optional[float] = None
     output_price_per_1k: Optional[float] = None
-
-    model_config = {"from_attributes": True}
 
 
 class PlaygroundMessage(BaseModel):
@@ -90,6 +92,8 @@ class PlaygroundResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_ids: List[UUID]
     messages: List[PlaygroundMessage]
     temperature: Optional[float] = 0.7
@@ -97,6 +101,8 @@ class CompareRequest(BaseModel):
 
 
 class CompareResult(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_id: UUID
     display_name: str
     response: str

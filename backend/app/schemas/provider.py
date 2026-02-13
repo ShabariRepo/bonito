@@ -3,7 +3,7 @@ from enum import Enum
 from uuid import UUID
 from typing import Optional, List
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ConnectionStatus(str, Enum):
@@ -128,6 +128,8 @@ class ModelInfo(BaseModel):
 
 
 class ProviderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: UUID
     org_id: UUID
     provider_type: str
@@ -137,8 +139,6 @@ class ProviderResponse(BaseModel):
     model_count: int = 0
     created_at: datetime
 
-    model_config = {"from_attributes": True}
-
 
 class ProviderDetail(ProviderResponse):
     models: List[ModelInfo] = []
@@ -147,6 +147,8 @@ class ProviderDetail(ProviderResponse):
 
 
 class VerifyResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     success: bool
     message: str
     latency_ms: Optional[float] = None
@@ -156,6 +158,8 @@ class VerifyResponse(BaseModel):
 
 
 class InvocationRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_id: str
     prompt: str
     max_tokens: int = Field(default=1024, ge=1, le=100000)
@@ -163,6 +167,8 @@ class InvocationRequest(BaseModel):
 
 
 class InvocationResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     response_text: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -173,6 +179,8 @@ class InvocationResponse(BaseModel):
 
 class ProviderSummary(BaseModel):
     """Provider info with masked credentials — safe for API responses."""
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: UUID
     provider_type: str
     status: str
@@ -182,8 +190,6 @@ class ProviderSummary(BaseModel):
     masked_credentials: dict = {}
     last_validated: Optional[datetime] = None
     created_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 class CredentialUpdate(BaseModel):

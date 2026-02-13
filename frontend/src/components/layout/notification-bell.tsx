@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { Bell, DollarSign, Shield, AlertTriangle, BookOpen } from "lucide-react";
-import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 
 const TYPE_ICONS: Record<string, any> = {
   cost_alert: DollarSign,
@@ -21,11 +22,14 @@ export function NotificationBell() {
 
   useEffect(() => {
     async function load() {
+      // Don't poll if not authenticated — avoids 403 spam on the backend
+      if (!getAccessToken()) return;
       try {
         const [countRes, listRes] = await Promise.all([
-          fetch(`${API_URL}/api/notifications/unread-count`),
-          fetch(`${API_URL}/api/notifications/`),
+          apiRequest("/api/notifications/unread-count"),
+          apiRequest("/api/notifications/"),
         ]);
+        if (!countRes.ok || !listRes.ok) return;
         const countData = await countRes.json();
         const listData = await listRes.json();
         setUnreadCount(countData.count);

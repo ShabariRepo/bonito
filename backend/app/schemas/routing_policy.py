@@ -2,10 +2,12 @@ from datetime import datetime
 from uuid import UUID
 from typing import Optional, List, Dict, Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ModelConfiguration(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_id: UUID
     weight: Optional[int] = 50  # For A/B testing
     role: str = "primary"  # primary, fallback
@@ -72,6 +74,8 @@ class RoutingPolicyUpdate(BaseModel):
 
 
 class RoutingPolicyResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
     id: UUID
     org_id: UUID
     name: str
@@ -83,8 +87,6 @@ class RoutingPolicyResponse(BaseModel):
     api_key_prefix: str
     created_at: datetime
     updated_at: Optional[datetime]
-
-    model_config = {"from_attributes": True}
 
 
 class RoutingPolicyDetailResponse(RoutingPolicyResponse):
@@ -98,6 +100,8 @@ class PolicyTestRequest(BaseModel):
 
 
 class PolicyTestResult(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     selected_model_id: UUID
     selected_model_name: str
     strategy_used: str
@@ -107,6 +111,8 @@ class PolicyTestResult(BaseModel):
 
 
 class PolicyStats(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     policy_id: UUID
     request_count: int
     total_cost: float
