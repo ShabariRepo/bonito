@@ -74,6 +74,10 @@ export default function PlaygroundPage() {
   const [temperature, setTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(1000);
   const [showSettings, setShowSettings] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
+  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [lastResponse, setLastResponse] = useState<PlaygroundResponse | null>(null);
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -110,6 +114,29 @@ export default function PlaygroundPage() {
     }
     fetchModels();
   }, [searchParams]);
+
+  // Close model dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Get unique providers for filter tabs
+  const providers = Array.from(new Set(models.map(m => m.provider_type))).sort();
+
+  // Filter models by search + provider
+  const filteredModels = models.filter(m => {
+    const matchesSearch = !modelSearch || 
+      m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+      m.model_id.toLowerCase().includes(modelSearch.toLowerCase());
+    const matchesProvider = providerFilter === "all" || m.provider_type === providerFilter;
+    return matchesSearch && matchesProvider;
+  });
 
   const handleSendMessage = async () => {
     if (!currentInput.trim() || isLoading) return;
@@ -297,20 +324,84 @@ export default function PlaygroundPage() {
                   </div>
                 </div>
               ) : (
-                <div>
+                <div ref={modelDropdownRef} className="relative">
                   <label className="block text-sm font-medium mb-2">Select Model</label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="w-full p-2 border rounded-lg bg-background"
+                  {/* Selected model display / search input */}
+                  <div
+                    className="w-full p-2 border rounded-lg bg-background cursor-pointer flex items-center justify-between"
+                    onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
                   >
-                    <option value="">Select a model...</option>
-                    {models.map(model => (
-                      <option key={model.id} value={model.id}>
-                        {model.display_name} ({model.provider_type})
-                      </option>
-                    ))}
-                  </select>
+                    <span className={selectedModel ? "text-foreground" : "text-muted-foreground"}>
+                      {selectedModel ? `${getModelName(selectedModel)} (${models.find(m => m.id === selectedModel)?.provider_type || ""})` : "Select a model..."}
+                    </span>
+                    <svg className={`h-4 w-4 text-muted-foreground transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+
+                  {/* Dropdown */}
+                  {modelDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-xl max-h-80 flex flex-col">
+                      {/* Search */}
+                      <div className="p-2 border-b border-border">
+                        <input
+                          type="text"
+                          placeholder="Search models..."
+                          value={modelSearch}
+                          onChange={(e) => setModelSearch(e.target.value)}
+                          className="w-full px-3 py-1.5 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-violet-500"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                      {/* Provider filter tabs */}
+                      <div className="flex gap-1 p-2 border-b border-border overflow-x-auto">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setProviderFilter("all"); }}
+                          className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+                            providerFilter === "all" ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          All ({models.length})
+                        </button>
+                        {providers.map(p => (
+                          <button
+                            key={p}
+                            onClick={(e) => { e.stopPropagation(); setProviderFilter(p); }}
+                            className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors uppercase ${
+                              providerFilter === p ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {p} ({models.filter(m => m.provider_type === p).length})
+                          </button>
+                        ))}
+                      </div>
+                      {/* Model list */}
+                      <div className="overflow-y-auto flex-1">
+                        {filteredModels.length === 0 ? (
+                          <div className="p-4 text-sm text-muted-foreground text-center">No models match</div>
+                        ) : (
+                          filteredModels.map(model => (
+                            <button
+                              key={model.id}
+                              onClick={() => {
+                                setSelectedModel(model.id);
+                                setModelDropdownOpen(false);
+                                setModelSearch("");
+                              }}
+                              className={`w-full px-3 py-2 text-left hover:bg-accent transition-colors flex items-center justify-between ${
+                                selectedModel === model.id ? "bg-violet-500/10 text-violet-400" : ""
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate">{model.display_name}</div>
+                                <div className="text-xs text-muted-foreground">{model.model_id}</div>
+                              </div>
+                              <span className="text-xs text-muted-foreground uppercase ml-2 flex-shrink-0">{model.provider_type}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
