@@ -78,7 +78,14 @@ class GCPVertexProvider(CloudProvider):
     def __init__(self, project_id: str, service_account_json: str, region: str = "us-central1"):
         self._project_id = project_id
         self._region = region
-        self._sa_info = json.loads(service_account_json) if isinstance(service_account_json, str) else service_account_json
+        if isinstance(service_account_json, str):
+            # Handle escaped newlines in private_key that break strict JSON parsing
+            try:
+                self._sa_info = json.loads(service_account_json)
+            except json.JSONDecodeError:
+                self._sa_info = json.loads(service_account_json, strict=False)
+        else:
+            self._sa_info = service_account_json
         self._token: Optional[str] = None
         self._token_expires: float = 0
 
