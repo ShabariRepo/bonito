@@ -78,14 +78,16 @@ class GCPVertexProvider(CloudProvider):
     def __init__(self, project_id: str, service_account_json: str, region: str = "us-central1"):
         self._project_id = project_id
         self._region = region
-        if isinstance(service_account_json, str):
-            # Handle escaped newlines in private_key that break strict JSON parsing
+        if isinstance(service_account_json, dict):
+            self._sa_info = service_account_json
+        elif isinstance(service_account_json, str):
             try:
                 self._sa_info = json.loads(service_account_json)
             except json.JSONDecodeError:
+                # Fallback: literal newlines from textarea paste or Vault roundtrip
                 self._sa_info = json.loads(service_account_json, strict=False)
         else:
-            self._sa_info = service_account_json
+            raise ValueError("service_account_json must be a dict or JSON string")
         self._token: Optional[str] = None
         self._token_expires: float = 0
 

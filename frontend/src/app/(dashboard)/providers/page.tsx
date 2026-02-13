@@ -226,12 +226,24 @@ export default function ProvidersPage() {
     setEditError(null);
     setEditSuccess(false);
     try {
+      // Pre-parse service_account_json so it arrives as an object, not a string
+      // with literal newlines that break json.loads() on the backend
+      const creds = { ...editCreds };
+      if (creds.service_account_json && typeof creds.service_account_json === "string") {
+        try {
+          creds.service_account_json = JSON.parse(creds.service_account_json);
+        } catch {
+          setEditError("Invalid JSON in Service Account Key — please paste the full JSON key file");
+          setEditLoading(false);
+          return;
+        }
+      }
       const res = await apiRequest(
         `/api/providers/${editingProvider.id}/credentials`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ credentials: editCreds }),
+          body: JSON.stringify({ credentials: creds }),
         }
       );
       if (res.ok) {
