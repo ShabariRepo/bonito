@@ -172,32 +172,32 @@ class AzureFoundryProvider(CloudProvider):
         models: List[ModelInfo] = []
 
         try:
-            # List Azure OpenAI deployments if we have an endpoint
+            # List Azure OpenAI deployments + available models if we have an endpoint
             if self._endpoint:
                 cog_token = await self._get_cognitive_token()
                 async with httpx.AsyncClient() as client:
-                    resp = await client.get(
-                        f"{self._endpoint.rstrip('/')}/openai/deployments?api-version=2024-06-01",
+                    # First: list available (deployable) models
+                    models_resp = await client.get(
+                        f"{self._endpoint.rstrip('/')}/openai/models?api-version=2024-06-01",
                         headers={"Authorization": f"Bearer {cog_token}"},
                     )
-                    if resp.status_code == 200:
-                        for d in resp.json().get("data", []):
-                            model_name = d.get("model", d.get("id", "unknown"))
-                            inp, out = _get_azure_pricing(model_name)
-                            ctx = _get_azure_context(model_name)
+                    if models_resp.status_code == 200:
+                        for m in models_resp.json().get("data", []):
+                            model_id = m.get("id", "unknown")
+                            inp, out = _get_azure_pricing(model_id)
+                            ctx = _get_azure_context(model_id)
                             caps = ["text"]
-                            if "gpt-4o" in model_name or "gpt-4-turbo" in model_name:
+                            if "gpt-4o" in model_id or "gpt-4-turbo" in model_id:
                                 caps.extend(["vision", "function_calling"])
-                            if "embedding" in model_name:
+                            if "embedding" in model_id:
                                 caps = ["embeddings"]
-                            if "dall-e" in model_name:
+                            if "dall-e" in model_id:
                                 caps = ["image_generation"]
-                            if "whisper" in model_name:
+                            if "whisper" in model_id:
                                 caps = ["speech_to_text"]
-
                             models.append(ModelInfo(
-                                model_id=d["id"],
-                                model_name=d.get("model", d["id"]),
+                                model_id=model_id,
+                                model_name=model_id,
                                 provider_name="Azure OpenAI",
                                 input_modalities=["TEXT"] + (["IMAGE"] if "vision" in caps else []),
                                 output_modalities=["TEXT"] + (["IMAGE"] if "image_generation" in caps else []),
@@ -205,9 +205,54 @@ class AzureFoundryProvider(CloudProvider):
                                 context_window=ctx,
                                 input_price_per_1m_tokens=inp,
                                 output_price_per_1m_tokens=out,
-                                status=d.get("status", "succeeded").upper(),
+                                status="AVAILABLE",
                                 capabilities=caps,
                             ))
+
+                    # Then: list deployed models (mark as DEPLOYED)
+                    deployed_ids = set()
+                    resp = await client.get(
+                        f"{self._endpoint.rstrip('/')}/openai/deployments?api-version=2024-06-01",
+                        headers={"Authorization": f"Bearer {cog_token}"},
+                    )
+                    if resp.status_code == 200:
+                        existing_ids = {m.model_id for m in models}
+                        for d in resp.json().get("data", []):
+                            deploy_id = d["id"]
+                            model_name = d.get("model", deploy_id)
+                            deployed_ids.add(model_name)
+                            # Update status of matching available model to DEPLOYED
+                            for m in models:
+                                if m.model_id == model_name:
+                                    m.status = "DEPLOYED"
+                                    break
+                            else:
+                                # Deployment not in available models list — add it
+                                if deploy_id not in existing_ids:
+                                    inp, out = _get_azure_pricing(model_name)
+                                    ctx = _get_azure_context(model_name)
+                                    caps = ["text"]
+                                    if "gpt-4o" in model_name or "gpt-4-turbo" in model_name:
+                                        caps.extend(["vision", "function_calling"])
+                                    if "embedding" in model_name:
+                                        caps = ["embeddings"]
+                                    if "dall-e" in model_name:
+                                        caps = ["image_generation"]
+                                    if "whisper" in model_name:
+                                        caps = ["speech_to_text"]
+                                    models.append(ModelInfo(
+                                        model_id=deploy_id,
+                                        model_name=model_name,
+                                        provider_name="Azure OpenAI",
+                                        input_modalities=["TEXT"] + (["IMAGE"] if "vision" in caps else []),
+                                        output_modalities=["TEXT"] + (["IMAGE"] if "image_generation" in caps else []),
+                                        streaming_supported=True,
+                                        context_window=ctx,
+                                        input_price_per_1m_tokens=inp,
+                                        output_price_per_1m_tokens=out,
+                                        status="DEPLOYED",
+                                        capabilities=caps,
+                                    ))
 
             # Also list available models from Azure AI Model Catalog (MaaS)
             token = await self._get_token()

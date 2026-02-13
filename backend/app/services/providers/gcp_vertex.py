@@ -163,9 +163,9 @@ class GCPVertexProvider(CloudProvider):
         try:
             token = await self._get_token()
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # List publisher models (Gemini, PaLM, etc.)
+                # List publisher models (Gemini, PaLM, etc.) — v1beta1 has the full catalog
                 resp = await client.get(
-                    f"https://{self._region}-aiplatform.googleapis.com/v1/"
+                    f"https://{self._region}-aiplatform.googleapis.com/v1beta1/"
                     f"publishers/google/models",
                     headers={"Authorization": f"Bearer {token}"},
                 )
