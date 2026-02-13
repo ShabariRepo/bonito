@@ -85,6 +85,23 @@ class AWSBedrockProvider(CloudProvider):
 
         try:
             async with self._session.client("bedrock") as bedrock:
+                # Get models the account actually has access to
+                enabled_ids: set[str] = set()
+                try:
+                    paginator = bedrock.get_paginator("list_inference_profiles") if hasattr(bedrock, "get_paginator") else None
+                    # list_foundation_models with byInferenceType or check model access
+                    access_resp = await bedrock.list_foundation_models(byOutputModality="TEXT")
+                    # Also try to get enabled model access list
+                    try:
+                        access_list = await bedrock.list_model_access()
+                        for entry in access_list.get("modelAccessList", []):
+                            if entry.get("accessStatus") == "ENABLED":
+                                enabled_ids.add(entry.get("modelId", ""))
+                    except Exception:
+                        pass  # API might not be available, continue showing all
+                except Exception:
+                    pass
+
                 resp = await bedrock.list_foundation_models()
                 models = []
                 for m in resp.get("modelSummaries", []):
@@ -121,6 +138,13 @@ class AWSBedrockProvider(CloudProvider):
                     if streaming:
                         caps.append("streaming")
 
+                    # Determine access status
+                    lifecycle = m.get("modelLifecycle", {}).get("status", "ACTIVE")
+                    if enabled_ids:
+                        access_status = "ENABLED" if model_id in enabled_ids else "NOT_ENABLED"
+                    else:
+                        access_status = lifecycle  # Fallback if we couldn't get access list
+
                     models.append(ModelInfo(
                         model_id=model_id,
                         model_name=m.get("modelName", model_id),
@@ -131,7 +155,7 @@ class AWSBedrockProvider(CloudProvider):
                         context_window=ctx,
                         input_price_per_1m_tokens=inp_price,
                         output_price_per_1m_tokens=out_price,
-                        status=m.get("modelLifecycle", {}).get("status", "ACTIVE"),
+                        status=access_status,
                         capabilities=caps,
                     ))
 
