@@ -167,10 +167,23 @@ export default function PlaygroundPage() {
           };
           
           setMessages(prev => [...prev, assistantMessage]);
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.detail || `Request failed (${response.status})`;
+          setMessages(prev => [...prev, {
+            role: "assistant" as const,
+            content: `⚠️ Error: ${errMsg}`,
+            timestamp: Date.now()
+          }]);
         }
       }
     } catch (e) {
       console.error("Failed to send message", e);
+      setMessages(prev => [...prev, {
+        role: "assistant" as const,
+        content: `⚠️ Network error: ${e instanceof Error ? e.message : "Failed to reach server"}`,
+        timestamp: Date.now()
+      }]);
     } finally {
       setIsLoading(false);
     }
