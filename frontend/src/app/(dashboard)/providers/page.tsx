@@ -238,12 +238,14 @@ export default function ProvidersPage() {
         setEditSuccess(true);
         fetchProviders();
         setTimeout(() => setEditingProvider(null), 1500);
+      } else if (res.status === 429) {
+        setEditError("Rate limited — please wait a moment and try again");
       } else {
         const data = await res.json().catch(() => ({}));
-        setEditError(data.detail || "Failed to update credentials");
+        setEditError(data.detail || `Failed to update credentials (${res.status})`);
       }
-    } catch {
-      setEditError("Network error");
+    } catch (err) {
+      setEditError(err instanceof Error ? `Network error: ${err.message}` : "Network error — check your connection");
     } finally {
       setEditLoading(false);
     }
