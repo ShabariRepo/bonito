@@ -143,10 +143,42 @@ const onboardingSteps = [
 ];
 
 const results = [
-  { metric: "60%", label: "reduction in AI spend", detail: "Cost-optimized routing picks the cheapest model that meets quality requirements" },
-  { metric: "1 day", label: "to onboard vs. weeks", detail: "No infrastructure to build, no wrappers to write, no SDKs to learn" },
-  { metric: "100%", label: "audit coverage", detail: "Every AI request logged with user, model, cost, and tokens across all providers" },
+  { metric: "40–70%", label: "lower AI spend", detail: "By routing routine requests to cost-efficient models instead of using premium models for everything" },
+  { metric: "Minutes", label: "to connect a provider", detail: "Paste your service account credentials, Bonito validates and syncs models automatically" },
+  { metric: "Every request", label: "logged and tracked", detail: "User, model, cost, and token usage captured for every request routed through Bonito" },
   { metric: "3→1", label: "consoles to manage", detail: "One dashboard instead of juggling AWS, GCP, and Azure consoles separately" },
+];
+
+const pricingComparisons = [
+  { model: "Claude 3.5 Sonnet", tier: "Premium", input: "$3.00", output: "$15.00", color: "text-red-400" },
+  { model: "GPT-4o", tier: "Premium", input: "$5.00", output: "$15.00", color: "text-red-400" },
+  { model: "GPT-4o Mini", tier: "Economy", input: "$0.15", output: "$0.60", color: "text-green-400" },
+  { model: "Claude 3 Haiku", tier: "Economy", input: "$0.25", output: "$1.25", color: "text-green-400" },
+  { model: "Gemini 1.5 Flash", tier: "Economy", input: "$0.075", output: "$0.30", color: "text-green-400" },
+];
+
+const routingScenarios = [
+  {
+    label: "Using GPT-4o for everything",
+    before: "$10.00",
+    after: "$3.27",
+    savings: "67%",
+    detail: "Route 70% of routine traffic to GPT-4o Mini, keep 30% on GPT-4o for complex tasks",
+  },
+  {
+    label: "Using Claude 3.5 Sonnet for everything",
+    before: "$9.00",
+    after: "$3.23",
+    savings: "64%",
+    detail: "Route 70% to Claude 3 Haiku, keep 30% on Sonnet for nuanced work",
+  },
+  {
+    label: "Cross-provider routing",
+    before: "$9.00",
+    after: "$2.83",
+    savings: "69%",
+    detail: "Sonnet for complex tasks, Gemini Flash for simple ones — best price across clouds",
+  },
 ];
 
 export default function UseCasesPage() {
@@ -343,6 +375,89 @@ export default function UseCasesPage() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* Cost Analysis */}
+      <section className="pb-16">
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-[#7c3aed]" />
+            </div>
+            <h2 className="text-3xl font-bold">The Math Behind 40–70% Savings</h2>
+          </div>
+          <p className="text-[#888] mb-8 max-w-3xl">
+            Most enterprises pick a &quot;good&quot; model and use it for everything. But 60–80% of LLM requests are routine — 
+            classification, summarization, template filling, simple Q&amp;A. These tasks don&apos;t need a frontier model. 
+            The pricing gap between premium and economy models is 10–25x.
+          </p>
+
+          {/* Pricing Table */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-[#1a1a1a]">
+              <h3 className="font-semibold">Model Pricing per 1M Tokens (actual provider pricing)</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[#888] border-b border-[#1a1a1a]">
+                    <th className="text-left px-6 py-3 font-medium">Model</th>
+                    <th className="text-left px-6 py-3 font-medium">Tier</th>
+                    <th className="text-right px-6 py-3 font-medium">Input</th>
+                    <th className="text-right px-6 py-3 font-medium">Output</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pricingComparisons.map((p) => (
+                    <tr key={p.model} className="border-b border-[#1a1a1a]/50 hover:bg-[#1a1a1a]/30">
+                      <td className="px-6 py-3 font-medium">{p.model}</td>
+                      <td className={`px-6 py-3 ${p.color}`}>{p.tier}</td>
+                      <td className="px-6 py-3 text-right font-mono">{p.input}</td>
+                      <td className="px-6 py-3 text-right font-mono">{p.output}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Routing Scenarios */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-[#1a1a1a]">
+              <h3 className="font-semibold">What Intelligent Routing Actually Saves</h3>
+              <p className="text-xs text-[#888] mt-1">Blended cost per 1K tokens, assuming 70% of traffic is routine</p>
+            </div>
+            <div className="divide-y divide-[#1a1a1a]/50">
+              {routingScenarios.map((s) => (
+                <div key={s.label} className="px-6 py-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">{s.label}</span>
+                    <span className="text-lg font-bold text-green-400">{s.savings} savings</span>
+                  </div>
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#888]">Before:</span>
+                      <span className="text-sm font-mono text-red-400">{s.before}</span>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-[#888]" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-[#888]">After:</span>
+                      <span className="text-sm font-mono text-green-400">{s.after}</span>
+                    </div>
+                    <span className="text-xs text-[#888]">per 1K tokens</span>
+                  </div>
+                  <p className="text-xs text-[#666]">{s.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-xs text-[#666] italic">
+            Pricing based on published rates from OpenAI, Anthropic, and Google as of early 2026. 
+            Actual savings depend on traffic mix and which models your teams currently use. 
+            Savings are highest for teams defaulting to a single premium model for all tasks.
+          </p>
+        </motion.div>
       </section>
 
       {/* CTA */}
