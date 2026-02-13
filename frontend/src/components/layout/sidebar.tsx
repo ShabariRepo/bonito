@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import {
@@ -22,9 +22,11 @@ import {
   Bell,
   AlertTriangle,
   Play,
+  LogOut,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
+import { useAuth } from "@/components/auth/auth-context";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -46,8 +48,15 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { isCollapsed, isMobile, isOpen, setOpen } = useSidebar();
+  const { user, logout } = useAuth();
   const [setupIncomplete, setSetupIncomplete] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   useEffect(() => {
     async function checkSetup() {
@@ -200,7 +209,7 @@ export function Sidebar() {
       <div className="border-t border-border p-4 shrink-0">
         <div className={cn("flex items-center gap-3", isCollapsed && !isMobile && "justify-center")}>
           <div className="h-8 w-8 rounded-full bg-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
-            B
+            {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || "B"}
           </div>
           <AnimatePresence>
             {(!isCollapsed || isMobile) && (
@@ -212,12 +221,37 @@ export function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="flex-1 min-w-0"
               >
-                <p className="text-sm font-medium truncate">Bonito Org</p>
-                <p className="text-xs text-muted-foreground truncate">Enterprise</p>
+                <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email || ""}</p>
               </motion.div>
             )}
           </AnimatePresence>
+          <AnimatePresence>
+            {(!isCollapsed || isMobile) && (
+              <motion.button
+                variants={contentVariants}
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                transition={{ duration: 0.2 }}
+                onClick={handleLogout}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
+        {isCollapsed && !isMobile && (
+          <button
+            onClick={handleLogout}
+            className="mt-2 w-full p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );
