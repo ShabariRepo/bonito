@@ -105,6 +105,8 @@ async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(g
     models = []
     for model, provider_type in result.all():
         model.provider_type = provider_type
+        # Extract access status from pricing_info
+        model.status = (model.pricing_info or {}).get("status", "available")
         models.append(model)
     return models
 

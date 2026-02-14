@@ -31,6 +31,7 @@ class ModelResponse(BaseModel):
     display_name: str
     capabilities: dict
     pricing_info: dict
+    status: Optional[str] = None
     created_at: datetime
 
 

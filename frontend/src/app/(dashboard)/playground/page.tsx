@@ -27,6 +27,7 @@ interface Model {
   model_id: string;
   display_name: string;
   provider_type: string;
+  status?: string;
 }
 
 interface Message {
@@ -77,6 +78,7 @@ export default function PlaygroundPage() {
   const [modelSearch, setModelSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [showAllModels, setShowAllModels] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [lastResponse, setLastResponse] = useState<PlaygroundResponse | null>(null);
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
@@ -100,12 +102,13 @@ export default function PlaygroundPage() {
           const data = await res.json();
           setModels(data);
           
-          // Set initial model from URL param or first model
+          // Set initial model from URL param or first enabled model
           const modelParam = searchParams.get("model");
           if (modelParam) {
             setSelectedModel(modelParam);
           } else if (data.length > 0) {
-            setSelectedModel(data[0].id);
+            const enabledModel = data.find((m: Model) => !m.status || m.status === "enabled" || m.status === "available" || m.status === "active" || m.status === "ACTIVE");
+            setSelectedModel(enabledModel ? enabledModel.id : data[0].id);
           }
         }
       } catch (e) {
@@ -129,14 +132,33 @@ export default function PlaygroundPage() {
   // Get unique providers for filter tabs
   const providers = Array.from(new Set(models.map(m => m.provider_type))).sort();
 
-  // Filter models by search + provider
-  const filteredModels = models.filter(m => {
+  // Filter models by search + provider + access status
+  const filteredModels = models
+    .filter(m => {
+      const matchesSearch = !modelSearch || 
+        m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+        m.model_id.toLowerCase().includes(modelSearch.toLowerCase());
+      const matchesProvider = providerFilter === "all" || m.provider_type === providerFilter;
+      const matchesAccess = showAllModels || !m.status || m.status === "enabled" || m.status === "available" || m.status === "active" || m.status === "ACTIVE";
+      return matchesSearch && matchesProvider && matchesAccess;
+    })
+    .sort((a, b) => {
+      // Sort enabled/available models first
+      const aEnabled = !a.status || a.status === "enabled" || a.status === "available" || a.status === "active" || a.status === "ACTIVE";
+      const bEnabled = !b.status || b.status === "enabled" || b.status === "available" || b.status === "active" || b.status === "ACTIVE";
+      if (aEnabled && !bEnabled) return -1;
+      if (!aEnabled && bEnabled) return 1;
+      return a.display_name.localeCompare(b.display_name);
+    });
+  
+  const totalModelsForFilter = models.filter(m => {
     const matchesSearch = !modelSearch || 
       m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
       m.model_id.toLowerCase().includes(modelSearch.toLowerCase());
     const matchesProvider = providerFilter === "all" || m.provider_type === providerFilter;
     return matchesSearch && matchesProvider;
-  });
+  }).length;
+  const hiddenCount = totalModelsForFilter - filteredModels.length;
 
   const handleSendMessage = async () => {
     if (!currentInput.trim() || isLoading) return;
@@ -332,7 +354,7 @@ export default function PlaygroundPage() {
                     onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
                   >
                     <span className={selectedModel ? "text-foreground" : "text-muted-foreground"}>
-                      {selectedModel ? `${getModelName(selectedModel)} (${models.find(m => m.id === selectedModel)?.provider_type || ""})` : "Select a model..."}
+                      {selectedModel ? `${(() => { const sm = models.find(m => m.id === selectedModel); const notEnabled = sm?.status && sm.status !== "enabled" && sm.status !== "available" && sm.status !== "active" && sm.status !== "ACTIVE"; return `${notEnabled ? "🔒 " : ""}${getModelName(selectedModel)} (${sm?.provider_type || ""})`; })()}` : "Select a model..."}
                     </span>
                     <svg className={`h-4 w-4 text-muted-foreground transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
@@ -379,25 +401,47 @@ export default function PlaygroundPage() {
                         {filteredModels.length === 0 ? (
                           <div className="p-4 text-sm text-muted-foreground text-center">No models match</div>
                         ) : (
-                          filteredModels.map(model => (
-                            <button
-                              key={model.id}
-                              onClick={() => {
-                                setSelectedModel(model.id);
-                                setModelDropdownOpen(false);
-                                setModelSearch("");
-                              }}
-                              className={`w-full px-3 py-2 text-left hover:bg-accent transition-colors flex items-center justify-between ${
-                                selectedModel === model.id ? "bg-violet-500/10 text-violet-400" : ""
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium truncate">{model.display_name}</div>
-                                <div className="text-xs text-muted-foreground">{model.model_id}</div>
-                              </div>
-                              <span className="text-xs text-muted-foreground uppercase ml-2 flex-shrink-0">{model.provider_type}</span>
-                            </button>
-                          ))
+                          filteredModels.map(model => {
+                            const isEnabled = !model.status || model.status === "enabled" || model.status === "available" || model.status === "active" || model.status === "ACTIVE";
+                            return (
+                              <button
+                                key={model.id}
+                                onClick={() => {
+                                  setSelectedModel(model.id);
+                                  setModelDropdownOpen(false);
+                                  setModelSearch("");
+                                }}
+                                className={`w-full px-3 py-2 text-left hover:bg-accent transition-colors flex items-center justify-between ${
+                                  selectedModel === model.id ? "bg-violet-500/10 text-violet-400" : ""
+                                } ${!isEnabled ? "opacity-50" : ""}`}
+                              >
+                                <div className="min-w-0 flex items-center gap-1.5">
+                                  {!isEnabled && <span className="text-xs flex-shrink-0" title="Model not enabled in your cloud account">🔒</span>}
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium truncate">{model.display_name}</div>
+                                    <div className="text-xs text-muted-foreground">{model.model_id}</div>
+                                  </div>
+                                </div>
+                                <span className="text-xs text-muted-foreground uppercase ml-2 flex-shrink-0">{model.provider_type}</span>
+                              </button>
+                            );
+                          })
+                        )}
+                        {hiddenCount > 0 && (
+                          <button
+                            onClick={() => setShowAllModels(true)}
+                            className="w-full px-3 py-2 text-center text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border"
+                          >
+                            + {hiddenCount} more models not enabled in your account
+                          </button>
+                        )}
+                        {showAllModels && hiddenCount === 0 && totalModelsForFilter > 0 && (
+                          <button
+                            onClick={() => setShowAllModels(false)}
+                            className="w-full px-3 py-2 text-center text-xs text-muted-foreground hover:text-foreground transition-colors border-t border-border"
+                          >
+                            Show only enabled models
+                          </button>
                         )}
                       </div>
                     </div>
