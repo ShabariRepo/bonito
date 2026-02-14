@@ -28,6 +28,7 @@ interface Model {
   display_name: string;
   provider_type: string;
   status?: string;
+  capabilities?: { types?: string[] };
 }
 
 // Statuses that mean the model is invocable:
@@ -35,7 +36,25 @@ interface Model {
 // "not_enabled" (AWS) = needs access request
 const INVOCABLE_STATUSES = new Set(["enabled", "available", "deployed", "active"]);
 function isModelInvocable(m: Model): boolean {
-  return !m.status || INVOCABLE_STATUSES.has(m.status.toLowerCase());
+  if (m.status && !INVOCABLE_STATUSES.has(m.status.toLowerCase())) return false;
+  return true;
+}
+
+// Non-chat model types that can't be used in a chat playground
+const NON_CHAT_TYPES = new Set(["embeddings", "embedding", "rerank", "classification", "segmentation", "detection", "image-generation"]);
+// Known non-chat model name patterns (catches models without capability metadata)
+const NON_CHAT_PATTERNS = [/embed/i, /babbage/i, /^ada$/i, /ada-00/i, /^dall-e/i, /^tts-/i, /^whisper/i, /rerank/i, /\bbert\b/i, /\bbart\b/i, /moderation/i];
+function isChatCapable(m: Model): boolean {
+  // Check capabilities metadata
+  const types = m.capabilities?.types || [];
+  if (types.length > 0) {
+    // If model explicitly lists only non-chat capabilities, exclude it
+    const hasChat = types.some(t => !NON_CHAT_TYPES.has(t.toLowerCase()));
+    if (!hasChat) return false;
+  }
+  // Check model ID against known non-chat patterns
+  if (NON_CHAT_PATTERNS.some(p => p.test(m.model_id))) return false;
+  return true;
 }
 
 interface Message {
@@ -110,13 +129,13 @@ export default function PlaygroundPage() {
           const data = await res.json();
           setModels(data);
           
-          // Set initial model from URL param or first enabled model
+          // Set initial model from URL param or first enabled chat model
           const modelParam = searchParams.get("model");
           if (modelParam) {
             setSelectedModel(modelParam);
           } else if (data.length > 0) {
-            const enabledModel = data.find((m: Model) => isModelInvocable(m));
-            setSelectedModel(enabledModel ? enabledModel.id : data[0].id);
+            const enabledModel = data.find((m: Model) => isModelInvocable(m) && isChatCapable(m));
+            setSelectedModel(enabledModel ? enabledModel.id : null);
           }
         }
       } catch (e) {
@@ -137,11 +156,14 @@ export default function PlaygroundPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Get unique providers for filter tabs
-  const providers = Array.from(new Set(models.map(m => m.provider_type))).sort();
+  // Only show chat-capable models in playground (exclude embeddings, BERT, etc.)
+  const chatModels = models.filter(m => isChatCapable(m));
 
-  // Filter models by search + provider + access status
-  const filteredModels = models
+  // Get unique providers for filter tabs (from chat-capable models only)
+  const providers = Array.from(new Set(chatModels.map(m => m.provider_type))).sort();
+
+  // Filter chat models by search + provider + access status
+  const filteredModels = chatModels
     .filter(m => {
       const matchesSearch = !modelSearch || 
         m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
@@ -159,7 +181,7 @@ export default function PlaygroundPage() {
       return a.display_name.localeCompare(b.display_name);
     });
   
-  const totalModelsForFilter = models.filter(m => {
+  const totalModelsForFilter = chatModels.filter(m => {
     const matchesSearch = !modelSearch || 
       m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
       m.model_id.toLowerCase().includes(modelSearch.toLowerCase());
@@ -262,8 +284,9 @@ export default function PlaygroundPage() {
   const toggleCompareMode = () => {
     setCompareMode(!compareMode);
     if (!compareMode) {
-      // Entering compare mode - select first 2 models
-      setSelectedModels(models.slice(0, 2).map(m => m.id));
+      // Entering compare mode - select first 2 enabled chat-capable models
+      const invocableChatModels = chatModels.filter(m => isModelInvocable(m));
+      setSelectedModels(invocableChatModels.slice(0, 2).map(m => m.id));
     } else {
       // Exiting compare mode
       setSelectedModels([]);

@@ -300,6 +300,15 @@ async def playground_execute(
     
     model, provider = row
     
+    # Reject non-chat models (embeddings, rerankers, etc.)
+    caps = (model.capabilities or {}).get("types", [])
+    non_chat = {"embeddings", "embedding", "rerank", "classification", "segmentation", "detection"}
+    model_id_lower = (model.model_id or "").lower()
+    is_embedding = (caps and all(c.lower() in non_chat for c in caps))
+    is_known_non_chat = any(p in model_id_lower for p in ["embed", "babbage", "rerank", "bert", "bart", "moderation", "tts-", "whisper", "dall-e"])
+    if is_embedding or is_known_non_chat:
+        raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' does not support chat completions (it's an embedding/utility model). Select a text generation model instead.")
+    
     # Check governance policies
     max_tokens = request_data.max_tokens or 1000
     await _check_governance_policies(db, user.org_id, max_tokens)
