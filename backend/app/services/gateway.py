@@ -82,10 +82,97 @@ async def _get_provider_credentials(
     return creds
 
 
-async def _build_model_list(creds: dict) -> list[dict]:
-    """Build LiteLLM model_list from available provider credentials."""
+async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.UUID = None) -> list[dict]:
+    """Build LiteLLM model_list dynamically from DB-synced models + provider credentials.
+    
+    If db/org_id are provided, reads the actual model catalog from the DB
+    (synced from cloud providers). Falls back to a minimal hardcoded list
+    if DB is unavailable.
+    """
     model_list = []
 
+    # Try dynamic model list from DB first
+    if db and org_id:
+        try:
+            result = await db.execute(
+                select(Model, CloudProvider)
+                .join(CloudProvider, Model.provider_id == CloudProvider.id)
+                .where(
+                    and_(
+                        CloudProvider.org_id == org_id,
+                        CloudProvider.status == "active",
+                    )
+                )
+            )
+            rows = result.all()
+            
+            for model, provider in rows:
+                provider_type = provider.provider_type
+                if provider_type not in creds:
+                    continue
+                
+                c = creds[provider_type]
+                model_id = model.model_id
+                litellm_params: dict = {}
+                
+                if provider_type == "aws":
+                    litellm_params = {
+                        "model": f"bedrock/{model_id}",
+                        "aws_access_key_id": c.get("access_key_id", ""),
+                        "aws_secret_access_key": c.get("secret_access_key", ""),
+                        "aws_region_name": c.get("region", "us-east-1"),
+                    }
+                elif provider_type == "azure":
+                    api_key = c.get("api_key") or c.get("client_secret", "")
+                    base_url = c.get("endpoint", "")
+                    if not (base_url and api_key):
+                        continue
+                    litellm_params = {
+                        "model": f"azure/{model_id}",
+                        "api_base": base_url,
+                        "api_key": api_key,
+                        "api_version": "2024-02-01",
+                    }
+                elif provider_type == "gcp":
+                    sa_json = c.get("service_account_json")
+                    vertex_credentials = None
+                    if sa_json:
+                        vertex_credentials = json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
+                    litellm_params = {
+                        "model": f"vertex_ai/{model_id}",
+                        "vertex_project": c.get("project_id", ""),
+                        "vertex_location": c.get("region", "us-central1"),
+                    }
+                    if vertex_credentials:
+                        litellm_params["vertex_credentials"] = vertex_credentials
+                elif provider_type == "openai":
+                    litellm_params = {
+                        "model": f"openai/{model_id}",
+                        "api_key": c.get("api_key", ""),
+                    }
+                    org = c.get("organization_id")
+                    if org:
+                        litellm_params["organization"] = org
+                elif provider_type == "anthropic":
+                    litellm_params = {
+                        "model": f"anthropic/{model_id}",
+                        "api_key": c.get("api_key", ""),
+                    }
+                else:
+                    continue
+                
+                model_list.append({
+                    "model_name": model_id,
+                    "litellm_params": litellm_params,
+                })
+            
+            if model_list:
+                logger.info(f"Built dynamic model list: {len(model_list)} models for org {org_id}")
+                return model_list
+        except Exception as e:
+            logger.warning(f"Failed to build dynamic model list from DB: {e}, falling back to hardcoded")
+
+    # Fallback: hardcoded model list (for when DB is unavailable)
     if "aws" in creds:
         c = creds["aws"]
         common = {
@@ -96,7 +183,6 @@ async def _build_model_list(creds: dict) -> list[dict]:
         for model in [
             "anthropic.claude-3-5-sonnet-20241022-v2:0",
             "anthropic.claude-3-haiku-20240307-v1:0",
-            "amazon.titan-embed-text-v2:0",
             "meta.llama3-70b-instruct-v1:0",
         ]:
             model_list.append({
@@ -107,20 +193,13 @@ async def _build_model_list(creds: dict) -> list[dict]:
     if "azure" in creds:
         c = creds["azure"]
         base_url = c.get("endpoint", "")
-        # Azure OpenAI uses a resource-level API key, NOT the AD
-        # client_secret.  Prefer the dedicated ``api_key`` field;
-        # fall back to ``client_secret`` only for legacy configs.
         api_key = c.get("api_key") or c.get("client_secret", "")
         if base_url and api_key:
-            for model, deployment in [
-                ("gpt-4o", "gpt-4o"),
-                ("gpt-4o-mini", "gpt-4o-mini"),
-                ("text-embedding-3-small", "text-embedding-3-small"),
-            ]:
+            for model in ["gpt-4o", "gpt-4o-mini"]:
                 model_list.append({
                     "model_name": model,
                     "litellm_params": {
-                        "model": f"azure/{deployment}",
+                        "model": f"azure/{model}",
                         "api_base": base_url,
                         "api_key": api_key,
                         "api_version": "2024-02-01",
@@ -129,77 +208,17 @@ async def _build_model_list(creds: dict) -> list[dict]:
 
     if "gcp" in creds:
         c = creds["gcp"]
-        project = c.get("project_id", "")
-        region = c.get("region", "us-central1")
-        # LiteLLM needs the full service-account JSON to authenticate
-        # with Vertex AI.  The value is stored as either a JSON string
-        # or a dict under ``service_account_json``.
         sa_json = c.get("service_account_json")
-        vertex_credentials = None
-        if sa_json:
-            vertex_credentials = (
-                json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
-            )
-        for model in [
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
-            "text-embedding-004",
-        ]:
+        vertex_credentials = json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json if sa_json else None
+        for model in ["gemini-1.5-pro", "gemini-1.5-flash"]:
             params: dict = {
                 "model": f"vertex_ai/{model}",
-                "vertex_project": project,
-                "vertex_location": region,
+                "vertex_project": c.get("project_id", ""),
+                "vertex_location": c.get("region", "us-central1"),
             }
             if vertex_credentials:
                 params["vertex_credentials"] = vertex_credentials
-            model_list.append({
-                "model_name": model,
-                "litellm_params": params,
-            })
-
-    if "openai" in creds:
-        c = creds["openai"]
-        api_key = c.get("api_key", "")
-        org_id = c.get("organization_id")
-        if api_key:
-            for model in [
-                "gpt-4o",
-                "gpt-4o-mini",
-                "o1",
-                "o3-mini",
-                "gpt-3.5-turbo",
-                "text-embedding-3-large",
-                "text-embedding-3-small",
-            ]:
-                params: dict = {
-                    "model": f"openai/{model}",
-                    "api_key": api_key,
-                }
-                if org_id:
-                    params["organization"] = org_id
-                model_list.append({
-                    "model_name": model,
-                    "litellm_params": params,
-                })
-
-    if "anthropic" in creds:
-        c = creds["anthropic"]
-        api_key = c.get("api_key", "")
-        if api_key:
-            for model in [
-                "claude-3-5-sonnet-20241022",
-                "claude-3-5-haiku-20241022",
-                "claude-3-opus-20240229",
-                "claude-3-sonnet-20240229",
-                "claude-3-haiku-20240307",
-            ]:
-                model_list.append({
-                    "model_name": model,
-                    "litellm_params": {
-                        "model": f"anthropic/{model}",
-                        "api_key": api_key,
-                    },
-                })
+            model_list.append({"model_name": model, "litellm_params": params})
 
     return model_list
 
@@ -218,7 +237,7 @@ async def get_router(
         return _routers[org_id]
 
     creds = await _get_provider_credentials(db, org_id)
-    model_list = await _build_model_list(creds)
+    model_list = await _build_model_list(creds, db=db, org_id=org_id)
 
     if not model_list:
         # Return a router with empty model list — calls will fail gracefully
@@ -257,7 +276,7 @@ async def get_available_models(
 ) -> list[dict]:
     """Return list of available models from the org's configured providers."""
     creds = await _get_provider_credentials(db, org_id)
-    model_list = await _build_model_list(creds)
+    model_list = await _build_model_list(creds, db=db, org_id=org_id)
     seen: set[str] = set()
     models = []
     for m in model_list:

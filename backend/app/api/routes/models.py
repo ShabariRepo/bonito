@@ -471,10 +471,13 @@ async def compare_models(
     max_tokens = request_data.max_tokens or 1000
     await _check_governance_policies(db, user.org_id, max_tokens)
     
-    # Execute requests concurrently
+    # Execute requests concurrently using direct litellm (same as single-model playground)
     async def execute_single_model(model_row):
         model, provider = model_row
         try:
+            import litellm as _litellm
+            from app.services.provider_service import _get_provider_secrets
+            
             gateway_request = {
                 "model": model.model_id,
                 "messages": [{"role": msg.role, "content": msg.content} for msg in request_data.messages],
@@ -482,11 +485,35 @@ async def compare_models(
                 "max_tokens": request_data.max_tokens
             }
             
-            start_time = time.time()
+            secrets = await _get_provider_secrets(str(provider.id))
+            litellm_params: dict = {}
+            if provider.provider_type == "aws":
+                gateway_request["model"] = f"bedrock/{model.model_id}"
+                litellm_params["aws_access_key_id"] = secrets.get("access_key_id", "")
+                litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
+                litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")
+            elif provider.provider_type == "azure":
+                gateway_request["model"] = f"azure/{model.model_id}"
+                litellm_params["api_base"] = secrets.get("endpoint", "")
+                litellm_params["api_key"] = secrets.get("api_key") or secrets.get("client_secret", "")
+                litellm_params["api_version"] = "2024-02-01"
+            elif provider.provider_type == "gcp":
+                gateway_request["model"] = f"vertex_ai/{model.model_id}"
+                litellm_params["vertex_project"] = secrets.get("project_id", "")
+                litellm_params["vertex_location"] = secrets.get("region", "us-central1")
+                sa_json = secrets.get("service_account_json")
+                if sa_json:
+                    import json as _json
+                    litellm_params["vertex_credentials"] = _json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
+            elif provider.provider_type == "openai":
+                gateway_request["model"] = f"openai/{model.model_id}"
+                litellm_params["api_key"] = secrets.get("api_key", "")
+            elif provider.provider_type == "anthropic":
+                gateway_request["model"] = f"anthropic/{model.model_id}"
+                litellm_params["api_key"] = secrets.get("api_key", "")
             
-            # Use router directly instead of chat_completion
-            router = await get_router(db, user.org_id)
-            response = await router.acompletion(**gateway_request)
+            start_time = time.time()
+            response = await _litellm.acompletion(**gateway_request, **litellm_params)
             
             # Create log entry
             from app.models.gateway import GatewayRequest as LogEntry
@@ -498,7 +525,7 @@ async def compare_models(
                 provider=provider.provider_type,
                 input_tokens=getattr(response.usage, "prompt_tokens", 0) if hasattr(response, 'usage') else 0,
                 output_tokens=getattr(response.usage, "completion_tokens", 0) if hasattr(response, 'usage') else 0,
-                cost=0.0,  # Will be calculated below
+                cost=0.0,
                 latency_ms=int((time.time() - start_time) * 1000),
                 status="success"
             )

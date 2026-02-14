@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { PageHeader } from "@/components/ui/page-header";
-import { Box, Sparkles, MessageSquare, Image, Code, Search, RefreshCw, AlertTriangle } from "lucide-react";
+import { Box, Sparkles, MessageSquare, Image, Code, Search, RefreshCw, AlertTriangle, Lock, Filter } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 
 interface Model {
@@ -66,6 +66,7 @@ export default function ModelsPage() {
   const [syncResult, setSyncResult] = useState<Record<string, number> | null>(null);
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [showOnlyEnabled, setShowOnlyEnabled] = useState(true);
 
   const fetchModels = useCallback(async (autoSync = false) => {
     try {
@@ -155,13 +156,33 @@ export default function ModelsPage() {
     modelCountByProvider[p] = (modelCountByProvider[p] || 0) + 1;
   }
 
-  const filtered = models.filter(m => {
-    const name = (m.display_name || m.model_name || m.model_id || "").toLowerCase();
-    const prov = getProviderLabel(m).toLowerCase();
-    const matchesSearch = !search || name.includes(search.toLowerCase()) || m.model_id.toLowerCase().includes(search.toLowerCase());
-    const matchesProvider = providerFilter === "all" || prov.includes(providerFilter.toLowerCase());
-    return matchesSearch && matchesProvider;
-  });
+  // Determine if a model is enabled/invocable
+  const INVOCABLE_STATUSES = new Set(["enabled", "available", "deployed", "active"]);
+  const isModelEnabled = (m: Model) => {
+    const status = (m.pricing_info?.status || m.status || "").toLowerCase();
+    if (!status) return false; // unknown status = not confirmed enabled
+    return INVOCABLE_STATUSES.has(status);
+  };
+
+  const enabledCount = models.filter(isModelEnabled).length;
+
+  const filtered = models
+    .filter(m => {
+      const name = (m.display_name || m.model_name || m.model_id || "").toLowerCase();
+      const prov = getProviderLabel(m).toLowerCase();
+      const matchesSearch = !search || name.includes(search.toLowerCase()) || m.model_id.toLowerCase().includes(search.toLowerCase());
+      const matchesProvider = providerFilter === "all" || prov.includes(providerFilter.toLowerCase());
+      const matchesAccess = !showOnlyEnabled || isModelEnabled(m);
+      return matchesSearch && matchesProvider && matchesAccess;
+    })
+    .sort((a, b) => {
+      // Enabled models first
+      const aEnabled = isModelEnabled(a);
+      const bEnabled = isModelEnabled(b);
+      if (aEnabled && !bEnabled) return -1;
+      if (!aEnabled && bEnabled) return 1;
+      return (a.display_name || a.model_id).localeCompare(b.display_name || b.model_id);
+    });
 
   if (loading) {
     return (
@@ -175,7 +196,7 @@ export default function ModelsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Model Catalog"
-        description={`${models.length} models available across ${connectedProviders.length} connected provider${connectedProviders.length !== 1 ? "s" : ""}`}
+        description={`${enabledCount} enabled of ${models.length} total across ${connectedProviders.length} provider${connectedProviders.length !== 1 ? "s" : ""}`}
         actions={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
             <div className="relative">
@@ -211,6 +232,18 @@ export default function ModelsPage() {
                   );
                 })}
               </div>
+              <button
+                onClick={() => setShowOnlyEnabled(!showOnlyEnabled)}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors min-h-[44px] ${
+                  showOnlyEnabled
+                    ? "border-violet-500/50 text-violet-400 bg-violet-500/10"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                title={showOnlyEnabled ? "Showing enabled models only — click to show all" : "Showing all models — click to filter to enabled only"}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                {showOnlyEnabled ? "Enabled Only" : "All Models"}
+              </button>
               <button
                 onClick={handleSync}
                 disabled={syncing}
@@ -277,7 +310,8 @@ export default function ModelsPage() {
               : capsRaw?.types && Array.isArray(capsRaw.types)
               ? capsRaw.types
               : inferCapabilities(model.model_id);
-            const status = model.pricing_info?.status || model.status || "available";
+            const status = model.pricing_info?.status || model.status || "unknown";
+            const enabled = isModelEnabled(model);
             return (
               <motion.div
                 key={model.id || model.model_id}
@@ -286,19 +320,25 @@ export default function ModelsPage() {
                 transition={{ delay: Math.min(i * 0.03, 0.5) }}
               >
                 <Link href={`/models/${model.id}`}>
-                  <Card className="hover:border-violet-500/50 transition-colors cursor-pointer">
+                  <Card className={`hover:border-violet-500/50 transition-colors cursor-pointer ${!enabled ? "opacity-60" : ""}`}>
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
-                            <Box className="h-5 w-5 text-violet-400" />
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${enabled ? "bg-accent" : "bg-accent/50"}`}>
+                            {enabled ? (
+                              <Box className="h-5 w-5 text-violet-400" />
+                            ) : (
+                              <Lock className="h-5 w-5 text-muted-foreground" />
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold truncate hover:text-violet-600 transition-colors">{model.display_name || model.model_name || model.model_id}</h3>
                             <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
                           </div>
                         </div>
-                        <Badge variant="success">{status}</Badge>
+                        <Badge variant={enabled ? "success" : "secondary"} title={!enabled ? "Enable this model in your cloud provider console to use it" : ""}>
+                          {enabled ? status : `🔒 ${status}`}
+                        </Badge>
                       </div>
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
@@ -330,6 +370,14 @@ export default function ModelsPage() {
 
       <p className="text-center text-sm text-muted-foreground">
         Showing {filtered.length} of {models.length} models
+        {showOnlyEnabled && models.length - enabledCount > 0 && (
+          <button
+            onClick={() => setShowOnlyEnabled(false)}
+            className="ml-2 text-violet-400 hover:underline"
+          >
+            + {models.length - enabledCount} not enabled
+          </button>
+        )}
       </p>
     </div>
   );
