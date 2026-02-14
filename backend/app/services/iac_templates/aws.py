@@ -140,6 +140,19 @@ resource "aws_iam_policy" "bonito" {
         Resource = "*"
       },
       {
+        # Provisioned Throughput: deploy dedicated model capacity
+        Sid    = "BedrockProvisionedThroughput"
+        Effect = "Allow"
+        Action = [
+          "bedrock:CreateProvisionedModelThroughput",
+          "bedrock:GetProvisionedModelThroughput",
+          "bedrock:ListProvisionedModelThroughputs",
+          "bedrock:UpdateProvisionedModelThroughput",
+          "bedrock:DeleteProvisionedModelThroughput",
+        ]
+        Resource = "*"
+      },
+      {
         # Cost Explorer: read-only for spend tracking
         Sid    = "CostExplorerReadOnly"
         Effect = "Allow"

@@ -8,9 +8,8 @@ from pydantic import BaseModel, ConfigDict
 class DeploymentCreate(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
-    org_id: UUID
     model_id: UUID
-    provider_id: UUID
+    provider_id: Optional[UUID] = None  # Auto-detected from model if not provided
     config: dict = {}
 
 
