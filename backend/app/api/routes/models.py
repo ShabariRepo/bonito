@@ -309,6 +309,12 @@ async def playground_execute(
     if is_embedding or is_known_non_chat:
         raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' does not support chat completions (it's an embedding/utility model). Select a text generation model instead.")
     
+    # Reject models that aren't enabled/available in the customer's cloud account
+    model_status = (model.pricing_info or {}).get("status", "").lower()
+    invocable_statuses = {"enabled", "available", "deployed", "active", ""}
+    if model_status and model_status not in invocable_statuses:
+        raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' is not enabled in your cloud account (status: {model_status}). Enable it in your cloud provider console first.")
+    
     # Check governance policies
     max_tokens = request_data.max_tokens or 1000
     await _check_governance_policies(db, user.org_id, max_tokens)

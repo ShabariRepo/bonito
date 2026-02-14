@@ -132,24 +132,39 @@ async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get
 async def update_provider_credentials(
     provider_id: UUID, data: CredentialUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user),
 ):
-    """Update credentials for an existing provider. Validates before saving."""
+    """Update credentials for an existing provider. Supports partial updates — 
+    empty/missing fields keep their existing values from Vault."""
     result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
 
-    # Validate credential format
-    valid, error = validate_credentials(provider.provider_type, data.credentials)
+    # Merge with existing credentials — empty fields keep old values
+    try:
+        from app.core.vault import vault_client
+        existing_creds = await vault_client.get_secrets(f"providers/{provider_id}")
+    except Exception as e:
+        logger.warning(f"Could not fetch existing credentials from Vault: {e}")
+        existing_creds = {}
+    
+    merged = {**existing_creds}
+    for key, value in data.credentials.items():
+        # Only overwrite if the new value is non-empty and not a masked placeholder
+        if value and not (isinstance(value, str) and value.strip() in ("", "••••••••")):
+            merged[key] = value
+    
+    # Validate credential format with merged values
+    valid, error = validate_credentials(provider.provider_type, merged)
     if not valid:
         raise HTTPException(status_code=422, detail=error)
 
-    # Validate against real cloud provider
+    # Validate against real cloud provider using merged credentials
     if provider.provider_type == "aws":
         from app.services.providers.aws_bedrock import AWSBedrockProvider
         prov = AWSBedrockProvider(
-            access_key_id=data.credentials["access_key_id"],
-            secret_access_key=data.credentials["secret_access_key"],
-            region=data.credentials.get("region", "us-east-1"),
+            access_key_id=merged["access_key_id"],
+            secret_access_key=merged["secret_access_key"],
+            region=merged.get("region", "us-east-1"),
         )
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
@@ -157,12 +172,12 @@ async def update_provider_credentials(
     elif provider.provider_type == "azure":
         from app.services.providers.azure_foundry import AzureFoundryProvider
         prov = AzureFoundryProvider(
-            tenant_id=data.credentials["tenant_id"],
-            client_id=data.credentials["client_id"],
-            client_secret=data.credentials["client_secret"],
-            subscription_id=data.credentials["subscription_id"],
-            resource_group=data.credentials.get("resource_group", ""),
-            endpoint=data.credentials.get("endpoint", ""),
+            tenant_id=merged["tenant_id"],
+            client_id=merged["client_id"],
+            client_secret=merged["client_secret"],
+            subscription_id=merged["subscription_id"],
+            resource_group=merged.get("resource_group", ""),
+            endpoint=merged.get("endpoint", ""),
         )
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
@@ -170,27 +185,27 @@ async def update_provider_credentials(
     elif provider.provider_type == "gcp":
         from app.services.providers.gcp_vertex import GCPVertexProvider
         prov = GCPVertexProvider(
-            project_id=data.credentials["project_id"],
-            service_account_json=data.credentials["service_account_json"],
-            region=data.credentials.get("region", "us-central1"),
+            project_id=merged["project_id"],
+            service_account_json=merged["service_account_json"],
+            region=merged.get("region", "us-central1"),
         )
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
             raise HTTPException(status_code=422, detail=f"GCP credential validation failed: {cred_info.message}")
 
-    # Update in Vault + encrypted DB column
+    # Update in Vault + encrypted DB column using merged credentials
     import os
     from app.core.encryption import encrypt_credentials
 
     try:
-        await store_credentials_in_vault(str(provider_id), data.credentials)
+        await store_credentials_in_vault(str(provider_id), merged)
     except Exception as e:
         logger.warning(f"Vault storage failed on update: {e}")
 
     try:
         secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
         if secret_key:
-            provider.credentials_encrypted = encrypt_credentials(data.credentials, secret_key)
+            provider.credentials_encrypted = encrypt_credentials(merged, secret_key)
     except Exception as e:
         logger.warning(f"DB credential encryption failed on update: {e}")
 
@@ -198,14 +213,14 @@ async def update_provider_credentials(
     provider.status = "active"
     await db.flush()
 
-    masked_creds = mask_credentials(provider.provider_type, data.credentials)
+    masked_creds = mask_credentials(provider.provider_type, merged)
     models = await get_models_for_provider(provider.provider_type, str(provider.id))
     return ProviderSummary(
         id=provider.id,
         provider_type=provider.provider_type,
         status=provider.status,
         name=get_provider_display_name(provider.provider_type),
-        region=extract_region(provider.provider_type, data.credentials),
+        region=extract_region(provider.provider_type, merged),
         model_count=len(models),
         masked_credentials=masked_creds,
         last_validated=provider.created_at,

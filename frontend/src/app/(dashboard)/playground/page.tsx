@@ -36,8 +36,9 @@ interface Model {
 // "not_enabled" (AWS) = needs access request
 const INVOCABLE_STATUSES = new Set(["enabled", "available", "deployed", "active"]);
 function isModelInvocable(m: Model): boolean {
-  if (m.status && !INVOCABLE_STATUSES.has(m.status.toLowerCase())) return false;
-  return true;
+  // If status is missing, treat as NOT invocable (safer — avoids surprise 500s)
+  if (!m.status) return false;
+  return INVOCABLE_STATUSES.has(m.status.toLowerCase());
 }
 
 // Non-chat model types that can't be used in a chat playground
@@ -106,6 +107,9 @@ export default function PlaygroundPage() {
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [showAllModels, setShowAllModels] = useState(false);
+  const [compareSearch, setCompareSearch] = useState("");
+  const [compareProviderFilter, setCompareProviderFilter] = useState<string>("all");
+  const [showAllCompareModels, setShowAllCompareModels] = useState(false);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const [lastResponse, setLastResponse] = useState<PlaygroundResponse | null>(null);
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
@@ -357,24 +361,95 @@ export default function PlaygroundPage() {
                     <h3 className="font-medium">Select Models to Compare (max 4)</h3>
                     <Badge variant="secondary">{selectedModels.length}/4</Badge>
                   </div>
-                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {models.map(model => (
+                  {/* Search */}
+                  <div className="mb-2">
+                    <input
+                      type="text"
+                      placeholder="Search models..."
+                      value={compareSearch}
+                      onChange={(e) => setCompareSearch(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    />
+                  </div>
+                  {/* Provider filter tabs */}
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    <button
+                      onClick={() => setCompareProviderFilter("all")}
+                      className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
+                        compareProviderFilter === "all" ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {providers.map(p => (
                       <button
-                        key={model.id}
-                        onClick={() => toggleModelSelection(model.id)}
-                        className={`p-3 text-left rounded-lg border transition-colors ${
-                          selectedModels.includes(model.id)
-                            ? "border-violet-500 bg-violet-50 dark:bg-violet-950"
-                            : "border-border hover:border-violet-300"
+                        key={p}
+                        onClick={() => setCompareProviderFilter(p)}
+                        className={`px-2 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-colors uppercase ${
+                          compareProviderFilter === p ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
                         }`}
                       >
-                        <div className="font-medium text-sm">{model.display_name}</div>
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {model.provider_type}
-                        </div>
+                        {p}
                       </button>
                     ))}
                   </div>
+                  {/* Model grid */}
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-h-[40vh] overflow-y-auto">
+                    {chatModels
+                      .filter(m => {
+                        const matchesSearch = !compareSearch ||
+                          m.display_name.toLowerCase().includes(compareSearch.toLowerCase()) ||
+                          m.model_id.toLowerCase().includes(compareSearch.toLowerCase());
+                        const matchesProvider = compareProviderFilter === "all" || m.provider_type === compareProviderFilter;
+                        const matchesAccess = showAllCompareModels || isModelInvocable(m);
+                        return matchesSearch && matchesProvider && matchesAccess;
+                      })
+                      .sort((a, b) => {
+                        const aEnabled = isModelInvocable(a);
+                        const bEnabled = isModelInvocable(b);
+                        if (aEnabled && !bEnabled) return -1;
+                        if (!aEnabled && bEnabled) return 1;
+                        return a.display_name.localeCompare(b.display_name);
+                      })
+                      .map(model => {
+                        const isEnabled = isModelInvocable(model);
+                        return (
+                          <button
+                            key={model.id}
+                            onClick={() => toggleModelSelection(model.id)}
+                            className={`p-3 text-left rounded-lg border transition-colors ${
+                              selectedModels.includes(model.id)
+                                ? "border-violet-500 bg-violet-50 dark:bg-violet-950"
+                                : "border-border hover:border-violet-300"
+                            } ${!isEnabled ? "opacity-50" : ""}`}
+                          >
+                            <div className="font-medium text-sm flex items-center gap-1.5">
+                              {!isEnabled && <span title="Model not enabled in your cloud account">🔒</span>}
+                              {model.display_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {model.provider_type}
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {!showAllCompareModels && (
+                    <button
+                      onClick={() => setShowAllCompareModels(true)}
+                      className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Show non-enabled models
+                    </button>
+                  )}
+                  {showAllCompareModels && (
+                    <button
+                      onClick={() => setShowAllCompareModels(false)}
+                      className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Hide non-enabled models
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div ref={modelDropdownRef} className="relative">
@@ -413,7 +488,7 @@ export default function PlaygroundPage() {
                             providerFilter === "all" ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
                           }`}
                         >
-                          All ({models.length})
+                          All ({chatModels.length})
                         </button>
                         {providers.map(p => (
                           <button
@@ -423,7 +498,7 @@ export default function PlaygroundPage() {
                               providerFilter === p ? "bg-violet-600 text-white" : "bg-accent text-muted-foreground hover:text-foreground"
                             }`}
                           >
-                            {p} ({models.filter(m => m.provider_type === p).length})
+                            {p} ({chatModels.filter(m => m.provider_type === p).length})
                           </button>
                         ))}
                       </div>

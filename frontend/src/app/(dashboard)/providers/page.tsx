@@ -207,15 +207,9 @@ export default function ProvidersPage() {
 
   const openEditModal = (summary: ProviderSummary) => {
     setEditingProvider(summary);
-    // Pre-fill with masked values (user must replace secrets)
-    const initial: Record<string, string> = {};
-    const fields = CRED_FIELDS[summary.provider_type] || [];
-    for (const f of fields) {
-      const masked = summary.masked_credentials[f.key] || "";
-      // Don't pre-fill secrets (they're just dots)
-      initial[f.key] = f.secret ? "" : masked;
-    }
-    setEditCreds(initial);
+    // Start all fields blank — backend merges with existing values from Vault
+    // Only fields the user fills in will be updated
+    setEditCreds({});
     setEditError(null);
     setEditSuccess(false);
   };
@@ -549,59 +543,52 @@ export default function ProvidersPage() {
                 </button>
               </div>
 
+              <p className="text-xs text-muted-foreground mb-3">
+                Only fill in the fields you want to change. Blank fields keep their current values.
+              </p>
               <div className="space-y-3">
-                {(CRED_FIELDS[editingProvider.provider_type] || []).map((field) => (
-                  <div key={field.key}>
-                    <label className="text-sm text-muted-foreground mb-1 block">
-                      {field.label}
-                      {field.secret && (
-                        <span className="text-xs text-violet-400/60 ml-2">
-                          (enter new value)
-                        </span>
+                {(CRED_FIELDS[editingProvider.provider_type] || []).map((field) => {
+                  const currentMasked = editingProvider.masked_credentials[field.key];
+                  return (
+                    <div key={field.key}>
+                      <label className="text-sm text-muted-foreground mb-1 block">
+                        {field.label}
+                      </label>
+                      {field.key === "service_account_json" ? (
+                        <textarea
+                          className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono min-h-[80px]"
+                          placeholder="Paste new JSON to update, or leave blank to keep current"
+                          value={editCreds[field.key] || ""}
+                          onChange={(e) =>
+                            setEditCreds((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                        />
+                      ) : (
+                        <input
+                          type={field.secret ? "password" : "text"}
+                          className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
+                          placeholder={currentMasked ? `Keep current (${currentMasked})` : field.placeholder || field.label}
+                          value={editCreds[field.key] || ""}
+                          onChange={(e) =>
+                            setEditCreds((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                        />
                       )}
-                    </label>
-                    {field.key === "service_account_json" ? (
-                      <textarea
-                        className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono min-h-[80px]"
-                        placeholder={
-                          field.secret
-                            ? "Paste new value…"
-                            : field.placeholder || field.label
-                        }
-                        value={editCreds[field.key] || ""}
-                        onChange={(e) =>
-                          setEditCreds((prev) => ({
-                            ...prev,
-                            [field.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    ) : (
-                      <input
-                        type={field.secret ? "password" : "text"}
-                        className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
-                        placeholder={
-                          field.secret
-                            ? "Enter new value…"
-                            : field.placeholder || field.label
-                        }
-                        value={editCreds[field.key] || ""}
-                        onChange={(e) =>
-                          setEditCreds((prev) => ({
-                            ...prev,
-                            [field.key]: e.target.value,
-                          }))
-                        }
-                      />
-                    )}
-                    {/* Show current masked value for reference */}
-                    {editingProvider.masked_credentials[field.key] && (
-                      <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                        Current: {editingProvider.masked_credentials[field.key]}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                      {/* Show current value for secret fields */}
+                      {field.secret && currentMasked && (
+                        <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                          Current: {currentMasked}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {editError && (
