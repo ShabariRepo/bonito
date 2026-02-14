@@ -292,15 +292,20 @@ Deployed → monitoring → polished → ready to demo to real prospects
 
 ---
 
-## Phase 17 — Deployment Provisioning
+## Phase 17 — Deployment Provisioning ✅
 
-- [ ] Deploy/provision model endpoints on customer's cloud infra from Bonito UI
-- [ ] Support AWS Bedrock model access, Azure AI model deployments, GCP Vertex endpoints
-- [ ] Configure: instance type, scaling (min/max), throughput
-- [ ] IaC generation (Terraform) for each deployment
-- [ ] Start/stop/scale endpoints from dashboard
-- [ ] Cost estimation before deployment
-- [ ] Status monitoring of deployed endpoints
+- [x] Deploy/provision model endpoints on customer's cloud infra from Bonito UI
+- [x] AWS Bedrock: Provisioned Throughput (model units 1-10, commitment terms)
+- [x] Azure OpenAI: Full deployment lifecycle (TPM 1-120K, Standard/Provisioned tiers)
+- [x] GCP Vertex AI: Serverless verification (no fixed infra needed)
+- [x] Configure: model units/TPM, commitment terms, tier selection
+- [x] Cost estimation before deployment (provider-specific pricing tables)
+- [x] Scale deployments (update model units or TPM)
+- [x] Delete deployments (removes cloud resources)
+- [x] Status monitoring — refresh from cloud provider
+- [x] IaC templates updated with provisioning permissions
+- [ ] IaC generation (Terraform export) for individual deployments — future
+- [ ] Start/stop individual endpoints — future
 
 ---
 
@@ -322,6 +327,6 @@ Deployed → monitoring → polished → ready to demo to real prospects
 ---
 
 ## Current Status
-- **Completed:** Phases 1-16, Phase 18 (full platform + model playground + routing policies + one-click activation)
-- **Up Next:** Phase 17 (Deployment Provisioning)
-- **Remaining:** SSO/SAML, EULA display for AWS models, production deployment polishing
+- **Completed:** Phases 1-18 (full platform + model playground + routing policies + deployment provisioning + one-click activation)
+- **Up Next:** End-to-end flow validation (gateway API → routing → cost tracking → dashboard)
+- **Remaining:** SSO/SAML, EULA display for AWS models, IaC export per deployment, production polish
