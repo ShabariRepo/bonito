@@ -30,6 +30,14 @@ interface Model {
   status?: string;
 }
 
+// Statuses that mean the model is invocable:
+// AWS: "enabled" | GCP: "active" | Azure: "available", "deployed", "active"
+// "not_enabled" (AWS) = needs access request
+const INVOCABLE_STATUSES = new Set(["enabled", "available", "deployed", "active"]);
+function isModelInvocable(m: Model): boolean {
+  return !m.status || INVOCABLE_STATUSES.has(m.status.toLowerCase());
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -107,7 +115,7 @@ export default function PlaygroundPage() {
           if (modelParam) {
             setSelectedModel(modelParam);
           } else if (data.length > 0) {
-            const enabledModel = data.find((m: Model) => !m.status || m.status === "enabled" || m.status === "available" || m.status === "active" || m.status === "ACTIVE");
+            const enabledModel = data.find((m: Model) => isModelInvocable(m));
             setSelectedModel(enabledModel ? enabledModel.id : data[0].id);
           }
         }
@@ -139,13 +147,13 @@ export default function PlaygroundPage() {
         m.display_name.toLowerCase().includes(modelSearch.toLowerCase()) ||
         m.model_id.toLowerCase().includes(modelSearch.toLowerCase());
       const matchesProvider = providerFilter === "all" || m.provider_type === providerFilter;
-      const matchesAccess = showAllModels || !m.status || m.status === "enabled" || m.status === "available" || m.status === "active" || m.status === "ACTIVE";
+      const matchesAccess = showAllModels || isModelInvocable(m);
       return matchesSearch && matchesProvider && matchesAccess;
     })
     .sort((a, b) => {
       // Sort enabled/available models first
-      const aEnabled = !a.status || a.status === "enabled" || a.status === "available" || a.status === "active" || a.status === "ACTIVE";
-      const bEnabled = !b.status || b.status === "enabled" || b.status === "available" || b.status === "active" || b.status === "ACTIVE";
+      const aEnabled = isModelInvocable(a);
+      const bEnabled = isModelInvocable(b);
       if (aEnabled && !bEnabled) return -1;
       if (!aEnabled && bEnabled) return 1;
       return a.display_name.localeCompare(b.display_name);
@@ -354,7 +362,7 @@ export default function PlaygroundPage() {
                     onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
                   >
                     <span className={selectedModel ? "text-foreground" : "text-muted-foreground"}>
-                      {selectedModel ? `${(() => { const sm = models.find(m => m.id === selectedModel); const notEnabled = sm?.status && sm.status !== "enabled" && sm.status !== "available" && sm.status !== "active" && sm.status !== "ACTIVE"; return `${notEnabled ? "🔒 " : ""}${getModelName(selectedModel)} (${sm?.provider_type || ""})`; })()}` : "Select a model..."}
+                      {selectedModel ? `${(() => { const sm = models.find(m => m.id === selectedModel); const notInvocable = sm && !isModelInvocable(sm); return `${notInvocable ? "🔒 " : ""}${getModelName(selectedModel)} (${sm?.provider_type || ""})`; })()}` : "Select a model..."}
                     </span>
                     <svg className={`h-4 w-4 text-muted-foreground transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
@@ -402,7 +410,7 @@ export default function PlaygroundPage() {
                           <div className="p-4 text-sm text-muted-foreground text-center">No models match</div>
                         ) : (
                           filteredModels.map(model => {
-                            const isEnabled = !model.status || model.status === "enabled" || model.status === "available" || model.status === "active" || model.status === "ACTIVE";
+                            const isEnabled = isModelInvocable(model);
                             return (
                               <button
                                 key={model.id}

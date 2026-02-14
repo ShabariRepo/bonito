@@ -304,7 +304,25 @@ Deployed → monitoring → polished → ready to demo to real prospects
 
 ---
 
+## Phase 18 — One-Click Model Activation
+
+- [ ] Enable/activate models directly from Bonito UI (no console-hopping)
+- [ ] AWS Bedrock: Call `PutFoundationModelEntitlement` API to request model access
+  - Show EULA/terms for models that require acceptance (legal step)
+  - Handle instant-enable vs waitlist models differently
+  - Requires `bedrock:PutFoundationModelEntitlement` permission (add to IaC templates)
+- [ ] Azure OpenAI: Create model deployments via Management API
+  - Deploy with sensible defaults (standard tier, auto-scale)
+  - Requires "Cognitive Services Contributor" role (upgrade from "User" in IaC templates)
+- [ ] GCP Vertex AI: Enable APIs and request quota via Service Usage API
+  - Handle quota increase requests where needed
+- [ ] UI: "Enable" button on 🔒 models → confirmation dialog → inline status update
+- [ ] Update IaC templates to include model management permissions
+- [ ] Bulk-enable: select multiple models to activate at once
+
+---
+
 ## Current Status
 - **Completed:** Phases 1-16 (full platform + model playground + routing policies)
-- **Up Next:** Phase 17 (Deployment Provisioning)
+- **Up Next:** Phase 17 (Deployment Provisioning), Phase 18 (One-Click Model Activation)
 - **Remaining:** SSO/SAML, production deployment to getbonito.com (Vercel + Railway), real cloud credential testing
