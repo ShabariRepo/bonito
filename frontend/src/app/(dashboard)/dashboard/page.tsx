@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
-import { Box, Cloud, Rocket, Activity, TrendingUp, Zap, Plus, ArrowRight, DollarSign } from "lucide-react";
+import { Box, Cloud, Rocket, Activity, TrendingUp, Zap, Plus, ArrowRight, DollarSign, MessageSquare, Clock, Cpu } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
@@ -64,6 +64,7 @@ export default function DashboardPage() {
   const [costSummary, setCostSummary] = useState<any>(null);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [topModels, setTopModels] = useState<any[]>([]);
+  const [usage, setUsage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,11 +88,12 @@ export default function DashboardPage() {
         throw new Error("Failed to load providers");
       }
 
-      // Fetch in parallel: costs, audit, models
-      const [costRes, auditRes, modelsRes] = await Promise.allSettled([
+      // Fetch in parallel: costs, audit, models, gateway usage
+      const [costRes, auditRes, modelsRes, usageRes] = await Promise.allSettled([
         apiRequest("/api/costs/?period=monthly"),
         apiRequest("/api/audit/"),
         apiRequest("/api/models/"),
+        apiRequest("/api/gateway/usage?days=30"),
       ]);
 
       if (costRes.status === "fulfilled" && costRes.value.ok) {
@@ -100,14 +102,16 @@ export default function DashboardPage() {
 
       if (auditRes.status === "fulfilled" && auditRes.value.ok) {
         const auditData = await auditRes.value.json();
-        // Handle both array and {items: []} response shapes
         setAuditLog(Array.isArray(auditData) ? auditData.slice(0, 8) : (auditData.items || []).slice(0, 8));
       }
 
       if (modelsRes.status === "fulfilled" && modelsRes.value.ok) {
         const allModels = await modelsRes.value.json();
-        // Show a sample of models grouped by provider
         setTopModels(allModels.slice(0, 6));
+      }
+
+      if (usageRes.status === "fulfilled" && usageRes.value.ok) {
+        setUsage(await usageRes.value.json());
       }
     } catch (e) {
       console.error("Dashboard fetch error:", e);
@@ -123,11 +127,18 @@ export default function DashboardPage() {
 
   const providerCount = providers.length;
 
+  const totalTokens = (usage?.total_input_tokens || 0) + (usage?.total_output_tokens || 0);
+  const formatTokens = (t: number) => t >= 1_000_000 ? `${(t / 1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t / 1_000).toFixed(1)}K` : `${t}`;
+  const gatewayCost = usage?.total_cost || 0;
+  const displayCost = gatewayCost > 0 ? gatewayCost : (costSummary?.total_spend || 0);
+
   const stats = [
     { name: "Connected Providers", value: providerCount, icon: Cloud, color: "text-blue-500", href: "/providers" },
     { name: "Available Models", value: modelCount ?? 0, icon: Box, color: "text-violet-500", href: "/models" },
-    { name: "Monthly Spend", value: costSummary?.total_spend ? `$${costSummary.total_spend.toFixed(2)}` : "$0.00", icon: DollarSign, color: "text-emerald-500", href: "/costs", isString: true },
-    { name: "Budget Used", value: costSummary?.budget_used_percentage ? `${costSummary.budget_used_percentage.toFixed(0)}%` : "0%", icon: TrendingUp, color: "text-amber-500", href: "/costs", isString: true },
+    { name: "API Requests", value: usage?.total_requests || 0, icon: MessageSquare, color: "text-cyan-500", href: "/gateway" },
+    { name: "Tokens Used", value: formatTokens(totalTokens), icon: Cpu, color: "text-amber-500", href: "/analytics", isString: true },
+    { name: "Gateway Spend", value: `$${displayCost.toFixed(4)}`, icon: DollarSign, color: "text-emerald-500", href: "/costs", isString: true },
+    { name: "Avg Latency", value: usage?.by_model?.length > 0 ? `—` : "—", icon: Clock, color: "text-rose-400", href: "/analytics", isString: true },
   ];
 
   function formatTime(ts?: string) {
@@ -154,7 +165,7 @@ export default function DashboardPage() {
       {error && <ErrorBanner message={error} onRetry={fetchAll} />}
 
       {/* Stats grid */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.name}
@@ -255,39 +266,126 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Top Models */}
-      {!loading && topModels.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+      {/* Usage by Model + Usage Over Time */}
+      {!loading && usage && (usage.total_requests > 0 || usage.by_model?.length > 0) && (
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          {/* Top Models by Usage */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-violet-500" />
+                  Top Models (30d)
+                </CardTitle>
+                <Link href="/analytics" className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                  Details <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {usage.by_model?.length > 0 ? (
+                <div className="space-y-3">
+                  {usage.by_model
+                    .sort((a: any, b: any) => b.requests - a.requests)
+                    .slice(0, 8)
+                    .map((m: any, i: number) => {
+                      const maxReqs = Math.max(...usage.by_model.map((x: any) => x.requests));
+                      const pct = maxReqs > 0 ? (m.requests / maxReqs) * 100 : 0;
+                      return (
+                        <motion.div
+                          key={m.model}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 + i * 0.05 }}
+                        >
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-medium truncate max-w-[60%]" title={m.model}>{m.model}</span>
+                            <span className="text-muted-foreground">{m.requests} req · {formatTokens(m.tokens)} tok · ${m.cost.toFixed(4)}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-accent overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${pct}%` }}
+                              transition={{ delay: 0.3 + i * 0.05, duration: 0.5 }}
+                              className="h-full rounded-full bg-violet-500"
+                            />
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No model usage yet. Try the Playground!</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Daily Usage Chart */}
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Box className="h-5 w-5 text-violet-500" />
-                Sample Models
+                <TrendingUp className="h-5 w-5 text-emerald-500" />
+                Daily Requests (30d)
               </CardTitle>
-              <Link href="/models" className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1">
-                View all {modelCount} <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-              {topModels.map((m, i) => (
-                <motion.div
-                  key={m.model_id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.06 }}
-                  className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors min-h-[60px] touch-manipulation"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-                    <Box className="h-4 w-4 text-violet-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{m.model_name || m.model_id}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{m.provider || m.provider_type}</p>
-                  </div>
-                </motion.div>
-              ))}
+            </CardHeader>
+            <CardContent>
+              {usage.by_day?.length > 0 ? (
+                <div className="flex items-end gap-1 h-40">
+                  {usage.by_day.slice(-30).map((d: any, i: number) => {
+                    const maxReqs = Math.max(...usage.by_day.map((x: any) => x.requests));
+                    const pct = maxReqs > 0 ? (d.requests / maxReqs) * 100 : 0;
+                    return (
+                      <motion.div
+                        key={d.date}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${Math.max(pct, 2)}%` }}
+                        transition={{ delay: 0.2 + i * 0.03, duration: 0.4 }}
+                        className="flex-1 bg-violet-500/80 rounded-t hover:bg-violet-400 transition-colors cursor-default min-w-[4px]"
+                        title={`${d.date}: ${d.requests} requests, $${d.cost.toFixed(4)}`}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-40">
+                  <p className="text-sm text-muted-foreground">No daily data yet</p>
+                </div>
+              )}
+              {usage.by_day?.length > 0 && (
+                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                  <span>{usage.by_day[0]?.date}</span>
+                  <span>{usage.by_day[usage.by_day.length - 1]?.date}</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* No usage yet — CTA */}
+      {!loading && usage && usage.total_requests === 0 && providers.length > 0 && (
+        <Card className="border-dashed border-violet-500/30 bg-violet-500/5">
+          <CardContent className="py-6">
+            <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+              <div className="text-4xl">🧪</div>
+              <div className="flex-1">
+                <h3 className="font-semibold">No API usage yet</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Test your models in the Playground, or integrate the Gateway API into your apps.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/playground">
+                  <button className="px-4 py-2 text-sm font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700">
+                    Open Playground
+                  </button>
+                </Link>
+                <Link href="/gateway">
+                  <button className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-accent">
+                    Gateway Docs
+                  </button>
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
