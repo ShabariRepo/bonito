@@ -596,3 +596,121 @@ async def compare_models(
     results = await asyncio.gather(*[execute_single_model(row) for row in rows])
     
     return CompareResponse(results=results)
+
+
+@router.post("/{model_id}/activate")
+async def activate_model(
+    model_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Activate/enable a model on the customer's cloud account.
+    
+    - AWS: Requests model access via PutFoundationModelEntitlement
+    - Azure: Creates a model deployment
+    - GCP: Verifies access / enables Vertex AI API
+    """
+    from app.services.model_activation import (
+        activate_aws_model,
+        activate_azure_model,
+        activate_gcp_model,
+    )
+    from app.services.provider_service import _get_provider_secrets
+    
+    # Get model and provider
+    result = await db.execute(
+        select(Model, CloudProvider)
+        .join(CloudProvider, Model.provider_id == CloudProvider.id)
+        .where(Model.id == model_id, CloudProvider.org_id == user.org_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    model, provider = row
+    secrets = await _get_provider_secrets(str(provider.id))
+    
+    # Route to provider-specific activation
+    if provider.provider_type == "aws":
+        activation = await activate_aws_model(
+            model_id=model.model_id,
+            access_key_id=secrets.get("access_key_id", ""),
+            secret_access_key=secrets.get("secret_access_key", ""),
+            region=secrets.get("region", "us-east-1"),
+        )
+    elif provider.provider_type == "azure":
+        activation = await activate_azure_model(
+            model_id=model.model_id,
+            tenant_id=secrets.get("tenant_id", ""),
+            client_id=secrets.get("client_id", ""),
+            client_secret=secrets.get("client_secret", ""),
+            subscription_id=secrets.get("subscription_id", ""),
+            resource_group=secrets.get("resource_group", ""),
+            endpoint=secrets.get("endpoint", ""),
+        )
+    elif provider.provider_type == "gcp":
+        activation = await activate_gcp_model(
+            model_id=model.model_id,
+            project_id=secrets.get("project_id", ""),
+            service_account_json=secrets.get("service_account_json", "{}"),
+            region=secrets.get("region", "us-central1"),
+        )
+    else:
+        raise HTTPException(status_code=400, detail=f"Model activation not supported for provider: {provider.provider_type}")
+    
+    # Update model status in DB if activation succeeded
+    if activation.success and activation.status in ("enabled", "deployed"):
+        new_status = activation.status.upper()
+        pricing_info = model.pricing_info or {}
+        pricing_info["status"] = new_status
+        model.pricing_info = pricing_info
+        # Force SQLAlchemy to detect the change on JSON column
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(model, "pricing_info")
+        await db.flush()
+        
+        # Invalidate gateway router cache so new model is available
+        from app.services.gateway import reset_router
+        await reset_router(user.org_id)
+    
+    return {
+        "success": activation.success,
+        "status": activation.status,
+        "message": activation.message,
+        "requires_approval": activation.requires_approval,
+        "model_id": str(model_id),
+        "model_name": model.display_name,
+    }
+
+
+@router.post("/activate-bulk")
+async def activate_models_bulk(
+    model_ids: List[UUID],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Activate multiple models at once."""
+    if len(model_ids) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 models can be activated at once")
+    
+    results = []
+    for mid in model_ids:
+        try:
+            result = await activate_model(mid, db, user)
+            results.append(result)
+        except HTTPException as e:
+            results.append({
+                "success": False,
+                "status": "failed",
+                "message": e.detail,
+                "model_id": str(mid),
+            })
+        except Exception as e:
+            results.append({
+                "success": False,
+                "status": "failed",
+                "message": str(e),
+                "model_id": str(mid),
+            })
+    
+    return {"results": results}

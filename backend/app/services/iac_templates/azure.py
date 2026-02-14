@@ -2,7 +2,7 @@
 
 Synced from bonito-infra/azure/ — these are the production-tested Terraform files.
 Generates least-privilege Azure configuration:
-- Service principal with Cognitive Services User role (NOT Contributor/Owner)
+- Service principal with Cognitive Services Contributor role (required for model deployments)
 - Azure OpenAI resource
 - Cost Management Reader for cost dashboards
 - Log Analytics + diagnostic settings for audit logging
@@ -159,10 +159,10 @@ resource "azuread_application_password" "bonito" {
 # RBAC — Least privilege
 ################################################################################
 
-# Cognitive Services User: invoke models (NOT Contributor or Owner)
-resource "azurerm_role_assignment" "cognitive_user" {
+# Cognitive Services Contributor: invoke models + create deployments (needed for one-click activation)
+resource "azurerm_role_assignment" "cognitive_contributor" {
   scope                = azurerm_cognitive_account.bonito.id
-  role_definition_name = "Cognitive Services User"
+  role_definition_name = "Cognitive Services Contributor"
   principal_id         = azuread_service_principal.bonito.object_id
 }
 

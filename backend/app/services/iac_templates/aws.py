@@ -115,6 +115,7 @@ resource "aws_iam_policy" "bonito" {
         Action = [
           "bedrock:ListFoundationModels",
           "bedrock:GetFoundationModel",
+          "bedrock:ListModelAccessList",
         ]
         Resource = "*"
       },
@@ -127,6 +128,16 @@ resource "aws_iam_policy" "bonito" {
         ]
         # Scoped to foundation models in the target region
         Resource = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/*"
+      },
+      {
+        # Model activation: request access to foundation models
+        Sid    = "BedrockModelAccess"
+        Effect = "Allow"
+        Action = [
+          "bedrock:PutFoundationModelEntitlement",
+          "bedrock:PutUseCaseForModelAccess",
+        ]
+        Resource = "*"
       },
       {
         # Cost Explorer: read-only for spend tracking
@@ -363,7 +374,7 @@ policy = aws.iam.Policy("{project_name}-policy",
             {{
                 "Sid": "BedrockListModels",
                 "Effect": "Allow",
-                "Action": ["bedrock:ListFoundationModels", "bedrock:GetFoundationModel"],
+                "Action": ["bedrock:ListFoundationModels", "bedrock:GetFoundationModel", "bedrock:ListModelAccessList"],
                 "Resource": "*"
             }},
             {{
@@ -371,6 +382,12 @@ policy = aws.iam.Policy("{project_name}-policy",
                 "Effect": "Allow",
                 "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
                 "Resource": f"arn:aws:bedrock:{region}::foundation-model/*"
+            }},
+            {{
+                "Sid": "BedrockModelAccess",
+                "Effect": "Allow",
+                "Action": ["bedrock:PutFoundationModelEntitlement", "bedrock:PutUseCaseForModelAccess"],
+                "Resource": "*"
             }},
             {{
                 "Sid": "CostExplorerReadOnly",
@@ -483,6 +500,7 @@ Resources:
             Action:
               - bedrock:ListFoundationModels
               - bedrock:GetFoundationModel
+              - bedrock:ListModelAccessList
             Resource: "*"
           - Sid: BedrockInvokeModels
             Effect: Allow
@@ -490,6 +508,12 @@ Resources:
               - bedrock:InvokeModel
               - bedrock:InvokeModelWithResponseStream
             Resource: !Sub "arn:${{AWS::Partition}}:bedrock:{region}::foundation-model/*"
+          - Sid: BedrockModelAccess
+            Effect: Allow
+            Action:
+              - bedrock:PutFoundationModelEntitlement
+              - bedrock:PutUseCaseForModelAccess
+            Resource: "*"
           - Sid: CostExplorerReadOnly
             Effect: Allow
             Action:
@@ -596,7 +620,7 @@ def _manual(
     {{
       "Sid": "BedrockListModels",
       "Effect": "Allow",
-      "Action": ["bedrock:ListFoundationModels", "bedrock:GetFoundationModel"],
+      "Action": ["bedrock:ListFoundationModels", "bedrock:GetFoundationModel", "bedrock:ListModelAccessList"],
       "Resource": "*"
     }},
     {{
@@ -604,6 +628,12 @@ def _manual(
       "Effect": "Allow",
       "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
       "Resource": "arn:aws:bedrock:{region}::foundation-model/*"
+    }},
+    {{
+      "Sid": "BedrockModelAccess",
+      "Effect": "Allow",
+      "Action": ["bedrock:PutFoundationModelEntitlement", "bedrock:PutUseCaseForModelAccess"],
+      "Resource": "*"
     }},
     {{
       "Sid": "CostExplorerReadOnly",

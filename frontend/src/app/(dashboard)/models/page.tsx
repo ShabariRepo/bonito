@@ -67,6 +67,11 @@ export default function ModelsPage() {
   const [search, setSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [showOnlyEnabled, setShowOnlyEnabled] = useState(true);
+  const [activating, setActivating] = useState<string | null>(null);
+  const [activateResult, setActivateResult] = useState<{id: string; success: boolean; message: string; status: string} | null>(null);
+  const [confirmActivate, setConfirmActivate] = useState<Model | null>(null);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+  const [bulkActivating, setBulkActivating] = useState(false);
 
   const fetchModels = useCallback(async (autoSync = false) => {
     try {
@@ -128,6 +133,79 @@ export default function ModelsPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleActivateModel = async (model: Model) => {
+    setActivating(model.id);
+    setActivateResult(null);
+    setConfirmActivate(null);
+    try {
+      const res = await apiRequest(`/api/models/${model.id}/activate`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      setActivateResult({
+        id: model.id,
+        success: data.success,
+        message: data.message,
+        status: data.status,
+      });
+      if (data.success && (data.status === "enabled" || data.status === "deployed")) {
+        // Refresh models to pick up new status
+        setTimeout(() => fetchModels(false), 1000);
+      }
+    } catch (e) {
+      setActivateResult({
+        id: model.id,
+        success: false,
+        message: e instanceof Error ? e.message : "Network error",
+        status: "failed",
+      });
+    } finally {
+      setActivating(null);
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (bulkSelected.size === 0) return;
+    setBulkActivating(true);
+    setActivateResult(null);
+    try {
+      const res = await apiRequest("/api/models/activate-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Array.from(bulkSelected)),
+      });
+      const data = await res.json();
+      const succeeded = data.results?.filter((r: any) => r.success).length || 0;
+      const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      setActivateResult({
+        id: "bulk",
+        success: succeeded > 0,
+        message: `${succeeded} model${succeeded !== 1 ? "s" : ""} activated${failed > 0 ? `, ${failed} failed` : ""}`,
+        status: succeeded > 0 ? "enabled" : "failed",
+      });
+      setBulkSelected(new Set());
+      setTimeout(() => fetchModels(false), 1000);
+    } catch (e) {
+      setActivateResult({
+        id: "bulk",
+        success: false,
+        message: e instanceof Error ? e.message : "Network error",
+        status: "failed",
+      });
+    } finally {
+      setBulkActivating(false);
+    }
+  };
+
+  const toggleBulkSelect = (modelId: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(modelId)) next.delete(modelId);
+      else next.add(modelId);
+      return next;
+    });
   };
 
   // Derive provider name from model_id heuristics or provider field
@@ -232,6 +310,15 @@ export default function ModelsPage() {
                   );
                 })}
               </div>
+              {bulkSelected.size > 0 && (
+                <button
+                  onClick={handleBulkActivate}
+                  disabled={bulkActivating}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors min-h-[44px] disabled:opacity-50"
+                >
+                  {bulkActivating ? "Activating..." : `Enable ${bulkSelected.size} Model${bulkSelected.size !== 1 ? "s" : ""}`}
+                </button>
+              )}
               <button
                 onClick={() => setShowOnlyEnabled(!showOnlyEnabled)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors min-h-[44px] ${
@@ -319,27 +406,46 @@ export default function ModelsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: Math.min(i * 0.03, 0.5) }}
               >
-                <Link href={`/models/${model.id}`}>
-                  <Card className={`hover:border-violet-500/50 transition-colors cursor-pointer ${!enabled ? "opacity-60" : ""}`}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${enabled ? "bg-accent" : "bg-accent/50"}`}>
-                            {enabled ? (
-                              <Box className="h-5 w-5 text-violet-400" />
-                            ) : (
-                              <Lock className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold truncate hover:text-violet-600 transition-colors">{model.display_name || model.model_name || model.model_id}</h3>
-                            <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
-                          </div>
+                <Card className={`hover:border-violet-500/50 transition-colors ${!enabled ? "opacity-70" : ""}`}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between">
+                      <Link href={`/models/${model.id}`} className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className={`flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 ${enabled ? "bg-accent" : "bg-accent/50"}`}>
+                          {enabled ? (
+                            <Box className="h-5 w-5 text-violet-400" />
+                          ) : (
+                            <Lock className="h-5 w-5 text-muted-foreground" />
+                          )}
                         </div>
-                        <Badge variant={enabled ? "success" : "secondary"} title={!enabled ? "Enable this model in your cloud provider console to use it" : ""}>
-                          {enabled ? status : `🔒 ${status}`}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold truncate hover:text-violet-600 transition-colors cursor-pointer">{model.display_name || model.model_name || model.model_id}</h3>
+                          <p className="text-sm text-muted-foreground capitalize">{getProviderLabel(model)}</p>
+                        </div>
+                      </Link>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        {!enabled && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setConfirmActivate(model); }}
+                            disabled={activating === model.id}
+                            className="px-2.5 py-1 text-xs font-medium rounded-md bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {activating === model.id ? "..." : "Enable"}
+                          </button>
+                        )}
+                        <Badge variant={enabled ? "success" : "secondary"}>
+                          {enabled ? status : status}
                         </Badge>
                       </div>
+                    </div>
+
+                    {/* Activation result inline */}
+                    {activateResult && activateResult.id === model.id && (
+                      <div className={`mt-3 p-2 rounded-md text-xs ${
+                        activateResult.success ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      }`}>
+                        {activateResult.message}
+                      </div>
+                    )}
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {capabilities.map((cap: string) => (
@@ -356,12 +462,21 @@ export default function ModelsPage() {
                       </div>
                     )}
 
-                    <div className="mt-4 border-t border-border pt-4">
+                    <div className="mt-4 border-t border-border pt-4 flex items-center justify-between">
                       <code className="text-xs text-muted-foreground break-all">{model.model_id}</code>
+                      {!enabled && !showOnlyEnabled && (
+                        <input
+                          type="checkbox"
+                          checked={bulkSelected.has(model.id)}
+                          onChange={() => toggleBulkSelect(model.id)}
+                          className="h-4 w-4 rounded border-border accent-violet-600 cursor-pointer"
+                          title="Select for bulk enable"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
                     </div>
                   </CardContent>
                 </Card>
-                </Link>
               </motion.div>
             );
           })}
@@ -379,6 +494,63 @@ export default function ModelsPage() {
           </button>
         )}
       </p>
+
+      {/* Activation result banner (for bulk) */}
+      {activateResult && activateResult.id === "bulk" && (
+        <div className={`fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border p-4 shadow-lg ${
+          activateResult.success ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"
+        }`}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm">{activateResult.message}</p>
+            <button onClick={() => setActivateResult(null)} className="ml-3 text-xs hover:opacity-70">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation dialog */}
+      {confirmActivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full mx-4 p-6"
+          >
+            <h3 className="text-lg font-semibold mb-2">Enable Model</h3>
+            <p className="text-sm text-muted-foreground mb-1">
+              <span className="font-medium text-foreground">{confirmActivate.display_name || confirmActivate.model_id}</span>
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {getProviderLabel(confirmActivate) === "aws" && (
+                <>This will request access to this model on AWS Bedrock. Some models are enabled instantly, others may require approval (up to 48h). Your IAM user needs the <code className="text-xs bg-accent px-1 rounded">bedrock:PutFoundationModelEntitlement</code> permission.</>
+              )}
+              {getProviderLabel(confirmActivate) === "azure" && (
+                <>This will create a deployment for this model on Azure OpenAI with Standard tier (10K TPM). Your service principal needs <code className="text-xs bg-accent px-1 rounded">Cognitive Services Contributor</code> role.</>
+              )}
+              {getProviderLabel(confirmActivate) === "gcp" && (
+                <>This will verify and enable access to this model on Vertex AI.</>
+              )}
+              {!["aws", "azure", "gcp"].includes(getProviderLabel(confirmActivate)) && (
+                <>This will attempt to enable this model on your cloud account.</>
+              )}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmActivate(null)}
+                className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleActivateModel(confirmActivate)}
+                disabled={activating !== null}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-50"
+              >
+                {activating ? "Enabling..." : "Enable Model"}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
