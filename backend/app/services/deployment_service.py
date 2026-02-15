@@ -431,7 +431,17 @@ async def deploy_azure(
     """Create or update an Azure OpenAI deployment via Azure Resource Manager API."""
     deployment_name = config.get("name", model_id.replace(".", "-").replace("/", "-")[:64])
     tpm = config.get("tpm", 10)  # in thousands
-    tier = config.get("tier", "Standard")
+    
+    # Map deployment_type from frontend to Azure SKU name
+    deployment_type = config.get("deployment_type", config.get("tier", "standard"))
+    _sku_map = {
+        "standard": "Standard",
+        "global-standard": "GlobalStandard",
+        "global-batch": "GlobalBatch",
+        "provisioned": "ProvisionedManaged",
+        "data-zone-standard": "DataZoneStandard",
+    }
+    tier = _sku_map.get(deployment_type.lower(), deployment_type) if isinstance(deployment_type, str) else "Standard"
     
     # Parse model name and version
     azure_model_name, parsed_version = _parse_azure_model_id(model_id)
