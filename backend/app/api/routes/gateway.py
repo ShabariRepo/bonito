@@ -285,11 +285,19 @@ async def _handle_streaming_completion(
             cost = 0.0
             try:
                 if total_prompt_tokens or total_completion_tokens:
-                    cost = litellm.completion_cost(
-                        model=model_used,
+                    # Determine the provider-prefixed model name for cost lookup
+                    cost_model = model_used
+                    if "bedrock" not in cost_model and "azure" not in cost_model and "vertex_ai" not in cost_model:
+                        if "amazon" in cost_model or "anthropic.claude" in cost_model or "meta.llama" in cost_model:
+                            cost_model = f"bedrock/{cost_model}"
+                        elif "gemini" in cost_model:
+                            cost_model = f"vertex_ai/{cost_model}"
+                    prompt_cost, compl_cost = litellm.cost_per_token(
+                        model=cost_model,
                         prompt_tokens=total_prompt_tokens,
                         completion_tokens=total_completion_tokens,
-                    ) or 0.0
+                    )
+                    cost = (prompt_cost + compl_cost) or 0.0
             except Exception:
                 pass
 
@@ -414,11 +422,18 @@ async def _handle_streaming_completion_policy(
             cost = 0.0
             try:
                 if total_prompt_tokens or total_completion_tokens:
-                    cost = litellm.completion_cost(
-                        model=model_used,
+                    cost_model = model_used
+                    if "bedrock" not in cost_model and "azure" not in cost_model and "vertex_ai" not in cost_model:
+                        if "amazon" in cost_model or "anthropic.claude" in cost_model or "meta.llama" in cost_model:
+                            cost_model = f"bedrock/{cost_model}"
+                        elif "gemini" in cost_model:
+                            cost_model = f"vertex_ai/{cost_model}"
+                    prompt_cost, compl_cost = litellm.cost_per_token(
+                        model=cost_model,
                         prompt_tokens=total_prompt_tokens,
                         completion_tokens=total_completion_tokens,
-                    ) or 0.0
+                    )
+                    cost = (prompt_cost + compl_cost) or 0.0
             except Exception:
                 pass
 
