@@ -12,9 +12,9 @@ const plans = [
     period: "forever",
     description: "For individuals exploring multi-cloud AI management.",
     features: [
-      "1 AI provider connection",
-      "100 API calls / month",
-      "Basic dashboard & analytics",
+      "1 cloud provider connection",
+      "100 gateway API calls / month",
+      "Model catalog & playground",
       "Community support (Discord)",
       "1 team member",
       "Standard logging",
@@ -28,16 +28,18 @@ const plans = [
     period: "/mo",
     description: "For teams shipping AI products across multiple providers.",
     features: [
-      "Up to 3 AI providers",
-      "50,000 API calls / month",
-      "API gateway with intelligent routing",
+      "Up to 3 cloud providers",
+      "50,000 gateway API calls / month",
+      "Routing policies (cost-optimized, failover, A/B test)",
+      "Deployment provisioning",
+      "One-click model activation",
       "Cost analytics & optimization",
       "AI copilot assistant",
+      "In-app & email notifications",
       "Email support (24h response)",
       "Unlimited team members",
-      "Advanced logging & audit trail",
-      "Budget alerts & notifications",
-      "Custom model routing rules",
+      "Budget alerts & spend tracking",
+      "CLI tool (bonito-cli)",
     ],
     cta: "Start Free Trial",
     highlighted: true,
@@ -48,9 +50,10 @@ const plans = [
     period: "/mo",
     description: "For organizations with complex AI infrastructure needs.",
     features: [
-      "Unlimited AI providers",
-      "Unlimited API calls",
-      "Custom routing & load balancing",
+      "Unlimited cloud providers",
+      "Unlimited gateway API calls",
+      "Advanced routing & load balancing",
+      "Least-privilege IAM templates (Terraform)",
       "SSO / SAML (coming soon)",
       "99.9% SLA guarantee",
       "Dedicated support engineer",
@@ -66,16 +69,21 @@ const plans = [
 ];
 
 const comparisonFeatures = [
-  { name: "AI Providers", free: "1", pro: "3", enterprise: "Unlimited" },
-  { name: "API Calls / month", free: "100", pro: "50,000", enterprise: "Unlimited" },
+  { name: "Cloud Providers", free: "1", pro: "3", enterprise: "Unlimited" },
+  { name: "Gateway API Calls / month", free: "100", pro: "50,000", enterprise: "Unlimited" },
   { name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited" },
-  { name: "Dashboard", free: true, pro: true, enterprise: true },
+  { name: "Model Catalog & Playground", free: true, pro: true, enterprise: true },
+  { name: "One-Click Model Activation", free: true, pro: true, enterprise: true },
+  { name: "Deployment Provisioning", free: false, pro: true, enterprise: true },
   { name: "Cost Analytics", free: false, pro: true, enterprise: true },
-  { name: "API Gateway", free: false, pro: true, enterprise: true },
-  { name: "Intelligent Routing", free: false, pro: true, enterprise: true },
+  { name: "Gateway API", free: false, pro: true, enterprise: true },
+  { name: "Routing Policies", free: false, pro: true, enterprise: true },
   { name: "AI Copilot", free: false, pro: true, enterprise: true },
-  { name: "Budget Alerts", free: false, pro: true, enterprise: true },
+  { name: "Budget & Spend Alerts", free: false, pro: true, enterprise: true },
+  { name: "Notifications (In-App & Email)", free: false, pro: true, enterprise: true },
+  { name: "CLI Tool", free: false, pro: true, enterprise: true },
   { name: "Audit Trail", free: false, pro: true, enterprise: true },
+  { name: "IaC Templates (Terraform)", free: false, pro: false, enterprise: true },
   { name: "Custom Integrations", free: false, pro: false, enterprise: true },
   { name: "SSO / SAML", free: false, pro: false, enterprise: "Coming soon" },
   { name: "SLA Guarantee", free: false, pro: false, enterprise: "99.9%" },
@@ -87,11 +95,11 @@ const comparisonFeatures = [
 const faqs = [
   {
     q: "What is Bonito?",
-    a: "Bonito is a unified control plane for managing multi-cloud AI infrastructure. It lets you connect providers like OpenAI, Anthropic, AWS Bedrock, and Google Vertex AI from a single dashboard — with intelligent routing, cost tracking, and governance built in.",
+    a: "Bonito is a unified AI gateway that connects your cloud AI providers — AWS Bedrock, Azure OpenAI, and Google Cloud Vertex AI — and lets you manage everything from a single dashboard. You get intelligent routing, deployment provisioning, cost tracking, and compliance controls, all through one API endpoint.",
   },
   {
     q: "How does billing work?",
-    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card. Pro and Enterprise plans are billed at the start of each billing cycle. Bonito charges for the platform — your AI provider costs (OpenAI, etc.) are billed separately by those providers.",
+    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card. Pro and Enterprise plans are billed at the start of each billing cycle. Bonito charges for the platform — your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
   },
   {
     q: "Can I switch plans at any time?",
@@ -99,7 +107,11 @@ const faqs = [
   },
   {
     q: "What cloud providers are supported?",
-    a: "Bonito supports OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure OpenAI, Cohere, and more. We are constantly adding new provider integrations based on customer demand.",
+    a: "Bonito supports AWS Bedrock, Azure OpenAI, and Google Cloud Vertex AI. You connect your own cloud accounts and Bonito discovers all available models, handles routing, and tracks costs across providers.",
+  },
+  {
+    q: "Do I need to change my cloud setup?",
+    a: "Minimally. You need IAM credentials with the right permissions (Bonito offers Quick Start managed roles or Enterprise least-privilege policies). Your existing cloud resources stay as-is — Bonito connects to them, not the other way around.",
   },
   {
     q: "Is there a free trial for Pro?",
@@ -111,7 +123,7 @@ const faqs = [
   },
   {
     q: "Is my data secure?",
-    a: "Absolutely. Bonito never stores your AI request/response data. We use encryption at rest and in transit. Enterprise plans include SOC2 and HIPAA compliance options.",
+    a: "Absolutely. Bonito never stores your AI request/response data. Prompts and completions pass through the gateway but are never persisted. We use encryption at rest and in transit. Enterprise plans include SOC2 and HIPAA compliance options.",
   },
 ];
 

@@ -1,18 +1,25 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Shield, Code, DollarSign, Zap, Users, Globe } from "lucide-react";
+import { Shield, Code, DollarSign, Zap, Users, Globe, Rocket, Route } from "lucide-react";
 
 const values = [
-  { icon: Shield, title: "Security-First", desc: "We never store your AI request or response data. Encryption everywhere, compliance built in." },
-  { icon: Code, title: "Developer Experience", desc: "Clean APIs, intuitive dashboards, and tools that get out of your way so you can ship faster." },
-  { icon: DollarSign, title: "Cost Transparency", desc: "No hidden fees, no surprise bills. Full visibility into every dollar spent on AI infrastructure." },
+  { icon: Shield, title: "Security-First", desc: "We never store your AI request or response data. Encryption everywhere, least-privilege IAM templates, and compliance built in." },
+  { icon: Code, title: "Developer Experience", desc: "OpenAI-compatible gateway, Python CLI, clean APIs, and an intuitive dashboard. Tools that get out of your way so you can ship faster." },
+  { icon: DollarSign, title: "Cost Transparency", desc: "No hidden fees, no surprise bills. Full visibility into every dollar spent on AI across all your cloud providers." },
+];
+
+const capabilities = [
+  { icon: Globe, title: "Multi-Cloud Gateway", desc: "One API endpoint for AWS Bedrock, Azure OpenAI, and GCP Vertex AI. OpenAI-compatible format works with any existing SDK." },
+  { icon: Route, title: "Intelligent Routing", desc: "Cost-optimized routing, failover chains, and A/B testing across models and providers. Route traffic based on cost, latency, or capability." },
+  { icon: Rocket, title: "Deployment Provisioning", desc: "Deploy models directly into your cloud — AWS Provisioned Throughput, Azure OpenAI deployments, GCP serverless — all from one dashboard." },
+  { icon: Shield, title: "Enterprise IAM", desc: "Quick Start managed roles for evaluation, or Enterprise least-privilege policies with exact minimum permissions per capability. Terraform templates included." },
 ];
 
 const stats = [
-  { value: "50M+", label: "API calls routed" },
+  { value: "3", label: "Cloud providers" },
+  { value: "100+", label: "Models available" },
   { value: "99.9%", label: "Uptime SLA" },
-  { value: "5", label: "Cloud providers" },
   { value: "< 10ms", label: "Routing overhead" },
 ];
 
@@ -36,9 +43,9 @@ export default function AboutPage() {
           transition={{ delay: 0.1 }}
           className="mt-6 text-lg text-[#888] leading-relaxed"
         >
-          Bonito is the unified control plane for multi-cloud AI. We help engineering teams connect,
-          route, monitor, and optimize their AI infrastructure from a single platform — so they can
-          focus on building great products instead of wrangling providers.
+          Bonito is the unified control plane for multi-cloud AI. Connect your AWS Bedrock, Azure OpenAI, and
+          Google Cloud Vertex AI accounts, then manage all your models, deployments, routing, and costs from a
+          single platform — so you can focus on building great products instead of wrangling providers.
         </motion.p>
       </section>
 
@@ -49,14 +56,14 @@ export default function AboutPage() {
             <h2 className="text-3xl font-bold mb-6">What Bonito Does</h2>
             <div className="space-y-4 text-[#888] leading-relaxed">
               <p>
-                Modern AI teams use multiple providers — OpenAI for GPT, Anthropic for Claude,
-                AWS Bedrock for enterprise workloads, Google Vertex for specialized models. Managing
-                them separately means scattered dashboards, unpredictable costs, and fragile integrations.
+                Modern AI teams use models across multiple cloud providers — Claude on AWS Bedrock, GPT-4o
+                on Azure OpenAI, Gemini on GCP Vertex AI. Managing them separately means scattered dashboards,
+                unpredictable costs, and fragile integrations.
               </p>
               <p>
-                Bonito unifies all of this. One API gateway with intelligent routing and failover.
-                One dashboard for cost tracking across every provider. One audit trail for compliance.
-                One place to manage your entire AI stack.
+                Bonito unifies all of this. One OpenAI-compatible API gateway with intelligent routing and failover.
+                One dashboard for cost tracking across every provider. One place to deploy models, activate new ones,
+                set up routing policies, and manage your entire AI stack.
               </p>
             </div>
           </div>
@@ -74,6 +81,28 @@ export default function AboutPage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Capabilities */}
+      <section className="pb-24">
+        <h2 className="text-3xl font-bold mb-12">Platform Capabilities</h2>
+        <div className="grid sm:grid-cols-2 gap-6">
+          {capabilities.map((c, i) => (
+            <motion.div
+              key={c.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6"
+            >
+              <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center mb-4">
+                <c.icon className="w-5 h-5 text-[#7c3aed]" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">{c.title}</h3>
+              <p className="text-sm text-[#888] leading-relaxed">{c.desc}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
@@ -106,7 +135,7 @@ export default function AboutPage() {
           <h2 className="text-3xl font-bold mb-4">Built by engineers who&apos;ve managed AI at scale</h2>
           <p className="text-[#888] max-w-2xl mx-auto leading-relaxed">
             Our team has built and operated AI infrastructure at companies processing millions of
-            requests per day. We know the pain of managing multiple providers, juggling API keys,
+            requests per day. We know the pain of managing multiple cloud providers, juggling IAM policies,
             and explaining surprise cloud bills — because we&apos;ve lived it. Bonito is the tool we
             wished existed.
           </p>

@@ -16,6 +16,7 @@ import {
   Terminal,
   ArrowRight,
   ExternalLink,
+  Rocket,
 } from "lucide-react";
 
 interface TestStep {
@@ -205,8 +206,38 @@ const sections: TestSection[] = [
     ],
   },
   {
+    icon: Rocket,
+    title: "6. Deployments",
+    id: "deployments",
+    steps: [
+      {
+        title: "Create a deployment",
+        description: "Deploy a model directly into your cloud from the Bonito UI.",
+        checks: [
+          "Go to Deployments page → click 'Create Deployment'",
+          "Select a provider and model",
+          "AWS: choose On-demand or Provisioned Throughput (PT requires commitment)",
+          "Azure: set TPM capacity for the deployment (Standard or GlobalStandard tier)",
+          "GCP: serverless by default — verify access",
+          "Deployment should appear in the list with status updates",
+        ],
+        endpoint: "POST /api/deployments/",
+      },
+      {
+        title: "Monitor deployment status",
+        description: "Check that deployment lifecycle notifications work.",
+        checks: [
+          "Deployment status should update: Creating → Active (or Failed)",
+          "In-app notification should appear for deployment status changes",
+          "Deployment details page shows provider, model, capacity, and status",
+        ],
+        endpoint: "GET /api/deployments/{id}",
+      },
+    ],
+  },
+  {
     icon: DollarSign,
-    title: "6. Cost Intelligence",
+    title: "7. Cost Intelligence",
     id: "costs",
     steps: [
       {
@@ -232,7 +263,7 @@ const sections: TestSection[] = [
   },
   {
     icon: Shield,
-    title: "7. Compliance & Governance",
+    title: "8. Compliance & Governance",
     id: "compliance",
     steps: [
       {
@@ -260,7 +291,7 @@ const sections: TestSection[] = [
   },
   {
     icon: BarChart3,
-    title: "8. Analytics & Usage",
+    title: "9. Analytics & Usage",
     id: "analytics",
     steps: [
       {
@@ -277,7 +308,7 @@ const sections: TestSection[] = [
   },
   {
     icon: Bell,
-    title: "9. Notifications & Alerts",
+    title: "10. Notifications & Alerts",
     id: "notifications",
     steps: [
       {
@@ -303,7 +334,7 @@ const sections: TestSection[] = [
   },
   {
     icon: MessageSquare,
-    title: "10. AI Copilot",
+    title: "11. AI Copilot",
     id: "copilot",
     steps: [
       {

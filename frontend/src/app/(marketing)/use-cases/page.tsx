@@ -92,21 +92,21 @@ const onboardingSteps = [
   {
     step: "2",
     title: "Connect AWS Bedrock",
-    description: "Go to Providers → Add Provider → AWS. Enter your IAM Access Key ID, Secret Access Key, and region (e.g. us-east-1). Bonito validates the credentials against STS and checks Bedrock permissions automatically. If you only have a service account with Bedrock access, that's all you need.",
+    description: "Go to Providers → Add Provider → AWS. Enter your IAM Access Key ID and Secret Access Key. Bonito validates the credentials against STS and checks Bedrock permissions automatically. Choose Quick Start (managed role) for evaluation, or Enterprise mode for least-privilege IAM policies scoped per capability.",
     time: "3 minutes",
-    detail: "Minimum permissions needed: bedrock:ListFoundationModels, bedrock:InvokeModel, ce:GetCostAndUsage, sts:GetCallerIdentity",
+    detail: "Core permissions: bedrock:ListFoundationModels, GetFoundationModel, InvokeModel, InvokeModelWithResponseStream, sts:GetCallerIdentity. Add Provisioning, Model Activation, or Cost Tracking policies only as needed.",
   },
   {
     step: "3",
     title: "Connect GCP Vertex AI",
-    description: "Add Provider → GCP. Upload or paste your Service Account JSON key file and enter the Project ID. Bonito validates access to Vertex AI APIs and the billing account. Your data science team's existing service account works if it has Vertex AI User role.",
+    description: "Add Provider → GCP. Paste your Service Account JSON key file and enter the Project ID. Bonito validates access to Vertex AI APIs. Use Quick Start (aiplatform.user role) or Enterprise mode with a custom role containing only the exact permissions Bonito needs.",
     time: "3 minutes",
-    detail: "Minimum permissions needed: Vertex AI User, Billing Viewer, Monitoring Viewer (project-scoped)",
+    detail: "Core permissions: aiplatform.publishers.get, publisherModels.get, endpoints.predict, resourcemanager.projects.get. Add endpoint management and billing permissions only as needed.",
   },
   {
     step: "4",
     title: "See all your models in one place",
-    description: "Hit Sync on the Models page. Bonito pulls every available model from both providers: Claude, Llama, Titan from AWS Bedrock and Gemini, PaLM from GCP Vertex. Filter by provider, search by name, compare pricing side by side.",
+    description: "Bonito automatically syncs every available model from your connected providers: Claude, Llama, Titan from AWS Bedrock and Gemini from GCP Vertex. Filter by provider, search by name, and enable models with one click — no need to visit each cloud console. Bulk-activate up to 20 models at once.",
     time: "1 minute",
   },
   {
@@ -118,7 +118,7 @@ const onboardingSteps = [
   {
     step: "6",
     title: "Set up routing policies",
-    description: "Create routes for each use case. Example: 'ad-copy' route uses GPT-4o Mini (cheapest) with Claude 3 Haiku as failover. 'dealer-support' route uses Haiku for simple queries, auto-escalates to Sonnet for complex ones. 'analytics' route always uses Gemini Pro for consistency.",
+    description: "Create routing policies for each use case. Cost-optimized routing for ad copy (auto-selects cheapest model). Failover chain for dealer support (Haiku → Sonnet fallback). A/B testing for analytics (90% Gemini Pro / 10% new model). Each policy is testable with dry-run before going live.",
     time: "10 minutes",
   },
   {
@@ -130,14 +130,14 @@ const onboardingSteps = [
   {
     step: "8",
     title: "Integrate with one line of code",
-    description: "Your teams swap their existing OpenAI/Anthropic/Google SDK endpoint to Bonito's gateway URL. Same API format they already use. No code rewrite, just a config change. Bonito handles routing, failover, and logging transparently.",
+    description: "Your teams swap their existing SDK endpoint to Bonito's gateway URL (gateway.getbonito.com/v1). Same OpenAI-compatible API format they already use. No code rewrite, just a config change. Bonito handles routing, failover, and logging transparently.",
     time: "5 minutes per service",
-    detail: "Works with any OpenAI-compatible SDK: Python, Node.js, Go, curl",
+    detail: "Works with any OpenAI-compatible SDK: Python, Node.js, Go, curl. Also available via bonito-cli for terminal workflows.",
   },
   {
     step: "9",
     title: "Monitor costs and compliance",
-    description: "The Costs dashboard shows real-time spending across both providers, broken down by team, model, and use case. Set budget alerts so finance never gets surprised. The Compliance page runs automated checks against SOC2 and HIPAA frameworks across both cloud accounts.",
+    description: "The Costs dashboard shows real-time spending across all providers, broken down by team, model, and use case. Set budget alerts and get in-app + email notifications so finance never gets surprised. The Compliance page runs automated checks against SOC2 and HIPAA frameworks.",
     time: "Ongoing",
   },
 ];
