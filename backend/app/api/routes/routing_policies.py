@@ -228,30 +228,56 @@ async def test_routing_policy(
     if not policy.models:
         raise HTTPException(status_code=400, detail="Policy has no models configured")
     
-    # Simple model selection logic based on strategy
+    import random
+
+    # Real model selection logic matching gateway.apply_routing_policy
     selected_model = None
     selection_reason = ""
     
     if policy.strategy == "cost_optimized":
-        # For demo, select first model - in real implementation, use cost data
-        selected_model = policy.models[0]
-        selection_reason = "Selected for cost optimization"
+        # Sort by weight (higher = cheaper) and pick cheapest
+        sorted_models = sorted(policy.models, key=lambda m: m.get("weight", 0), reverse=True)
+        selected_model = sorted_models[0]
+        selection_reason = "Selected cheapest model for cost optimization"
+    
     elif policy.strategy == "latency_optimized":
-        selected_model = policy.models[0]
-        selection_reason = "Selected for lowest latency"
+        sorted_models = sorted(policy.models, key=lambda m: m.get("weight", 0), reverse=True)
+        selected_model = sorted_models[0]
+        selection_reason = "Selected fastest model for latency optimization"
+    
     elif policy.strategy == "balanced":
-        selected_model = policy.models[0]
-        selection_reason = "Selected using balanced strategy"
+        selected_model = random.choice(policy.models)
+        selection_reason = "Selected using balanced random strategy"
+    
     elif policy.strategy == "failover":
-        selected_model = policy.models[0]  # Select primary
-        selection_reason = "Primary model selected for failover"
+        # Pick primary first, then fallbacks in order
+        for model_config in policy.models:
+            if model_config.get("role") == "primary" or not model_config.get("role"):
+                selected_model = model_config
+                selection_reason = f"Primary model selected (failover chain: {len(policy.models)} models)"
+                break
+        if not selected_model:
+            for model_config in policy.models:
+                if model_config.get("role") == "fallback":
+                    selected_model = model_config
+                    selection_reason = "Fallback model selected (primary unavailable)"
+                    break
+    
     elif policy.strategy == "ab_test":
-        # Select based on weights - for demo, just select first
-        selected_model = policy.models[0]
-        selection_reason = f"Selected for A/B test (weight: {selected_model.get('weight', 0)}%)"
+        # Weight-based random selection
+        rand = random.random() * 100
+        cumulative_weight = 0
+        for model_config in policy.models:
+            weight = model_config.get("weight", 0)
+            cumulative_weight += weight
+            if rand <= cumulative_weight:
+                selected_model = model_config
+                selection_reason = f"A/B test: selected with {weight}% weight (roll: {rand:.1f})"
+                break
     
     if not selected_model:
-        raise HTTPException(status_code=500, detail="Could not select a model")
+        selected_model = policy.models[0]
+        selection_reason = "Default selection (no strategy match)"
     
     # Get model name
     model_ids = [UUID(selected_model["model_id"])]
