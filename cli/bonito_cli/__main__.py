@@ -1,4 +1,4 @@
 """Allow running as `python -m bonito_cli`."""
-from bonito_cli.app import app
+from bonito_cli.app import main
 
-app()
+main()

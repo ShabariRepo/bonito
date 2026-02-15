@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bonito-cli"
+version = "0.1.0"
+description = "Bonito CLI — Unified multi-cloud AI management from your terminal"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    { name = "Bonito", email = "hello@getbonito.com" },
+]
+keywords = ["ai", "llm", "multi-cloud", "cli", "aws", "azure", "gcp"]
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "httpx>=0.25.0",
+]
+
+[project.scripts]
+bonito = "bonito_cli.app:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bonito_cli"]

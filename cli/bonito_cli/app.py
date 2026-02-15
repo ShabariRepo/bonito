@@ -20,20 +20,20 @@ from .commands.deployments import app as deployments_app
 console = Console()
 
 # ── Bonito fish ASCII art ──────────────────────────────────────
-FISH_ART = r"""
-[bold cyan]        ___...---"""---...__              [/bold cyan]
-[bold cyan]    .-""                   ""-._          [/bold cyan]
-[bold cyan]   /                            \         [/bold cyan]
-[bold cyan]  |    [bold white]●[/bold white][bold cyan]          __.._          |        [/bold cyan]
-[bold cyan]  |           _.-"    "-.       /\        [/bold cyan]
-[bold cyan]   \       .-"          "-.  _.' /        [/bold cyan]
-[bold cyan]    "---.-"  [dim cyan]bonito[/dim cyan]        "-"  _/         [/bold cyan]
-[bold cyan]        \    [dim cyan]  CLI [/dim cyan]          _.-"           [/bold cyan]
-[bold cyan]         "-.__       __.-"                [/bold cyan]
-[bold cyan]              """---"""                    [/bold cyan]
-"""
+FISH_ART = (
+    "[bold cyan]        ___...---\"\"\"---...__              [/bold cyan]\n"
+    "[bold cyan]    .-\"\"                   \"\"-._          [/bold cyan]\n"
+    "[bold cyan]   /                            \\         [/bold cyan]\n"
+    "[bold cyan]  |    [bold white]●[/bold white][bold cyan]          __.._          |        [/bold cyan]\n"
+    "[bold cyan]  |           _.-\"    \"-.       /\\        [/bold cyan]\n"
+    "[bold cyan]   \\       .-\"          \"-.  _.' /        [/bold cyan]\n"
+    "[bold cyan]    \"---.-\"  [dim cyan]bonito[/dim cyan]        \"-\"  _/         [/bold cyan]\n"
+    "[bold cyan]        \\    [dim cyan]  CLI [/dim cyan]          _.-\"           [/bold cyan]\n"
+    "[bold cyan]         \"-.__       __.-\"                [/bold cyan]\n"
+    "[bold cyan]              \"\"\"---\"\"\"                    [/bold cyan]"
+)
 
-LOGO_COMPACT = r"""[bold cyan]  ><(((º>  [/bold cyan][bold white]Bonito CLI[/bold white] [dim]v{version}[/dim]"""
+LOGO_COMPACT = "[bold cyan]  ><(((º>  [/bold cyan][bold white]Bonito CLI[/bold white] [dim]v{version}[/dim]"
 
 
 def _get_banner() -> str:
