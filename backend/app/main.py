@@ -77,6 +77,7 @@ app = FastAPI(
     description="Enterprise AI Platform API",
     version="0.1.0",
     lifespan=lifespan,
+    redirect_slashes=False,  # Avoid 307 redirects that break HTTPS behind proxies
 )
 
 # Add global exception handlers
