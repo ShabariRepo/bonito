@@ -322,14 +322,19 @@ async def delete_aws_deployment(
 def _parse_azure_model_id(model_id: str) -> tuple[str, str | None]:
     """Parse Azure model ID into (base_name, version).
     
-    Examples:
-      'gpt-4o-2024-11-20'      → ('gpt-4o', '2024-11-20')
-      'gpt-4o-mini-2024-07-18' → ('gpt-4o-mini', '2024-07-18')
-      'gpt-35-turbo'           → ('gpt-35-turbo', None)
-      'o1-mini-2024-09-12'     → ('o1-mini', '2024-09-12')
+    Azure uses two version formats:
+      Date-based:  'gpt-4o-2024-11-20'      → ('gpt-4o', '2024-11-20')
+      Build-based: 'gpt-35-turbo-1106'       → ('gpt-35-turbo', '1106')
+                   'gpt-4o-mini-2024-07-18'  → ('gpt-4o-mini', '2024-07-18')
+                   'gpt-35-turbo'            → ('gpt-35-turbo', None)
     """
     import re
+    # Try date version: YYYY-MM-DD suffix
     m = re.match(r'^(.+?)-(\d{4}-\d{2}-\d{2})$', model_id)
+    if m:
+        return m.group(1), m.group(2)
+    # Try build version: 4-digit suffix (e.g., 1106, 0613, 0125)
+    m = re.match(r'^(.+?)-(\d{4})$', model_id)
     if m:
         return m.group(1), m.group(2)
     return model_id, None
