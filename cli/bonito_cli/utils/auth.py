@@ -1,70 +1,49 @@
 """Authentication utilities for Bonito CLI."""
 
-from typing import Optional, Dict, Any
-from datetime import datetime
+from __future__ import annotations
 
-import typer
-from rich.console import Console
+from typing import Any, Dict, Optional
 
-from ..config import load_credentials, save_credentials, clear_credentials, get_api_key, is_authenticated
+from ..config import (
+    clear_credentials,
+    get_api_key,
+    is_authenticated,
+    load_credentials,
+    save_credentials,
+)
+from .display import print_error
 
-_console = Console()
 
-
-def ensure_authenticated():
-    """Check auth and exit if not logged in."""
+def ensure_authenticated() -> None:
+    """Abort with a helpful message if the user is not logged in."""
     if not is_authenticated():
-        _console.print("[yellow]Not logged in. Run: bonito auth login[/yellow]")
-        raise typer.Exit(1)
+        print_error("Not authenticated. Run [cyan]bonito auth login[/cyan] first.", exit_code=1)
 
 
-def validate_api_key(api_key: str) -> bool:
-    """Validate API key format — accepts JWT tokens and bn- gateway keys."""
-    if not api_key:
-        return False
-    return len(api_key) > 10
-
-
-def store_auth_tokens(
-    access_token: str,
-    refresh_token: Optional[str] = None,
-    api_key: Optional[str] = None,
-    user_info: Optional[Dict] = None,
-):
-    """Store authentication tokens securely."""
-    credentials = {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "logged_in_at": datetime.now().isoformat(),
-    }
-    if refresh_token:
-        credentials["refresh_token"] = refresh_token
-    if api_key:
-        credentials["api_key"] = api_key
-    if user_info:
-        credentials["user"] = user_info
-    save_credentials(credentials)
-
-
-def logout():
-    """Clear stored credentials."""
-    clear_credentials()
-
-
-def format_auth_status() -> str:
-    """Format authentication status for display."""
-    creds = load_credentials()
-    if not creds.get("access_token"):
-        return "Not authenticated"
-    user = creds.get("user", {})
-    return f"Logged in as {user.get('email', creds.get('email', 'unknown'))}"
+def mask_value(value: str, show: int = 4) -> str:
+    """Mask a sensitive string, keeping the first *show* characters."""
+    if not value or len(value) <= show:
+        return value
+    return value[:show] + "•" * min(len(value) - show, 20)
 
 
 def get_credential_summary() -> Dict[str, Any]:
-    """Get a summary of stored credentials (no secrets)."""
+    """Return a safe-to-display summary of stored credentials."""
     creds = load_credentials()
-    return {
-        "authenticated": bool(creds.get("access_token")),
-        "email": creds.get("email", creds.get("user", {}).get("email")),
-        "logged_in_at": creds.get("logged_in_at"),
+    if not creds:
+        return {"authenticated": False}
+
+    summary: Dict[str, Any] = {
+        "authenticated": True,
+        "has_access_token": bool(creds.get("access_token")),
+        "has_refresh_token": bool(creds.get("refresh_token")),
+        "email": creds.get("email"),
     }
+
+    user = creds.get("user")
+    if user:
+        summary["name"] = user.get("name")
+        summary["role"] = user.get("role")
+        summary["org"] = user.get("org", {}).get("name")
+
+    return summary

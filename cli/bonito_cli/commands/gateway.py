@@ -1,405 +1,305 @@
 """API Gateway management commands."""
 
+from __future__ import annotations
+
+import json as _json
+from typing import Optional
+
 import typer
 from rich.console import Console
 from rich.prompt import Prompt
-from typing import Optional
 
 from ..api import api, APIError
-from ..utils.display import (
-    print_error, print_success, print_info, print_warning,
-    print_table, print_dict_as_table, get_output_format
-)
 from ..utils.auth import ensure_authenticated
+from ..utils.display import (
+    get_output_format,
+    print_dict_as_table,
+    print_error,
+    print_info,
+    print_success,
+    print_table,
+    print_warning,
+)
 
 console = Console()
+app = typer.Typer(help="🌐 API Gateway management")
 
-app = typer.Typer(help="🚪 API Gateway management")
+# Note: gateway routes are at /api/gateway/* (no extra prefix from the router)
+_GW = "/gateway"
+
+
+# ── status ──────────────────────────────────────────────────────
 
 
 @app.command("status")
 def gateway_status(
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
 ):
-    """
-    Show API Gateway status and health information.
-    """
-    output_format = get_output_format(json_output)
+    """Show gateway configuration and health."""
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
+
     try:
-        # Get gateway config and usage info
-        config = api.get("/gateway/config")
-        
-        if output_format == "json":
-            console.print_json(config)
+        with console.status("[cyan]Fetching gateway status…[/cyan]"):
+            config = api.get(f"{_GW}/config")
+
+        if fmt == "json":
+            console.print_json(_json.dumps(config, default=str))
         else:
-            # Display gateway status
-            status_info = {
-                "Status": "🟢 Healthy" if config.get("healthy", True) else "🔴 Unhealthy",
-                "Version": config.get("version", "N/A"),
-                "Uptime": config.get("uptime", "N/A"),
-                "Endpoint": config.get("endpoint", "N/A"),
-                "Rate Limit": f"{config.get('rate_limit', 'N/A')} req/min",
-                "Active Keys": config.get("active_keys", "N/A"),
-                "Total Requests (24h)": f"{config.get('requests_24h', 0):,}",
-                "Average Latency": f"{config.get('avg_latency_ms', 0):.0f}ms",
+            info = {
+                "Endpoint": config.get("endpoint", config.get("base_url", "—")),
+                "Default Model": config.get("default_model", "—"),
+                "Rate Limit": f"{config.get('rate_limit', '—')} req/min",
+                "Streaming": "✓" if config.get("enable_streaming", True) else "✗",
+                "Logging": "✓" if config.get("enable_logging", True) else "✗",
             }
-            
-            print_dict_as_table(status_info, title="Gateway Status")
-            
-            # Show recent errors if any
-            recent_errors = config.get("recent_errors", [])
-            if recent_errors:
-                print_warning(f"Recent errors ({len(recent_errors)}):")
-                for error in recent_errors[:5]:  # Show last 5
-                    console.print(f"  • {error.get('timestamp', '')}: {error.get('message', '')}")
-            
-            print_info("Gateway is ready to handle API requests")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to get gateway status: {e}")
+            print_dict_as_table(info, title="🌐 Gateway Configuration")
+    except APIError as exc:
+        print_error(f"Failed to get gateway status: {exc}")
 
 
-# Keys management
+# ── keys (sub-group) ───────────────────────────────────────────
+
 keys_app = typer.Typer(help="Gateway API key management", no_args_is_help=True)
 
 
 @keys_app.command("list")
-def list_gateway_keys(
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+def list_keys(
+    json_output: bool = typer.Option(False, "--json"),
 ):
     """List all gateway API keys."""
-    output_format = get_output_format(json_output)
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
+
     try:
-        keys = api.get("/gateway/keys")
-        
-        if output_format == "json":
-            console.print_json(keys)
+        with console.status("[cyan]Fetching keys…[/cyan]"):
+            keys = api.get(f"{_GW}/keys")
+
+        if fmt == "json":
+            console.print_json(_json.dumps(keys, default=str))
         else:
             if not keys:
-                print_info("No gateway keys found")
-                print_info("Create one with: bonito gateway keys create")
+                print_info("No gateway keys. Create one: [cyan]bonito gateway keys create[/cyan]")
                 return
-            
-            # Format keys for display
-            key_data = []
-            for key in keys:
-                key_data.append({
-                    "ID": key.get("id", ""),
-                    "Name": key.get("name", "Unnamed"),
-                    "Key Preview": key.get("key", "")[:12] + "...",
-                    "Created": key.get("created_at", ""),
-                    "Status": "✅ Active" if key.get("active", True) else "❌ Inactive",
-                    "Last Used": key.get("last_used_at", "Never"),
-                    "Requests (24h)": f"{key.get('requests_24h', 0):,}",
+
+            rows = []
+            for k in keys:
+                rows.append({
+                    "Name": k.get("name", "Unnamed"),
+                    "Key Prefix": k.get("key_prefix", k.get("key", "")[:12]) + "…",
+                    "Created": k.get("created_at", "—"),
                 })
-            
-            print_table(key_data, title="Gateway API Keys")
-            print_info(f"Total: {len(keys)} key(s)")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to list gateway keys: {e}")
+            print_table(rows, title="🔑 Gateway API Keys")
+            print_info(f"{len(keys)} key(s)")
+    except APIError as exc:
+        print_error(f"Failed to list keys: {exc}")
 
 
 @keys_app.command("create")
-def create_gateway_key(
-    name: Optional[str] = typer.Option(None, "--name", help="Name for the gateway key"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+def create_key(
+    name: Optional[str] = typer.Option(None, "--name", help="Key name"),
+    json_output: bool = typer.Option(False, "--json"),
 ):
     """Create a new gateway API key."""
-    output_format = get_output_format(json_output)
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
-    # Prompt for name if not provided
+
     if not name:
-        name = Prompt.ask("Enter a name for this gateway key", default="Gateway Key")
-    
+        name = Prompt.ask("Key name", default="CLI Key")
+
     try:
-        key_info = api.post("/gateway/keys", {"name": name})
-        
-        if output_format == "json":
-            console.print_json(key_info)
+        with console.status("[cyan]Creating key…[/cyan]"):
+            result = api.post(f"{_GW}/keys", {"name": name})
+
+        if fmt == "json":
+            console.print_json(_json.dumps(result, default=str))
         else:
-            print_success(f"Gateway key created: {name}")
-            
-            console.print(f"\n[bold yellow]⚠️  Gateway Key (save this, it won't be shown again):[/bold yellow]")
-            console.print(f"[green]{key_info.get('key', '')}[/green]")
-            
-            console.print(f"\n[bold]Key ID:[/bold] {key_info.get('id', '')}")
-            console.print(f"[bold]Name:[/bold] {key_info.get('name', '')}")
-            
-            print_info("Use this key to authenticate with the Bonito Gateway API (/v1/* endpoints)")
-            console.print("\n[bold]Example usage:[/bold]")
-            console.print(f"[cyan]curl -H 'Authorization: Bearer {key_info.get('key', '')[:12]}...' \\[/cyan]")
-            console.print(f"[cyan]  https://your-gateway/v1/chat/completions[/cyan]")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to create gateway key: {e}")
+            key_value = result.get("key", result.get("raw_key", ""))
+            print_success(f"Gateway key '{name}' created")
+            console.print(f"\n[bold yellow]⚠  Save this key — it won't be shown again:[/bold yellow]")
+            console.print(f"[bold green]{key_value}[/bold green]\n")
+            console.print("[dim]Use this key with: Authorization: Bearer <key>[/dim]")
+    except APIError as exc:
+        print_error(f"Failed to create key: {exc}")
 
 
 @keys_app.command("revoke")
-def revoke_gateway_key(
-    key_id: str = typer.Argument(..., help="Gateway key ID to revoke"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+def revoke_key(
+    key_id: str = typer.Argument(..., help="Key UUID to revoke"),
+    force: bool = typer.Option(False, "--force", "-f"),
+    json_output: bool = typer.Option(False, "--json"),
 ):
-    """Revoke a gateway API key."""
-    output_format = get_output_format(json_output)
+    """Revoke (delete) a gateway API key."""
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
-    # Confirm revocation
-    if output_format == "rich":
-        confirm = typer.confirm(f"Are you sure you want to revoke gateway key {key_id}?")
-        if not confirm:
+
+    if not force and fmt != "json":
+        if not typer.confirm(f"Revoke key {key_id[:8]}…?"):
             print_info("Cancelled")
             return
-    
+
     try:
-        api.delete(f"/gateway/keys/{key_id}")
-        
-        if output_format == "json":
-            console.print_json({
-                "status": "success", 
-                "message": f"Gateway key {key_id} revoked"
-            })
+        api.delete(f"{_GW}/keys/{key_id}")
+        if fmt == "json":
+            console.print_json(f'{{"status":"revoked","id":"{key_id}"}}')
         else:
-            print_success(f"Gateway key {key_id} revoked")
-            print_warning("Any applications using this key will no longer be able to access the gateway")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to revoke gateway key: {e}")
+            print_success(f"Key {key_id[:8]}… revoked")
+            print_warning("Applications using this key will lose access")
+    except APIError as exc:
+        print_error(f"Failed to revoke key: {exc}")
 
 
 app.add_typer(keys_app, name="keys")
 
 
+# ── logs ────────────────────────────────────────────────────────
+
+
 @app.command("logs")
 def gateway_logs(
-    limit: int = typer.Option(50, "--limit", help="Number of log entries to show"),
+    limit: int = typer.Option(25, "--limit", "-n", help="Number of entries"),
     model: Optional[str] = typer.Option(None, "--model", help="Filter by model"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+    json_output: bool = typer.Option(False, "--json"),
 ):
-    """
-    View recent gateway API logs.
-    """
-    output_format = get_output_format(json_output)
+    """View recent gateway request logs."""
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
+
+    params: dict = {"limit": limit}
+    if model:
+        params["model"] = model
+
     try:
-        logs = api.get("/gateway/logs", {"limit": limit, **({"model": model} if model else {})})
-        
-        if output_format == "json":
-            console.print_json(logs)
+        with console.status("[cyan]Fetching logs…[/cyan]"):
+            logs = api.get(f"{_GW}/logs", params=params)
+
+        if fmt == "json":
+            console.print_json(_json.dumps(logs, default=str))
         else:
             if not logs:
                 print_info("No recent gateway logs")
                 return
-            
-            # Format logs for display
-            log_data = []
-            for log_entry in logs:
-                status_color = "green" if log_entry.get("status_code", 200) < 400 else "red"
-                
-                log_data.append({
-                    "Timestamp": log_entry.get("timestamp", ""),
-                    "Method": log_entry.get("method", ""),
-                    "Endpoint": log_entry.get("endpoint", ""),
-                    "Model": log_entry.get("model", "N/A"),
-                    "Status": f"[{status_color}]{log_entry.get('status_code', 'N/A')}[/{status_color}]",
-                    "Latency": f"{log_entry.get('latency_ms', 0):.0f}ms",
-                    "Tokens": f"{log_entry.get('tokens', 0):,}",
-                    "Key": log_entry.get("key_name", "Unknown")[:12] + "...",
+
+            rows = []
+            for entry in logs:
+                sc = entry.get("status_code", 200)
+                color = "green" if sc < 400 else "red"
+                rows.append({
+                    "Time": entry.get("timestamp", "—"),
+                    "Model": entry.get("model", "—"),
+                    "Status": f"[{color}]{sc}[/{color}]",
+                    "Latency": f"{entry.get('latency_ms', 0):.0f}ms",
+                    "Tokens": f"{entry.get('total_tokens', entry.get('tokens', 0)):,}",
                 })
-            
-            print_table(log_data, title=f"Gateway Logs (last {limit})")
-            
-            # Show summary stats
-            total_requests = len(logs)
-            successful_requests = sum(1 for log in logs if log.get("status_code", 200) < 400)
-            avg_latency = sum(log.get("latency_ms", 0) for log in logs) / len(logs) if logs else 0
-            
-            console.print(f"\n[dim]Summary: {successful_requests}/{total_requests} successful, avg latency: {avg_latency:.0f}ms[/dim]")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to get gateway logs: {e}")
+            print_table(rows, title=f"📋 Gateway Logs (last {limit})")
+    except APIError as exc:
+        print_error(f"Failed to fetch logs: {exc}")
 
 
-# Config management
-config_app = typer.Typer(help="Gateway configuration", no_args_is_help=True)
-
-
-@config_app.command("show")
-def show_gateway_config(
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
-):
-    """Show current gateway configuration."""
-    output_format = get_output_format(json_output)
-    ensure_authenticated()
-    
-    try:
-        config = api.get("/gateway/config")
-        
-        if output_format == "json":
-            console.print_json(config)
-        else:
-            # Display configuration
-            config_data = {
-                "Rate Limit (req/min)": config.get("rate_limit", "N/A"),
-                "Timeout (seconds)": config.get("timeout_seconds", "N/A"),
-                "Max Tokens": config.get("max_tokens", "N/A"),
-                "Enable Streaming": "✅ Yes" if config.get("enable_streaming", True) else "❌ No",
-                "Enable Logging": "✅ Yes" if config.get("enable_logging", True) else "❌ No",
-                "Default Model": config.get("default_model", "N/A"),
-                "Allowed Origins": ", ".join(config.get("allowed_origins", ["*"])),
-                "Cache TTL (seconds)": config.get("cache_ttl", "N/A"),
-            }
-            
-            print_dict_as_table(config_data, title="Gateway Configuration")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to get gateway config: {e}")
-
-
-@config_app.command("set")
-def set_gateway_config(
-    field: str = typer.Argument(..., help="Configuration field to set"),
-    value: str = typer.Argument(..., help="New value"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
-):
-    """Set a gateway configuration value."""
-    output_format = get_output_format(json_output)
-    ensure_authenticated()
-    
-    # Convert value to appropriate type based on field
-    processed_value = value
-    
-    if field in ["rate_limit", "timeout_seconds", "max_tokens", "cache_ttl"]:
-        try:
-            processed_value = int(value)
-        except ValueError:
-            print_error(f"Value for {field} must be a number")
-            return
-    
-    elif field in ["enable_streaming", "enable_logging"]:
-        processed_value = value.lower() in ["true", "yes", "1", "on"]
-    
-    elif field == "allowed_origins":
-        processed_value = [origin.strip() for origin in value.split(",")]
-    
-    try:
-        # Get current config
-        current_config = api.get("/gateway/config")
-        
-        # Update the field
-        current_config[field] = processed_value
-        
-        # Save updated config
-        updated_config = api.put("/gateway/config", current_config)
-        
-        if output_format == "json":
-            console.print_json(updated_config)
-        else:
-            print_success(f"Gateway configuration updated: {field} = {processed_value}")
-            print_info("Changes may take a few seconds to take effect")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
-        else:
-            print_error(f"Failed to update gateway config: {e}")
-
-
-app.add_typer(config_app, name="config")
+# ── usage ───────────────────────────────────────────────────────
 
 
 @app.command("usage")
 def gateway_usage(
-    days: int = typer.Option(7, "--days", help="Number of days to analyze"),
-    json_output: bool = typer.Option(False, "--json", help="Output as JSON")
+    days: int = typer.Option(7, "--days", help="Days to show"),
+    json_output: bool = typer.Option(False, "--json"),
 ):
-    """
-    Show gateway usage statistics.
-    """
-    output_format = get_output_format(json_output)
+    """Show gateway usage statistics."""
+    fmt = get_output_format(json_output)
     ensure_authenticated()
-    
+
     try:
-        # This would be a separate endpoint for usage stats
-        usage_stats = {
-            "period_days": days,
-            "total_requests": 12450,
-            "successful_requests": 12280,
-            "failed_requests": 170,
-            "success_rate": 98.6,
-            "avg_latency_ms": 245,
-            "total_tokens": 1245000,
-            "unique_keys": 8,
-            "top_models": [
-                {"model": "gpt-4o", "requests": 5600, "percentage": 45.0},
-                {"model": "claude-3-sonnet", "requests": 4200, "percentage": 33.7},
-                {"model": "gpt-3.5-turbo", "requests": 2650, "percentage": 21.3},
-            ],
-            "daily_breakdown": [
-                {"date": "2024-01-01", "requests": 1800, "success_rate": 98.9},
-                {"date": "2024-01-02", "requests": 1750, "success_rate": 98.2},
-            ]
-        }
-        
-        if output_format == "json":
-            console.print_json(usage_stats)
+        with console.status("[cyan]Fetching usage…[/cyan]"):
+            usage = api.get(f"{_GW}/usage", params={"days": days})
+
+        if fmt == "json":
+            console.print_json(_json.dumps(usage, default=str))
         else:
-            # Display usage summary
-            console.print(f"\n[bold cyan]📊 Gateway Usage Summary (last {days} days)[/bold cyan]")
-            
-            summary = {
-                "Total Requests": f"{usage_stats['total_requests']:,}",
-                "Successful": f"{usage_stats['successful_requests']:,}",
-                "Failed": f"{usage_stats['failed_requests']:,}",
-                "Success Rate": f"{usage_stats['success_rate']:.1f}%",
-                "Avg Latency": f"{usage_stats['avg_latency_ms']}ms",
-                "Total Tokens": f"{usage_stats['total_tokens']:,}",
-                "Active Keys": usage_stats['unique_keys'],
+            info = {
+                "Period": f"Last {days} days",
+                "Total Requests": f"{usage.get('total_requests', 0):,}",
+                "Total Tokens": f"{usage.get('total_tokens', 0):,}",
+                "Total Cost": f"${usage.get('total_cost', 0):.2f}",
+                "Active Keys": usage.get("unique_keys", usage.get("active_keys", "—")),
             }
-            
-            print_dict_as_table(summary, title="Usage Summary")
-            
-            # Show top models
-            model_data = []
-            for model_stat in usage_stats['top_models']:
-                model_data.append({
-                    "Model": model_stat['model'],
-                    "Requests": f"{model_stat['requests']:,}",
-                    "Percentage": f"{model_stat['percentage']:.1f}%"
-                })
-            
-            print_table(model_data, title="Top Models")
-    
-    except APIError as e:
-        if output_format == "json":
-            console.print_json({"error": str(e)})
+            print_dict_as_table(info, title="📊 Gateway Usage")
+
+            # Top models if present
+            top = usage.get("top_models", usage.get("by_model", []))
+            if top and isinstance(top, list):
+                rows = [
+                    {
+                        "Model": m.get("model", m.get("model_id", "—")),
+                        "Requests": f"{m.get('requests', m.get('count', 0)):,}",
+                    }
+                    for m in top[:5]
+                ]
+                print_table(rows, title="Top Models")
+    except APIError as exc:
+        print_error(f"Failed to get usage: {exc}")
+
+
+# ── config (sub-group) ─────────────────────────────────────────
+
+config_app = typer.Typer(help="Gateway configuration", no_args_is_help=True)
+
+
+@config_app.command("show")
+def show_config(json_output: bool = typer.Option(False, "--json")):
+    """Show current gateway configuration."""
+    fmt = get_output_format(json_output)
+    ensure_authenticated()
+
+    try:
+        with console.status("[cyan]Fetching config…[/cyan]"):
+            config = api.get(f"{_GW}/config")
+
+        if fmt == "json":
+            console.print_json(_json.dumps(config, default=str))
         else:
-            print_error(f"Failed to get gateway usage: {e}")
+            display = {}
+            for k, v in config.items():
+                label = k.replace("_", " ").title()
+                if isinstance(v, bool):
+                    display[label] = "✓" if v else "✗"
+                elif isinstance(v, list):
+                    display[label] = ", ".join(str(i) for i in v)
+                else:
+                    display[label] = str(v)
+            print_dict_as_table(display, title="⚙️  Gateway Configuration")
+    except APIError as exc:
+        print_error(f"Failed to get config: {exc}")
 
 
-if __name__ == "__main__":
-    app()
+@config_app.command("set")
+def set_config(
+    field: str = typer.Argument(..., help="Configuration field"),
+    value: str = typer.Argument(..., help="New value"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Update a gateway configuration value."""
+    fmt = get_output_format(json_output)
+    ensure_authenticated()
+
+    # Coerce types
+    coerced: object = value
+    if field in ("rate_limit", "timeout_seconds", "max_tokens", "cache_ttl"):
+        coerced = int(value)
+    elif field in ("enable_streaming", "enable_logging"):
+        coerced = value.lower() in ("true", "yes", "1", "on")
+
+    try:
+        with console.status("[cyan]Updating config…[/cyan]"):
+            current = api.get(f"{_GW}/config")
+            current[field] = coerced
+            updated = api.put(f"{_GW}/config", current)
+
+        if fmt == "json":
+            console.print_json(_json.dumps(updated, default=str))
+        else:
+            print_success(f"{field} = {coerced}")
+    except APIError as exc:
+        print_error(f"Failed to update config: {exc}")
+
+
+app.add_typer(config_app, name="config")
