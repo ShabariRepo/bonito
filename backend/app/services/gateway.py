@@ -736,7 +736,7 @@ async def apply_routing_policy(
     # Get available models with their display names
     model_ids = [uuid.UUID(model["model_id"]) for model in policy.models]
     result = await db.execute(
-        select(Model.id, Model.display_name, Model.model_id)
+        select(Model)
         .join(CloudProvider, Model.provider_id == CloudProvider.id)
         .where(
             and_(
