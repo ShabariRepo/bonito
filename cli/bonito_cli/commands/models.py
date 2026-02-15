@@ -33,11 +33,7 @@ def list_models(
     ensure_authenticated()
     
     try:
-        models = api.list_models(
-            provider=provider,
-            enabled_only=enabled_only,
-            search=search
-        )
+        models = api.get("/models/", {k: v for k, v in {"provider": provider, "enabled_only": enabled_only, "search": search}.items() if v})
         
         if output_format == "json":
             console.print_json(models)
@@ -168,7 +164,7 @@ def enable_models(
         if len(model_ids) == 1 and not bulk:
             # Single model
             model_id = model_ids[0]
-            result = api.enable_model(model_id)
+            result = api.post(f"/models/{model_id}/activate")
             
             if output_format == "json":
                 console.print_json(result)
@@ -180,7 +176,7 @@ def enable_models(
                     print_info(result["message"])
         else:
             # Multiple models
-            result = api.enable_models_bulk(model_ids)
+            result = api.post("/models/activate-bulk", {"model_ids": model_ids})
             
             if output_format == "json":
                 console.print_json(result)
@@ -222,7 +218,7 @@ def sync_models(
     
     try:
         with console.status(f"[bold green]Syncing models{f' for {provider}' if provider else ''}..."):
-            result = api.sync_models(provider_id=provider)
+            result = api.post("/models/sync", {"provider_id": provider} if provider else {})
         
         if output_format == "json":
             console.print_json(result)
@@ -304,7 +300,7 @@ def search_models(
     ensure_authenticated()
     
     try:
-        models = api.list_models(
+        models = api.get("/models/",
             provider=provider,
             search=query
         )

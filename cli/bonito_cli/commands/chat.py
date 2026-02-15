@@ -78,7 +78,7 @@ def main(
         if not model:
             # Try to get first available model
             try:
-                models = api.list_models(enabled_only=True)
+                models = api.get("/models/")
                 if models:
                     model = models[0]["id"]
                 else:
@@ -113,11 +113,11 @@ def run_oneshot_chat(model: str, prompt: str, settings: Dict, json_output: bool)
         start_time = time.time()
         
         if output_format == "json":
-            response = api.chat_completion(model, messages, **settings)
+            response = api.post(f"/models/{model}/playground", {"messages": messages, **settings})
             console.print_json(response)
         else:
             with console.status(f"[bold green]Thinking..."):
-                response = api.chat_completion(model, messages, **settings)
+                response = api.post(f"/models/{model}/playground", {"messages": messages, **settings})
             
             # Extract response content
             content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -209,7 +209,7 @@ def run_interactive_chat(model: str, settings: Dict, json_output: bool):
                 except:
                     # Fallback to non-streaming
                     with console.status("[bold green]Thinking..."):
-                        response = api.chat_completion(model, messages, **settings)
+                        response = api.post(f"/models/{model}/playground", {"messages": messages, **settings})
                     
                     response_content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
                     console.print(f"\n[bold green]{model}:[/bold green] {response_content}")
@@ -390,7 +390,7 @@ def run_compare_mode(models: List[str], prompt: str, json_output: bool):
     
     try:
         if output_format == "json":
-            result = api.compare_models(models, prompt)
+            result = api.post("/models/compare", {"model_ids": models, "prompt": prompt})
             console.print_json(result)
         else:
             console.print(f"\n[bold cyan]🔄 Comparing {len(models)} models[/bold cyan]")
@@ -402,7 +402,7 @@ def run_compare_mode(models: List[str], prompt: str, json_output: bool):
                 try:
                     with console.status(f"[bold green]Getting response from {model}..."):
                         start_time = time.time()
-                        response = api.chat_completion(model, [{"role": "user", "content": prompt}])
+                        response = api.post(f"/models/{model}/playground", {"messages": [{"role": "user", "content": prompt}]})
                         latency = time.time() - start_time
                     
                     content = response.get("choices", [{}])[0].get("message", {}).get("content", "")

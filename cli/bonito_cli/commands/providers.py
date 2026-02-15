@@ -26,7 +26,7 @@ def list_providers(
     ensure_authenticated()
     
     try:
-        providers = api.list_providers()
+        providers = api.get("/providers/")
         
         if output_format == "json":
             console.print_json(providers)
@@ -83,7 +83,7 @@ def add_aws(
     }
     
     try:
-        result = api.connect_provider(provider_data)
+        result = api.post("/providers/connect", provider_data)
         
         if output_format == "json":
             console.print_json(result)
@@ -95,7 +95,7 @@ def add_aws(
             if provider_id:
                 print_info("Testing connection...")
                 try:
-                    test_result = api.verify_provider(provider_id)
+                    test_result = api.post(f"/providers/{provider_id}/verify")
                     if test_result.get("status") == "success":
                         print_success("✅ Connection test passed")
                     else:
@@ -158,7 +158,7 @@ def add_azure(
     }
     
     try:
-        result = api.connect_provider(provider_data)
+        result = api.post("/providers/connect", provider_data)
         
         if output_format == "json":
             console.print_json(result)
@@ -170,7 +170,7 @@ def add_azure(
             if provider_id:
                 print_info("Testing connection...")
                 try:
-                    test_result = api.verify_provider(provider_id)
+                    test_result = api.post(f"/providers/{provider_id}/verify")
                     if test_result.get("status") == "success":
                         print_success("✅ Connection test passed")
                     else:
@@ -226,7 +226,7 @@ def add_gcp(
     }
     
     try:
-        result = api.connect_provider(provider_data)
+        result = api.post("/providers/connect", provider_data)
         
         if output_format == "json":
             console.print_json(result)
@@ -238,7 +238,7 @@ def add_gcp(
             if provider_id:
                 print_info("Testing connection...")
                 try:
-                    test_result = api.verify_provider(provider_id)
+                    test_result = api.post(f"/providers/{provider_id}/verify")
                     if test_result.get("status") == "success":
                         print_success("✅ Connection test passed")
                     else:
@@ -267,7 +267,7 @@ def test_provider(
     
     try:
         with console.status(f"[bold green]Testing provider {provider_id}..."):
-            result = api.verify_provider(provider_id)
+            result = api.post(f"/providers/{provider_id}/verify")
         
         if output_format == "json":
             console.print_json(result)
@@ -316,7 +316,7 @@ def remove_provider(
             return
     
     try:
-        api.delete_provider(provider_id)
+        api.delete(f"/providers/{provider_id}")
         
         if output_format == "json":
             console.print_json({
@@ -343,7 +343,7 @@ def provider_models(
     ensure_authenticated()
     
     try:
-        models = api.get_provider_models(provider_id)
+        models = api.get(f"/providers/{provider_id}/models")
         
         if output_format == "json":
             console.print_json(models)

@@ -8,17 +8,14 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .commands import (
-    auth,
-    providers,
-    models,
-    chat,
-    gateway,
-    policies,
-    analytics,
-    costs,
-    config_cmd
-)
+from .commands.auth import app as auth_app
+from .commands.providers import app as providers_app
+from .commands.models import app as models_app
+from .commands.chat import app as chat_app
+from .commands.gateway import app as gateway_app
+from .commands.policies import app as policies_app
+from .commands.analytics import app as analytics_app
+from .commands.deployments import app as deployments_app
 
 console = Console()
 
@@ -32,15 +29,14 @@ app = typer.Typer(
 )
 
 # Add subcommand groups
-app.add_typer(auth.app, name="auth", help="🔐 Authentication & API keys")
-app.add_typer(providers.app, name="providers", help="☁️  Cloud provider management")
-app.add_typer(models.app, name="models", help="🤖 AI model management")
-app.add_typer(chat.app, name="chat", help="💬 Interactive AI chat")
-app.add_typer(gateway.app, name="gateway", help="🚪 API Gateway management")
-app.add_typer(policies.app, name="policies", help="🎯 Routing policies")
-app.add_typer(analytics.app, name="analytics", help="📊 Usage analytics")
-app.add_typer(costs.app, name="costs", help="💰 Cost intelligence")
-app.add_typer(config_cmd.app, name="config", help="⚙️  CLI configuration")
+app.add_typer(auth_app, name="auth", help="🔐 Authentication & API keys")
+app.add_typer(providers_app, name="providers", help="☁️  Cloud provider management")
+app.add_typer(models_app, name="models", help="🤖 AI model management")
+app.add_typer(deployments_app, name="deployments", help="🚀 Deployment management")
+app.add_typer(chat_app, name="chat", help="💬 Interactive AI chat")
+app.add_typer(gateway_app, name="gateway", help="🚪 API Gateway management")
+app.add_typer(policies_app, name="policies", help="🎯 Routing policies")
+app.add_typer(analytics_app, name="analytics", help="📊 Usage analytics")
 
 
 def version_callback(value: bool):

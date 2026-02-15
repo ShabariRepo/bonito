@@ -29,7 +29,7 @@ def analytics_overview(
     ensure_authenticated()
     
     try:
-        overview = api.get_analytics_overview()
+        overview = api.get("/analytics/overview")
         
         if output_format == "json":
             console.print_json(overview)
@@ -108,7 +108,7 @@ def analytics_usage(
         return
     
     try:
-        usage_data = api.get_analytics_usage(period)
+        usage_data = api.get("/analytics/usage", {"period": period})
         
         if output_format == "json":
             console.print_json(usage_data)
@@ -176,7 +176,7 @@ def analytics_costs(
     ensure_authenticated()
     
     try:
-        cost_data = api.get_analytics_costs(period)
+        cost_data = api.get("/analytics/costs", {"period": period} if period else {})
         
         if output_format == "json":
             console.print_json(cost_data)
@@ -257,7 +257,7 @@ def analytics_trends(
     ensure_authenticated()
     
     try:
-        trends_data = api.get_analytics_trends()
+        trends_data = api.get("/analytics/trends")
         
         if output_format == "json":
             console.print_json(trends_data)
@@ -333,7 +333,7 @@ def analytics_digest(
     ensure_authenticated()
     
     try:
-        digest_data = api.get_analytics_digest()
+        digest_data = api.get("/analytics/digest")
         
         if output_format == "json":
             console.print_json(digest_data)

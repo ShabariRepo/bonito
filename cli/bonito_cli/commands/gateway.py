@@ -29,7 +29,7 @@ def gateway_status(
     
     try:
         # Get gateway config and usage info
-        config = api.get_gateway_config()
+        config = api.get("/gateway/config")
         
         if output_format == "json":
             console.print_json(config)
@@ -77,7 +77,7 @@ def list_gateway_keys(
     ensure_authenticated()
     
     try:
-        keys = api.get_gateway_keys()
+        keys = api.get("/gateway/keys")
         
         if output_format == "json":
             console.print_json(keys)
@@ -124,7 +124,7 @@ def create_gateway_key(
         name = Prompt.ask("Enter a name for this gateway key", default="Gateway Key")
     
     try:
-        key_info = api.create_gateway_key(name)
+        key_info = api.post("/gateway/keys", {"name": name})
         
         if output_format == "json":
             console.print_json(key_info)
@@ -166,7 +166,7 @@ def revoke_gateway_key(
             return
     
     try:
-        api.revoke_gateway_key(key_id)
+        api.delete(f"/gateway/keys/{key_id}")
         
         if output_format == "json":
             console.print_json({
@@ -200,7 +200,7 @@ def gateway_logs(
     ensure_authenticated()
     
     try:
-        logs = api.get_gateway_logs(limit=limit, model=model)
+        logs = api.get("/gateway/logs", {"limit": limit, **({"model": model} if model else {})})
         
         if output_format == "json":
             console.print_json(logs)
@@ -254,7 +254,7 @@ def show_gateway_config(
     ensure_authenticated()
     
     try:
-        config = api.get_gateway_config()
+        config = api.get("/gateway/config")
         
         if output_format == "json":
             console.print_json(config)
@@ -308,13 +308,13 @@ def set_gateway_config(
     
     try:
         # Get current config
-        current_config = api.get_gateway_config()
+        current_config = api.get("/gateway/config")
         
         # Update the field
         current_config[field] = processed_value
         
         # Save updated config
-        updated_config = api.update_gateway_config(current_config)
+        updated_config = api.put("/gateway/config", current_config)
         
         if output_format == "json":
             console.print_json(updated_config)
