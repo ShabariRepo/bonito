@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { Box, Cloud, Rocket, Activity, TrendingUp, Zap, Plus, ArrowRight, DollarSign, MessageSquare, Clock, Cpu } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { useAPI } from "@/lib/swr";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,77 +60,27 @@ const providerEmoji: Record<string, string> = { aws: "☁️", azure: "🔷", gc
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [modelCount, setModelCount] = useState<number | null>(null);
-  const [costSummary, setCostSummary] = useState<any>(null);
-  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
-  const [topModels, setTopModels] = useState<any[]>([]);
-  const [usage, setUsage] = useState<any>(null);
-  const [deployments, setDeployments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchAll = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      // Fetch providers
-      const provRes = await apiRequest("/api/providers/");
-      let provs: Provider[] = [];
-      if (provRes.ok) {
-        provs = await provRes.json();
-        setProviders(provs);
-        const totalModels = provs.reduce((sum: number, p: any) => sum + (p.model_count || 0), 0);
-        setModelCount(totalModels);
-        if (provs.length === 0) {
-          router.replace("/onboarding");
-          return;
-        }
-      } else {
-        throw new Error("Failed to load providers");
-      }
-
-      // Fetch in parallel: costs, audit, models, gateway usage, deployments
-      const [costRes, auditRes, modelsRes, usageRes, depRes] = await Promise.allSettled([
-        apiRequest("/api/costs/?period=monthly"),
-        apiRequest("/api/audit/"),
-        apiRequest("/api/models/"),
-        apiRequest("/api/gateway/usage?days=30"),
-        apiRequest("/api/deployments/"),
-      ]);
-
-      if (costRes.status === "fulfilled" && costRes.value.ok) {
-        setCostSummary(await costRes.value.json());
-      }
-
-      if (auditRes.status === "fulfilled" && auditRes.value.ok) {
-        const auditData = await auditRes.value.json();
-        setAuditLog(Array.isArray(auditData) ? auditData.slice(0, 8) : (auditData.items || []).slice(0, 8));
-      }
-
-      if (modelsRes.status === "fulfilled" && modelsRes.value.ok) {
-        const allModels = await modelsRes.value.json();
-        setTopModels(allModels.slice(0, 6));
-      }
-
-      if (usageRes.status === "fulfilled" && usageRes.value.ok) {
-        setUsage(await usageRes.value.json());
-      }
-
-      if (depRes.status === "fulfilled" && depRes.value.ok) {
-        setDeployments(await depRes.value.json());
-      }
-    } catch (e) {
-      console.error("Dashboard fetch error:", e);
-      setError("Failed to load dashboard data. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  // SWR hooks — data cached across navigations, revalidates in background
+  const { data: providers = [], isLoading: provLoading, error: provError, mutate: mutateProviders } = useAPI<Provider[]>("/api/providers/");
+  const { data: usage } = useAPI<any>("/api/gateway/usage?days=30");
+  const { data: rawDeployments = [] } = useAPI<any[]>("/api/deployments/");
+  const { data: rawAudit } = useAPI<any>("/api/audit/");
+  const { data: costSummary } = useAPI<any>("/api/costs/?period=monthly");
+  
+  const deployments = rawDeployments || [];
+  const auditLog: AuditEntry[] = rawAudit ? (Array.isArray(rawAudit) ? rawAudit.slice(0, 8) : (rawAudit.items || []).slice(0, 8)) : [];
+  const modelCount = providers.reduce((sum: number, p: any) => sum + (p.model_count || 0), 0);
+  const loading = provLoading;
+  const error = provError ? "Failed to load dashboard data." : null;
+  
+  const fetchAll = () => { mutateProviders(); };
 
   useEffect(() => {
-    fetchAll();
-  }, [router]);
+    if (!provLoading && providers.length === 0 && !provError) {
+      router.replace("/onboarding");
+    }
+  }, [provLoading, providers, provError, router]);
 
   const providerCount = providers.length;
 
