@@ -56,9 +56,13 @@ def list_policies(
         for p in policies:
             enabled = p.get("enabled", p.get("is_active", True))
             models = p.get("models", p.get("model_ids", []))
-            model_text = ", ".join(str(m) for m in models)[:40]
-            if len(model_text) >= 40:
-                model_text += "…"
+            # Models may be dicts (e.g. {"model_id": "…", "weight": 50}) — show a count
+            if models and isinstance(models[0], dict):
+                model_text = f"{len(models)} model{'s' if len(models) != 1 else ''}"
+            else:
+                model_text = ", ".join(str(m) for m in models)[:40]
+                if len(model_text) >= 40:
+                    model_text += "…"
             rows.append({
                 "ID": str(p.get("id", ""))[:8] + "…",
                 "Name": p.get("name", "—"),

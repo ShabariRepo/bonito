@@ -74,13 +74,38 @@ class BonitoAPI:
         if resp.status_code >= 400:
             try:
                 body = resp.json()
-                msg = body.get(
+                detail = body.get(
                     "detail",
                     body.get("error", {}).get("message", f"HTTP {resp.status_code}"),
                 )
             except Exception:
-                msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
-            raise APIError(str(msg), resp.status_code)
+                detail = f"HTTP {resp.status_code}: {resp.text[:200]}"
+
+            # Parse Pydantic 422 validation errors into friendly messages
+            if resp.status_code == 422 and isinstance(detail, list):
+                parts: list[str] = []
+                for err in detail:
+                    if isinstance(err, dict):
+                        err_type = err.get("type", "")
+                        err_msg = err.get("msg", "Validation error")
+                        loc = err.get("loc", [])
+                        field = str(loc[-1]).replace("_", " ") if loc else "input"
+                        if err_type == "uuid_parsing":
+                            parts.append(
+                                f"Invalid {field} format. "
+                                "Expected a UUID (e.g. a1b2c3d4-e5f6-...)"
+                            )
+                        else:
+                            parts.append(f"{err_msg} (field: {field})")
+                    else:
+                        parts.append(str(err))
+                msg = "; ".join(parts) if parts else "Validation error"
+            elif isinstance(detail, list):
+                msg = "; ".join(str(d) for d in detail)
+            else:
+                msg = str(detail)
+
+            raise APIError(msg, resp.status_code)
 
         try:
             return resp.json()

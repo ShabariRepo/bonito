@@ -182,14 +182,20 @@ def gateway_logs(
 
             rows = []
             for entry in logs:
-                sc = entry.get("status_code", 200)
-                color = "green" if sc < 400 else "red"
+                status = entry.get("status", "success")
+                color = "green" if status == "success" else "red"
+                # Use model_used when available, fall back to model_requested
+                model = entry.get("model_used") or entry.get("model_requested", "—")
+                # Compute total tokens from input + output
+                total_tokens = entry.get("input_tokens", 0) + entry.get("output_tokens", 0)
                 rows.append({
-                    "Time": entry.get("timestamp", "—"),
-                    "Model": entry.get("model", "—"),
-                    "Status": f"[{color}]{sc}[/{color}]",
+                    "Time": entry.get("created_at", "—"),
+                    "Model": model,
+                    "Provider": entry.get("provider", "—"),
+                    "Status": f"[{color}]{status}[/{color}]",
                     "Latency": f"{entry.get('latency_ms', 0):.0f}ms",
-                    "Tokens": f"{entry.get('total_tokens', entry.get('tokens', 0)):,}",
+                    "Tokens": f"{total_tokens:,}",
+                    "Cost": f"${entry.get('cost', 0):.4f}",
                 })
             print_table(rows, title=f"📋 Gateway Logs (last {limit})")
     except APIError as exc:
