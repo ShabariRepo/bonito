@@ -90,7 +90,7 @@ export default function DeploymentsPage() {
 
   // AWS config
   const [modelUnits, setModelUnits] = useState(1);
-  const [commitmentTerm, setCommitmentTerm] = useState("none");
+  const [commitmentTerm, setCommitmentTerm] = useState("1_week");
 
   // Azure config
   const [tpm, setTpm] = useState(10);
@@ -186,7 +186,7 @@ export default function DeploymentsPage() {
     setDeployName("");
     setCostEstimate(null);
     setModelUnits(1);
-    setCommitmentTerm("none");
+    setCommitmentTerm("1_week");
     setTpm(10);
     setTier("Standard");
     setError(null);
@@ -366,7 +366,7 @@ export default function DeploymentsPage() {
                       <label className="text-sm text-muted-foreground mb-1 block">Deployment Type</label>
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         <button
-                          onClick={() => { setModelUnits(0); setCommitmentTerm("none"); }}
+                          onClick={() => { setModelUnits(0); setCommitmentTerm("1_week"); }}
                           className={`p-2.5 rounded-lg border text-left transition-colors ${
                             modelUnits === 0
                               ? "border-violet-500 bg-violet-500/10"
@@ -408,10 +408,11 @@ export default function DeploymentsPage() {
                         </div>
                         <div>
                           <label className="text-sm text-muted-foreground mb-1 block">Commitment Term</label>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-4 gap-2">
                             {[
-                              { value: "none", label: "No commitment", sub: "Pay-as-you-go" },
+                              { value: "1_week", label: "1 week", sub: "Minimum term" },
                               { value: "1_month", label: "1 month", sub: "~20% savings" },
+                              { value: "3_month", label: "3 months", sub: "~40% savings" },
                               { value: "6_month", label: "6 months", sub: "~50% savings" },
                             ].map(opt => (
                               <button
