@@ -10,7 +10,7 @@ console = Console()
 
 # Default configuration
 DEFAULT_CONFIG = {
-    "api_url": "https://celebrated-contentment-production-0fc4.up.railway.app",
+    "api_url": "https://getbonito.com",
     "default_model": None,
     "output_format": "rich",
     "auto_refresh": True,
