@@ -69,16 +69,19 @@ def _to_response(p: CloudProvider, model_count: int = None) -> dict:
 
 @router.get("/", response_model=List[ProviderResponse])
 async def list_providers(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    import asyncio
     result = await db.execute(select(CloudProvider).where(CloudProvider.org_id == user.org_id))
     providers = result.scalars().all()
-    responses = []
-    for p in providers:
+
+    async def _count(p):
         try:
             models = await get_models_for_provider(p.provider_type, str(p.id))
-            responses.append(_to_response(p, len(models)))
+            return p, len(models)
         except Exception:
-            responses.append(_to_response(p, 0))
-    return responses
+            return p, 0
+
+    pairs = await asyncio.gather(*[_count(p) for p in providers])
+    return [_to_response(p, count) for p, count in pairs]
 
 
 @router.get("/{provider_id}", response_model=ProviderDetail)

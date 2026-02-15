@@ -41,6 +41,8 @@ async def get_cost_summary_real(
     period: str, db: AsyncSession, budget: float = 40000.0
 ) -> CostSummary:
     """Get unified cost summary across all connected providers."""
+    import asyncio
+
     days = {"daily": 1, "weekly": 7, "monthly": 30}.get(period, 30)
     end = date.today()
     start = end - timedelta(days=days)
@@ -54,39 +56,44 @@ async def get_cost_summary_real(
     except Exception:
         pass
 
-    # Pull real costs from all providers
-    all_daily: dict[str, float] = {}  # date -> amount
-    provider_totals: dict[str, float] = {}
-
     result = await db.execute(
         select(CloudProvider).where(CloudProvider.status == "active")
     )
     providers = result.scalars().all()
 
-    for p in providers:
+    # Fetch current AND previous period in parallel for all providers
+    prev_start = start - timedelta(days=days)
+
+    async def _fetch(p, s, e):
         try:
-            cost_data = await _get_provider_costs(p, start, end)
-            provider_totals[p.provider_type] = cost_data.total
+            return p.provider_type, await _get_provider_costs(p, s, e)
+        except Exception as ex:
+            logger.warning(f"Cost pull failed for {p.provider_type}: {ex}")
+            return p.provider_type, None
+
+    tasks = []
+    for p in providers:
+        tasks.append(_fetch(p, start, end))       # current
+        tasks.append(_fetch(p, prev_start, start)) # previous
+    results = await asyncio.gather(*tasks)
+
+    # Split results: even indices = current, odd = previous
+    all_daily: dict[str, float] = {}
+    prev_total = 0.0
+    for i, (ptype, cost_data) in enumerate(results):
+        if cost_data is None:
+            continue
+        if i % 2 == 0:  # current period
             for dc in cost_data.daily_costs:
                 all_daily[dc.date] = all_daily.get(dc.date, 0) + dc.amount
-        except Exception as e:
-            logger.warning(f"Cost pull failed for {p.provider_type}: {e}")
+        else:  # previous period
+            prev_total += cost_data.total
 
     total = sum(all_daily.values())
     daily_costs = [
         DailyCost(date=d, amount=round(a, 2))
         for d, a in sorted(all_daily.items())
     ]
-
-    # Calculate change vs previous period
-    prev_start = start - timedelta(days=days)
-    prev_total = 0.0
-    for p in providers:
-        try:
-            prev_data = await _get_provider_costs(p, prev_start, start)
-            prev_total += prev_data.total
-        except Exception:
-            pass
 
     change = ((total - prev_total) / prev_total * 100) if prev_total > 0 else 0
 

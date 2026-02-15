@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ import {
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { API_URL } from "@/lib/utils";
+import { useAPI } from "@/lib/swr";
 
 /* ─── Types ─── */
 
@@ -153,11 +154,14 @@ console.log(response.choices[0].message.content);`,
 /* ─── Main Page ─── */
 
 export default function GatewayPage() {
-  const [usage, setUsage] = useState<UsageStats | null>(null);
-  const [keys, setKeys] = useState<GatewayKey[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: usage, isLoading: usageLoading, error: usageError, mutate: mutateUsage } = useAPI<UsageStats>("/api/gateway/usage");
+  const { data: keysData, isLoading: keysLoading, mutate: mutateKeys } = useAPI<GatewayKey[]>("/api/gateway/keys");
+  const { data: logsData, isLoading: logsLoading, mutate: mutateLogs } = useAPI<LogEntry[]>("/api/gateway/logs?limit=20");
+  const keys = keysData || [];
+  const logs = logsData || [];
+  const loading = usageLoading || keysLoading || logsLoading;
+  const error = usageError ? "Failed to load gateway data. Please check your connection and try again." : null;
+
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -165,30 +169,7 @@ export default function GatewayPage() {
   const baseUrl = API_URL;
   const gatewayUrl = `${baseUrl}/v1/chat/completions`;
 
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const [usageRes, keysRes, logsRes] = await Promise.all([
-        apiRequest("/api/gateway/usage"),
-        apiRequest("/api/gateway/keys"),
-        apiRequest("/api/gateway/logs?limit=20"),
-      ]);
-      if (usageRes.ok) setUsage(await usageRes.json());
-      if (keysRes.ok) setKeys(await keysRes.json());
-      if (logsRes.ok) setLogs(await logsRes.json());
-      // If all requests failed, show error
-      if (!usageRes.ok && !keysRes.ok && !logsRes.ok) {
-        throw new Error("All gateway requests failed");
-      }
-    } catch (e) {
-      console.error("Failed to fetch gateway data:", e);
-      setError("Failed to load gateway data. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchData = useCallback(() => { mutateUsage(); mutateKeys(); mutateLogs(); }, [mutateUsage, mutateKeys, mutateLogs]);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;

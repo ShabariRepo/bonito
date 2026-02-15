@@ -12,6 +12,7 @@ import {
   Search, Zap
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { useAPI } from "@/lib/swr";
 
 interface Model {
   id: string;
@@ -72,9 +73,6 @@ const statusConfig: Record<string, { variant: "success" | "warning" | "destructi
 };
 
 export default function DeploymentsPage() {
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [models, setModels] = useState<Model[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -98,22 +96,13 @@ export default function DeploymentsPage() {
   const [tpm, setTpm] = useState(10);
   const [tier, setTier] = useState("Standard");
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [depRes, modRes] = await Promise.all([
-        apiRequest("/api/deployments/"),
-        apiRequest("/api/models/"),
-      ]);
-      if (depRes.ok) setDeployments(await depRes.json());
-      if (modRes.ok) setModels(await modRes.json());
-    } catch (e) {
-      console.error("Failed to fetch data", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: deploymentsData, isLoading: depLoading, mutate: mutateDeployments } = useAPI<Deployment[]>("/api/deployments/");
+  const { data: modelsData, isLoading: modLoading } = useAPI<Model[]>("/api/models/");
+  const deployments = deploymentsData || [];
+  const models = modelsData || [];
+  const loading = depLoading || modLoading;
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchData = useCallback(() => { mutateDeployments(); }, [mutateDeployments]);
 
   // Get provider type for selected model
   const selectedProvider = selectedModel?.provider_type || "";
