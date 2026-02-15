@@ -435,9 +435,10 @@ export default function DeploymentsPage() {
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground mb-1 block">Tier</label>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {[
-                          { value: "Standard", label: "Standard", sub: "Shared compute, pay-per-use" },
+                          { value: "Standard", label: "Standard", sub: "Regional, pay-per-use" },
+                          { value: "GlobalStandard", label: "Global Standard", sub: "Multi-region, higher limits" },
                           { value: "Provisioned", label: "Provisioned", sub: "Dedicated compute, reserved" },
                         ].map(opt => (
                           <button
