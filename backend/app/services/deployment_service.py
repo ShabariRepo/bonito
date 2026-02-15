@@ -317,7 +317,7 @@ async def delete_aws_deployment(
         return DeploymentResult(success=False, status="failed", message=str(e))
 
 
-# ─── Azure OpenAI Deployment Management ───
+# ─── Azure OpenAI Deployment Management (ARM API) ───
 
 def _parse_azure_model_id(model_id: str) -> tuple[str, str | None]:
     """Parse Azure model ID into (base_name, version).
@@ -335,6 +335,41 @@ def _parse_azure_model_id(model_id: str) -> tuple[str, str | None]:
     return model_id, None
 
 
+def _extract_azure_account_name(endpoint: str) -> str:
+    """Extract account name from Azure OpenAI endpoint URL.
+    'https://bonito-ai-production.openai.azure.com/' → 'bonito-ai-production'
+    """
+    from urllib.parse import urlparse
+    hostname = urlparse(endpoint).hostname or ""
+    return hostname.split(".")[0]
+
+
+async def _get_arm_token(tenant_id: str, client_id: str, client_secret: str) -> str | None:
+    """Get Azure Resource Manager token."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+            data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "https://management.azure.com/.default",
+                "grant_type": "client_credentials",
+            },
+        )
+        if resp.status_code == 200:
+            return resp.json().get("access_token")
+    return None
+
+
+def _azure_arm_url(subscription_id: str, resource_group: str, account_name: str, deployment_name: str) -> str:
+    return (
+        f"https://management.azure.com/subscriptions/{subscription_id}"
+        f"/resourceGroups/{resource_group}"
+        f"/providers/Microsoft.CognitiveServices/accounts/{account_name}"
+        f"/deployments/{deployment_name}?api-version=2024-06-01-preview"
+    )
+
+
 async def deploy_azure(
     model_id: str,
     config: dict,
@@ -342,65 +377,64 @@ async def deploy_azure(
     client_id: str,
     client_secret: str,
     endpoint: str,
+    subscription_id: str = "",
+    resource_group: str = "",
 ) -> DeploymentResult:
-    """Create or update an Azure OpenAI deployment."""
-    deployment_name = config.get("name", model_id.replace(".", "-"))
+    """Create or update an Azure OpenAI deployment via Azure Resource Manager API."""
+    deployment_name = config.get("name", model_id.replace(".", "-").replace("/", "-")[:64])
     tpm = config.get("tpm", 10)  # in thousands
     tier = config.get("tier", "Standard")
     
-    # Parse model name and version from model_id (e.g. "gpt-4o-2024-11-20" → "gpt-4o" + "2024-11-20")
+    # Parse model name and version
     azure_model_name, parsed_version = _parse_azure_model_id(model_id)
     model_version = config.get("model_version", parsed_version)
     
+    account_name = _extract_azure_account_name(endpoint)
+    base = endpoint.rstrip("/")
+    
+    if not subscription_id or not resource_group:
+        return DeploymentResult(
+            success=False, status="failed",
+            message="Azure deployment requires subscription_id and resource_group in provider credentials.",
+        )
+    
     try:
+        arm_token = await _get_arm_token(tenant_id, client_id, client_secret)
+        if not arm_token:
+            return DeploymentResult(
+                success=False, status="failed",
+                message="Azure ARM authentication failed. Check service principal credentials.",
+            )
+        
+        arm_url = _azure_arm_url(subscription_id, resource_group, account_name, deployment_name)
+        
         async with httpx.AsyncClient() as client:
-            # Auth
-            token_resp = await client.post(
-                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
-                data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "scope": "https://cognitiveservices.azure.com/.default",
-                    "grant_type": "client_credentials",
-                },
-            )
-            if token_resp.status_code != 200:
-                return DeploymentResult(
-                    success=False, status="failed",
-                    message=f"Azure auth failed: {token_resp.text[:200]}",
-                )
-            cog_token = token_resp.json()["access_token"]
-            
-            base = endpoint.rstrip("/")
-            
-            # Check if deployment exists
-            check = await client.get(
-                f"{base}/openai/deployments/{deployment_name}?api-version=2024-06-01",
-                headers={"Authorization": f"Bearer {cog_token}"},
-            )
+            # Check if deployment already exists
+            check = await client.get(arm_url, headers={"Authorization": f"Bearer {arm_token}"})
             
             if check.status_code == 200:
                 existing = check.json()
                 existing_capacity = existing.get("sku", {}).get("capacity", 0)
+                existing_status = existing.get("properties", {}).get("provisioningState", "")
+                
                 if existing_capacity == tpm:
                     return DeploymentResult(
                         success=True,
-                        status="active",
+                        status="active" if existing_status == "Succeeded" else "deploying",
                         message=f"Deployment '{deployment_name}' already exists with {tpm}K TPM.",
                         cloud_resource_id=deployment_name,
                         endpoint_url=f"{base}/openai/deployments/{deployment_name}",
                     )
-                # Update existing deployment capacity
+                
+                # Scale existing deployment
+                update_body = {"sku": {"name": tier, "capacity": tpm}}
                 update_resp = await client.patch(
-                    f"{base}/openai/deployments/{deployment_name}?api-version=2024-06-01",
-                    headers={
-                        "Authorization": f"Bearer {cog_token}",
-                        "Content-Type": "application/json",
-                    },
-                    json={"sku": {"name": tier, "capacity": tpm}},
+                    arm_url,
+                    headers={"Authorization": f"Bearer {arm_token}", "Content-Type": "application/json"},
+                    json=update_body,
                     timeout=30,
                 )
-                if update_resp.status_code in (200, 201):
+                if update_resp.status_code in (200, 201, 202):
                     return DeploymentResult(
                         success=True,
                         status="active",
@@ -409,57 +443,54 @@ async def deploy_azure(
                         endpoint_url=f"{base}/openai/deployments/{deployment_name}",
                     )
             
-            # Create new deployment
+            # Create new deployment via ARM PUT
             deploy_body = {
-                "model": {
-                    "format": "OpenAI",
-                    "name": azure_model_name,
-                    "version": model_version,
-                },
-                "sku": {
-                    "name": tier,
-                    "capacity": tpm,
+                "sku": {"name": tier, "capacity": tpm},
+                "properties": {
+                    "model": {
+                        "format": "OpenAI",
+                        "name": azure_model_name,
+                    }
                 },
             }
-            # Remove None/empty version
-            if not deploy_body["model"]["version"]:
-                del deploy_body["model"]["version"]
+            if model_version:
+                deploy_body["properties"]["model"]["version"] = model_version
             
             resp = await client.put(
-                f"{base}/openai/deployments/{deployment_name}?api-version=2024-06-01",
-                headers={
-                    "Authorization": f"Bearer {cog_token}",
-                    "Content-Type": "application/json",
-                },
+                arm_url,
+                headers={"Authorization": f"Bearer {arm_token}", "Content-Type": "application/json"},
                 json=deploy_body,
                 timeout=30,
             )
             
-            if resp.status_code in (200, 201):
+            if resp.status_code in (200, 201, 202):
                 return DeploymentResult(
                     success=True,
                     status="deploying",
                     message=f"Deployment '{deployment_name}' created with {tpm}K TPM ({tier} tier). It may take 1-2 minutes to become active.",
                     cloud_resource_id=deployment_name,
                     endpoint_url=f"{base}/openai/deployments/{deployment_name}",
-                    config_applied={"tpm": tpm, "tier": tier, "model_version": model_version},
+                    config_applied={"tpm": tpm, "tier": tier, "model_version": model_version or "latest"},
                 )
             else:
-                error_text = resp.text[:300]
-                if resp.status_code == 403:
+                error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                error_code = error_data.get("error", {}).get("code", "")
+                error_msg = error_data.get("error", {}).get("message", resp.text[:300])
+                
+                if resp.status_code == 403 or "Forbidden" in error_code:
                     return DeploymentResult(
                         success=False, status="failed",
-                        message="Permission denied. Service principal needs 'Cognitive Services Contributor' role.",
+                        message="Permission denied. Service principal needs 'Cognitive Services Contributor' role on the resource.",
                     )
-                elif "QuotaExceeded" in error_text or "InsufficientQuota" in error_text:
+                elif "InsufficientQuota" in error_code or "QuotaExceeded" in error_code:
                     return DeploymentResult(
                         success=False, status="failed",
-                        message=f"Quota exceeded. Request higher TPM quota in Azure Portal → Quotas, or reduce TPM allocation.",
+                        message=f"Insufficient quota for {azure_model_name} ({tier}). Request quota increase in Azure Portal → Quotas, or try a different model/tier.",
                     )
                 else:
                     return DeploymentResult(
                         success=False, status="failed",
-                        message=f"Azure deployment failed ({resp.status_code}): {error_text}",
+                        message=f"Azure deployment failed: {error_msg}",
                     )
     except Exception as e:
         logger.error(f"Azure deployment failed: {e}")
@@ -472,37 +503,30 @@ async def get_azure_deployment_status(
     client_id: str,
     client_secret: str,
     endpoint: str,
+    subscription_id: str = "",
+    resource_group: str = "",
 ) -> dict:
-    """Get Azure deployment status."""
+    """Get Azure deployment status via ARM API."""
     try:
+        arm_token = await _get_arm_token(tenant_id, client_id, client_secret)
+        if not arm_token:
+            return {"status": "auth_error"}
+        
+        account_name = _extract_azure_account_name(endpoint)
+        arm_url = _azure_arm_url(subscription_id, resource_group, account_name, deployment_name)
+        
         async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
-                data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "scope": "https://cognitiveservices.azure.com/.default",
-                    "grant_type": "client_credentials",
-                },
-            )
-            if token_resp.status_code != 200:
-                return {"status": "auth_error"}
-            
-            cog_token = token_resp.json()["access_token"]
-            base = endpoint.rstrip("/")
-            
-            resp = await client.get(
-                f"{base}/openai/deployments/{deployment_name}?api-version=2024-06-01",
-                headers={"Authorization": f"Bearer {cog_token}"},
-            )
+            resp = await client.get(arm_url, headers={"Authorization": f"Bearer {arm_token}"})
             if resp.status_code == 200:
                 data = resp.json()
+                props = data.get("properties", {})
+                model = props.get("model", {})
                 return {
-                    "status": data.get("status", "unknown"),
-                    "model": data.get("model", {}).get("name", ""),
+                    "status": props.get("provisioningState", "unknown"),
+                    "model": model.get("name", ""),
                     "tpm": data.get("sku", {}).get("capacity", 0),
                     "tier": data.get("sku", {}).get("name", ""),
-                    "version": data.get("model", {}).get("version", ""),
+                    "version": model.get("version", ""),
                 }
             elif resp.status_code == 404:
                 return {"status": "not_found"}
@@ -518,30 +542,21 @@ async def delete_azure_deployment(
     client_id: str,
     client_secret: str,
     endpoint: str,
+    subscription_id: str = "",
+    resource_group: str = "",
 ) -> DeploymentResult:
-    """Delete an Azure deployment."""
+    """Delete an Azure deployment via ARM API."""
     try:
+        arm_token = await _get_arm_token(tenant_id, client_id, client_secret)
+        if not arm_token:
+            return DeploymentResult(success=False, status="failed", message="ARM auth failed")
+        
+        account_name = _extract_azure_account_name(endpoint)
+        arm_url = _azure_arm_url(subscription_id, resource_group, account_name, deployment_name)
+        
         async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
-                data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "scope": "https://cognitiveservices.azure.com/.default",
-                    "grant_type": "client_credentials",
-                },
-            )
-            if token_resp.status_code != 200:
-                return DeploymentResult(success=False, status="failed", message="Auth failed")
-            
-            cog_token = token_resp.json()["access_token"]
-            base = endpoint.rstrip("/")
-            
-            resp = await client.delete(
-                f"{base}/openai/deployments/{deployment_name}?api-version=2024-06-01",
-                headers={"Authorization": f"Bearer {cog_token}"},
-            )
-            if resp.status_code in (200, 204):
+            resp = await client.delete(arm_url, headers={"Authorization": f"Bearer {arm_token}"})
+            if resp.status_code in (200, 202, 204):
                 return DeploymentResult(success=True, status="deleted", message="Deployment deleted.")
             else:
                 return DeploymentResult(success=False, status="failed", message=f"Delete failed ({resp.status_code}): {resp.text[:200]}")

@@ -137,6 +137,8 @@ async def create_deployment(
             client_id=secrets.get("client_id", ""),
             client_secret=secrets.get("client_secret", ""),
             endpoint=secrets.get("endpoint", ""),
+            subscription_id=secrets.get("subscription_id", ""),
+            resource_group=secrets.get("resource_group", ""),
         )
     elif provider.provider_type == "gcp":
         deploy_result = await deploy_gcp(
@@ -247,6 +249,8 @@ async def refresh_deployment_status(
                 client_id=secrets.get("client_id", ""),
                 client_secret=secrets.get("client_secret", ""),
                 endpoint=secrets.get("endpoint", ""),
+                subscription_id=secrets.get("subscription_id", ""),
+                resource_group=secrets.get("resource_group", ""),
             )
             azure_status = cloud_status.get("status", "").lower()
             if azure_status in ("succeeded", "running"):
@@ -312,6 +316,8 @@ async def update_deployment(
                 client_id=secrets.get("client_id", ""),
                 client_secret=secrets.get("client_secret", ""),
                 endpoint=secrets.get("endpoint", ""),
+                subscription_id=secrets.get("subscription_id", ""),
+                resource_group=secrets.get("resource_group", ""),
             )
             if not scale_result.success:
                 raise HTTPException(422, scale_result.message)
@@ -368,6 +374,8 @@ async def delete_deployment(
                 client_id=secrets.get("client_id", ""),
                 client_secret=secrets.get("client_secret", ""),
                 endpoint=secrets.get("endpoint", ""),
+                subscription_id=secrets.get("subscription_id", ""),
+                resource_group=secrets.get("resource_group", ""),
             )
             if not del_result.success:
                 logger.warning(f"Failed to delete Azure resource: {del_result.message}")
