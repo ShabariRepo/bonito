@@ -113,9 +113,13 @@ async def handle_general_exception(request: Request, exc: Exception) -> JSONResp
     import sys
     print(f"[ERROR] {request.method} {request.url.path} → {type(exc).__name__}: {str(exc)}", file=sys.stderr)
     
-    # User-facing message: hide internals in production but give a useful hint
+    # For gateway /v1/* endpoints, always return the real error (developers need it).
+    # For other endpoints, hide internals in production.
     from app.core.config import settings
-    if settings.production_mode:
+    is_gateway = request.url.path.startswith("/v1/")
+    if is_gateway:
+        message = f"{type(exc).__name__}: {str(exc)}"
+    elif settings.production_mode:
         message = "Something went wrong. Please try again or contact support."
     else:
         message = str(exc)
