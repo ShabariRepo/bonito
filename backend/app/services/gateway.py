@@ -709,17 +709,14 @@ async def check_rate_limit(key_id: uuid.UUID, rate_limit: int) -> bool:
 
 async def resolve_routing_policy_by_key(api_key: str, db: AsyncSession) -> Optional[RoutingPolicy]:
     """Resolve a routing policy by API key prefix."""
-    # Extract potential routing policy prefix from API key (rt-xxxxxxxx)
     if not api_key.startswith('rt-'):
         return None
     
-    # The API key format should be: rt-xxxxxxxx (16 chars total)
-    api_key_prefix = api_key[:16] if len(api_key) >= 16 else api_key
-    
+    # Use the full key as the prefix (rt-xxxxxxxxxxxxxxxx)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
-                RoutingPolicy.api_key_prefix == api_key_prefix,
+                RoutingPolicy.api_key_prefix == api_key,
                 RoutingPolicy.is_active == True
             )
         )
