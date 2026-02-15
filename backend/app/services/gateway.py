@@ -566,16 +566,26 @@ async def validate_api_key(db: AsyncSession, raw_key: str) -> Optional[GatewayKe
 # ─── Rate limiting (Redis-backed) ───
 
 async def check_rate_limit(key_id: uuid.UUID, rate_limit: int) -> bool:
-    """Check and increment rate limit. Returns True if allowed."""
-    now = int(time.time())
-    window = now - (now % 60)  # 1-minute window
-    redis_key = f"gateway:ratelimit:{key_id}:{window}"
+    """Check and increment rate limit. Returns True if allowed.
+    
+    Gracefully allows all requests if Redis is unavailable (fail-open).
+    """
+    if redis_client is None:
+        return True  # No Redis → skip rate limiting (fail-open)
+    
+    try:
+        now = int(time.time())
+        window = now - (now % 60)  # 1-minute window
+        redis_key = f"gateway:ratelimit:{key_id}:{window}"
 
-    count = await redis_client.incr(redis_key)
-    if count == 1:
-        await redis_client.expire(redis_key, 120)  # expire after 2 minutes
+        count = await redis_client.incr(redis_key)
+        if count == 1:
+            await redis_client.expire(redis_key, 120)  # expire after 2 minutes
 
-    return count <= rate_limit
+        return count <= rate_limit
+    except Exception as e:
+        logger.warning(f"Rate limit check failed (allowing request): {e}")
+        return True  # Fail-open: allow request if Redis is down
 
 
 # ─── Routing Policy Support ───
