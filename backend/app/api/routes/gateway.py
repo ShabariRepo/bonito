@@ -212,27 +212,38 @@ async def _handle_streaming_completion(
     org_id = key.org_id
     key_id = key.id
 
+    # Capture messages for token estimation (streaming chunks often lack usage)
+    messages = request_data.get("messages", [])
+
     async def sse_generator():
         total_prompt_tokens = 0
         total_completion_tokens = 0
         model_used = model
         error_occurred = False
         error_message = None
+        streamed_content = []
 
         try:
             response = await router.acompletion(**request_data)
 
             async for chunk in response:
-                # Extract usage from chunks if available
                 chunk_dict = chunk.model_dump()
                 if chunk_dict.get("model"):
                     model_used = chunk_dict["model"]
 
-                # Accumulate token counts from the last chunk (OpenAI includes usage in final chunk)
+                # Accumulate token counts if the provider includes them
                 usage = chunk_dict.get("usage")
                 if usage:
                     total_prompt_tokens = usage.get("prompt_tokens", total_prompt_tokens)
                     total_completion_tokens = usage.get("completion_tokens", total_completion_tokens)
+
+                # Track streamed content for token estimation fallback
+                choices = chunk_dict.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content")
+                    if content:
+                        streamed_content.append(content)
 
                 yield f"data: {json.dumps(chunk_dict)}\n\n"
 
@@ -241,7 +252,6 @@ async def _handle_streaming_completion(
         except Exception as e:
             error_occurred = True
             error_message = str(e)[:1000]
-            # Send error as SSE event before closing
             error_data = {
                 "error": {
                     "message": str(e),
@@ -252,9 +262,25 @@ async def _handle_streaming_completion(
             yield "data: [DONE]\n\n"
 
         finally:
-            # Log in a standalone DB session — the FastAPI dependency
-            # session is already closed by the time this finally runs.
             elapsed_ms = int((time.time() - start) * 1000)
+
+            # Estimate tokens if the provider didn't include them in chunks
+            if not total_prompt_tokens and messages:
+                try:
+                    total_prompt_tokens = litellm.token_counter(
+                        model=model_used, messages=messages
+                    )
+                except Exception:
+                    pass
+            if not total_completion_tokens and streamed_content:
+                try:
+                    full_output = "".join(streamed_content)
+                    total_completion_tokens = litellm.token_counter(
+                        model=model_used,
+                        text=full_output,
+                    )
+                except Exception:
+                    pass
 
             cost = 0.0
             try:
@@ -321,6 +347,7 @@ async def _handle_streaming_completion_policy(
 
     # Ensure stream=True in the request data
     request_data["stream"] = True
+    messages = request_data.get("messages", [])
 
     async def sse_generator():
         total_prompt_tokens = 0
@@ -328,6 +355,7 @@ async def _handle_streaming_completion_policy(
         model_used = model
         error_occurred = False
         error_message = None
+        streamed_content = []
 
         try:
             response = await router.acompletion(**request_data)
@@ -341,6 +369,13 @@ async def _handle_streaming_completion_policy(
                 if usage:
                     total_prompt_tokens = usage.get("prompt_tokens", total_prompt_tokens)
                     total_completion_tokens = usage.get("completion_tokens", total_completion_tokens)
+
+                choices = chunk_dict.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content")
+                    if content:
+                        streamed_content.append(content)
 
                 yield f"data: {json.dumps(chunk_dict)}\n\n"
 
@@ -360,6 +395,21 @@ async def _handle_streaming_completion_policy(
 
         finally:
             elapsed_ms = int((time.time() - start) * 1000)
+
+            if not total_prompt_tokens and messages:
+                try:
+                    total_prompt_tokens = litellm.token_counter(
+                        model=model_used, messages=messages
+                    )
+                except Exception:
+                    pass
+            if not total_completion_tokens and streamed_content:
+                try:
+                    total_completion_tokens = litellm.token_counter(
+                        model=model_used, text="".join(streamed_content)
+                    )
+                except Exception:
+                    pass
 
             cost = 0.0
             try:
