@@ -38,6 +38,7 @@ from app.services.deployment_service import (
     delete_aws_deployment,
     delete_azure_deployment,
 )
+from app.services.notifications import notification_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/deployments", tags=["deployments"])
@@ -184,6 +185,17 @@ async def create_deployment(
     db.add(deployment)
     await db.flush()
     await db.refresh(deployment)
+    
+    # Notify team
+    provider_emoji = {"aws": "☁️", "azure": "🔷", "gcp": "🔺"}.get(provider.provider_type, "☁️")
+    await notification_service.notify_org_admins(
+        db,
+        user.org_id,
+        type="deployment_alert",
+        title=f"{provider_emoji} Deployment created: {config.get('name', model.display_name)}",
+        body=f"{model.display_name} deployed on {provider.provider_type.upper()} — Status: {deploy_result.status}. {deploy_result.message}",
+    )
+    
     return deployment
 
 
@@ -379,5 +391,16 @@ async def delete_deployment(
             )
             if not del_result.success:
                 logger.warning(f"Failed to delete Azure resource: {del_result.message}")
+    
+    # Notify team
+    deploy_name = config.get("name", config.get("model_display_name", "Unknown"))
+    provider_emoji = {"aws": "☁️", "azure": "🔷", "gcp": "🔺"}.get(provider.provider_type, "☁️")
+    await notification_service.notify_org_admins(
+        db,
+        user.org_id,
+        type="deployment_alert",
+        title=f"{provider_emoji} Deployment deleted: {deploy_name}",
+        body=f"{deploy_name} on {provider.provider_type.upper()} has been deleted.",
+    )
     
     await db.delete(deployment)

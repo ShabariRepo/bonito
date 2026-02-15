@@ -367,6 +367,30 @@ class BonitoAPI:
     def get_cost_recommendations(self) -> Dict:
         """Get cost recommendations."""
         return self.get("/costs/recommendations")
+    
+    # Deployment methods
+    def list_deployments(self) -> List[Dict]:
+        """List all deployments."""
+        return self.get("/deployments/")
+    
+    def create_deployment(self, model_id: str, config: Dict) -> Dict:
+        """Create a new deployment."""
+        return self.post("/deployments/", {
+            "model_id": model_id,
+            "config": config
+        })
+    
+    def get_deployment(self, deployment_id: str) -> Dict:
+        """Get deployment details."""
+        return self.get(f"/deployments/{deployment_id}")
+    
+    def delete_deployment(self, deployment_id: str) -> Dict:
+        """Delete a deployment."""
+        return self.delete(f"/deployments/{deployment_id}")
+    
+    def get_deployment_status(self, deployment_id: str) -> Dict:
+        """Get deployment status."""
+        return self.get(f"/deployments/{deployment_id}/status")
 
 
 # Global API client instance

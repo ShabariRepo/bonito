@@ -16,8 +16,7 @@ from .commands import (
     gateway,
     policies,
     analytics,
-    costs,
-    config_cmd
+    deployments
 )
 
 console = Console()
@@ -35,12 +34,11 @@ app = typer.Typer(
 app.add_typer(auth.app, name="auth", help="🔐 Authentication & API keys")
 app.add_typer(providers.app, name="providers", help="☁️  Cloud provider management")
 app.add_typer(models.app, name="models", help="🤖 AI model management")
+app.add_typer(deployments.app, name="deployments", help="🚀 Deployment management")
 app.add_typer(chat.app, name="chat", help="💬 Interactive AI chat")
 app.add_typer(gateway.app, name="gateway", help="🚪 API Gateway management")
 app.add_typer(policies.app, name="policies", help="🎯 Routing policies")
 app.add_typer(analytics.app, name="analytics", help="📊 Usage analytics")
-app.add_typer(costs.app, name="costs", help="💰 Cost intelligence")
-app.add_typer(config_cmd.app, name="config", help="⚙️  CLI configuration")
 
 
 def version_callback(value: bool):

@@ -445,7 +445,35 @@ async def check_spend_cap(db: AsyncSession, org_id: uuid.UUID) -> None:
     )
     today_cost = float(today_cost_result.scalar())
 
-    if today_cost >= float(max_daily_spend):
+    max_daily = float(max_daily_spend)
+    
+    # Notify at 80% threshold
+    if today_cost >= max_daily * 0.8 and today_cost < max_daily:
+        try:
+            from app.services.notifications import notification_service
+            await notification_service.notify_org_admins(
+                db,
+                org_id,
+                type="cost_alert",
+                title=f"⚠️ Spend alert: ${today_cost:.2f} of ${max_daily:.2f} daily cap ({today_cost/max_daily*100:.0f}%)",
+                body=f"Your organization has used {today_cost/max_daily*100:.0f}% of the daily spend cap. Requests will be blocked at ${max_daily:.2f}.",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send spend alert notification: {e}")
+    
+    if today_cost >= max_daily:
+        try:
+            from app.services.notifications import notification_service
+            await notification_service.notify_org_admins(
+                db,
+                org_id,
+                type="cost_alert",
+                title=f"🚫 Daily spend cap exceeded: ${today_cost:.2f} / ${max_daily:.2f}",
+                body=f"All gateway requests are now blocked. Increase the spend cap in Governance → Policies or wait until tomorrow.",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send spend cap notification: {e}")
+        
         raise PolicyViolation(
             f"Daily spend cap of ${max_daily_spend:.2f} exceeded "
             f"(today's spend: ${today_cost:.2f}). "
