@@ -4,68 +4,83 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from rich.columns import Columns
 import sys
-from pathlib import Path
 
 from . import __version__
-from .commands import (
-    auth,
-    providers,
-    models,
-    chat,
-    gateway,
-    policies,
-    analytics,
-    deployments
-)
+from .commands.auth import app as auth_app
+from .commands.providers import app as providers_app
+from .commands.models import app as models_app
+from .commands.chat import app as chat_app
+from .commands.gateway import app as gateway_app
+from .commands.policies import app as policies_app
+from .commands.analytics import app as analytics_app
+from .commands.deployments import app as deployments_app
 
 console = Console()
 
-# Create the main app
+# ── Bonito fish ASCII art ──────────────────────────────────────
+FISH_ART = r"""
+[bold cyan]        ___...---"""---...__              [/bold cyan]
+[bold cyan]    .-""                   ""-._          [/bold cyan]
+[bold cyan]   /                            \         [/bold cyan]
+[bold cyan]  |    [bold white]●[/bold white][bold cyan]          __.._          |        [/bold cyan]
+[bold cyan]  |           _.-"    "-.       /\        [/bold cyan]
+[bold cyan]   \       .-"          "-.  _.' /        [/bold cyan]
+[bold cyan]    "---.-"  [dim cyan]bonito[/dim cyan]        "-"  _/         [/bold cyan]
+[bold cyan]        \    [dim cyan]  CLI [/dim cyan]          _.-"           [/bold cyan]
+[bold cyan]         "-.__       __.-"                [/bold cyan]
+[bold cyan]              """---"""                    [/bold cyan]
+"""
+
+LOGO_COMPACT = r"""[bold cyan]  ><(((º>  [/bold cyan][bold white]Bonito CLI[/bold white] [dim]v{version}[/dim]"""
+
+
+def _get_banner() -> str:
+    """Get the full CLI banner with fish art."""
+    return (
+        FISH_ART
+        + f"\n  [bold white]Bonito CLI[/bold white] [dim]v{__version__}[/dim]"
+        + "\n  [dim]Unified multi-cloud AI management from your terminal[/dim]\n"
+    )
+
+
+def _get_mini_banner() -> str:
+    """Get compact one-line banner."""
+    return LOGO_COMPACT.format(version=__version__)
+
+
+# ── Main Typer app ─────────────────────────────────────────────
 app = typer.Typer(
     name="bonito",
-    help="🍌 Unified multi-cloud AI management from your terminal",
+    help="🐟 Bonito CLI — Unified multi-cloud AI management from your terminal",
     rich_markup_mode="rich",
     context_settings={"help_option_names": ["-h", "--help"]},
     no_args_is_help=True,
 )
 
-# Add subcommand groups
-app.add_typer(auth.app, name="auth", help="🔐 Authentication & API keys")
-app.add_typer(providers.app, name="providers", help="☁️  Cloud provider management")
-app.add_typer(models.app, name="models", help="🤖 AI model management")
-app.add_typer(deployments.app, name="deployments", help="🚀 Deployment management")
-app.add_typer(chat.app, name="chat", help="💬 Interactive AI chat")
-app.add_typer(gateway.app, name="gateway", help="🚪 API Gateway management")
-app.add_typer(policies.app, name="policies", help="🎯 Routing policies")
-app.add_typer(analytics.app, name="analytics", help="📊 Usage analytics")
+# ── Subcommand groups ──────────────────────────────────────────
+app.add_typer(auth_app,        name="auth",        help="🔐 Authentication & API keys")
+app.add_typer(providers_app,   name="providers",   help="☁️  Cloud provider management")
+app.add_typer(models_app,      name="models",      help="🤖 AI model catalogue")
+app.add_typer(deployments_app, name="deployments",  help="🚀 Deployment management")
+app.add_typer(chat_app,        name="chat",        help="💬 Interactive AI chat")
+app.add_typer(gateway_app,     name="gateway",     help="🌐 API gateway management")
+app.add_typer(policies_app,    name="policies",    help="🎯 Routing policies")
+app.add_typer(analytics_app,   name="analytics",   help="📊 Usage analytics & costs")
 
 
+# ── Callbacks ──────────────────────────────────────────────────
 def version_callback(value: bool):
     """Show version and exit."""
     if value:
         console.print(_get_banner())
-        console.print(f"\nBonito CLI v{__version__}")
         raise typer.Exit()
 
 
-def _get_banner():
-    """Get the CLI banner."""
-    banner_text = Text()
-    banner_text.append("🍌 ", style="yellow")
-    banner_text.append("Bonito CLI", style="bold cyan")
-    banner_text.append(" — Unified multi-cloud AI management", style="dim")
-    
-    return Panel(
-        banner_text,
-        border_style="cyan",
-        padding=(0, 1),
-        width=60
-    )
-
-
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         None,
         "--version",
@@ -76,23 +91,27 @@ def main(
     ),
 ):
     """
-    🍌 Bonito CLI — Unified multi-cloud AI management from your terminal.
-    
+    [bold cyan]🐟 Bonito CLI[/bold cyan] — Unified multi-cloud AI management from your terminal.
+
     Bonito gives enterprise AI teams a single CLI to manage models, costs,
     and workloads across AWS Bedrock, Azure OpenAI, Google Vertex AI, and more.
-    
-    Get started:
-    
+
+    [bold]Quick start:[/bold]
+
         bonito auth login
         bonito models list
         bonito chat
-    
-    For help with any command, use --help:
-    
+
+    [bold]Get help on any command:[/bold]
+
         bonito providers --help
         bonito chat --help
     """
-    pass
+    # When invoked with no subcommand and not --version, show help
+    if ctx.invoked_subcommand is None:
+        console.print(_get_banner())
+        console.print(ctx.get_help())
+        raise typer.Exit()
 
 
 if __name__ == "__main__":
