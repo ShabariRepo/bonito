@@ -38,6 +38,47 @@ litellm.drop_params = True  # silently drop unsupported params per provider
 
 # ─── Provider credential mapping ───
 
+import httpx
+
+# ─── Azure AD token cache ───
+_azure_ad_cache: dict[str, tuple[str, float]] = {}  # key → (token, expires_at)
+
+
+async def _get_azure_ad_token(
+    tenant_id: str, client_id: str, client_secret: str
+) -> str:
+    """Get an Azure AD token for Cognitive Services via client credentials flow.
+
+    Tokens are cached and refreshed 60 s before expiry.
+    """
+    cache_key = f"{tenant_id}:{client_id}"
+    cached = _azure_ad_cache.get(cache_key)
+    if cached and time.time() < cached[1] - 60:
+        return cached[0]
+
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "https://cognitiveservices.azure.com/.default",
+            },
+            timeout=10.0,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(
+                f"Azure AD token request failed ({resp.status_code}): {resp.text}"
+            )
+        data = resp.json()
+        token = data["access_token"]
+        expires_at = time.time() + data.get("expires_in", 3600)
+        _azure_ad_cache[cache_key] = (token, expires_at)
+        return token
+
+
 PROVIDER_MODEL_PREFIXES = {
     "aws": "bedrock/",
     "azure": "azure/",
@@ -124,16 +165,36 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         "aws_region_name": c.get("region", "us-east-1"),
                     }
                 elif provider_type == "azure":
-                    api_key = c.get("api_key") or c.get("client_secret", "")
                     base_url = c.get("endpoint", "")
-                    if not (base_url and api_key):
+                    if not base_url:
                         continue
+                    # Prefer direct API key if available; otherwise use
+                    # Azure AD token from service principal credentials.
+                    api_key = c.get("api_key", "")
+                    azure_ad_token = None
+                    if not api_key:
+                        tenant = c.get("tenant_id", "")
+                        client_id = c.get("client_id", "")
+                        client_secret = c.get("client_secret", "")
+                        if tenant and client_id and client_secret:
+                            try:
+                                azure_ad_token = await _get_azure_ad_token(
+                                    tenant, client_id, client_secret
+                                )
+                            except Exception as e:
+                                logger.warning(f"Azure AD token fetch failed: {e}")
+                                continue
+                        else:
+                            continue
                     litellm_params = {
                         "model": f"azure/{model_id}",
                         "api_base": base_url,
-                        "api_key": api_key,
-                        "api_version": "2024-02-01",
+                        "api_version": "2024-12-01-preview",
                     }
+                    if azure_ad_token:
+                        litellm_params["azure_ad_token"] = azure_ad_token
+                    else:
+                        litellm_params["api_key"] = api_key
                 elif provider_type == "gcp":
                     sa_json = c.get("service_account_json")
                     vertex_credentials = None
@@ -194,18 +255,30 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
     if "azure" in creds:
         c = creds["azure"]
         base_url = c.get("endpoint", "")
-        api_key = c.get("api_key") or c.get("client_secret", "")
-        if base_url and api_key:
+        api_key = c.get("api_key", "")
+        azure_ad_token = None
+        if not api_key:
+            tenant = c.get("tenant_id", "")
+            client_id = c.get("client_id", "")
+            client_secret = c.get("client_secret", "")
+            if tenant and client_id and client_secret:
+                try:
+                    import asyncio
+                    azure_ad_token = await _get_azure_ad_token(tenant, client_id, client_secret)
+                except Exception:
+                    pass
+        if base_url and (api_key or azure_ad_token):
             for model in ["gpt-4o", "gpt-4o-mini"]:
-                model_list.append({
-                    "model_name": model,
-                    "litellm_params": {
-                        "model": f"azure/{model}",
-                        "api_base": base_url,
-                        "api_key": api_key,
-                        "api_version": "2024-02-01",
-                    },
-                })
+                params: dict = {
+                    "model": f"azure/{model}",
+                    "api_base": base_url,
+                    "api_version": "2024-12-01-preview",
+                }
+                if azure_ad_token:
+                    params["azure_ad_token"] = azure_ad_token
+                else:
+                    params["api_key"] = api_key
+                model_list.append({"model_name": model, "litellm_params": params})
 
     if "gcp" in creds:
         c = creds["gcp"]
@@ -224,9 +297,10 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
     return model_list
 
 
-# ─── Per-org router cache ───
+# ─── Per-org router cache (with TTL for token refresh) ───
 
-_routers: dict[uuid.UUID, litellm.Router] = {}
+_routers: dict[uuid.UUID, tuple[litellm.Router, float]] = {}  # org → (router, created_at)
+_ROUTER_TTL = 3000  # 50 minutes — refresh before Azure AD tokens expire (1 hr)
 
 
 async def get_router(
@@ -234,16 +308,19 @@ async def get_router(
     org_id: uuid.UUID,
 ) -> litellm.Router:
     """Get or create a LiteLLM router for *org_id*."""
-    if org_id in _routers:
-        return _routers[org_id]
+    cached = _routers.get(org_id)
+    if cached and time.time() - cached[1] < _ROUTER_TTL:
+        return cached[0]
 
     creds = await _get_provider_credentials(db, org_id)
     model_list = await _build_model_list(creds, db=db, org_id=org_id)
 
+    now = time.time()
+
     if not model_list:
         # Return a router with empty model list — calls will fail gracefully
         router = litellm.Router(model_list=[], routing_strategy="simple-shuffle")
-        _routers[org_id] = router
+        _routers[org_id] = (router, now)
         return router
 
     router = litellm.Router(
@@ -255,7 +332,7 @@ async def get_router(
         allowed_fails=2,
         cooldown_time=30,
     )
-    _routers[org_id] = router
+    _routers[org_id] = (router, now)
     return router
 
 

@@ -53,15 +53,16 @@ function SparkLine({ data, color = "#8b5cf6", height = 60 }: { data: number[]; c
   const min = Math.min(...data);
   const range = max - min || 1;
   const w = 100;
+  const divisor = data.length > 1 ? data.length - 1 : 1;
   const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
+    const x = (i / divisor) * w;
     const y = height - ((v - min) / range) * (height - 10) - 5;
     return `${x},${y}`;
   }).join(" ");
   const areaPoints = `0,${height} ${points} ${w},${height}`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full h-full block" preserveAspectRatio="none">
       <defs>
         <linearGradient id={`grad-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -226,7 +227,7 @@ export default function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-40">
+            <div className="h-40 overflow-hidden">
               <SparkLine data={usage?.data?.map((d: any) => d.requests) || []} color="#8b5cf6" height={140} />
             </div>
             <div className="flex justify-between text-xs text-muted-foreground mt-2">
