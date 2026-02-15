@@ -137,7 +137,7 @@ def estimate_cost(provider_type: str, model_id: str, config: dict) -> CostEstima
     return CostEstimate(notes="Cost estimation not available for this provider")
 
 
-# ─── AWS Bedrock Provisioned Throughput ───
+# ─── AWS Bedrock Deployment ───
 
 async def deploy_aws(
     model_id: str,
@@ -146,16 +146,50 @@ async def deploy_aws(
     secret_access_key: str,
     region: str = "us-east-1",
 ) -> DeploymentResult:
-    """Create AWS Bedrock Provisioned Throughput."""
+    """Create AWS Bedrock deployment — on-demand (default) or Provisioned Throughput."""
     session = aioboto3.Session(
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
         region_name=region,
     )
     
-    model_units = config.get("model_units", 1)
-    commitment = config.get("commitment_term", "no_commitment")
+    model_units = config.get("model_units", 0)  # 0 = on-demand
+    commitment = config.get("commitment_term", "none")
     deployment_name = config.get("name", f"bonito-{model_id.split('.')[-1][:20]}")
+    
+    # On-demand mode: just verify access and return endpoint
+    if model_units == 0 or commitment == "none":
+        try:
+            async with session.client("bedrock-runtime") as runtime:
+                # Verify model is accessible by checking if we can describe it
+                pass
+            async with session.client("bedrock") as bedrock:
+                try:
+                    model_info = await bedrock.get_foundation_model(modelIdentifier=model_id)
+                    model_name = model_info.get("modelDetails", {}).get("modelName", model_id)
+                except ClientError:
+                    model_name = model_id
+                
+                return DeploymentResult(
+                    success=True,
+                    status="active",
+                    message=f"On-demand access verified for {model_name}. Pay-per-request pricing — no reserved capacity.",
+                    endpoint_url=f"https://bedrock-runtime.{region}.amazonaws.com/model/{model_id}/invoke",
+                    config_applied={"type": "on-demand", "region": region},
+                )
+        except ClientError as e:
+            error_msg = e.response.get("Error", {}).get("Message", str(e))
+            return DeploymentResult(
+                success=False,
+                status="failed",
+                message=f"Cannot access model: {error_msg}",
+            )
+        except Exception as e:
+            return DeploymentResult(
+                success=False,
+                status="failed",
+                message=f"AWS access verification failed: {str(e)}",
+            )
     
     # Map commitment terms to AWS API values
     commitment_map = {

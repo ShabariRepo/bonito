@@ -371,46 +371,77 @@ export default function DeploymentsPage() {
                 {selectedProvider === "aws" && (
                   <div className="space-y-4 p-4 rounded-lg bg-accent/30 border border-border">
                     <h3 className="text-sm font-medium flex items-center gap-2">
-                      <span className="text-lg">☁️</span> AWS Provisioned Throughput
+                      <span className="text-lg">☁️</span> AWS Bedrock Deployment
                     </h3>
                     <div>
-                      <label className="text-sm text-muted-foreground mb-1 block">Model Units</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="range"
-                          min={1}
-                          max={10}
-                          value={modelUnits}
-                          onChange={(e) => setModelUnits(parseInt(e.target.value))}
-                          className="flex-1 accent-violet-600"
-                        />
-                        <span className="text-sm font-mono w-8 text-right">{modelUnits}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">Each unit provides dedicated throughput for your workload</p>
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground mb-1 block">Commitment Term</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { value: "none", label: "No commitment", sub: "Pay-as-you-go" },
-                          { value: "1_month", label: "1 month", sub: "~20% savings" },
-                          { value: "6_month", label: "6 months", sub: "~50% savings" },
-                        ].map(opt => (
-                          <button
-                            key={opt.value}
-                            onClick={() => setCommitmentTerm(opt.value)}
-                            className={`p-2.5 rounded-lg border text-left transition-colors ${
-                              commitmentTerm === opt.value
-                                ? "border-violet-500 bg-violet-500/10"
-                                : "border-border hover:border-violet-500/30"
-                            }`}
-                          >
-                            <div className="text-xs font-medium">{opt.label}</div>
-                            <div className="text-xs text-muted-foreground">{opt.sub}</div>
-                          </button>
-                        ))}
+                      <label className="text-sm text-muted-foreground mb-1 block">Deployment Type</label>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <button
+                          onClick={() => { setModelUnits(0); setCommitmentTerm("none"); }}
+                          className={`p-2.5 rounded-lg border text-left transition-colors ${
+                            modelUnits === 0
+                              ? "border-violet-500 bg-violet-500/10"
+                              : "border-border hover:border-violet-500/30"
+                          }`}
+                        >
+                          <div className="text-xs font-medium">On-Demand</div>
+                          <div className="text-xs text-muted-foreground">Pay per request, no fixed cost</div>
+                        </button>
+                        <button
+                          onClick={() => setModelUnits(1)}
+                          className={`p-2.5 rounded-lg border text-left transition-colors ${
+                            modelUnits > 0
+                              ? "border-violet-500 bg-violet-500/10"
+                              : "border-border hover:border-violet-500/30"
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Provisioned Throughput</div>
+                          <div className="text-xs text-muted-foreground">Reserved capacity, predictable perf</div>
+                        </button>
                       </div>
                     </div>
+                    {modelUnits > 0 && (
+                      <>
+                        <div>
+                          <label className="text-sm text-muted-foreground mb-1 block">Model Units</label>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="range"
+                              min={1}
+                              max={10}
+                              value={modelUnits}
+                              onChange={(e) => setModelUnits(parseInt(e.target.value))}
+                              className="flex-1 accent-violet-600"
+                            />
+                            <span className="text-sm font-mono w-8 text-right">{modelUnits}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">Each unit provides dedicated throughput</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground mb-1 block">Commitment Term</label>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { value: "none", label: "No commitment", sub: "Pay-as-you-go" },
+                              { value: "1_month", label: "1 month", sub: "~20% savings" },
+                              { value: "6_month", label: "6 months", sub: "~50% savings" },
+                            ].map(opt => (
+                              <button
+                                key={opt.value}
+                                onClick={() => setCommitmentTerm(opt.value)}
+                                className={`p-2.5 rounded-lg border text-left transition-colors ${
+                                  commitmentTerm === opt.value
+                                    ? "border-violet-500 bg-violet-500/10"
+                                    : "border-border hover:border-violet-500/30"
+                                }`}
+                              >
+                                <div className="text-xs font-medium">{opt.label}</div>
+                                <div className="text-xs text-muted-foreground">{opt.sub}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
