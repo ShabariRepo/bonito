@@ -105,8 +105,9 @@ async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(g
     models = []
     for model, provider_type in result.all():
         model.provider_type = provider_type
-        # Extract access status from pricing_info
-        model.status = (model.pricing_info or {}).get("status", "available")
+        # Extract access status from pricing_info — default to "unknown" (not "available")
+        # so models without explicit status aren't falsely shown as enabled
+        model.status = (model.pricing_info or {}).get("status", "unknown")
         models.append(model)
     return models
 
@@ -310,9 +311,9 @@ async def playground_execute(
         raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' does not support chat completions (it's an embedding/utility model). Select a text generation model instead.")
     
     # Reject models that aren't enabled/available in the customer's cloud account
-    model_status = (model.pricing_info or {}).get("status", "").lower()
-    invocable_statuses = {"enabled", "available", "deployed", "active", ""}
-    if model_status and model_status not in invocable_statuses:
+    model_status = (model.pricing_info or {}).get("status", "unknown").lower()
+    invocable_statuses = {"enabled", "available", "deployed", "active"}
+    if model_status not in invocable_statuses:
         raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' is not enabled in your cloud account (status: {model_status}). Enable it in your cloud provider console first.")
     
     # Check governance policies
@@ -410,14 +411,23 @@ async def playground_execute(
         
         total_tokens = prompt_tokens + completion_tokens
         
-        # Calculate cost (basic estimation if not provided)
+        # Calculate cost using litellm's built-in cost calculator (most accurate),
+        # then fall back to our own pricing_info metadata.
         cost = 0.0
-        if hasattr(response, 'cost'):
-            cost = response.cost
-        elif model.pricing_info:
+        try:
+            from litellm import completion_cost
+            cost = completion_cost(completion_response=response, model=gateway_request["model"])
+        except Exception:
+            pass
+        if cost == 0.0 and model.pricing_info:
             input_price = model.pricing_info.get("input_price_per_1k", 0)
             output_price = model.pricing_info.get("output_price_per_1k", 0)
             cost = (prompt_tokens / 1000 * input_price) + (completion_tokens / 1000 * output_price)
+        
+        # Update the log entry with the real cost (was 0.0 placeholder)
+        log_entry.cost = cost
+        log_entry.input_tokens = prompt_tokens
+        log_entry.output_tokens = completion_tokens
         
         playground_usage = PlaygroundUsage(
             prompt_tokens=prompt_tokens,
@@ -433,6 +443,8 @@ async def playground_execute(
             provider=provider.provider_type
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Playground execution failed: {e}")
         raise HTTPException(status_code=500, detail=f"Model execution failed: {str(e)}")
@@ -554,14 +566,22 @@ async def compare_models(
             
             total_tokens = prompt_tokens + completion_tokens
             
-            # Calculate cost
+            # Calculate cost using litellm's built-in cost calculator, then fallback
             cost = 0.0
-            if hasattr(response, 'cost'):
-                cost = response.cost
-            elif model.pricing_info:
+            try:
+                from litellm import completion_cost as _cc
+                cost = _cc(completion_response=response, model=gateway_request["model"])
+            except Exception:
+                pass
+            if cost == 0.0 and model.pricing_info:
                 input_price = model.pricing_info.get("input_price_per_1k", 0)
                 output_price = model.pricing_info.get("output_price_per_1k", 0)
                 cost = (prompt_tokens / 1000 * input_price) + (completion_tokens / 1000 * output_price)
+            
+            # Update log entry with real cost
+            log_entry.cost = cost
+            log_entry.input_tokens = prompt_tokens
+            log_entry.output_tokens = completion_tokens
             
             playground_usage = PlaygroundUsage(
                 prompt_tokens=prompt_tokens,

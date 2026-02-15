@@ -115,13 +115,17 @@ export default function PlaygroundPage() {
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom of messages
+  // Scroll to bottom of messages — use scrollTo on the container for reliability
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Small delay to let DOM update before scrolling
+    const t = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(t);
   }, [messages, compareResults]);
 
   // Fetch models on load
@@ -312,7 +316,7 @@ export default function PlaygroundPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] space-y-6">
+    <div className="flex flex-col h-[calc(100vh-4rem)] space-y-4">
       <PageHeader
         title="AI Playground"
         description="Test and compare AI models with interactive chat"
@@ -353,8 +357,8 @@ export default function PlaygroundPage() {
         {/* Main chat area */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Model selection */}
-          <Card className="mb-4">
-            <CardContent className="py-4">
+          <Card className="mb-2 flex-shrink-0">
+            <CardContent className="py-3">
               {compareMode ? (
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -401,6 +405,7 @@ export default function PlaygroundPage() {
                           m.display_name.toLowerCase().includes(compareSearch.toLowerCase()) ||
                           m.model_id.toLowerCase().includes(compareSearch.toLowerCase());
                         const matchesProvider = compareProviderFilter === "all" || m.provider_type === compareProviderFilter;
+                        // Only show invocable (enabled) models by default — non-chat already filtered by chatModels
                         const matchesAccess = showAllCompareModels || isModelInvocable(m);
                         return matchesSearch && matchesProvider && matchesAccess;
                       })
@@ -558,10 +563,10 @@ export default function PlaygroundPage() {
           </Card>
 
           {/* Messages area */}
-          <Card className="flex-1 flex flex-col min-h-0">
-            <CardHeader className="py-4 border-b">
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5" />
+          <Card className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <CardHeader className="py-2 border-b flex-shrink-0">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Bot className="h-4 w-4" />
                 Conversation
               </CardTitle>
             </CardHeader>
@@ -649,15 +654,15 @@ export default function PlaygroundPage() {
           </Card>
 
           {/* Input area */}
-          <Card className="mt-4">
-            <CardContent className="p-4">
+          <Card className="mt-2 flex-shrink-0">
+            <CardContent className="p-3">
               <div className="flex gap-2">
                 <textarea
                   value={currentInput}
                   onChange={(e) => setCurrentInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   placeholder="Type your message..."
-                  className="flex-1 min-h-[60px] max-h-32 p-3 border rounded-lg resize-none bg-background"
+                  className="flex-1 min-h-[48px] max-h-32 p-3 border rounded-lg resize-none bg-background"
                   disabled={isLoading}
                 />
                 <button
