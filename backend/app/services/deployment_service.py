@@ -158,7 +158,7 @@ async def deploy_aws(
     deployment_name = config.get("name", f"bonito-{model_id.split('.')[-1][:20]}")
     
     # On-demand mode: just verify access and return endpoint
-    if model_units == 0 or commitment == "none":
+    if model_units == 0:
         try:
             async with session.client("bedrock-runtime") as runtime:
                 # Verify model is accessible by checking if we can describe it
