@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [topModels, setTopModels] = useState<any[]>([]);
   const [usage, setUsage] = useState<any>(null);
+  const [deployments, setDeployments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,12 +89,13 @@ export default function DashboardPage() {
         throw new Error("Failed to load providers");
       }
 
-      // Fetch in parallel: costs, audit, models, gateway usage
-      const [costRes, auditRes, modelsRes, usageRes] = await Promise.allSettled([
+      // Fetch in parallel: costs, audit, models, gateway usage, deployments
+      const [costRes, auditRes, modelsRes, usageRes, depRes] = await Promise.allSettled([
         apiRequest("/api/costs/?period=monthly"),
         apiRequest("/api/audit/"),
         apiRequest("/api/models/"),
         apiRequest("/api/gateway/usage?days=30"),
+        apiRequest("/api/deployments/"),
       ]);
 
       if (costRes.status === "fulfilled" && costRes.value.ok) {
@@ -112,6 +114,10 @@ export default function DashboardPage() {
 
       if (usageRes.status === "fulfilled" && usageRes.value.ok) {
         setUsage(await usageRes.value.json());
+      }
+
+      if (depRes.status === "fulfilled" && depRes.value.ok) {
+        setDeployments(await depRes.value.json());
       }
     } catch (e) {
       console.error("Dashboard fetch error:", e);
@@ -132,13 +138,15 @@ export default function DashboardPage() {
   const gatewayCost = usage?.total_cost || 0;
   const displayCost = gatewayCost > 0 ? gatewayCost : (costSummary?.total_spend || 0);
 
+  const activeDeployments = deployments.filter(d => d.status === "active" || d.status === "deploying");
+
   const stats = [
     { name: "Connected Providers", value: providerCount, icon: Cloud, color: "text-blue-500", href: "/providers" },
     { name: "Available Models", value: modelCount ?? 0, icon: Box, color: "text-violet-500", href: "/models" },
+    { name: "Active Deployments", value: activeDeployments.length, icon: Rocket, color: "text-orange-500", href: "/deployments" },
     { name: "API Requests", value: usage?.total_requests || 0, icon: MessageSquare, color: "text-cyan-500", href: "/gateway" },
-    { name: "Tokens Used", value: formatTokens(totalTokens), icon: Cpu, color: "text-amber-500", href: "/analytics", isString: true },
     { name: "Gateway Spend", value: `$${displayCost.toFixed(4)}`, icon: DollarSign, color: "text-emerald-500", href: "/costs", isString: true },
-    { name: "Avg Latency", value: usage?.by_model?.length > 0 ? `—` : "—", icon: Clock, color: "text-rose-400", href: "/analytics", isString: true },
+    { name: "Tokens Used", value: formatTokens(totalTokens), icon: Cpu, color: "text-amber-500", href: "/analytics", isString: true },
   ];
 
   function formatTime(ts?: string) {
@@ -262,6 +270,94 @@ export default function DashboardPage() {
                 </motion.div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Deployments */}
+      {!loading && providers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Rocket className="h-5 w-5 text-orange-500" />
+                Deployments
+              </CardTitle>
+              <Link href="/deployments" className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                Manage <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {activeDeployments.length > 0 ? (
+              <div className="space-y-3">
+                {activeDeployments.slice(0, 6).map((d: any, i: number) => {
+                  const config = d.config || {};
+                  const providerType = config.provider_type || "unknown";
+                  const emoji = providerType === "aws" ? "☁️" : providerType === "azure" ? "🔷" : providerType === "gcp" ? "🔺" : "☁️";
+                  const estimate = config.cost_estimate;
+                  const statusColor = d.status === "active" ? "bg-green-400" : d.status === "deploying" ? "bg-yellow-400" : "bg-gray-400";
+                  return (
+                    <motion.div
+                      key={d.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 + i * 0.08 }}
+                      className="flex items-center gap-3 rounded-lg border border-border p-3 hover:bg-accent/30 transition-colors"
+                    >
+                      <span className="text-2xl">{emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">{config.name || config.model_display_name || "Deployment"}</p>
+                          <div className={`h-2 w-2 rounded-full ${statusColor}`} />
+                          <span className="text-xs capitalize text-muted-foreground">{d.status}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {config.model_display_name || ""} · {providerType.toUpperCase()}
+                          {estimate && estimate.monthly > 0 ? ` · ~$${estimate.monthly.toFixed(0)}/mo` : estimate ? " · Pay-per-use" : ""}
+                        </p>
+                      </div>
+                      {config.endpoint_url && (
+                        <a
+                          href={config.endpoint_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-violet-400 hover:text-violet-300"
+                        >
+                          Endpoint →
+                        </a>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center gap-4 py-4 text-center sm:text-left">
+                <motion.div
+                  animate={{ y: [0, -6, 0] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                  className="text-4xl"
+                >
+                  🚀
+                </motion.div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm">No active deployments</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Provision AI model infrastructure on your cloud — AWS Bedrock throughput, Azure OpenAI endpoints, or Vertex AI access.
+                  </p>
+                </div>
+                <Link href="/deployments">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Deploy Model
+                  </motion.button>
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

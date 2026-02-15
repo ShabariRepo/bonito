@@ -319,6 +319,22 @@ async def delete_aws_deployment(
 
 # ─── Azure OpenAI Deployment Management ───
 
+def _parse_azure_model_id(model_id: str) -> tuple[str, str | None]:
+    """Parse Azure model ID into (base_name, version).
+    
+    Examples:
+      'gpt-4o-2024-11-20'      → ('gpt-4o', '2024-11-20')
+      'gpt-4o-mini-2024-07-18' → ('gpt-4o-mini', '2024-07-18')
+      'gpt-35-turbo'           → ('gpt-35-turbo', None)
+      'o1-mini-2024-09-12'     → ('o1-mini', '2024-09-12')
+    """
+    import re
+    m = re.match(r'^(.+?)-(\d{4}-\d{2}-\d{2})$', model_id)
+    if m:
+        return m.group(1), m.group(2)
+    return model_id, None
+
+
 async def deploy_azure(
     model_id: str,
     config: dict,
@@ -331,7 +347,10 @@ async def deploy_azure(
     deployment_name = config.get("name", model_id.replace(".", "-"))
     tpm = config.get("tpm", 10)  # in thousands
     tier = config.get("tier", "Standard")
-    model_version = config.get("model_version", "latest")
+    
+    # Parse model name and version from model_id (e.g. "gpt-4o-2024-11-20" → "gpt-4o" + "2024-11-20")
+    azure_model_name, parsed_version = _parse_azure_model_id(model_id)
+    model_version = config.get("model_version", parsed_version)
     
     try:
         async with httpx.AsyncClient() as client:
@@ -394,16 +413,16 @@ async def deploy_azure(
             deploy_body = {
                 "model": {
                     "format": "OpenAI",
-                    "name": model_id,
-                    "version": model_version if model_version != "latest" else None,
+                    "name": azure_model_name,
+                    "version": model_version,
                 },
                 "sku": {
                     "name": tier,
                     "capacity": tpm,
                 },
             }
-            # Remove None version
-            if deploy_body["model"]["version"] is None:
+            # Remove None/empty version
+            if not deploy_body["model"]["version"]:
                 del deploy_body["model"]["version"]
             
             resp = await client.put(
