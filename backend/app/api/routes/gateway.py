@@ -163,6 +163,9 @@ async def chat_completions(
             await gateway_service.enforce_policies(db, key, request.model)
         except PolicyViolation as e:
             raise HTTPException(status_code=e.status_code, detail=e.message)
+        except Exception as e:
+            logger.error(f"Policy enforcement failed: {type(e).__name__}: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Policy check failed: {str(e)}")
 
         try:
             data = request.model_dump(exclude_none=True)
@@ -179,6 +182,7 @@ async def chat_completions(
         except PolicyViolation as e:
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except Exception as e:
+            logger.error(f"Gateway completion failed: {type(e).__name__}: {e}")
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
     
     else:
