@@ -39,12 +39,47 @@ Bonito is a unified AI gateway that lets you connect your own cloud AI providers
 
 **Permissions needed:**
 
-Your IAM user or role must have permissions for Amazon Bedrock, including:
+Bonito offers two IAM setup modes:
 
-- Access to list and invoke foundation models
-- Permission to enable foundation models (for one-click activation)
+**Quick Start** — Single broad policy (good for evaluation):
+- Attach the Bonito managed policy with all Bedrock + Cost Explorer permissions.
 
-> **Tip:** If you're using Bonito's provided IaC templates (Terraform, Pulumi, or CloudFormation), the correct permissions are already included.
+**Enterprise (recommended for production)** — Separate least-privilege policies per capability:
+
+| Policy | Actions | Required? |
+|--------|---------|-----------|
+| **Core** | `bedrock:ListFoundationModels`, `GetFoundationModel`, `InvokeModel`, `InvokeModelWithResponseStream`, `sts:GetCallerIdentity` | ✅ Always |
+| **Provisioning** | `bedrock:Create/Get/Update/Delete/ListProvisionedModelThroughput` | Only if deploying reserved capacity |
+| **Model Activation** | `bedrock:PutFoundationModelEntitlement` | Only if enabling models from Bonito UI |
+| **Cost Tracking** | `ce:GetCostAndUsage`, `GetCostForecast`, `GetDimensionValues`, `GetTags` | Only if you want spend visibility |
+
+**Minimum to get started:** Core policy only (5 Bedrock actions + STS).
+
+Example IAM policy (core only):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:ListFoundationModels",
+        "bedrock:GetFoundationModel",
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["sts:GetCallerIdentity"],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+> **Tip:** Bonito's IaC templates (Terraform) include both modes — set `iam_mode = "least_privilege"` for enterprise or `"managed"` for quick start.
 
 ---
 
@@ -73,7 +108,42 @@ A generic regional endpoint like `https://eastus.api.cognitive.microsoft.com/` w
 
 **Permissions needed:**
 
-Your service principal needs at minimum **Cognitive Services Contributor** role on the Azure OpenAI resource (required for model deployment/activation). If you only need read access, **Cognitive Services User** is sufficient.
+Bonito offers two RBAC setup modes:
+
+**Quick Start** — Assign `Cognitive Services Contributor` on the Azure OpenAI resource. This is a broad managed role — quick to set up but grants more access than strictly needed.
+
+**Enterprise (recommended for production)** — Create a custom role with only the exact permissions Bonito uses:
+
+| Category | Actions | Why |
+|----------|---------|-----|
+| **Account** | `Microsoft.CognitiveServices/accounts/read` | Validate connection |
+| **Deployments** | `accounts/deployments/read`, `write`, `delete` | Create, scale, delete model deployments |
+| **Models** | `accounts/models/read` | List available models |
+| **Inference** | `accounts/OpenAI/deployments/chat/completions/action`, `completions/action`, `embeddings/action` | Call models |
+
+Plus `Cost Management Reader` at subscription scope for spend visibility (optional).
+
+Example custom role (Azure CLI):
+```bash
+az role definition create --role-definition '{
+  "Name": "Bonito AI Operator",
+  "Actions": [
+    "Microsoft.CognitiveServices/accounts/read",
+    "Microsoft.CognitiveServices/accounts/deployments/read",
+    "Microsoft.CognitiveServices/accounts/deployments/write",
+    "Microsoft.CognitiveServices/accounts/deployments/delete",
+    "Microsoft.CognitiveServices/accounts/models/read"
+  ],
+  "DataActions": [
+    "Microsoft.CognitiveServices/accounts/OpenAI/deployments/chat/completions/action",
+    "Microsoft.CognitiveServices/accounts/OpenAI/deployments/completions/action",
+    "Microsoft.CognitiveServices/accounts/OpenAI/deployments/embeddings/action"
+  ],
+  "AssignableScopes": ["/subscriptions/YOUR_SUBSCRIPTION_ID"]
+}'
+```
+
+> **Tip:** Bonito's IaC templates (Terraform) include both modes — set `rbac_mode = "least_privilege"` for enterprise or `"managed"` for quick start.
 
 ---
 
@@ -106,7 +176,23 @@ Bonito validates the JSON on the frontend before sending, so you'll get an immed
 
 **Permissions needed:**
 
-Your service account needs the **Vertex AI User** role on the project. This allows listing and invoking models through Vertex AI.
+Bonito offers two IAM setup modes:
+
+**Quick Start** — Assign `roles/aiplatform.user` to the service account. This is already fairly scoped — fine for most use cases.
+
+**Enterprise (recommended for production)** — Create a custom role with only the exact permissions:
+
+| Category | Permissions | Why |
+|----------|------------|-----|
+| **Discovery** | `aiplatform.publishers.get`, `publisherModels.get` | List available models |
+| **Invocation** | `aiplatform.endpoints.predict` | Call models |
+| **Endpoints** | `aiplatform.endpoints.create/get/list/update/delete/deploy/undeploy` | Manage dedicated endpoints |
+| **Models** | `aiplatform.models.list`, `get` | Model metadata |
+| **Validation** | `resourcemanager.projects.get` | Verify project access |
+
+Plus `roles/billing.viewer` on billing account for spend visibility (optional).
+
+> **Tip:** Bonito's IaC templates (Terraform) include both modes — set `iam_mode = "least_privilege"` for enterprise or `"managed"` for quick start.
 
 ---
 
@@ -196,6 +282,29 @@ Enable models directly from the Bonito dashboard:
 - **Bulk enable** — select up to 20 models and enable them all at once
 - Bonito handles the provider-specific activation (Bedrock entitlements, Azure deployments, GCP API enablement)
 - Some models may require approval from the provider and won't activate instantly
+
+### Deployment Provisioning
+
+Deploy AI models directly into your cloud from the Bonito UI — no console-hopping required.
+
+**How it works per provider:**
+
+| Provider | Deployment Type | What Bonito Creates |
+|----------|----------------|-------------------|
+| **AWS Bedrock** | On-demand (free) or Provisioned Throughput (reserved capacity) | On-demand: validates access. PT: creates real reserved capacity with commitment (1 week–6 months) |
+| **Azure OpenAI** | Model deployment with TPM capacity | Creates a real deployment on your Azure OpenAI resource via ARM API (Standard or GlobalStandard tier) |
+| **GCP Vertex AI** | Serverless (no provisioning needed) | Verifies access — GCP models are serverless by default |
+
+**AWS Provisioned Throughput notes:**
+- Minimum commitment: 1 month (for model unit-based PT)
+- Not all models support PT — only specific context-window variants (e.g., `nova-micro-v1:0:128k`)
+- Costs real money ($20+/hr per model unit) — use on-demand for testing
+- Requires `bedrock:CreateProvisionedModelThroughput` IAM permission
+
+**Azure deployment notes:**
+- Requires TPM quota for the model in your subscription
+- If you get a quota error, request increase in Azure Portal → Quotas
+- Requires `Cognitive Services Contributor` or the Bonito custom role
 
 ### Cost Tracking
 
