@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.vault import vault_client
 from app.core.redis import redis_client
+from app.core.database import get_db_session
 from app.models.cloud_provider import CloudProvider
 from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit
 from app.models.policy import Policy
@@ -473,8 +474,13 @@ async def chat_completion(
         log_entry.status = "error"
         log_entry.error_message = str(e)[:1000]
         log_entry.latency_ms = elapsed_ms
-        db.add(log_entry)
-        await db.flush()
+        # Log in a separate session so the error entry persists even when
+        # the caller's session rolls back due to the re-raised exception.
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log error request: {log_err}")
         raise
 
 
@@ -503,8 +509,11 @@ async def completion(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, d
         log_entry.status = "error"
         log_entry.error_message = str(e)[:1000]
         log_entry.latency_ms = elapsed_ms
-        db.add(log_entry)
-        await db.flush()
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log error request: {log_err}")
         raise
 
 
@@ -532,8 +541,11 @@ async def embedding(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, db
         log_entry.status = "error"
         log_entry.error_message = str(e)[:1000]
         log_entry.latency_ms = elapsed_ms
-        db.add(log_entry)
-        await db.flush()
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log error request: {log_err}")
         raise
 
 

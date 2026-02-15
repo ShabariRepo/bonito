@@ -35,6 +35,7 @@ from app.schemas.gateway import (
     GatewayConfigResponse,
     GatewayConfigUpdate,
 )
+from app.core.database import get_db_session
 from app.services import gateway as gateway_service
 from app.services.gateway import PolicyViolation
 
@@ -205,18 +206,18 @@ async def _handle_streaming_completion(
     # Ensure stream=True in the request data
     request_data["stream"] = True
 
-    log_entry = GatewayRequest(
-        org_id=key.org_id,
-        key_id=key.id,
-        model_requested=model,
-        status="success",
-    )
+    # Capture org/key IDs — the db session from the dependency will be
+    # closed by the time the SSE generator's finally block runs, so we
+    # log in a standalone session instead.
+    org_id = key.org_id
+    key_id = key.id
 
     async def sse_generator():
         total_prompt_tokens = 0
         total_completion_tokens = 0
         model_used = model
         error_occurred = False
+        error_message = None
 
         try:
             response = await router.acompletion(**request_data)
@@ -239,8 +240,7 @@ async def _handle_streaming_completion(
 
         except Exception as e:
             error_occurred = True
-            log_entry.status = "error"
-            log_entry.error_message = str(e)[:1000]
+            error_message = str(e)[:1000]
             # Send error as SSE event before closing
             error_data = {
                 "error": {
@@ -252,37 +252,45 @@ async def _handle_streaming_completion(
             yield "data: [DONE]\n\n"
 
         finally:
-            # Log the completed request
+            # Log in a standalone DB session — the FastAPI dependency
+            # session is already closed by the time this finally runs.
             elapsed_ms = int((time.time() - start) * 1000)
-            log_entry.model_used = model_used
-            log_entry.input_tokens = total_prompt_tokens
-            log_entry.output_tokens = total_completion_tokens
-            log_entry.latency_ms = elapsed_ms
 
-            # Attempt to compute cost from token counts
+            cost = 0.0
             try:
                 if total_prompt_tokens or total_completion_tokens:
-                    log_entry.cost = litellm.completion_cost(
+                    cost = litellm.completion_cost(
                         model=model_used,
                         prompt_tokens=total_prompt_tokens,
                         completion_tokens=total_completion_tokens,
                     ) or 0.0
-                else:
-                    log_entry.cost = 0.0
             except Exception:
-                log_entry.cost = 0.0
+                pass
 
-            # Determine provider
+            provider = None
             if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
-                log_entry.provider = "aws"
+                provider = "aws"
             elif "azure" in model_used:
-                log_entry.provider = "azure"
+                provider = "azure"
             elif "vertex" in model_used or "gemini" in model_used:
-                log_entry.provider = "gcp"
+                provider = "gcp"
 
             try:
-                db.add(log_entry)
-                await db.flush()
+                async with get_db_session() as log_db:
+                    log_entry = GatewayRequest(
+                        org_id=org_id,
+                        key_id=key_id,
+                        model_requested=model,
+                        model_used=model_used,
+                        status="error" if error_occurred else "success",
+                        error_message=error_message,
+                        input_tokens=total_prompt_tokens,
+                        output_tokens=total_completion_tokens,
+                        latency_ms=elapsed_ms,
+                        cost=cost,
+                        provider=provider,
+                    )
+                    log_db.add(log_entry)
             except Exception as log_err:
                 logger.error(f"Failed to log streaming request: {log_err}")
 
@@ -314,29 +322,21 @@ async def _handle_streaming_completion_policy(
     # Ensure stream=True in the request data
     request_data["stream"] = True
 
-    log_entry = GatewayRequest(
-        org_id=org_id,
-        key_id=policy_id,  # Use policy_id as key_id
-        model_requested=model,
-        status="success",
-    )
-
     async def sse_generator():
         total_prompt_tokens = 0
         total_completion_tokens = 0
         model_used = model
         error_occurred = False
+        error_message = None
 
         try:
             response = await router.acompletion(**request_data)
 
             async for chunk in response:
-                # Extract usage from chunks if available
                 chunk_dict = chunk.model_dump()
                 if chunk_dict.get("model"):
                     model_used = chunk_dict["model"]
 
-                # Accumulate token counts from the last chunk (OpenAI includes usage in final chunk)
                 usage = chunk_dict.get("usage")
                 if usage:
                     total_prompt_tokens = usage.get("prompt_tokens", total_prompt_tokens)
@@ -348,9 +348,7 @@ async def _handle_streaming_completion_policy(
 
         except Exception as e:
             error_occurred = True
-            log_entry.status = "error"
-            log_entry.error_message = str(e)[:1000]
-            # Send error as SSE event before closing
+            error_message = str(e)[:1000]
             error_data = {
                 "error": {
                     "message": str(e),
@@ -361,37 +359,43 @@ async def _handle_streaming_completion_policy(
             yield "data: [DONE]\n\n"
 
         finally:
-            # Log the completed request
             elapsed_ms = int((time.time() - start) * 1000)
-            log_entry.model_used = model_used
-            log_entry.input_tokens = total_prompt_tokens
-            log_entry.output_tokens = total_completion_tokens
-            log_entry.latency_ms = elapsed_ms
 
-            # Attempt to compute cost from token counts
+            cost = 0.0
             try:
                 if total_prompt_tokens or total_completion_tokens:
-                    log_entry.cost = litellm.completion_cost(
+                    cost = litellm.completion_cost(
                         model=model_used,
                         prompt_tokens=total_prompt_tokens,
                         completion_tokens=total_completion_tokens,
                     ) or 0.0
-                else:
-                    log_entry.cost = 0.0
             except Exception:
-                log_entry.cost = 0.0
+                pass
 
-            # Determine provider
+            provider = None
             if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
-                log_entry.provider = "aws"
+                provider = "aws"
             elif "azure" in model_used:
-                log_entry.provider = "azure"
+                provider = "azure"
             elif "vertex" in model_used or "gemini" in model_used:
-                log_entry.provider = "gcp"
+                provider = "gcp"
 
             try:
-                db.add(log_entry)
-                await db.flush()
+                async with get_db_session() as log_db:
+                    log_entry = GatewayRequest(
+                        org_id=org_id,
+                        key_id=policy_id,
+                        model_requested=model,
+                        model_used=model_used,
+                        status="error" if error_occurred else "success",
+                        error_message=error_message,
+                        input_tokens=total_prompt_tokens,
+                        output_tokens=total_completion_tokens,
+                        latency_ms=elapsed_ms,
+                        cost=cost,
+                        provider=provider,
+                    )
+                    log_db.add(log_entry)
             except Exception as log_err:
                 logger.error(f"Failed to log streaming policy request: {log_err}")
 
