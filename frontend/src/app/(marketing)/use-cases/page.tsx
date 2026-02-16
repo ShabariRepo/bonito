@@ -51,7 +51,7 @@ interface UseCase {
     description: string;
     models: { model: string; cost: string; annual: string; color: string }[];
     scenarios: { label: string; cost: string; detail: string; highlight?: boolean }[];
-    savingsSummary: { vs: string; saved: string; pct: string }[];
+    savingsSummary: { vs: string; saved: string; pct: string; detail?: string }[];
     footnote: string;
   };
 }
@@ -143,12 +143,12 @@ const useCases: UseCase[] = [
       {
         metric: "89%",
         label: "cost reduction",
-        detail: "From $51K/yr (all GPT-4o) to $5.8K/yr with smart routing across three providers",
+        detail: "$51,161/yr → $5,826/yr with smart routing across three providers",
       },
       {
-        metric: "$45K",
-        label: "annual savings",
-        detail: "Net savings of $39K/yr even after Bonito Pro subscription ($6K/yr)",
+        metric: "$39K+",
+        label: "net annual savings",
+        detail: "$45,335 saved minus $5,988 Bonito Pro subscription = $39,347 net",
       },
       {
         metric: "3 → 1",
@@ -191,8 +191,8 @@ const useCases: UseCase[] = [
         },
       ],
       savingsSummary: [
-        { vs: "vs all GPT-4o", saved: "$45,335", pct: "88.6%" },
-        { vs: "vs all GPT-4o (net after Bonito Pro)", saved: "$39,347", pct: "76.9%" },
+        { vs: "vs all GPT-4o", saved: "$45,335 saved (89%)", pct: "89%", detail: "$51,161/yr → $5,826/yr" },
+        { vs: "Net savings after Bonito Pro ($499/mo)", saved: "$39,347 saved (77%)", pct: "77%", detail: "$51,161/yr → $5,826/yr + $5,988/yr subscription" },
       ],
       footnote:
         "Based on 50,000 requests/day (18.25M/year). Token averages from actual E2E tests: ~35-43 prompt tokens, ~270-277 completion tokens per request. Pricing from published AWS, GCP, and Azure rates as of February 2026. Smart routing allocates traffic by task complexity: simple classification and drafts → cheapest model, complex analysis → premium model.",
@@ -724,7 +724,10 @@ export default function UseCasesPage() {
                       className="bg-green-500/5 border border-green-500/20 rounded-xl p-5 text-center"
                     >
                       <div className="text-2xl font-bold text-green-400 mb-1">{s.saved}</div>
-                      <div className="text-sm text-[#888]">{s.vs}</div>
+                      <div className="text-sm text-[#888] mb-1">{s.vs}</div>
+                      {s.detail && (
+                        <div className="text-xs text-[#666] font-mono">{s.detail}</div>
+                      )}
                     </div>
                   ))}
                 </div>
