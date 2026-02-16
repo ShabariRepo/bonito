@@ -30,46 +30,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/models", tags=["models"])
 
 
-async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> int:
-    """Fetch models from cloud API and upsert into DB. Returns count synced."""
+async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dict:
+    """Fetch models from cloud API and upsert into DB. Returns sync result dict."""
     try:
         cloud_models = await get_models_for_provider(provider.provider_type, str(provider.id))
+
+        if not cloud_models:
+            return {"count": 0, "error": None}
+
+        # Delete existing models for this provider, then re-insert
+        await db.execute(delete(Model).where(Model.provider_id == provider.id))
+
+        count = 0
+        for m in cloud_models:
+            model_id = getattr(m, "provider_model_id", None) or getattr(m, "model_id", None) or getattr(m, "id", str(count))
+            display_name = getattr(m, "name", None) or getattr(m, "model_name", None) or model_id
+            capabilities_raw = getattr(m, "capabilities", [])
+            capabilities = capabilities_raw if isinstance(capabilities_raw, dict) else {"types": capabilities_raw}
+            pricing = {}
+            for field in ("input_price_per_1k", "output_price_per_1k", "pricing_tier", "context_window"):
+                val = getattr(m, field, None)
+                if val is not None:
+                    pricing[field] = val
+            status = getattr(m, "status", "available")
+            pricing["status"] = status
+
+            db_model = Model(
+                provider_id=provider.id,
+                model_id=str(model_id),
+                display_name=str(display_name),
+                capabilities=capabilities,
+                pricing_info=pricing,
+            )
+            db.add(db_model)
+            count += 1
+
+        await db.flush()
+        return {"count": count, "error": None}
     except Exception as e:
-        logger.error(f"Failed to fetch models for {provider.provider_type}: {e}")
-        return 0
-
-    if not cloud_models:
-        return 0
-
-    # Delete existing models for this provider, then re-insert
-    await db.execute(delete(Model).where(Model.provider_id == provider.id))
-
-    count = 0
-    for m in cloud_models:
-        model_id = getattr(m, "provider_model_id", None) or getattr(m, "model_id", None) or getattr(m, "id", str(count))
-        display_name = getattr(m, "name", None) or getattr(m, "model_name", None) or model_id
-        capabilities_raw = getattr(m, "capabilities", [])
-        capabilities = capabilities_raw if isinstance(capabilities_raw, dict) else {"types": capabilities_raw}
-        pricing = {}
-        for field in ("input_price_per_1k", "output_price_per_1k", "pricing_tier", "context_window"):
-            val = getattr(m, field, None)
-            if val is not None:
-                pricing[field] = val
-        status = getattr(m, "status", "available")
-        pricing["status"] = status
-
-        db_model = Model(
-            provider_id=provider.id,
-            model_id=str(model_id),
-            display_name=str(display_name),
-            capabilities=capabilities,
-            pricing_info=pricing,
-        )
-        db.add(db_model)
-        count += 1
-
-    await db.flush()
-    return count
+        logger.error(f"Failed to sync models for {provider.provider_type}: {e}", exc_info=True)
+        return {"count": 0, "error": str(e)}
 
 
 @router.post("/sync")
@@ -79,11 +79,17 @@ async def sync_all_models(db: AsyncSession = Depends(get_db), user: User = Depen
     providers = result.scalars().all()
     total = 0
     details = {}
+    errors = {}
     for p in providers:
-        count = await sync_provider_models(p, db)
-        total += count
-        details[p.provider_type] = count
-    return {"synced": total, "details": details}
+        sync_result = await sync_provider_models(p, db)
+        total += sync_result["count"]
+        details[p.provider_type] = sync_result["count"]
+        if sync_result["error"]:
+            errors[p.provider_type] = sync_result["error"]
+    response = {"synced": total, "details": details}
+    if errors:
+        response["errors"] = errors
+    return response
 
 
 @router.post("/sync/{provider_id}")
@@ -93,21 +99,39 @@ async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), u
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(404, "Provider not found")
-    count = await sync_provider_models(provider, db)
-    return {"synced": count, "provider": provider.provider_type}
+    sync_result = await sync_provider_models(provider, db)
+    response = {"synced": sync_result["count"], "provider": provider.provider_type}
+    if sync_result["error"]:
+        response["error"] = sync_result["error"]
+    return response
 
 
 @router.get("/", response_model=List[ModelResponse])
-async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    result = await db.execute(
-        select(Model, CloudProvider.provider_type).join(CloudProvider, Model.provider_id == CloudProvider.id).where(CloudProvider.org_id == user.org_id)
+async def list_models(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    provider_type: str = Query(None, description="Filter by provider type (aws, azure, gcp, openai, anthropic)"),
+    status: str = Query(None, description="Filter by model status (available, deployed, etc.)"),
+    search: str = Query(None, description="Search by model name or ID"),
+):
+    query = (
+        select(Model, CloudProvider.provider_type)
+        .join(CloudProvider, Model.provider_id == CloudProvider.id)
+        .where(CloudProvider.org_id == user.org_id)
     )
+    if provider_type:
+        query = query.where(CloudProvider.provider_type == provider_type)
+    result = await db.execute(query)
     models = []
-    for model, provider_type in result.all():
-        model.provider_type = provider_type
+    for model, pt in result.all():
+        model.provider_type = pt
         # Extract access status from pricing_info — default to "unknown" (not "available")
         # so models without explicit status aren't falsely shown as enabled
         model.status = (model.pricing_info or {}).get("status", "unknown")
+        if status and model.status != status:
+            continue
+        if search and search.lower() not in (model.display_name or "").lower() and search.lower() not in (model.model_id or "").lower():
+            continue
         models.append(model)
     return models
 
