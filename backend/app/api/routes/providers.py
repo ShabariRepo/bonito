@@ -174,13 +174,16 @@ async def update_provider_credentials(
             raise HTTPException(status_code=422, detail=f"AWS credential validation failed: {cred_info.message}")
     elif provider.provider_type == "azure":
         from app.services.providers.azure_foundry import AzureFoundryProvider
+        azure_mode = merged.get("azure_mode", "openai")  # default to openai for backward compat
         prov = AzureFoundryProvider(
-            tenant_id=merged["tenant_id"],
-            client_id=merged["client_id"],
-            client_secret=merged["client_secret"],
-            subscription_id=merged["subscription_id"],
+            tenant_id=merged.get("tenant_id", ""),
+            client_id=merged.get("client_id", ""),
+            client_secret=merged.get("client_secret", ""),
+            subscription_id=merged.get("subscription_id", ""),
             resource_group=merged.get("resource_group", ""),
             endpoint=merged.get("endpoint", ""),
+            azure_mode=azure_mode,
+            api_key=merged.get("api_key", ""),
         )
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
@@ -253,13 +256,16 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
             raise HTTPException(status_code=422, detail=f"AWS credential validation failed: {cred_info.message}")
     elif data.provider_type == "azure":
         from app.services.providers.azure_foundry import AzureFoundryProvider
+        azure_mode = data.credentials.get("azure_mode", "foundry")  # default to foundry for new setups
         prov = AzureFoundryProvider(
-            tenant_id=data.credentials["tenant_id"],
-            client_id=data.credentials["client_id"],
-            client_secret=data.credentials["client_secret"],
-            subscription_id=data.credentials["subscription_id"],
+            tenant_id=data.credentials.get("tenant_id", ""),
+            client_id=data.credentials.get("client_id", ""),
+            client_secret=data.credentials.get("client_secret", ""),
+            subscription_id=data.credentials.get("subscription_id", ""),
             resource_group=data.credentials.get("resource_group", ""),
             endpoint=data.credentials.get("endpoint", ""),
+            azure_mode=azure_mode,
+            api_key=data.credentials.get("api_key", ""),
         )
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
