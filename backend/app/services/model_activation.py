@@ -144,37 +144,42 @@ async def activate_azure_model(
     subscription_id: str,
     resource_group: str,
     endpoint: str,
+    api_key: str = "",
 ) -> ActivationResult:
     """Deploy a model on Azure OpenAI.
     
     Creates a deployment with the model name as the deployment ID,
     using standard tier with auto-scaling.
     """
-    # Get OAuth token
+    # Build auth headers — prefer api_key (works with both custom subdomain
+    # and regional endpoints), fall back to OAuth Bearer token.
     try:
         async with httpx.AsyncClient() as client:
-            token_resp = await client.post(
-                f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
-                data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "scope": "https://cognitiveservices.azure.com/.default",
-                    "grant_type": "client_credentials",
-                },
-            )
-            if token_resp.status_code != 200:
-                return ActivationResult(
-                    success=False,
-                    status="failed",
-                    message=f"Azure auth failed: {token_resp.text[:200]}"
+            if api_key:
+                auth_headers = {"api-key": api_key}
+            else:
+                token_resp = await client.post(
+                    f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
+                    data={
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "scope": "https://cognitiveservices.azure.com/.default",
+                        "grant_type": "client_credentials",
+                    },
                 )
-            cog_token = token_resp.json()["access_token"]
+                if token_resp.status_code != 200:
+                    return ActivationResult(
+                        success=False,
+                        status="failed",
+                        message=f"Azure auth failed: {token_resp.text[:200]}"
+                    )
+                auth_headers = {"Authorization": f"Bearer {token_resp.json()['access_token']}"}
             
             # Check if deployment already exists
             base = endpoint.rstrip("/")
             check_resp = await client.get(
                 f"{base}/openai/deployments/{model_id}?api-version=2024-06-01",
-                headers={"Authorization": f"Bearer {cog_token}"},
+                headers=auth_headers,
             )
             if check_resp.status_code == 200:
                 status = check_resp.json().get("status", "succeeded")
@@ -192,12 +197,10 @@ async def activate_azure_model(
                     )
             
             # Create deployment with standard settings
+            deploy_headers = {**auth_headers, "Content-Type": "application/json"}
             deploy_resp = await client.put(
                 f"{base}/openai/deployments/{model_id}?api-version=2024-06-01",
-                headers={
-                    "Authorization": f"Bearer {cog_token}",
-                    "Content-Type": "application/json",
-                },
+                headers=deploy_headers,
                 json={
                     "model": {
                         "format": "OpenAI",

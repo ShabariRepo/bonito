@@ -667,6 +667,7 @@ async def activate_model(
             subscription_id=secrets.get("subscription_id", ""),
             resource_group=secrets.get("resource_group", ""),
             endpoint=secrets.get("endpoint", ""),
+            api_key=secrets.get("api_key", ""),
         )
     elif provider.provider_type == "gcp":
         activation = await activate_gcp_model(

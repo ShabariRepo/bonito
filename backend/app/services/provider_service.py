@@ -229,7 +229,7 @@ async def get_azure_provider(provider_id: str) -> AzureFoundryProvider:
         subscription_id=secrets.get("subscription_id", ""),
         resource_group=secrets.get("resource_group", ""),
         endpoint=secrets.get("endpoint", ""),
-        azure_mode=secrets.get("azure_mode", "foundry"),
+        azure_mode=secrets.get("azure_mode", "openai"),
         api_key=secrets.get("api_key", ""),
     )
 

@@ -220,12 +220,18 @@ class AzureFoundryProvider(CloudProvider):
         try:
             # List Azure OpenAI deployments + available models if we have an endpoint
             if self._endpoint:
-                cog_token = await self._get_cognitive_token()
+                # Build auth headers — prefer api_key (works with both custom subdomain
+                # and regional endpoints), fall back to OAuth Bearer token.
+                if self._api_key:
+                    auth_headers = {"api-key": self._api_key}
+                else:
+                    cog_token = await self._get_cognitive_token()
+                    auth_headers = {"Authorization": f"Bearer {cog_token}"}
                 async with httpx.AsyncClient() as client:
                     # First: list available (deployable) models
                     models_resp = await client.get(
                         f"{self._endpoint.rstrip('/')}/openai/models?api-version=2024-06-01",
-                        headers={"Authorization": f"Bearer {cog_token}"},
+                        headers=auth_headers,
                     )
                     if models_resp.status_code == 200:
                         for m in models_resp.json().get("data", []):
@@ -259,7 +265,7 @@ class AzureFoundryProvider(CloudProvider):
                     deployed_ids = set()
                     resp = await client.get(
                         f"{self._endpoint.rstrip('/')}/openai/deployments?api-version=2024-06-01",
-                        headers={"Authorization": f"Bearer {cog_token}"},
+                        headers=auth_headers,
                     )
                     if resp.status_code == 200:
                         existing_ids = {m.model_id for m in models}
