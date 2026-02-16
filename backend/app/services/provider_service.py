@@ -111,14 +111,19 @@ def validate_credentials(provider_type: str, credentials: dict) -> Tuple[bool, s
     elif provider_type == "azure":
         azure_mode = credentials.get("azure_mode", "openai")  # default to openai for backward compat
         if azure_mode == "foundry":
-            # Foundry mode requires api_key + endpoint
-            for field in ["api_key", "endpoint"]:
-                if field not in credentials or not credentials[field]:
-                    return False, f"Missing required field for Foundry mode: {field}"
+            if credentials.get("endpoint"):
+                # Direct Foundry connection — need api_key
+                if not credentials.get("api_key"):
+                    return False, "Foundry mode with endpoint requires api_key"
+            else:
+                # Auto-provision mode — need service principal
+                for field in ["tenant_id", "client_id", "client_secret", "subscription_id"]:
+                    if not credentials.get(field):
+                        return False, f"Foundry auto-provision requires: {field}"
         elif azure_mode == "openai":
             # OpenAI mode requires service principal fields
             for field in ["tenant_id", "client_id", "client_secret", "subscription_id"]:
-                if field not in credentials or not credentials[field]:
+                if not credentials.get(field):
                     return False, f"Missing required field for OpenAI mode: {field}"
         else:
             return False, f"Invalid azure_mode: {azure_mode}. Must be 'foundry' or 'openai'"

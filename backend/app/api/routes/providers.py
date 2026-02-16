@@ -267,9 +267,36 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
             azure_mode=azure_mode,
             api_key=data.credentials.get("api_key", ""),
         )
-        cred_info = await prov.validate_credentials()
-        if not cred_info.valid:
-            raise HTTPException(status_code=422, detail=f"Azure credential validation failed: {cred_info.message}")
+
+        # Foundry mode without endpoint = Bonito needs to provision the resource
+        if azure_mode == "foundry" and not data.credentials.get("endpoint"):
+            # First validate service principal can authenticate
+            cred_info = await prov.validate_credentials()
+            if not cred_info.valid:
+                raise HTTPException(status_code=422, detail=f"Azure credential validation failed: {cred_info.message}")
+            # Auto-provision the Foundry resource
+            try:
+                org_prefix = str(user.org_id)[:8]
+                provisioned = await prov.provision_foundry_resource(
+                    resource_name=f"bonito-ai-{org_prefix}",
+                    location="eastus",
+                )
+                # Merge provisioned values back into credentials
+                data.credentials["endpoint"] = provisioned["endpoint"]
+                data.credentials["api_key"] = provisioned["api_key"]
+                data.credentials["resource_group"] = provisioned["resource_group"]
+                data.credentials["azure_mode"] = "foundry"
+                logger.info(f"Auto-provisioned Azure AI Foundry: {provisioned['endpoint']}")
+            except RuntimeError as e:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Azure AI resource provisioning failed: {str(e)}. "
+                    f"Ensure the service principal has 'Cognitive Services Contributor' role.",
+                )
+        else:
+            cred_info = await prov.validate_credentials()
+            if not cred_info.valid:
+                raise HTTPException(status_code=422, detail=f"Azure credential validation failed: {cred_info.message}")
     elif data.provider_type == "gcp":
         from app.services.providers.gcp_vertex import GCPVertexProvider
         prov = GCPVertexProvider(
@@ -485,6 +512,86 @@ async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db),
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
     await db.delete(provider)
+
+
+@router.post("/{provider_id}/provision-azure", response_model=VerifyResponse)
+async def provision_azure_resource(
+    provider_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Provision an Azure AI Foundry resource using stored service principal credentials.
+
+    Bonito creates the AIServices resource, retrieves API keys, and updates
+    the stored credentials — the customer never touches Azure Portal.
+    """
+    result = await db.execute(
+        select(CloudProvider).where(
+            CloudProvider.id == provider_id,
+            CloudProvider.org_id == user.org_id,
+        )
+    )
+    provider = result.scalar_one_or_none()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    if provider.provider_type != "azure":
+        raise HTTPException(status_code=400, detail="Provisioning is only for Azure providers")
+
+    try:
+        cloud_prov = await get_azure_provider(str(provider_id))
+
+        # Provision the Foundry resource
+        org_name = str(user.org_id)[:8]  # short org prefix for naming
+        provisioned = await cloud_prov.provision_foundry_resource(
+            resource_name=f"bonito-ai-{org_name}",
+            location="eastus",
+        )
+
+        # Update stored credentials with the provisioned endpoint + API key
+        from app.core.vault import vault_client as vc
+        existing_creds = {}
+        try:
+            existing_creds = await vc.get_secrets(f"providers/{provider_id}") or {}
+        except Exception:
+            pass
+
+        updated_creds = {
+            **existing_creds,
+            "endpoint": provisioned["endpoint"],
+            "api_key": provisioned["api_key"],
+            "resource_group": provisioned["resource_group"],
+            "azure_mode": "foundry",
+        }
+        await store_credentials_in_vault(str(provider_id), updated_creds)
+
+        # Update encrypted DB column too
+        import os
+        from app.core.encryption import encrypt_credentials
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key:
+            provider.credentials_encrypted = encrypt_credentials(updated_creds, secret_key)
+
+        provider.status = "active"
+        await db.flush()
+
+        # Sync models
+        from app.api.routes.models import sync_provider_models
+        model_count = await sync_provider_models(provider, db)
+
+        return VerifyResponse(
+            success=True,
+            message=f"Azure AI Foundry provisioned! Endpoint: {provisioned['endpoint']}. Found {model_count} models.",
+            latency_ms=0,
+            account_id=provisioned["resource_name"],
+            model_count=model_count,
+            region=provisioned.get("location", "eastus"),
+        )
+
+    except RuntimeError as e:
+        return VerifyResponse(success=False, message=str(e))
+    except Exception as e:
+        logger.error(f"Azure provisioning error: {e}")
+        return VerifyResponse(success=False, message=f"Provisioning failed: {str(e)}")
 
 
 @router.post("/", response_model=ProviderResponse, status_code=201)

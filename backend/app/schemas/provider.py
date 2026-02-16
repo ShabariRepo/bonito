@@ -107,13 +107,21 @@ class ProviderConnect(BaseModel):
             azure_mode = self.credentials.get("azure_mode", "openai")  # default to openai for backward compat
             
             if azure_mode == "foundry":
-                # Foundry mode requires api_key + endpoint  
-                required = {"api_key", "endpoint"}
-                missing = required - set(self.credentials.keys())
-                if missing:
-                    raise ValueError(f"Foundry mode requires: {', '.join(missing)}")
-                if not self.credentials.get("api_key") or not self.credentials.get("endpoint"):
-                    raise ValueError("Foundry mode requires non-empty api_key and endpoint")
+                # Foundry mode: if endpoint is provided, api_key is required for direct use.
+                # If endpoint is NOT provided, Bonito will auto-provision the resource
+                # using the service principal — so tenant_id + client_id + client_secret + subscription_id are required.
+                if self.credentials.get("endpoint"):
+                    # Direct Foundry connection — need api_key
+                    if not self.credentials.get("api_key"):
+                        raise ValueError("Foundry mode with endpoint requires api_key")
+                else:
+                    # Auto-provision mode — need service principal to create the resource
+                    sp_fields = {"tenant_id", "client_id", "client_secret", "subscription_id"}
+                    missing = [f for f in sp_fields if not self.credentials.get(f)]
+                    if missing:
+                        raise ValueError(
+                            f"Foundry mode requires service principal credentials to provision Azure resources: {', '.join(missing)}"
+                        )
             
             elif azure_mode == "openai":
                 # OpenAI mode requires service principal fields

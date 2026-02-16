@@ -444,6 +444,157 @@ class AzureFoundryProvider(CloudProvider):
         except Exception as e:
             raise RuntimeError(f"Invocation failed: {str(e)}")
 
+    # ── Resource provisioning (Bonito creates everything) ─────────
+
+    async def provision_foundry_resource(
+        self,
+        resource_name: str = "",
+        location: str = "eastus",
+    ) -> dict:
+        """Create an Azure AI Foundry (AIServices) resource and retrieve API keys.
+
+        This is the magic — customer gives us a service principal with
+        Cognitive Services Contributor, and Bonito sets up everything.
+
+        Returns dict with: endpoint, api_key, resource_group, resource_name
+        """
+        if not self._subscription_id or not self._tenant_id:
+            raise RuntimeError("Service principal credentials required for resource provisioning")
+
+        token = await self._get_token()
+        rg_name = self._resource_group or "rg-bonito-ai"
+        res_name = resource_name or "bonito-ai-foundry"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Step 1: Create resource group (idempotent)
+            logger.info(f"Creating resource group {rg_name} in {location}")
+            rg_resp = await client.put(
+                f"https://management.azure.com/subscriptions/{self._subscription_id}"
+                f"/resourceGroups/{rg_name}?api-version=2023-07-01",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "location": location,
+                    "tags": {
+                        "ManagedBy": "bonito",
+                        "Project": "bonito-ai",
+                    },
+                },
+            )
+            if rg_resp.status_code not in (200, 201):
+                error_msg = rg_resp.text[:300]
+                if rg_resp.status_code == 403:
+                    raise RuntimeError(
+                        "Permission denied creating resource group. "
+                        "The service principal needs 'Contributor' role on the subscription, "
+                        "or provide an existing resource_group name."
+                    )
+                raise RuntimeError(f"Failed to create resource group ({rg_resp.status_code}): {error_msg}")
+
+            # Step 2: Create AIServices (Foundry) cognitive account
+            logger.info(f"Creating AIServices resource {res_name}")
+            ai_resp = await client.put(
+                f"https://management.azure.com/subscriptions/{self._subscription_id}"
+                f"/resourceGroups/{rg_name}"
+                f"/providers/Microsoft.CognitiveServices/accounts/{res_name}"
+                f"?api-version=2024-10-01",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "location": location,
+                    "kind": "AIServices",
+                    "sku": {"name": "S0"},
+                    "properties": {
+                        "publicNetworkAccess": "Enabled",
+                        "customSubDomainName": res_name,
+                    },
+                    "tags": {
+                        "ManagedBy": "bonito",
+                        "Project": "bonito-ai",
+                    },
+                },
+            )
+            if ai_resp.status_code not in (200, 201, 202):
+                error_msg = ai_resp.text[:300]
+                if ai_resp.status_code == 409:
+                    logger.info(f"Resource {res_name} already exists, proceeding")
+                elif ai_resp.status_code == 403:
+                    raise RuntimeError(
+                        "Permission denied creating AI resource. "
+                        "The service principal needs 'Cognitive Services Contributor' role."
+                    )
+                else:
+                    raise RuntimeError(f"Failed to create AI resource ({ai_resp.status_code}): {error_msg}")
+
+            # Step 3: Wait for provisioning (poll if 202)
+            if ai_resp.status_code == 202:
+                logger.info("Resource provisioning in progress, waiting...")
+                for _ in range(30):  # max 5 min
+                    import asyncio
+                    await asyncio.sleep(10)
+                    check = await client.get(
+                        f"https://management.azure.com/subscriptions/{self._subscription_id}"
+                        f"/resourceGroups/{rg_name}"
+                        f"/providers/Microsoft.CognitiveServices/accounts/{res_name}"
+                        f"?api-version=2024-10-01",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if check.status_code == 200:
+                        state = check.json().get("properties", {}).get("provisioningState", "")
+                        if state == "Succeeded":
+                            break
+                        elif state == "Failed":
+                            raise RuntimeError("AI resource provisioning failed")
+
+            # Step 4: Get the endpoint
+            acct_resp = await client.get(
+                f"https://management.azure.com/subscriptions/{self._subscription_id}"
+                f"/resourceGroups/{rg_name}"
+                f"/providers/Microsoft.CognitiveServices/accounts/{res_name}"
+                f"?api-version=2024-10-01",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if acct_resp.status_code != 200:
+                raise RuntimeError(f"Failed to read AI resource: {acct_resp.text[:200]}")
+
+            acct_data = acct_resp.json()
+            endpoint = acct_data.get("properties", {}).get("endpoint", "")
+
+            # Step 5: Get API keys
+            keys_resp = await client.post(
+                f"https://management.azure.com/subscriptions/{self._subscription_id}"
+                f"/resourceGroups/{rg_name}"
+                f"/providers/Microsoft.CognitiveServices/accounts/{res_name}"
+                f"/listKeys?api-version=2024-10-01",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if keys_resp.status_code != 200:
+                raise RuntimeError(f"Failed to retrieve API keys: {keys_resp.text[:200]}")
+
+            keys_data = keys_resp.json()
+            api_key = keys_data.get("key1", "")
+
+            logger.info(f"✅ Azure AI Foundry resource provisioned: {endpoint}")
+
+            # Update self with provisioned values
+            self._endpoint = endpoint
+            self._api_key = api_key
+            self._resource_group = rg_name
+            self._azure_mode = "foundry"
+
+            return {
+                "endpoint": endpoint,
+                "api_key": api_key,
+                "resource_group": rg_name,
+                "resource_name": res_name,
+                "azure_mode": "foundry",
+                "location": location,
+            }
+
     # ── Cost data ──────────────────────────────────────────────────
 
     async def get_costs(self, start_date: date, end_date: date) -> CostData:
