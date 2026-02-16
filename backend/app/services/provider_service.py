@@ -85,7 +85,13 @@ PROVIDER_REGIONS = {
 }
 
 
-def get_provider_display_name(provider_type: str) -> str:
+def get_provider_display_name(provider_type: str, credentials: dict = None) -> str:
+    if provider_type == "azure" and credentials:
+        azure_mode = credentials.get("azure_mode", "openai")
+        if azure_mode == "foundry":
+            return "Azure AI Foundry"
+        else:
+            return "Azure OpenAI"
     return PROVIDER_NAMES.get(provider_type, provider_type)
 
 
@@ -103,9 +109,19 @@ def validate_credentials(provider_type: str, credentials: dict) -> Tuple[bool, s
         if credentials["region"] not in PROVIDER_REGIONS["aws"]:
             return False, f"Unsupported region: {credentials['region']}"
     elif provider_type == "azure":
-        for field in ["tenant_id", "client_id", "client_secret", "subscription_id"]:
-            if field not in credentials or not credentials[field]:
-                return False, f"Missing required field: {field}"
+        azure_mode = credentials.get("azure_mode", "openai")  # default to openai for backward compat
+        if azure_mode == "foundry":
+            # Foundry mode requires api_key + endpoint
+            for field in ["api_key", "endpoint"]:
+                if field not in credentials or not credentials[field]:
+                    return False, f"Missing required field for Foundry mode: {field}"
+        elif azure_mode == "openai":
+            # OpenAI mode requires service principal fields
+            for field in ["tenant_id", "client_id", "client_secret", "subscription_id"]:
+                if field not in credentials or not credentials[field]:
+                    return False, f"Missing required field for OpenAI mode: {field}"
+        else:
+            return False, f"Invalid azure_mode: {azure_mode}. Must be 'foundry' or 'openai'"
     elif provider_type == "gcp":
         for field in ["project_id", "service_account_json"]:
             if field not in credentials or not credentials[field]:
@@ -202,12 +218,14 @@ async def get_azure_provider(provider_id: str) -> AzureFoundryProvider:
     """Create an AzureFoundryProvider with Vault→DB fallback."""
     secrets = await _get_provider_secrets(provider_id)
     return AzureFoundryProvider(
-        tenant_id=secrets["tenant_id"],
-        client_id=secrets["client_id"],
-        client_secret=secrets["client_secret"],
-        subscription_id=secrets["subscription_id"],
+        tenant_id=secrets.get("tenant_id", ""),
+        client_id=secrets.get("client_id", ""),
+        client_secret=secrets.get("client_secret", ""),
+        subscription_id=secrets.get("subscription_id", ""),
         resource_group=secrets.get("resource_group", ""),
         endpoint=secrets.get("endpoint", ""),
+        azure_mode=secrets.get("azure_mode", "foundry"),
+        api_key=secrets.get("api_key", ""),
     )
 
 

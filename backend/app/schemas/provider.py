@@ -28,10 +28,12 @@ class AWSCredentials(BaseModel):
 
 
 class AzureCredentials(BaseModel):
-    tenant_id: str
-    client_id: str
-    client_secret: str
-    subscription_id: str
+    azure_mode: str = "foundry"  # "foundry" | "openai"
+    api_key: str = ""
+    tenant_id: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    subscription_id: str = ""
     resource_group: str = ""
     endpoint: str = ""
 
@@ -62,7 +64,7 @@ _CREDENTIAL_SCHEMAS: dict[str, type[BaseModel]] = {
 # Fields allowed per provider (for strict rejection of unexpected keys)
 _ALLOWED_FIELDS: dict[str, set[str]] = {
     "aws": {"access_key_id", "secret_access_key", "region"},
-    "azure": {"tenant_id", "client_id", "client_secret", "subscription_id", "resource_group", "endpoint"},
+    "azure": {"azure_mode", "api_key", "tenant_id", "client_id", "client_secret", "subscription_id", "resource_group", "endpoint"},
     "gcp": {"project_id", "service_account_json", "region"},
     "openai": {"api_key", "organization_id"},
     "anthropic": {"api_key"},
@@ -97,8 +99,34 @@ class ProviderConnect(BaseModel):
             sanitized[k] = v
         self.credentials = sanitized
 
-        # Validate against typed schema
-        schema(**self.credentials)
+        # Validate against typed schema  
+        schema_obj = schema(**self.credentials)
+        
+        # Additional Azure mode validation
+        if pt == "azure":
+            azure_mode = self.credentials.get("azure_mode", "openai")  # default to openai for backward compat
+            
+            if azure_mode == "foundry":
+                # Foundry mode requires api_key + endpoint  
+                required = {"api_key", "endpoint"}
+                missing = required - set(self.credentials.keys())
+                if missing:
+                    raise ValueError(f"Foundry mode requires: {', '.join(missing)}")
+                if not self.credentials.get("api_key") or not self.credentials.get("endpoint"):
+                    raise ValueError("Foundry mode requires non-empty api_key and endpoint")
+            
+            elif azure_mode == "openai":
+                # OpenAI mode requires service principal fields
+                required = {"tenant_id", "client_id", "client_secret", "subscription_id"}
+                missing = required - set(self.credentials.keys())
+                if missing:
+                    raise ValueError(f"OpenAI mode requires: {', '.join(missing)}")
+                if not all(self.credentials.get(field) for field in required):
+                    raise ValueError("OpenAI mode requires non-empty tenant_id, client_id, client_secret, and subscription_id")
+            
+            else:
+                raise ValueError(f"Invalid azure_mode: {azure_mode}. Must be 'foundry' or 'openai'")
+        
         return self
 
 

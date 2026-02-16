@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 MODELS_CACHE_TTL = 300  # 5 min
 
-# Azure OpenAI model pricing (per 1M tokens)
+# Azure OpenAI + Foundry model pricing (per 1M tokens)
 AZURE_PRICING: dict[str, tuple[float, float, int]] = {
     # GPT-4o family
     "gpt-4o": (2.50, 10.00, 128_000),
@@ -61,6 +61,20 @@ AZURE_PRICING: dict[str, tuple[float, float, int]] = {
     # Cohere
     "cohere-command-r-plus": (3.00, 15.00, 128_000),
     "cohere-command-r": (0.50, 1.50, 128_000),
+    
+    # Foundry partner models
+    "deepseek-v3": (0.27, 1.10, 128_000),
+    "deepseek-r1": (0.55, 2.19, 128_000),
+    "llama-3.3-70b-instruct": (0.268, 0.358, 128_000),
+    "mistral-large-3": (2.00, 6.00, 128_000),
+    "grok-3": (3.00, 15.00, 131_072),
+    "grok-3-mini": (0.30, 0.50, 131_072),
+    "cohere-command-r-plus": (2.50, 10.00, 128_000),  # updated for Foundry
+    "gpt-4.1": (2.00, 8.00, 1_047_576),
+    "gpt-4.1-mini": (0.40, 1.60, 1_047_576),
+    "gpt-4.1-nano": (0.10, 0.40, 1_047_576),
+    "gpt-5-mini": (1.50, 6.00, 1_047_576),
+    "o4-mini": (1.10, 4.40, 200_000),
 }
 
 
@@ -88,19 +102,23 @@ class AzureFoundryProvider(CloudProvider):
 
     def __init__(
         self,
-        tenant_id: str,
-        client_id: str,
-        client_secret: str,
-        subscription_id: str,
+        tenant_id: str = "",
+        client_id: str = "",
+        client_secret: str = "",
+        subscription_id: str = "",
         resource_group: str = "",
         endpoint: str = "",
+        azure_mode: str = "foundry",
+        api_key: str = "",
     ):
         self._tenant_id = tenant_id
         self._client_id = client_id
         self._client_secret = client_secret
         self._subscription_id = subscription_id
         self._resource_group = resource_group
-        self._endpoint = endpoint  # Azure OpenAI endpoint URL
+        self._endpoint = endpoint  # Azure OpenAI endpoint URL or Foundry endpoint
+        self._azure_mode = azure_mode  # "foundry" | "openai"
+        self._api_key = api_key  # For Foundry mode
         self._token: Optional[str] = None
         self._token_expires: float = 0
 
@@ -132,27 +150,55 @@ class AzureFoundryProvider(CloudProvider):
 
     async def validate_credentials(self) -> CredentialInfo:
         try:
-            token = await self._get_token()
-            # Verify by listing subscriptions
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"https://management.azure.com/subscriptions/{self._subscription_id}?api-version=2022-12-01",
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-                if resp.status_code == 200:
-                    sub = resp.json()
-                    return CredentialInfo(
-                        valid=True,
-                        account_id=self._subscription_id,
-                        user_id=self._client_id,
-                        message=f"Connected to subscription: {sub.get('displayName', self._subscription_id)}",
+            if self._azure_mode == "foundry":
+                # Foundry mode validation - test API key against models endpoint
+                if not self._api_key or not self._endpoint:
+                    return CredentialInfo(valid=False, message="Foundry mode requires api_key and endpoint")
+                
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        f"{self._endpoint.rstrip('/')}/models?api-version=2024-05-01-preview",
+                        headers={"api-key": self._api_key},
+                        timeout=10.0,
                     )
-                elif resp.status_code == 401:
-                    return CredentialInfo(valid=False, message="Authentication failed — check client credentials")
-                elif resp.status_code == 403:
-                    return CredentialInfo(valid=False, message="Access denied — service principal lacks Reader role on subscription")
-                else:
-                    return CredentialInfo(valid=False, message=f"Azure error ({resp.status_code}): {resp.text[:200]}")
+                    if resp.status_code == 200:
+                        return CredentialInfo(
+                            valid=True,
+                            account_id=self._endpoint.split("//")[-1].split(".")[0],  # extract resource name
+                            user_id="foundry-api-key",
+                            message=f"Connected to Azure AI Foundry: {self._endpoint}",
+                        )
+                    elif resp.status_code == 401:
+                        return CredentialInfo(valid=False, message="Authentication failed — check API key")
+                    elif resp.status_code == 403:
+                        return CredentialInfo(valid=False, message="Access denied — check API key permissions")
+                    else:
+                        return CredentialInfo(valid=False, message=f"Azure AI Foundry error ({resp.status_code}): {resp.text[:200]}")
+            
+            else:  # azure_mode == "openai" 
+                # Original OpenAI mode validation
+                token = await self._get_token()
+                # Verify by listing subscriptions
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        f"https://management.azure.com/subscriptions/{self._subscription_id}?api-version=2022-12-01",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    if resp.status_code == 200:
+                        sub = resp.json()
+                        return CredentialInfo(
+                            valid=True,
+                            account_id=self._subscription_id,
+                            user_id=self._client_id,
+                            message=f"Connected to subscription: {sub.get('displayName', self._subscription_id)}",
+                        )
+                    elif resp.status_code == 401:
+                        return CredentialInfo(valid=False, message="Authentication failed — check client credentials")
+                    elif resp.status_code == 403:
+                        return CredentialInfo(valid=False, message="Access denied — service principal lacks Reader role on subscription")
+                    else:
+                        return CredentialInfo(valid=False, message=f"Azure error ({resp.status_code}): {resp.text[:200]}")
+        
         except httpx.ConnectError:
             return CredentialInfo(valid=False, message="Cannot reach Azure — check network connectivity")
         except Exception as e:
@@ -330,9 +376,8 @@ class AzureFoundryProvider(CloudProvider):
         self, model_id: str, prompt: str, max_tokens: int = 1024, temperature: float = 0.7
     ) -> InvocationResult:
         if not self._endpoint:
-            raise RuntimeError("No Azure OpenAI endpoint configured — set endpoint when connecting")
+            raise RuntimeError("No Azure endpoint configured — set endpoint when connecting")
 
-        token = await self._get_cognitive_token()
         body = {
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
@@ -342,14 +387,29 @@ class AzureFoundryProvider(CloudProvider):
         start = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=120.0) as client:
-                resp = await client.post(
-                    f"{self._endpoint.rstrip('/')}/openai/deployments/{model_id}/chat/completions?api-version=2024-06-01",
-                    headers={
-                        "Authorization": f"Bearer {token}",
-                        "Content-Type": "application/json",
-                    },
-                    json=body,
-                )
+                if self._azure_mode == "foundry":
+                    # Foundry mode - single endpoint with model parameter
+                    body["model"] = model_id
+                    resp = await client.post(
+                        f"{self._endpoint.rstrip('/')}/models/chat/completions?api-version=2024-05-01-preview",
+                        headers={
+                            "api-key": self._api_key,
+                            "Content-Type": "application/json",
+                        },
+                        json=body,
+                    )
+                else:
+                    # OpenAI mode - per-deployment endpoint  
+                    token = await self._get_cognitive_token()
+                    resp = await client.post(
+                        f"{self._endpoint.rstrip('/')}/openai/deployments/{model_id}/chat/completions?api-version=2024-06-01",
+                        headers={
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
+                        },
+                        json=body,
+                    )
+                
                 latency_ms = (time.monotonic() - start) * 1000
 
                 if resp.status_code == 200:
@@ -367,13 +427,15 @@ class AzureFoundryProvider(CloudProvider):
                         model_id=model_id,
                     )
                 elif resp.status_code == 404:
-                    raise RuntimeError(f"Deployment '{model_id}' not found — check Azure OpenAI deployments")
+                    deployment_type = "deployment" if self._azure_mode == "openai" else "model"
+                    raise RuntimeError(f"{deployment_type.capitalize()} '{model_id}' not found — check Azure {self._azure_mode} {deployment_type}s")
                 elif resp.status_code == 429:
-                    raise RuntimeError("Rate limited — Azure OpenAI quota exceeded, try again shortly")
+                    raise RuntimeError(f"Rate limited — Azure {self._azure_mode} quota exceeded, try again shortly")
                 elif resp.status_code == 401:
-                    raise RuntimeError("Authentication failed — credentials may have expired")
+                    auth_type = "API key" if self._azure_mode == "foundry" else "credentials"
+                    raise RuntimeError(f"Authentication failed — {auth_type} may have expired")
                 else:
-                    raise RuntimeError(f"Azure OpenAI error ({resp.status_code}): {resp.text[:300]}")
+                    raise RuntimeError(f"Azure {self._azure_mode} error ({resp.status_code}): {resp.text[:300]}")
 
         except httpx.TimeoutException:
             raise RuntimeError("Model invocation timed out — try a shorter prompt")

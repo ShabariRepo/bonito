@@ -197,33 +197,49 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                     base_url = c.get("endpoint", "")
                     if not base_url:
                         continue
-                    # Prefer direct API key if available; otherwise use
-                    # Azure AD token from service principal credentials.
-                    api_key = c.get("api_key", "")
-                    azure_ad_token = None
-                    if not api_key:
-                        tenant = c.get("tenant_id", "")
-                        client_id = c.get("client_id", "")
-                        client_secret = c.get("client_secret", "")
-                        if tenant and client_id and client_secret:
-                            try:
-                                azure_ad_token = await _get_azure_ad_token(
-                                    tenant, client_id, client_secret
-                                )
-                            except Exception as e:
-                                logger.warning(f"Azure AD token fetch failed: {e}")
+                    
+                    # Read azure_mode from credentials (default to "openai" for backward compat)
+                    azure_mode = c.get("azure_mode", "openai")
+                    
+                    if azure_mode == "foundry":
+                        # Foundry mode: use azure_ai/ prefix with api_key
+                        api_key = c.get("api_key", "")
+                        if not api_key:
+                            continue  # Foundry requires API key
+                        litellm_params = {
+                            "model": f"azure_ai/{deployment_name}",
+                            "api_base": base_url,
+                            "api_key": api_key,
+                        }
+                    else:  # azure_mode == "openai" 
+                        # OpenAI mode: original logic with azure/ prefix
+                        # Prefer direct API key if available; otherwise use
+                        # Azure AD token from service principal credentials.
+                        api_key = c.get("api_key", "")
+                        azure_ad_token = None
+                        if not api_key:
+                            tenant = c.get("tenant_id", "")
+                            client_id = c.get("client_id", "")
+                            client_secret = c.get("client_secret", "")
+                            if tenant and client_id and client_secret:
+                                try:
+                                    azure_ad_token = await _get_azure_ad_token(
+                                        tenant, client_id, client_secret
+                                    )
+                                except Exception as e:
+                                    logger.warning(f"Azure AD token fetch failed: {e}")
+                                    continue
+                            else:
                                 continue
+                        litellm_params = {
+                            "model": f"azure/{deployment_name}",
+                            "api_base": base_url,
+                            "api_version": "2024-12-01-preview",
+                        }
+                        if azure_ad_token:
+                            litellm_params["azure_ad_token"] = azure_ad_token
                         else:
-                            continue
-                    litellm_params = {
-                        "model": f"azure/{deployment_name}",
-                        "api_base": base_url,
-                        "api_version": "2024-12-01-preview",
-                    }
-                    if azure_ad_token:
-                        litellm_params["azure_ad_token"] = azure_ad_token
-                    else:
-                        litellm_params["api_key"] = api_key
+                            litellm_params["api_key"] = api_key
                 elif provider_type == "gcp":
                     sa_json = c.get("service_account_json")
                     vertex_credentials = None
