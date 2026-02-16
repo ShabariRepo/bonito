@@ -30,29 +30,8 @@ async def lifespan(app: FastAPI):
     from app.core.redis import init_redis
     await init_redis()
     
-    # Run Alembic migrations automatically on startup (safe — idempotent)
-    try:
-        import logging
-        import os
-        _log = logging.getLogger("bonito.startup")
-        _log.info("Running database migrations...")
-        from alembic.config import Config as AlembicConfig
-        from alembic import command as alembic_command
-        
-        # Resolve paths relative to the backend directory
-        backend_dir = os.path.join(os.path.dirname(__file__), "..")
-        alembic_cfg = AlembicConfig(os.path.join(backend_dir, "alembic.ini"))
-        alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
-        
-        # Use sync URL for Alembic (strip asyncpg)
-        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-        alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
-        
-        alembic_command.upgrade(alembic_cfg, "head")
-        _log.info("Database migrations complete.")
-    except Exception as e:
-        import logging
-        logging.getLogger("bonito.startup").warning(f"Migration failed (non-fatal): {e}")
+    # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
+    # Don't run them again here — with multiple workers they'd race each other.
     
     yield
     

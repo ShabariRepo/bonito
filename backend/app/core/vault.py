@@ -14,10 +14,14 @@ Usage:
     db_secrets = await vault_client.get_secrets("database")
 """
 
+import asyncio
+import logging
 import os
 import httpx
 from functools import lru_cache
 from typing import Optional
+
+logger = logging.getLogger("bonito.vault")
 
 
 class VaultClient:
@@ -32,28 +36,48 @@ class VaultClient:
         self.mount = mount or os.getenv("VAULT_MOUNT", "secret")
         self._cache: dict = {}
 
-    async def get_secrets(self, path: str) -> dict:
-        """Get all key-value pairs at a secret path."""
+    async def get_secrets(self, path: str, retries: int = 0) -> dict:
+        """Get all key-value pairs at a secret path.
+        
+        Args:
+            retries: number of retry attempts with exponential backoff (0 = no retry)
+        """
         if path in self._cache:
             return self._cache[path]
 
         url = f"{self.addr}/v1/{self.mount}/data/{path}"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                url,
-                headers={"X-Vault-Token": self.token},
-                timeout=5.0,
-            )
-            if resp.status_code == 200:
-                data = resp.json()["data"]["data"]
-                self._cache[path] = data
-                return data
-            elif resp.status_code == 404:
-                return {}
-            else:
-                raise Exception(
-                    f"Vault error ({resp.status_code}): {resp.text}"
+        last_error = None
+        
+        for attempt in range(retries + 1):
+            try:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        url,
+                        headers={"X-Vault-Token": self.token},
+                        timeout=5.0,
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()["data"]["data"]
+                        self._cache[path] = data
+                        return data
+                    elif resp.status_code == 404:
+                        return {}
+                    else:
+                        last_error = Exception(
+                            f"Vault error ({resp.status_code}): {resp.text}"
+                        )
+            except (httpx.ConnectError, httpx.TimeoutException, OSError) as e:
+                last_error = e
+            
+            if attempt < retries:
+                wait = min(2 ** attempt, 10)  # 1s, 2s, 4s, 8s, 10s
+                logger.warning(
+                    f"Vault unreachable (attempt {attempt + 1}/{retries + 1}), "
+                    f"retrying in {wait}s: {last_error}"
                 )
+                await asyncio.sleep(wait)
+        
+        raise last_error or Exception("Vault unreachable after retries")
 
     async def get_secret(self, path: str, key: str, default: str = None) -> Optional[str]:
         """Get a single secret value."""

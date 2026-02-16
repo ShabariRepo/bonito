@@ -46,11 +46,13 @@ class Settings(BaseSettings):
         If neither source provides required secrets, raises an error.
         """
         vault_ok = False
+        # Use retries in production (Vault may be starting up alongside us)
+        _retries = 5 if self.production_mode else 0
         try:
-            # Try Vault first
-            app_secrets = await vault_client.get_secrets("app")
-            api_secrets = await vault_client.get_secrets("api")
-            notion_secrets = await vault_client.get_secrets("notion")
+            # Try Vault first (with retries to survive simultaneous deploys)
+            app_secrets = await vault_client.get_secrets("app", retries=_retries)
+            api_secrets = await vault_client.get_secrets("api", retries=_retries)
+            notion_secrets = await vault_client.get_secrets("notion", retries=_retries)
             
             self.secret_key = app_secrets.get("secret_key") or self.secret_key
             self.encryption_key = app_secrets.get("encryption_key") or self.encryption_key
