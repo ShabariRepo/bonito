@@ -689,6 +689,63 @@ async def activate_model(
         flag_modified(model, "pricing_info")
         await db.flush()
         
+        # Azure: auto-create a Deployment record so the gateway can route
+        # to the real Azure deployment name (azure/{deployment_name}).
+        if provider.provider_type == "azure":
+            try:
+                from app.services.deployment_service import deploy_azure as deploy_azure_arm
+                from app.models.deployment import Deployment as DeploymentRecord
+                
+                dep_name = model.model_id.replace(".", "-").replace("/", "-")[:64]
+                deploy_config = {"name": dep_name, "tpm": 1, "tier": "Standard"}
+                
+                deploy_result = await deploy_azure_arm(
+                    model_id=model.model_id,
+                    config=deploy_config,
+                    tenant_id=secrets.get("tenant_id", ""),
+                    client_id=secrets.get("client_id", ""),
+                    client_secret=secrets.get("client_secret", ""),
+                    endpoint=secrets.get("endpoint", ""),
+                    subscription_id=secrets.get("subscription_id", ""),
+                    resource_group=secrets.get("resource_group", ""),
+                )
+                
+                if deploy_result.success:
+                    # Avoid duplicate Deployment records
+                    existing_dep = await db.execute(
+                        select(DeploymentRecord).where(
+                            and_(
+                                DeploymentRecord.org_id == user.org_id,
+                                DeploymentRecord.model_id == model.id,
+                            )
+                        )
+                    )
+                    if not existing_dep.scalar_one_or_none():
+                        new_dep = DeploymentRecord(
+                            org_id=user.org_id,
+                            model_id=model.id,
+                            provider_id=provider.id,
+                            config={
+                                "name": dep_name,
+                                "cloud_model_id": model.model_id,
+                                "provider_type": "azure",
+                                "endpoint_url": deploy_result.endpoint_url,
+                                "cloud_resource_id": deploy_result.cloud_resource_id,
+                                "tpm": 1,
+                                "tier": "Standard",
+                            },
+                            status=deploy_result.status if deploy_result.status in ("active", "deploying") else "active",
+                        )
+                        db.add(new_dep)
+                        await db.flush()
+                        logger.info(f"Auto-created Azure deployment '{dep_name}' for model {model.model_id}")
+                else:
+                    logger.warning(
+                        f"Azure auto-deploy failed for {model.model_id}: {deploy_result.message}"
+                    )
+            except Exception as e:
+                logger.warning(f"Azure auto-deploy failed for {model.model_id}: {e}")
+        
         # Invalidate gateway router cache so new model is available
         from app.services.gateway import reset_router
         await reset_router(user.org_id)

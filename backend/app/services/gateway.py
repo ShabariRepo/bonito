@@ -27,6 +27,7 @@ from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit
 from app.models.policy import Policy
 from app.models.routing_policy import RoutingPolicy
 from app.models.model import Model
+from app.models.deployment import Deployment
 from app.schemas.gateway import RoutingStrategy
 
 logger = logging.getLogger(__name__)
@@ -148,6 +149,24 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
             )
             rows = result.all()
             
+            # Pre-fetch active Azure deployments for this org so we can
+            # map catalog models → real deployment names that Azure needs.
+            azure_deployments_by_model: dict[uuid.UUID, Deployment] = {}
+            try:
+                dep_result = await db.execute(
+                    select(Deployment).where(
+                        and_(
+                            Deployment.org_id == org_id,
+                            Deployment.status.in_(["active", "deploying"]),
+                        )
+                    )
+                )
+                for dep in dep_result.scalars().all():
+                    if (dep.config or {}).get("provider_type") == "azure":
+                        azure_deployments_by_model[dep.model_id] = dep
+            except Exception as e:
+                logger.warning(f"Failed to fetch Azure deployments: {e}")
+            
             for model, provider in rows:
                 provider_type = provider.provider_type
                 if provider_type not in creds:
@@ -165,6 +184,16 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         "aws_region_name": c.get("region", "us-east-1"),
                     }
                 elif provider_type == "azure":
+                    # Azure requires explicit deployments. Only include
+                    # models that have an active Deployment record whose
+                    # config contains the real Azure deployment name.
+                    deployment = azure_deployments_by_model.get(model.id)
+                    if not deployment:
+                        continue  # no deployment → skip this model
+                    deployment_name = (deployment.config or {}).get("name")
+                    if not deployment_name:
+                        continue
+                    
                     base_url = c.get("endpoint", "")
                     if not base_url:
                         continue
@@ -187,7 +216,7 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         else:
                             continue
                     litellm_params = {
-                        "model": f"azure/{model_id}",
+                        "model": f"azure/{deployment_name}",
                         "api_base": base_url,
                         "api_version": "2024-12-01-preview",
                     }
@@ -252,33 +281,10 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                 "litellm_params": {"model": f"bedrock/{model}", **common},
             })
 
-    if "azure" in creds:
-        c = creds["azure"]
-        base_url = c.get("endpoint", "")
-        api_key = c.get("api_key", "")
-        azure_ad_token = None
-        if not api_key:
-            tenant = c.get("tenant_id", "")
-            client_id = c.get("client_id", "")
-            client_secret = c.get("client_secret", "")
-            if tenant and client_id and client_secret:
-                try:
-                    import asyncio
-                    azure_ad_token = await _get_azure_ad_token(tenant, client_id, client_secret)
-                except Exception:
-                    pass
-        if base_url and (api_key or azure_ad_token):
-            for model in ["gpt-4o", "gpt-4o-mini"]:
-                params: dict = {
-                    "model": f"azure/{model}",
-                    "api_base": base_url,
-                    "api_version": "2024-12-01-preview",
-                }
-                if azure_ad_token:
-                    params["azure_ad_token"] = azure_ad_token
-                else:
-                    params["api_key"] = api_key
-                model_list.append({"model_name": model, "litellm_params": params})
+    # Azure fallback: skipped — Azure requires explicit deployments tracked
+    # in the Deployment table (queried in the dynamic path above). Without
+    # DB access the fallback cannot resolve deployment names, so Azure
+    # models are only available via the dynamic model list.
 
     if "gcp" in creds:
         c = creds["gcp"]
