@@ -31,15 +31,37 @@ router = APIRouter(prefix="/models", tags=["models"])
 
 
 async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dict:
-    """Fetch models from cloud API and upsert into DB. Returns sync result dict."""
+    """Fetch models from cloud API and upsert into DB. Returns sync result dict.
+    
+    Uses upsert strategy: existing models with deployments are updated in-place,
+    models without deployments are deleted and re-created, new models are inserted.
+    """
+    from app.models.deployment import Deployment
     try:
         cloud_models = await get_models_for_provider(provider.provider_type, str(provider.id))
 
         if not cloud_models:
             return {"count": 0, "error": None}
 
-        # Delete existing models for this provider, then re-insert
-        await db.execute(delete(Model).where(Model.provider_id == provider.id))
+        # Get model IDs that have deployments (protected — can't delete these)
+        deployed_result = await db.execute(
+            select(Model.id, Model.model_id).where(
+                Model.provider_id == provider.id,
+                Model.id.in_(select(Deployment.model_id))
+            )
+        )
+        deployed_models = {row.model_id: row.id for row in deployed_result.all()}
+
+        # Delete only non-deployed models for this provider
+        if deployed_models:
+            await db.execute(
+                delete(Model).where(
+                    Model.provider_id == provider.id,
+                    ~Model.id.in_(list(deployed_models.values()))
+                )
+            )
+        else:
+            await db.execute(delete(Model).where(Model.provider_id == provider.id))
 
         count = 0
         for m in cloud_models:
@@ -52,8 +74,19 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dic
                 val = getattr(m, field, None)
                 if val is not None:
                     pricing[field] = val
-            status = getattr(m, "status", "available")
-            pricing["status"] = status
+            status_val = getattr(m, "status", "available")
+            pricing["status"] = status_val
+
+            # If this model has a deployment, update it in-place instead of inserting
+            if str(model_id) in deployed_models:
+                existing_id = deployed_models[str(model_id)]
+                existing = await db.get(Model, existing_id)
+                if existing:
+                    existing.display_name = str(display_name)
+                    existing.capabilities = capabilities
+                    existing.pricing_info = pricing
+                    count += 1
+                    continue
 
             db_model = Model(
                 provider_id=provider.id,
@@ -81,11 +114,18 @@ async def sync_all_models(db: AsyncSession = Depends(get_db), user: User = Depen
     details = {}
     errors = {}
     for p in providers:
-        sync_result = await sync_provider_models(p, db)
-        total += sync_result["count"]
-        details[p.provider_type] = sync_result["count"]
-        if sync_result["error"]:
-            errors[p.provider_type] = sync_result["error"]
+        # Use a savepoint per provider so one failure doesn't poison the whole transaction
+        try:
+            async with db.begin_nested():
+                sync_result = await sync_provider_models(p, db)
+                total += sync_result["count"]
+                details[p.provider_type] = sync_result["count"]
+                if sync_result["error"]:
+                    errors[p.provider_type] = sync_result["error"]
+        except Exception as e:
+            logger.error(f"Sync savepoint failed for {p.provider_type}: {e}")
+            details[p.provider_type] = 0
+            errors[p.provider_type] = str(e)
     response = {"synced": total, "details": details}
     if errors:
         response["errors"] = errors
