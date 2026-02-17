@@ -215,7 +215,7 @@ function renderInline(text: string): React.ReactNode {
 
   while (remaining.length > 0) {
     // Inline code
-    const codeMatch = remaining.match(/^(.*?)`([^`]+)`(.*)/s);
+    const codeMatch = remaining.match(/^([\s\S]*?)`([^`]+)`([\s\S]*)/);
     if (codeMatch) {
       if (codeMatch[1]) {
         parts.push(<span key={partKey++}>{renderBold(codeMatch[1])}</span>);
