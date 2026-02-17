@@ -581,6 +581,202 @@ Every request logs:
 View in Dashboard under **Analytics** or **API Gateway → Logs**.
 """
     },
+    {
+        "slug": "vpc-gateway-agent",
+        "title": "VPC Gateway Agent Architecture",
+        "description": "How the Bonito Agent deploys into customer VPCs — control plane/data plane split, metrics sync, and policy enforcement.",
+        "category": "Architecture",
+        "updated_at": "2026-02-17",
+        "content": """# VPC Gateway Agent Architecture
+
+## Overview
+
+The Bonito Agent is a lightweight container deployed into a customer's VPC. It handles the **data plane** (AI requests with prompts and responses) locally, while the **control plane** (policies, analytics, billing) stays on Bonito's SaaS infrastructure.
+
+This is the same model used by Datadog (agent), Kong (Konnect data plane), HashiCorp (HCP), and Tailscale (node).
+
+```
+┌─── Customer VPC ─────────────────────────────────────────┐
+│                                                           │
+│  Customer Apps ──→ Bonito Agent                           │
+│                        │                                  │
+│                        ├──→ AWS Bedrock      ← DATA PLANE │
+│                        ├──→ Azure OpenAI       (stays in  │
+│                        └──→ GCP Vertex AI       VPC)      │
+│                        │                                  │
+└────────────────────────│──────────────────────────────────┘
+                         │ outbound HTTPS only
+                         ↓
+              Bonito Control Plane (Railway + Vercel)
+              ├── Policy sync (routing rules, model restrictions)
+              ├── Analytics metadata (token counts, costs, latency)
+              ├── Config updates (API keys, rate limits)
+              └── Billing & metering
+```
+
+## What Stays in VPC (Data Plane)
+
+- **Prompts and responses** — actual AI content never leaves customer's network
+- **Cloud credentials** — read from customer's own secrets manager (AWS Secrets Manager, Azure Key Vault, GCP Secret Manager)
+- **Request/response payloads** — the heavy traffic (megabytes of tokens)
+- **LiteLLM routing** — model selection, fallback, retries all happen locally
+
+## What Syncs to Control Plane
+
+### Metrics (Agent → Railway)
+
+Every request, the agent pushes a metadata record:
+
+```json
+{
+  "model_requested": "gpt-4o",
+  "model_used": "gpt-4o",
+  "input_tokens": 500,
+  "output_tokens": 200,
+  "cost": 0.0035,
+  "latency_ms": 1200,
+  "status": "success",
+  "key_id": "uuid",
+  "timestamp": "2026-02-17T11:20:00Z"
+}
+```
+
+**No prompts. No responses. Just numbers.** This is the same `GatewayRequest` schema used by the shared gateway today.
+
+### Config & Policies (Railway → Agent)
+
+The agent pulls config from the control plane every 30 seconds:
+
+| What | Direction | Purpose |
+|------|-----------|---------|
+| **Model allow-lists** | Railway → Agent | Which models each key can access |
+| **Spend caps** | Railway → Agent | Daily/monthly spend limits per org |
+| **Rate limits** | Railway → Agent | Per-key request rate limits |
+| **Routing policies** | Railway → Agent | Failover chains, A/B test weights, cost-optimized routing |
+| **API key registry** | Railway → Agent | Valid key hashes for authentication |
+
+The agent **caches all config locally**. If it can't reach the control plane, it keeps enforcing the last-known policies (graceful degradation).
+
+## How Dashboard Features Work with VPC Agent
+
+| Feature | How It Works |
+|---------|-------------|
+| **Costs page** | Agent pushes cost metadata → stored in Postgres → dashboard reads it normally |
+| **Analytics page** | Same — token counts, latency, model usage all come from pushed metrics |
+| **Alerts** | Control plane checks usage data (from agent metrics) → fires alerts as usual |
+| **Policies** | Admin edits in dashboard → saved to DB → synced to agent on next pull |
+| **Audit logs** | Agent pushes: who called what model, when, status. No content. |
+| **Governance** | Spend caps and model restrictions enforced locally by agent |
+| **Team management** | Unchanged — managed entirely on control plane |
+| **Playground** | ⚠️ Routes through Bonito infra (not VPC). Note shown to user. |
+
+**Key insight**: The dashboard doesn't know or care whether data came from the shared gateway or a VPC agent. It reads from the same Postgres tables either way.
+
+## Bonito Agent Components
+
+```
+bonito-gateway-agent:latest (~50-100MB)
+├── LiteLLM Proxy
+│   ├── Model routing (failover, cost-optimized, A/B)
+│   ├── Rate limiting (local Redis or in-memory)
+│   └── Policy enforcement (cached from control plane)
+├── Config Sync Daemon
+│   ├── Pulls policies, keys, routing rules every 30s
+│   └── Hot-reloads on config change
+├── Metrics Reporter
+│   ├── Batches request metadata
+│   └── Pushes to control plane every 10s
+└── Health Reporter
+    ├── Heartbeat to control plane every 60s
+    └── Reports: uptime, version, connected providers
+```
+
+**What it's NOT:**
+- Not a full Bonito deployment (no Postgres, no Vault, no frontend)
+- Not managing credentials on Bonito's side — reads from customer's secrets manager
+- Not a maintenance burden — auto-updates from Bonito's container registry
+
+## Authentication
+
+### Org Token (`bt-xxxxx`)
+
+The agent authenticates to the control plane using an **org token**, separate from user API keys:
+
+- `bt-` prefix → agent-to-control-plane auth (config sync, metrics push)
+- `bn-` prefix → end-user API keys (customer apps → agent)
+- `rt-` prefix → routing policy keys
+
+The org token is provisioned when an enterprise customer enables VPC mode in their dashboard.
+
+### Customer App → Agent
+
+Customer apps authenticate to the VPC agent the same way they would to the shared gateway — with `bn-` API keys. No SDK changes needed. Just change the base URL:
+
+```python
+# Before (shared gateway):
+client = OpenAI(base_url="https://api.getbonito.com/v1", api_key="bn-xxx")
+
+# After (VPC agent):
+client = OpenAI(base_url="http://bonito-agent.internal:8000/v1", api_key="bn-xxx")
+```
+
+## Deployment Options
+
+### Docker Compose
+```yaml
+services:
+  bonito-agent:
+    image: ghcr.io/bonito/gateway-agent:latest
+    environment:
+      - BONITO_CONTROL_PLANE=https://api.getbonito.com
+      - BONITO_ORG_TOKEN=bt-xxxxx
+      - AWS_REGION=us-east-1
+      # Customer's credentials from their secrets manager
+      - AWS_ACCESS_KEY_ID=from-secrets-manager
+      - AWS_SECRET_ACCESS_KEY=from-secrets-manager
+    ports:
+      - "8000:8000"
+```
+
+### Kubernetes (Helm)
+```bash
+helm install bonito-gateway bonito/gateway-agent \\
+  --set controlPlane.url=https://api.getbonito.com \\
+  --set controlPlane.token=bt-xxxxx \\
+  --set replicas=3
+```
+
+### Terraform (AWS ECS/Fargate)
+```hcl
+module "bonito_gateway" {
+  source     = "bonito/gateway-agent/aws"
+  vpc_id     = var.vpc_id
+  subnet_ids = var.private_subnets
+  org_token  = var.bonito_org_token
+}
+```
+
+## Edge Cases
+
+| Scenario | Behavior |
+|----------|----------|
+| Agent can't reach control plane | Continues with last-known config; queues metrics for retry |
+| Credential rotation | Agent watches secrets manager; hot-reloads on change |
+| Agent goes dark (no heartbeat >5 min) | Control plane alerts org admins |
+| Dashboard Playground | Routes through Bonito infra with warning note |
+| Multiple agents (HA) | Each agent is stateless; multiple replicas behind customer's LB |
+| Agent version update | Auto-pull from registry; rolling restart if Kubernetes |
+
+## Build Timeline
+
+| Week | Deliverable |
+|------|------------|
+| 1 | Split gateway service into "full mode" vs "agent mode"; config sync protocol |
+| 2 | Agent container image; org token auth (`bt-`); metrics push endpoint |
+| 3 | Terraform modules (AWS ECS, Azure Container Apps, GCP Cloud Run) |
+| 4 | Dashboard: VPC status page, agent health monitoring, deployment instructions |
+"""
+    },
 ]
 
 
