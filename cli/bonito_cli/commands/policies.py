@@ -119,24 +119,31 @@ def create_policy(
         models = Prompt.ask("Model UUIDs (comma-separated)")
 
     model_list = [m.strip() for m in models.split(",") if m.strip()]
+    # Backend expects models as list of ModelConfiguration objects
+    model_configs = [{"model_id": m, "weight": 50, "role": "primary"} for m in model_list]
 
     try:
         with console.status("[cyan]Creating policy…[/cyan]"):
             result = api.post(f"{_RP}/", {
                 "name": name,
                 "strategy": strategy,
-                "model_ids": model_list,
+                "models": model_configs,
             })
 
         if fmt == "json":
             console.print_json(_json.dumps(result, default=str))
         else:
             print_success(f"Policy '{name}' created")
+            result_models = result.get("models", [])
+            if result_models and isinstance(result_models[0], dict):
+                model_text = f"{len(result_models)} model(s)"
+            else:
+                model_text = ", ".join(str(m) for m in model_list)
             details = {
                 "ID": str(result.get("id", "—")),
                 "Name": result.get("name", name),
                 "Strategy": (result.get("strategy", strategy) or "").replace("_", " ").title(),
-                "Models": ", ".join(str(m) for m in result.get("model_ids", model_list)),
+                "Models": model_text,
             }
             print_dict_as_table(details, title="Policy Details")
     except APIError as exc:
@@ -165,21 +172,43 @@ def policy_info(
             info = {
                 "ID": str(p.get("id", "—")),
                 "Name": p.get("name", "—"),
+                "Description": p.get("description", "—") or "—",
                 "Strategy": (p.get("strategy", "—") or "—").replace("_", " ").title(),
                 "Active": "✓" if p.get("enabled", p.get("is_active", True)) else "✗",
+                "API Key Prefix": p.get("api_key_prefix", "—"),
                 "Created": p.get("created_at", "—"),
             }
             print_dict_as_table(info, title=f"🎯 {p.get('name', 'Policy')}")
 
+            model_names = p.get("model_names", {})
             models = p.get("models", p.get("model_ids", []))
             if models:
                 rows = []
                 for m in models:
                     if isinstance(m, dict):
-                        rows.append({"Model": m.get("id", "—"), "Priority": m.get("priority", "—")})
+                        mid = str(m.get("model_id", "—"))
+                        display = model_names.get(mid, mid[:12] + "…")
+                        rows.append({
+                            "Model": display,
+                            "Weight": f"{m.get('weight', '—')}%",
+                            "Role": m.get("role", "—"),
+                        })
                     else:
-                        rows.append({"Model": str(m)})
+                        display = model_names.get(str(m), str(m))
+                        rows.append({"Model": display})
                 print_table(rows, title="Models")
+
+            rules = p.get("rules", {})
+            if rules and any(v is not None for v in rules.values()):
+                rule_info = {}
+                if rules.get("max_cost_per_request") is not None:
+                    rule_info["Max Cost/Request"] = f"${rules['max_cost_per_request']}"
+                if rules.get("max_tokens") is not None:
+                    rule_info["Max Tokens"] = str(rules["max_tokens"])
+                if rules.get("region_preference"):
+                    rule_info["Region Preference"] = rules["region_preference"]
+                if rule_info:
+                    print_dict_as_table(rule_info, title="Rules")
     except APIError as exc:
         print_error(f"Failed to get policy: {exc}")
 
@@ -211,23 +240,18 @@ def test_policy(
         else:
             console.print("\n[bold green]🧪 Policy Test[/bold green]")
             info = {
-                "Selected Model": result.get("selected_model", result.get("model", "—")),
-                "Strategy": result.get("strategy", "—"),
-                "Reasoning": result.get("reasoning", result.get("reason", "—")),
+                "Selected Model": result.get("selected_model_name", result.get("selected_model", "—")),
+                "Model ID": str(result.get("selected_model_id", "—"))[:12] + "…",
+                "Strategy": (result.get("strategy_used", result.get("strategy", "—")) or "—").replace("_", " ").title(),
+                "Reasoning": result.get("selection_reason", result.get("reasoning", "—")),
             }
+            est_cost = result.get("estimated_cost")
+            if est_cost is not None:
+                info["Est. Cost"] = format_cost(est_cost)
+            est_latency = result.get("estimated_latency_ms")
+            if est_latency is not None:
+                info["Est. Latency"] = f"{est_latency}ms"
             print_dict_as_table(info, title="Result")
-
-            evals = result.get("model_options", result.get("evaluations", []))
-            if evals:
-                rows = []
-                for e in evals:
-                    sel = "✓ SELECTED" if e.get("selected") else "—"
-                    rows.append({
-                        "Model": e.get("model", e.get("model_id", "—")),
-                        "Score": str(e.get("score", e.get("cost", "—"))),
-                        "Selected": sel,
-                    })
-                print_table(rows, title="Evaluation")
             print_info("Dry-run — no actual API call was made")
     except APIError as exc:
         print_error(f"Policy test failed: {exc}")
@@ -253,19 +277,32 @@ def policy_stats(
             console.print_json(_json.dumps(stats, default=str))
         else:
             info = {
-                "Total Requests": f"{stats.get('total_requests', 0):,}",
+                "Total Requests": f"{stats.get('request_count', stats.get('total_requests', 0)):,}",
+                "Last 24h": f"{stats.get('last_24h_requests', 0):,}",
                 "Success Rate": f"{stats.get('success_rate', 0):.1f}%",
                 "Avg Latency": f"{stats.get('avg_latency_ms', 0):.0f}ms",
                 "Total Cost": format_cost(stats.get("total_cost", 0)),
             }
             print_dict_as_table(info, title=f"📊 Policy Stats")
 
-            dist = stats.get("model_distribution", [])
+            dist = stats.get("model_distribution", {})
             if dist:
-                rows = [
-                    {"Model": d.get("model", "—"), "Requests": f"{d.get('requests', 0):,}", "%": f"{d.get('percentage', 0):.1f}%"}
-                    for d in dist
-                ]
+                # model_distribution is {model_id: request_count}
+                if isinstance(dist, dict):
+                    total = sum(dist.values()) or 1
+                    rows = [
+                        {
+                            "Model": mid[:12] + "…",
+                            "Requests": f"{count:,}",
+                            "%": f"{(count / total * 100):.1f}%",
+                        }
+                        for mid, count in dist.items()
+                    ]
+                else:
+                    rows = [
+                        {"Model": d.get("model", "—") if isinstance(d, dict) else str(d), "Requests": f"{d.get('requests', 0):,}" if isinstance(d, dict) else "—"}
+                        for d in dist
+                    ]
                 print_table(rows, title="Model Distribution")
     except APIError as exc:
         print_error(f"Failed to get policy stats: {exc}")

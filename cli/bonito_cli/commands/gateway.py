@@ -46,14 +46,16 @@ def gateway_status(
         if fmt == "json":
             console.print_json(_json.dumps(config, default=str))
         else:
+            # Map backend fields to display
+            providers = config.get("enabled_providers", {})
+            active = [k.upper() for k, v in providers.items() if v] if isinstance(providers, dict) else []
             info = {
-                "Endpoint": config.get("endpoint", config.get("base_url", "—")),
-                "Default Model": config.get("default_model", "—"),
-                "Rate Limit": f"{config.get('rate_limit', '—')} req/min",
-                "Streaming": "✓" if config.get("enable_streaming", True) else "✗",
-                "Logging": "✓" if config.get("enable_logging", True) else "✗",
+                "Routing Strategy": (config.get("routing_strategy", "—") or "—").replace("-", " ").title(),
+                "Default Rate Limit": f"{config.get('default_rate_limit', config.get('rate_limit', '—'))} req/min",
+                "Cost Tracking": "✓" if config.get("cost_tracking_enabled", True) else "✗",
+                "Active Providers": ", ".join(active) if active else "—",
             }
-            print_dict_as_table(info, title="🌐 Gateway Configuration")
+            print_dict_as_table(info, title="🌐 Gateway Status")
     except APIError as exc:
         print_error(f"Failed to get gateway status: {exc}")
 

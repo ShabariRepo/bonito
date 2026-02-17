@@ -214,8 +214,12 @@ def sync_models(
             console.print_json(_json.dumps(result, default=str))
         else:
             print_success("Model sync complete")
-            added = result.get("added", result.get("models_added", 0))
-            console.print(f"  ➕ Added: {added}")
+            synced = result.get("synced", result.get("added", result.get("models_added", 0)))
+            console.print(f"  📦 Synced: {synced}")
+            details = result.get("details", {})
+            if details and isinstance(details, dict):
+                for provider, count in details.items():
+                    console.print(f"  ☁️  {provider.upper()}: {count}")
             if result.get("errors"):
                 for err in result["errors"]:
                     console.print(f"  [red]✗[/red] {err}")
