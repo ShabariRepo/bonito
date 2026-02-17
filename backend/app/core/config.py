@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     db_max_overflow: int = 20
     db_pool_timeout: int = 30
 
+    # Redis connection pool
+    redis_max_connections: int = 20
+
+    # Platform admin emails (comma-separated, checked for /api/admin/* access)
+    admin_emails: str = ""
+
     class Config:
         env_file = ".env"
 
