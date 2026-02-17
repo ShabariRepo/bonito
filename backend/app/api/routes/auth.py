@@ -285,6 +285,31 @@ async def logout(
     await auth_service.invalidate_session(r, str(user.id))
 
 
-@router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return user
+@router.get("/me")
+async def me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current user profile with organization details."""
+    org_name = None
+    try:
+        result = await db.execute(
+            select(Organization).where(Organization.id == user.org_id)
+        )
+        org = result.scalar_one_or_none()
+        if org:
+            org_name = org.name
+    except Exception:
+        pass
+
+    return {
+        "id": str(user.id),
+        "org_id": str(user.org_id),
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "avatar_url": user.avatar_url,
+        "email_verified": user.email_verified,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "org": {"name": org_name} if org_name else None,
+    }

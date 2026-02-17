@@ -141,11 +141,15 @@ def _oneshot(model: str, prompt: str, settings: Dict, json_flag: bool):
         with console.status("[cyan]Thinking…[/cyan]"):
             resp = api.post(f"/models/{model}/playground", {"messages": messages, **settings})
 
-        content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # Support both Bonito playground format {"response": "..."} and
+        # OpenAI format {"choices": [{"message": {"content": "..."}}]}
+        content = resp.get("response") or (
+            resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+        )
         usage = resp.get("usage", {})
-        latency = time.time() - t0
+        latency = resp.get("latency_ms", (time.time() - t0) * 1000) / 1000
         tokens = usage.get("total_tokens", len(content.split()))
-        cost = _estimate_cost(usage, model)
+        cost = resp.get("cost") or _estimate_cost(usage, model)
 
         if fmt == "json":
             console.print_json(_json.dumps(resp, default=str))
@@ -207,11 +211,13 @@ def _interactive(model: str, settings: Dict):
                 with console.status("[dim]Thinking…[/dim]"):
                     resp = api.post(f"/models/{model}/playground", {"messages": messages, **settings})
 
-                content = resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                content = resp.get("response") or (
+                    resp.get("choices", [{}])[0].get("message", {}).get("content", "")
+                )
                 usage = resp.get("usage", {})
-                latency = time.time() - t0
+                latency = resp.get("latency_ms", (time.time() - t0) * 1000) / 1000
                 tokens = usage.get("total_tokens", len(content.split()))
-                cost = _estimate_cost(usage, model)
+                cost = resp.get("cost") or _estimate_cost(usage, model)
 
                 console.print(f"\n[bold green]{model}:[/bold green]\n{content}")
                 ChatDisplay.print_stats(tokens, cost, latency)
