@@ -157,11 +157,12 @@ Per-customer gateway for isolation and performance guarantees:
 - SLA-backed throughput and latency guarantees
 
 ### Phase S4: VPC Gateway (Enterprise+)
-Gateway runs in customer's own cloud — data never leaves their network:
+Gateway runs in customer's own cloud — data never leaves their network.
+**The agent is fully stateless — no database on the customer's side.** It caches config in memory, pushes metrics to our Postgres, and serves requests via LiteLLM. All state lives in our control plane. See the **VPC Gateway Agent** article for the full architecture spec.
 
 ```
 ┌─── Customer VPC ─────────────────────────────┐
-│  Customer App → Bonito Gateway Agent          │
+│  Customer App → Bonito Agent (stateless)      │
 │                      ├── AWS Bedrock          │
 │                      ├── Azure OpenAI         │
 │                      └── GCP Vertex           │
@@ -169,6 +170,7 @@ Gateway runs in customer's own cloud — data never leaves their network:
 └──────────────────────│────────────────────────┘
                        ↓
               Bonito Control Plane (SaaS)
+              Our Postgres ← metrics pushed here
 ```
 
 ## Throughput Details
@@ -752,6 +754,42 @@ bonito-gateway-agent
 - User authentication (JWT, sessions)
 - Email service (Resend)
 - Notification system
+
+---
+
+## Stateless Agent — No Database Required
+
+The agent is **completely stateless**. It has no database, no persistent storage, and no disk dependencies. Everything is held in memory.
+
+```
+Agent (customer's VPC)                 Bonito Control Plane (Railway)
+
+┌───────────────────────┐              ┌──────────────────────────┐
+│  In-memory only:      │  push every  │  Postgres (OUR database) │
+│  - Config cache       │───10s───────→│  gateway_requests table  │
+│  - API key hashes     │  metrics     │  (single source of truth)│
+│  - Rate limit counters│              │                          │
+│  - Metrics retry queue│  pull every  │  policies, routing rules,│
+│  (no DB, no disk)     │←──30s────────│  gateway_keys, configs   │
+└───────────────────────┘  config      └──────────────────────────┘
+```
+
+| Data | Where it lives | Why there |
+|------|---------------|-----------|
+| Usage metrics / logs | **Our Postgres** (Railway) | Agent pushes metadata, we store it. Dashboard reads from here. |
+| Policies, keys, config | **Our Postgres** (Railway) | Source of truth. Agent caches in-memory. |
+| Rate limit counters | **Agent memory** | Ephemeral. Resets on restart. Acceptable. |
+| Metrics retry buffer | **Agent memory** | Queues up to 1 hour if control plane unreachable. Lost on crash. |
+
+**Why no database on the customer's side:**
+- **Simpler deployment** — one container, zero dependencies to manage
+- **No migrations, no backups, no schema upgrades** on their infrastructure
+- **Single source of truth** — our DB, no sync conflicts or split-brain
+- **Agent crashes? Just restart it.** Nothing to recover, no corruption risk.
+
+**Trade-off:** If the agent crashes while holding buffered metrics, that window (~10s of request data) is lost. This means a small gap in analytics charts — not a functional failure. The data plane continues serving requests immediately on restart since LiteLLM is also stateless.
+
+**Future option:** If a customer requires local data retention (e.g., compliance, audit trail), the agent can optionally write to their own DB as a secondary sink. This is an add-on, not a requirement for the platform to function.
 
 ---
 
