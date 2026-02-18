@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, Optional
 import httpx
 from rich.console import Console
 
+from . import __version__
 from .config import get_api_key, get_api_url
 
 console = Console()
@@ -43,7 +44,7 @@ class BonitoAPI:
     def _headers(self) -> Dict[str, str]:
         headers: Dict[str, str] = {
             "Content-Type": "application/json",
-            "User-Agent": "bonito-cli/0.1.0",
+            "User-Agent": f"bonito-cli/{__version__}",
         }
         token = get_api_key()
         if token:
