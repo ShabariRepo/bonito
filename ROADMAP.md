@@ -1249,11 +1249,61 @@ module "bonito_gateway" {
 - [ ] Budget alerts and automatic throttling
 - [ ] Weekly digest emails via Resend
 
-### 🤖 Agent Framework (Phase 19+)
-- [ ] Agent registry — define AI agents with tool chains
+### 🤖 Bonobot — Enterprise AI Agents (Phase 19+)
+
+#### Projects System
+- [ ] Project model (org → project → agent) with scoped resources
+- [ ] Per-project AI Context (dedicated knowledge bases)
+- [ ] Per-project budget caps, spend tracking, and alerts
+- [ ] Per-project model routing policies
+- [ ] Project admin roles (project owner, member, viewer)
+
+#### Resource Connectors ⭐
+_Scoped, audited access to enterprise data sources. The enterprise equivalent of OpenClaw's file system access — but governed._
+
+**Two deployment modes:**
+- **Hosted agents ($349/mo)**: Up to 5 connectors per agent, Tier 1 connectors, credentials in Bonito Vault
+- **VPC agents ($599/mo)**: Unlimited connectors, all tiers + custom, credentials in customer's secrets manager
+
+**Tier 1 — Launch connectors (~4 weeks):**
+| Connector | Access | Auth |
+|---|---|---|
+| AWS S3 | Read/write buckets | IAM role (IaC already built) |
+| Azure Blob | Read/write containers | Service principal (IaC already built) |
+| GCS | Read/write buckets | Service account (IaC already built) |
+| SharePoint / OneDrive | Read/write files, lists | OAuth2 (Microsoft Graph API) |
+| Google Drive / Docs / Sheets | Read/write files | OAuth2 (Google Workspace) |
+| GitHub / GitLab | Read repos, issues, PRs | OAuth2 or PAT |
+
+**Tier 2 — Fast-follow connectors (~4 weeks after T1):**
+| Connector | Access | Auth |
+|---|---|---|
+| Confluence / Jira | Read/write pages, tickets | OAuth2 (Atlassian) |
+| Slack | Read/send messages | OAuth2 (Slack app) |
+| Microsoft Teams | Read/send messages | OAuth2 (Graph API) |
+| Snowflake | Read-only queries | Key pair auth |
+| PostgreSQL / MySQL | Read-only queries | Connection string (via VPC) |
+| Salesforce | Read/write records | OAuth2 |
+
+**Tier 3 — Custom connectors:**
+- REST/GraphQL adapter: customer defines endpoint, auth, and schema
+- Enterprise tier only
+
+**Security architecture:**
+- Project-scoped: agent can ONLY use connectors assigned to its project
+- No lateral movement: Ad Tech bot cannot discover HR's connectors
+- Credential isolation: short-lived tokens from Vault (hosted) or customer's secrets manager (VPC)
+- Full audit trail: every resource access logged (who, what, when, why, action, result)
+- Admin approval required to connect new resources
+- Exportable to SIEM (Splunk, Datadog, etc.)
+
+#### Agent Runtime
+- [ ] Agent registry — define AI agents with tool chains and persona
 - [ ] Agent observability — trace multi-step agent runs
 - [ ] Agent cost attribution — who/what is spending
 - [ ] Multi-model agent pipelines (chain cheap→expensive for RAG patterns)
+- [ ] Multi-channel messaging (Slack, Teams, WhatsApp, email per agent)
+- [ ] Approval gates for sensitive actions (write operations, external sends)
 
 ---
 
@@ -1279,12 +1329,27 @@ module "bonito_gateway" {
 ---
 
 ## Pricing Strategy
+
+### Platform (Bonito)
 | Tier | Price | Key Features |
 |------|-------|-------------|
 | Free | $0 | 3 providers, basic routing, 1K requests/mo |
-| Pro | $499/mo | **Smart routing**, unlimited requests, analytics, API keys |
+| Pro | $499/mo | **Smart routing**, unlimited requests, analytics, API keys, 5 KBs |
 | Enterprise | $2K-$5K/mo | VPC gateway, SSO/SAML, compliance, SLA |
 | Scale | $50K-$100K+/yr | Dedicated support, custom integrations, volume pricing |
+
+### Agents (Bonobot Add-on — requires Pro+)
+| | Hosted (Bonito infra) | Self-Hosted (Customer VPC) |
+|---|---|---|
+| Per Agent | $349/mo | $599/mo |
+| 5+ agents | $297/mo (15% off) | $509/mo (15% off) |
+| 10+ agents | $262/mo (25% off) | $449/mo (25% off) |
+
+**Per agent includes:** scoped AI Context, resource connectors, multi-channel messaging, governed routing, budget controls, audit trail, custom persona.
+
+**Connector limits:** Pro agents = 5 connectors (Tier 1 only). Enterprise agents = unlimited (all tiers + custom REST/GraphQL).
+
+**Upsell path:** Free → Pro ($499) → Pro + agents ($1.5K+) → Enterprise + VPC agents ($7K+) → Scale ($17K+)
 
 ---
 

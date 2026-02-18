@@ -82,11 +82,64 @@ Each department or use case gets a **Project** in Bonito:
 
 - **Own AI Context** — ad-tech indexes ad data, support indexes product docs, legal indexes contracts
 - **Own Bonobot** — an autonomous agent that lives in Slack/Teams/WhatsApp
+- **Own Resource Connectors** — scoped, audited access to enterprise data sources (S3, SharePoint, Google Drive, GitHub, Jira, Snowflake, databases, and more)
 - **Own model routing** — high-volume tasks get cheap models, complex tasks get premium ones
 - **Own budget** — spend caps, alerts, automatic throttling per project
-- **Own audit trail** — every action logged, every model call tracked
+- **Own audit trail** — every action logged, every model call tracked, every resource access recorded
 
 The platform team manages it all centrally. Each department gets an AI assistant that feels personal but is fully governed.
+
+#### Resource Connectors — Enterprise Data Access
+
+Personal AI assistants (like OpenClaw) access your local file system. Enterprise needs something fundamentally different: **structured, scoped, audited access to enterprise data sources.**
+
+Each Bonobot gets **Resource Connectors** — integrations with the systems that department actually uses:
+
+```
+┌─── BONOBOT: Ad Tech Department ─────────────────────────┐
+│                                                          │
+│  🧠 AI Context (indexed knowledge — semantic search)     │
+│     └── Reads from connected resources, indexes in       │
+│         pgvector for RAG queries                         │
+│                                                          │
+│  🔌 Resource Connectors (live, real-time access)         │
+│     ├── 📁 AWS S3: s3://adtech-assets/* (read-only)      │
+│     ├── 📊 Google Sheets: Campaign Tracker (read/write)  │
+│     ├── 💬 Slack: #adtech channel (read/send)            │
+│     └── 🔧 GitHub: adtech-configs repo (read-only)       │
+│                                                          │
+│  ❌ Cannot access:                                       │
+│     ├── HR's SharePoint                                  │
+│     ├── Finance's Snowflake                              │
+│     └── Any resource not explicitly connected            │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Two modes of data access:**
+
+| Mode | Purpose | When to use |
+|---|---|---|
+| **AI Context (RAG)** | Indexed knowledge for semantic search. Docs ingested → chunked → embedded → pgvector. | "What does our policy say about X?" — static docs, infrequent changes |
+| **Resource Connectors** | Live read/write to enterprise systems at query time. Real-time, structured or unstructured. | "What's the status of campaign Y right now?" — dynamic, live data |
+
+**Security guarantees:**
+- **Scoped**: Admin controls exactly which resources each agent can touch. No ambient authority.
+- **Audited**: Every data access logged with context — who, what, when, why, result. SOC2/HIPAA ready.
+- **Credential isolation**: Agents never see raw credentials. Short-lived tokens from Vault (hosted) or customer's secrets manager (VPC).
+- **Revocable**: Disconnect a connector = instant access removal.
+- **Compliant**: CISO can answer "what data does the Ad Tech AI access?" in one dashboard view.
+
+**Supported connectors (at launch):**
+
+| Tier 1 (Launch) | Tier 2 (Fast-follow) |
+|---|---|
+| AWS S3, Azure Blob, GCS | Confluence, Jira |
+| SharePoint / OneDrive | Slack, Microsoft Teams |
+| Google Drive / Docs / Sheets | Snowflake, PostgreSQL, MySQL |
+| GitHub / GitLab | Salesforce |
+
+Custom connectors via REST/GraphQL adapter for Enterprise tier.
 
 ---
 
@@ -142,20 +195,42 @@ The platform team manages it all centrally. Each department gets an AI assistant
 | **Enterprise** | $2,000–$5,000/mo | Organizations needing governance + compliance |
 | **Scale** | $50K–$100K+/yr | Large enterprises, dedicated infrastructure |
 
-### Expansion (Bonobot)
+### Expansion (Bonobot — Add-on, requires Pro+)
 
-| Add-On | Price | Value |
+**Two deployment models:**
+
+| | Hosted (Bonito infra) | Self-Hosted (Customer VPC) |
 |---|---|---|
-| **Bonobot per Project** | $500–$1,000/mo per project | Scoped AI agent with dedicated AI Context |
-| **AI Context storage** | Usage-based | Per-document, per-chunk indexing and retrieval |
-| **Agent actions** | Usage-based | Per autonomous action beyond basic chat |
+| **Per Agent** | $349/mo | $599/mo |
+| **5+ agents** | $297/mo each (15% off) | $509/mo each (15% off) |
+| **10+ agents** | $262/mo each (25% off) | $449/mo each (25% off) |
 
-**Revenue math:** A company with 10 departments, each running a Bonobot on Enterprise:
-- Enterprise platform: $5,000/mo
-- 10 Bonobots: $7,500/mo (avg $750 each)
-- Total: $12,500/mo → **$150K/year per customer**
+**Each agent includes:**
+- Scoped AI Context (dedicated knowledge base)
+- Resource Connectors — live access to enterprise data sources (S3, SharePoint, Google Drive, GitHub, databases, etc.)
+- Multi-channel messaging (Slack, Teams, WhatsApp, email)
+- Governed routing through Bonito gateway (cost-optimized model selection)
+- Budget cap + spend tracking per agent
+- Full audit trail (every AI call + every resource access)
+- Custom persona and instructions
 
-**At 500 customers:** $75M ARR
+**Connector limits by tier:**
+- Pro agents ($349/mo hosted): Up to 5 connectors, Tier 1 connectors
+- Enterprise agents ($599/mo VPC): Unlimited connectors, all tiers, custom connectors via REST/GraphQL adapter
+
+**Why two tiers?**
+- **Hosted**: Zero infra for the customer. Bonito runs the agents, manages credentials in Vault, handles everything. Lower barrier, faster onboarding.
+- **VPC**: Agent runtime deployed in customer's VPC. Prompts and data never leave their network. Credentials stay in their secrets manager (AWS SM / Azure KV / GCP SM). Bonito control plane only sees metadata. For regulated industries and data-sovereign requirements.
+
+**Revenue scenarios:**
+
+| Customer Type | Platform | Agents | Monthly | Annual |
+|---|---|---|---|---|
+| Small team | Pro ($499) | 3 hosted ($1,047) | **$1,546** | $18,552 |
+| Mid-size org | Enterprise ($3K) | 8 VPC ($4,072) | **$7,072** | $84,864 |
+| Large enterprise | Scale ($8K) | 20 VPC ($8,980) | **$16,980** | $203,760 |
+
+**At 500 customers averaging $8K/mo = $48M ARR**
 
 ---
 
@@ -192,11 +267,13 @@ The platform team manages it all centrally. Each department gets an AI assistant
 ### Next 6 Months
 - **SSO/SAML** — enterprise authentication (Okta, Azure AD, Google Workspace)
 - **Projects** — scoped environments per department (foundation for Bonobot)
-- **Bonobot v1** — per-project AI agent with AI Context, messaging integration
-- **VPC Gateway** — self-hosted gateway deployed into customer's VPC
+- **Resource Connectors v1** — S3, Azure Blob, GCS, SharePoint, Google Drive, GitHub (Tier 1)
+- **Bonobot v1** — per-project AI agent with AI Context, resource connectors, messaging integration
+- **VPC Gateway** — self-hosted gateway + agent runtime deployed into customer's VPC
 - **Advanced analytics** — cost optimization recommendations, budget forecasting
 
 ### 12 Months
+- **Resource Connectors v2** — Confluence, Jira, Slack, Teams, Snowflake, Salesforce (Tier 2) + custom REST/GraphQL adapter
 - **Bonobot marketplace** — pre-built agent templates (support bot, compliance bot, analyst bot)
 - **Agent workflows** — multi-step autonomous tasks with approval gates
 - **SOC2 Type II** certification
@@ -232,9 +309,10 @@ Use of funds:
 
 1. **Already built.** Not a mockup — a working production platform with real multi-cloud AI operations.
 2. **AI Context is the moat.** Centralized knowledge that any model on any cloud can access. Nobody else has this.
-3. **Bonobot is the land-and-expand.** Platform gets you in the door, agents expand to every department.
-4. **Category timing.** OpenClaw proved the agent market. Enterprise is next. We're already 80% there.
-5. **In the money path.** Every AI dollar flows through Bonito's gateway. That's real stickiness.
+3. **Resource Connectors close the loop.** Agents don't just know your docs — they can read your Sheets, query your databases, access your repos. Scoped, audited, enterprise-grade.
+4. **Bonobot is the land-and-expand.** Platform gets you in the door ($499/mo), agents expand to every department ($349-599/mo each). Natural upsell from hosted to VPC.
+5. **Category timing.** OpenClaw proved the agent market. Enterprise is next. We're already 80% there.
+6. **In the money path.** Every AI dollar flows through Bonito's gateway. That's real stickiness.
 
 ---
 
