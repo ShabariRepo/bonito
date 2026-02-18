@@ -1,13 +1,729 @@
 # Bonito Roadmap
 
-_Last updated: 2026-02-17_
+_Last updated: 2026-02-18_
 
 ## Current Status
 - All 18 core phases complete ✅
 - Live at https://getbonito.com
 - 3 cloud providers (AWS Bedrock, Azure OpenAI, GCP Vertex AI)
-- 387+ models catalogued, 6 active deployments
-- CLI tooling on `feature/bonito-cli` branch (merging to main)
+- 387+ models catalogued, 12 active deployments
+- CLI tested and working against prod (25 commands, 9 bug fixes)
+
+---
+
+## 🔥 TOP PRIORITY: Knowledge Base — Cross-Cloud RAG ⭐⭐⭐
+
+_Ingest once, use everywhere. Company knowledge that works with any model on any cloud._
+
+**This is Bonito's stickiest feature and our biggest competitive moat.** No cloud provider offers cross-cloud RAG. AWS Knowledge Bases lock you to Bedrock. Azure AI Search locks you to Azure OpenAI. GCP RAG Engine locks you to Vertex. Bonito breaks that.
+
+---
+
+### Why This Is #1
+
+1. **Stickiness**: Once their company docs live in Bonito, switching cost is massive
+2. **Revenue multiplier**: Every knowledge-augmented query = embedding retrieval call + inference call = 2x gateway traffic
+3. **Competitive gap**: LiteLLM, Portkey, Helicone — none have a knowledge layer. This is unique.
+4. **Enterprise demand**: RAG is the #1 enterprise AI use case after basic chat. Every company wants "AI that knows us."
+5. **Natural extension**: We already have the gateway, the model routing, the multi-cloud credentials. Knowledge is the missing piece.
+
+---
+
+### Architecture
+
+```
+┌─── Customer's Data (stays in their cloud) ──────────────────────┐
+│  S3 Bucket / Azure Blob / GCS Bucket / Direct Upload            │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ Bonito reads (with IaC-provisioned permissions)
+                           ▼
+┌─── Bonito Ingestion Pipeline ───────────────────────────────────┐
+│                                                                  │
+│  1. FETCH         Pull docs from customer's storage              │
+│                   (S3 API / Azure Blob API / GCS API)            │
+│                                                                  │
+│  2. PARSE         Extract text from files                        │
+│                   PDF, DOCX, TXT, MD, HTML, CSV, JSON            │
+│                   (unstructured library — no external service)    │
+│                                                                  │
+│  3. CHUNK         Split into retrieval-sized pieces              │
+│                   - Recursive text splitter (default 512 tokens) │
+│                   - Overlap 50 tokens for context continuity     │
+│                   - Respect document boundaries (headers, etc.)  │
+│                   - Configurable per knowledge base              │
+│                                                                  │
+│  4. EMBED         Generate vector embeddings                     │
+│                   Routed through Bonito gateway → customer's     │
+│                   own cloud (their credits, their data path)     │
+│                   Default: cheapest embedding model available    │
+│                   - AWS: amazon.titan-embed-text-v2              │
+│                   - Azure: text-embedding-3-small                │
+│                   - GCP: text-embedding-005                      │
+│                                                                  │
+│  5. STORE         Write vectors to pgvector                      │
+│                   (PostgreSQL extension — no new infra)           │
+│                   Partitioned by org_id for isolation             │
+│                                                                  │
+│  6. INDEX         HNSW index for fast similarity search          │
+│                   Auto-reindex on threshold (>10K new chunks)     │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─── Gateway Request Flow (Knowledge-Augmented) ──────────────────┐
+│                                                                  │
+│  Customer App                                                    │
+│    │                                                             │
+│    │  POST /v1/chat/completions                                  │
+│    │  {                                                          │
+│    │    "model": "gpt-4o",                                       │
+│    │    "messages": [{"role": "user", "content": "..."}],        │
+│    │    "bonito": { "knowledge_base": "hr-docs" }  ← NEW FIELD  │
+│    │  }                                                          │
+│    │                                                             │
+│    ▼                                                             │
+│  Bonito Gateway                                                  │
+│    │                                                             │
+│    ├─ 1. Embed the user query (→ customer's embedding model)     │
+│    ├─ 2. Search pgvector for top-K relevant chunks               │
+│    ├─ 3. Inject chunks into system prompt as context             │
+│    ├─ 4. Route augmented prompt to best model (smart routing)    │
+│    └─ 5. Return response + source citations                     │
+│                                                                  │
+│  Response includes:                                              │
+│    - AI answer (grounded in their docs)                          │
+│    - Source chunks used (file name, page, relevance score)       │
+│    - Token counts (retrieval + inference)                        │
+│    - Cost breakdown (embedding cost + inference cost)            │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key design decision:** Embeddings are generated through the customer's OWN cloud models via the Bonito gateway. Their data never touches a third-party embedding service. This matters for compliance.
+
+---
+
+### Database Schema (pgvector — no new infrastructure)
+
+```sql
+-- Enable pgvector extension (one-time)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Knowledge bases (one per use case per org)
+CREATE TABLE knowledge_bases (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID NOT NULL REFERENCES organizations(id),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    
+    -- Source configuration
+    source_type VARCHAR(20) NOT NULL,  -- 's3', 'azure_blob', 'gcs', 'upload'
+    source_config JSONB NOT NULL DEFAULT '{}',
+    -- s3:         {"bucket": "...", "prefix": "hr-docs/", "region": "us-east-1"}
+    -- azure_blob: {"container": "...", "prefix": "...", "account": "..."}
+    -- gcs:        {"bucket": "...", "prefix": "..."}
+    -- upload:     {} (files uploaded directly via API)
+
+    -- Embedding configuration
+    embedding_model VARCHAR(100) DEFAULT 'auto',  -- 'auto' = cheapest available
+    embedding_dimensions INT DEFAULT 1536,
+    chunk_size INT DEFAULT 512,
+    chunk_overlap INT DEFAULT 50,
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'pending',  -- pending, syncing, ready, error
+    document_count INT DEFAULT 0,
+    chunk_count INT DEFAULT 0,
+    total_tokens BIGINT DEFAULT 0,
+    last_synced_at TIMESTAMPTZ,
+    sync_schedule VARCHAR(50),  -- cron expression or null for manual
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    UNIQUE(org_id, name)
+);
+
+-- Documents within a knowledge base
+CREATE TABLE kb_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    knowledge_base_id UUID NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    org_id UUID NOT NULL,
+    
+    -- File info
+    file_name VARCHAR(500) NOT NULL,
+    file_path VARCHAR(1000),  -- path in source storage
+    file_type VARCHAR(20),    -- pdf, docx, txt, md, html, csv, json
+    file_size BIGINT,
+    file_hash VARCHAR(64),    -- SHA-256 for dedup/change detection
+    
+    -- Processing status
+    status VARCHAR(20) DEFAULT 'pending',  -- pending, processing, ready, error
+    chunk_count INT DEFAULT 0,
+    error_message TEXT,
+    
+    -- Metadata (customer can add tags, categories, etc.)
+    metadata JSONB DEFAULT '{}',
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Vector chunks (the actual searchable pieces)
+CREATE TABLE kb_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_id UUID NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE,
+    knowledge_base_id UUID NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    org_id UUID NOT NULL,
+    
+    -- Content
+    content TEXT NOT NULL,
+    token_count INT,
+    chunk_index INT,  -- position within document
+    
+    -- Vector embedding
+    embedding vector(1536),  -- pgvector type, dimension matches model
+    
+    -- Source reference (for citations)
+    source_file VARCHAR(500),
+    source_page INT,
+    source_section VARCHAR(500),
+    
+    -- Metadata
+    metadata JSONB DEFAULT '{}',
+    
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- HNSW index for fast similarity search
+CREATE INDEX idx_kb_chunks_embedding ON kb_chunks 
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- Partition-friendly indexes
+CREATE INDEX idx_kb_chunks_org ON kb_chunks(org_id);
+CREATE INDEX idx_kb_chunks_kb ON kb_chunks(knowledge_base_id);
+CREATE INDEX idx_kb_documents_kb ON kb_documents(knowledge_base_id);
+CREATE INDEX idx_knowledge_bases_org ON knowledge_bases(org_id);
+```
+
+**Why pgvector over Pinecone/Weaviate:** Zero new infrastructure. Runs in our existing Railway Postgres. Handles millions of chunks per org. When a customer needs more, we can migrate their partition to a dedicated vector DB — but for 95% of use cases, pgvector is plenty.
+
+---
+
+### Onboarding Flow — Seamless Integration
+
+The knowledge base setup is woven into the EXISTING onboarding wizard, not a separate flow. The goal: **a customer can go from zero to "AI that knows my company" in under 10 minutes.**
+
+#### Updated Onboarding Wizard (7 steps, was 5)
+
+```
+Step 1: Welcome                          (existing)
+Step 2: Select Providers                 (existing)
+Step 3: Select IaC Tool                  (existing)
+Step 4: ★ Knowledge Base Setup (NEW)     ← inserted here
+Step 5: Generated Code (updated w/ KB permissions)
+Step 6: Validate Credentials             (existing)
+Step 7: Success                          (existing)
+```
+
+#### Step 4: Knowledge Base Setup (NEW)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  📚 Knowledge Base (Optional)                                   │
+│                                                                 │
+│  Give your AI access to company knowledge — HR docs,            │
+│  product guides, support articles, anything your team           │
+│  needs to reference.                                            │
+│                                                                 │
+│  ┌──────────────────┐  ┌──────────────────┐                     │
+│  │ ☐ Enable         │  │ ☐ Skip for now   │                     │
+│  │   Knowledge Base │  │   (can add later) │                     │
+│  └──────────────────┘  └──────────────────┘                     │
+│                                                                 │
+│  ─── If enabled: ───────────────────────────────────────────    │
+│                                                                 │
+│  Where are your documents stored?                               │
+│                                                                 │
+│  ┌────────────┐  ┌────────────────┐  ┌────────────┐            │
+│  │  ☁️ AWS    │  │  🔷 Azure      │  │  🔺 GCP    │            │
+│  │  S3 Bucket │  │  Blob Storage  │  │  GCS Bucket│            │
+│  └────────────┘  └────────────────┘  └────────────┘            │
+│                                                                 │
+│  ┌────────────────────────────────────────────┐                 │
+│  │  📤 Direct Upload                          │                 │
+│  │  Upload files through Bonito (up to 50MB)  │                 │
+│  └────────────────────────────────────────────┘                 │
+│                                                                 │
+│  ─── If S3 selected: ──────────────────────────────────────     │
+│                                                                 │
+│  Bucket name:    [ my-company-docs          ]                   │
+│  Prefix (opt):   [ hr-policies/             ]                   │
+│  Region:         [ us-east-1            ▼   ]                   │
+│                                                                 │
+│  ─── Sync schedule: ───────────────────────────────────────     │
+│                                                                 │
+│  ○ Manual (sync when I want)                                    │
+│  ○ Daily (midnight UTC)                                         │
+│  ○ Weekly (Sunday midnight UTC)                                 │
+│  ○ On file change (webhook — requires S3 event notification)    │
+│                                                                 │
+│                          [ Continue → ]                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**UX principle:** One screen, minimal inputs. Pick your storage, give us the bucket name, done. The IaC template handles all the permissions automatically.
+
+#### Step 5: Generated IaC (Updated with KB Permissions)
+
+When the user enables Knowledge Base, the generated Terraform/Pulumi/CloudFormation code **automatically includes** the read permissions for their selected storage:
+
+---
+
+### IaC Template Changes — Dynamic Permission Generation
+
+The existing IaC engine (`backend/app/services/iac_templates.py`) already generates provider-specific code. We add a `knowledge_base` option that injects additional permissions.
+
+#### AWS — S3 Read Permissions (added when KB enabled)
+
+**Terraform:**
+```hcl
+# ── Knowledge Base: S3 Read Access ──────────────────────────
+# Allows Bonito to read documents from your S3 bucket for
+# AI knowledge base indexing. Read-only — no write/delete.
+
+resource "aws_iam_policy" "bonito_kb_s3_read" {
+  count = var.enable_knowledge_base ? 1 : 0
+  name  = "bonito-kb-s3-read"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "BonitoKBListBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = "arn:aws:s3:::${var.kb_s3_bucket}"
+      },
+      {
+        Sid    = "BonitoKBReadObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = "arn:aws:s3:::${var.kb_s3_bucket}/${var.kb_s3_prefix}*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_user_policy_attachment" "bonito_kb" {
+  count      = var.enable_knowledge_base ? 1 : 0
+  user       = aws_iam_user.bonito.name
+  policy_arn = aws_iam_policy.bonito_kb_s3_read[0].arn
+}
+
+# Variables added for Knowledge Base
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (S3 read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_s3_bucket" {
+  description = "S3 bucket containing documents for Knowledge Base"
+  type        = string
+  default     = ""
+}
+
+variable "kb_s3_prefix" {
+  description = "S3 prefix (folder) to scope document access"
+  type        = string
+  default     = ""
+}
+```
+
+**CloudFormation:**
+```yaml
+# Knowledge Base S3 Read Policy (conditional)
+BonitoKBS3ReadPolicy:
+  Type: AWS::IAM::Policy
+  Condition: EnableKnowledgeBase
+  Properties:
+    PolicyName: bonito-kb-s3-read
+    Users:
+      - !Ref BonitoUser
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Sid: BonitoKBReadObjects
+          Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:ListBucket
+          Resource:
+            - !Sub "arn:aws:s3:::${KBS3Bucket}"
+            - !Sub "arn:aws:s3:::${KBS3Bucket}/${KBS3Prefix}*"
+
+Parameters:
+  EnableKnowledgeBase:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+  KBS3Bucket:
+    Type: String
+    Default: ""
+  KBS3Prefix:
+    Type: String
+    Default: ""
+
+Conditions:
+  EnableKnowledgeBase: !Equals [!Ref EnableKnowledgeBase, "true"]
+```
+
+#### Azure — Blob Storage Read Permissions
+
+**Terraform:**
+```hcl
+# ── Knowledge Base: Azure Blob Read Access ──────────────────
+resource "azurerm_role_assignment" "bonito_kb_blob_reader" {
+  count                = var.enable_knowledge_base ? 1 : 0
+  scope                = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group}/providers/Microsoft.Storage/storageAccounts/${var.kb_storage_account}"
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azuread_service_principal.bonito.object_id
+}
+
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (Blob Storage read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_storage_account" {
+  description = "Azure Storage Account containing documents"
+  type        = string
+  default     = ""
+}
+
+variable "kb_container_name" {
+  description = "Blob container name for Knowledge Base documents"
+  type        = string
+  default     = ""
+}
+```
+
+**Bicep:**
+```bicep
+@description('Enable Bonito Knowledge Base')
+param enableKnowledgeBase bool = false
+
+@description('Storage account for Knowledge Base documents')
+param kbStorageAccount string = ''
+
+// Blob Reader role for Knowledge Base
+resource kbBlobReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableKnowledgeBase) {
+  name: guid(subscription().id, bonitoSP.id, 'Storage Blob Data Reader')
+  scope: resourceGroup()
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+    principalId: bonitoSP.id
+    principalType: 'ServicePrincipal'
+  }
+}
+```
+
+#### GCP — GCS Read Permissions
+
+**Terraform:**
+```hcl
+# ── Knowledge Base: GCS Read Access ─────────────────────────
+resource "google_storage_bucket_iam_member" "bonito_kb_viewer" {
+  count  = var.enable_knowledge_base ? 1 : 0
+  bucket = var.kb_gcs_bucket
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.bonito.email}"
+}
+
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (GCS read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_gcs_bucket" {
+  description = "GCS bucket containing documents for Knowledge Base"
+  type        = string
+  default     = ""
+}
+
+variable "kb_gcs_prefix" {
+  description = "GCS prefix to scope document access"
+  type        = string
+  default     = ""
+}
+```
+
+**Key security principle:** All IaC templates grant **read-only** access to the specific bucket/container the customer specifies. No write. No delete. No access to other buckets. Prefix-scoped where possible.
+
+---
+
+### API Design
+
+#### Knowledge Base Management
+
+```
+# CRUD for knowledge bases
+POST   /api/knowledge-bases                    Create a new knowledge base
+GET    /api/knowledge-bases                    List all KBs for the org
+GET    /api/knowledge-bases/{kb_id}            Get KB details + stats
+PUT    /api/knowledge-bases/{kb_id}            Update KB config
+DELETE /api/knowledge-bases/{kb_id}            Delete KB and all chunks
+
+# Document management
+POST   /api/knowledge-bases/{kb_id}/documents          Upload file(s) directly
+POST   /api/knowledge-bases/{kb_id}/sync               Trigger sync from cloud storage
+GET    /api/knowledge-bases/{kb_id}/documents           List documents
+GET    /api/knowledge-bases/{kb_id}/documents/{doc_id}  Document details + chunks
+DELETE /api/knowledge-bases/{kb_id}/documents/{doc_id}  Remove document
+
+# Search / test
+POST   /api/knowledge-bases/{kb_id}/search     Search KB (test retrieval)
+        Body: {"query": "...", "top_k": 5}
+        Returns: matching chunks with scores + source info
+
+# Sync status
+GET    /api/knowledge-bases/{kb_id}/sync-status   Current sync progress
+```
+
+#### Gateway Integration — Zero Code Change for Customers
+
+The beauty: customers using the OpenAI-compatible gateway just add ONE field:
+
+```python
+# Standard call (no knowledge base):
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What's our PTO policy?"}]
+)
+
+# Knowledge-augmented call (just add extra_body):
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What's our PTO policy?"}],
+    extra_body={"bonito": {"knowledge_base": "hr-docs"}}
+)
+
+# Or via custom header (for non-Python clients):
+# X-Bonito-Knowledge-Base: hr-docs
+```
+
+**Alternative: routing policy attachment.** Attach a knowledge base to a routing policy so ALL requests through that policy get knowledge augmentation automatically. Zero code changes:
+
+```python
+# In dashboard: attach "hr-docs" KB to policy "support-chat"
+# Now every request using the rt-xxx key for that policy
+# automatically gets RAG — no extra_body needed
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What's our PTO policy?"}],
+    # That's it. KB is attached at the policy level.
+)
+```
+
+---
+
+### Gateway RAG Middleware
+
+The retrieval logic sits as middleware in the gateway pipeline, between authentication and model routing:
+
+```
+Request → Auth → Rate Limit → [RAG Middleware] → Route → Provider → Response
+                                    │
+                              1. Detect KB (from request body, header, or policy)
+                              2. Embed query (cheapest embedding model)
+                              3. Vector search (pgvector, top_k=5)
+                              4. Build augmented prompt:
+                                 │
+                                 │  System: "Use the following context to answer.
+                                 │           Cite sources when possible.
+                                 │           If the context doesn't contain the
+                                 │           answer, say so."
+                                 │
+                                 │  Context:
+                                 │    [1] {chunk.content} (source: benefits.pdf, p.3)
+                                 │    [2] {chunk.content} (source: pto-policy.md)
+                                 │    ...
+                                 │
+                                 │  User: {original query}
+                                 │
+                              5. Forward augmented prompt to model
+                              6. Add source citations to response metadata
+```
+
+**Response format** (extends OpenAI format):
+```json
+{
+  "id": "chatcmpl-xxx",
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "content": "According to our PTO policy, full-time employees receive 20 days..."
+    }
+  }],
+  "usage": {
+    "prompt_tokens": 850,
+    "completion_tokens": 120,
+    "total_tokens": 970
+  },
+  "bonito": {
+    "knowledge_base": "hr-docs",
+    "sources": [
+      {
+        "document": "pto-policy.pdf",
+        "page": 3,
+        "section": "Annual Leave Entitlement",
+        "relevance_score": 0.94,
+        "chunk_preview": "Full-time employees are entitled to 20 days..."
+      },
+      {
+        "document": "employee-handbook.md",
+        "section": "Benefits Overview",
+        "relevance_score": 0.87,
+        "chunk_preview": "PTO accrues at 1.67 days per month..."
+      }
+    ],
+    "retrieval_cost": 0.00002,
+    "retrieval_latency_ms": 45
+  }
+}
+```
+
+---
+
+### Dashboard Pages
+
+#### 1. Knowledge Bases Page (`/knowledge-bases`)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📚 Knowledge Bases                         [ + New Knowledge Base ]│
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  📁 hr-docs                                    ● Ready   │   │
+│  │  Source: S3 → my-company-docs/hr-policies/               │   │
+│  │  47 documents · 2,340 chunks · Last synced 2h ago        │   │
+│  │  Embedding: amazon.titan-embed-text-v2                   │   │
+│  │  [View Docs]  [Search]  [Sync Now]  [Settings]           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  📁 product-docs                               ● Syncing │   │
+│  │  Source: GCS → product-documentation/                     │   │
+│  │  124 documents · 8,901 chunks · Syncing... 67%           │   │
+│  │  Embedding: text-embedding-005                           │   │
+│  │  [View Docs]  [Search]  [Settings]                       │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  📁 support-articles                           ● Ready   │   │
+│  │  Source: Direct Upload                                    │   │
+│  │  23 documents · 456 chunks · Last synced 5d ago          │   │
+│  │  Embedding: text-embedding-3-small                       │   │
+│  │  [View Docs]  [Search]  [Upload]  [Settings]             │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 2. Knowledge Base Detail Page (`/knowledge-bases/{id}`)
+
+- Document list with status (processed, pending, error)
+- Search/test panel: type a query, see which chunks come back with relevance scores
+- Usage analytics: how many queries hit this KB, which documents are most referenced
+- Sync history: when it last synced, how many docs changed, any errors
+- Settings: chunk size, overlap, embedding model, sync schedule, attached policies
+
+#### 3. Integration into Existing Pages
+
+- **Routing Policies page**: New "Knowledge Base" dropdown when creating/editing a policy. Attach a KB to a policy = automatic RAG for all requests through that policy.
+- **Gateway Logs**: New column "KB" showing which knowledge base (if any) was used for each request
+- **Analytics**: Knowledge base usage stats — queries per KB, avg retrieval latency, top-referenced documents
+- **Playground**: Toggle "Use Knowledge Base" when testing models — see how responses change with/without context
+
+---
+
+### CLI Commands
+
+```bash
+# Knowledge base management
+bonito kb list                                    # List all knowledge bases
+bonito kb create --name "hr-docs" --source s3 \
+  --bucket my-docs --prefix hr/                   # Create from S3
+bonito kb create --name "uploads" --source upload  # Create for direct upload
+bonito kb info <kb-id>                            # Details + stats
+bonito kb delete <kb-id>                          # Delete KB
+
+# Document management
+bonito kb docs <kb-id>                            # List documents in KB
+bonito kb upload <kb-id> ./file.pdf               # Upload a file
+bonito kb upload <kb-id> ./docs/                  # Upload a directory
+bonito kb sync <kb-id>                            # Trigger sync from storage
+
+# Search / test
+bonito kb search <kb-id> "What is our PTO policy?"  # Test retrieval
+bonito kb search <kb-id> "..." --top-k 10            # More results
+
+# Chat with knowledge
+bonito chat -m gpt-4o --kb hr-docs "What's our PTO policy?"
+```
+
+---
+
+### Pricing Integration
+
+| Tier | Knowledge Base Limits |
+|------|----------------------|
+| **Free** | 1 KB, 100 documents, 10K chunks, manual sync only |
+| **Pro** ($499/mo) | 5 KBs, unlimited documents, 500K chunks, scheduled sync |
+| **Enterprise** ($2-5K/mo) | Unlimited KBs, unlimited everything, webhook sync, custom embedding models |
+| **Scale** ($50K+/yr) | + dedicated vector DB, hybrid search (vector + keyword), advanced chunking strategies |
+
+**Cost to Bonito:** pgvector storage is essentially free within existing Postgres. The only variable cost is embedding generation, which uses the customer's own cloud credits via the gateway.
+
+---
+
+### Build Plan
+
+| Week | Deliverable |
+|------|------------|
+| **1** | **Foundation**: pgvector extension + migrations, `knowledge_bases` / `kb_documents` / `kb_chunks` tables, CRUD API endpoints, document parsing pipeline (PDF/DOCX/TXT/MD/HTML), chunking engine |
+| **2** | **Embeddings + Storage**: Embedding generation via gateway (route to cheapest embedding model), pgvector write/search, sync engine (S3/Blob/GCS read), background job for batch processing |
+| **3** | **Gateway Integration**: RAG middleware in gateway pipeline, knowledge base detection (request body / header / policy attachment), prompt augmentation with context injection, source citations in response |
+| **4** | **Frontend + Polish**: Knowledge Bases dashboard page, KB detail page with search/test, onboarding wizard Step 4, routing policy KB attachment, IaC template updates, CLI `kb` commands |
+| **5** | **Testing + Launch**: E2E testing across all 3 clouds, performance testing (retrieval latency <100ms), sync reliability testing, documentation, deploy to prod |
+
+---
+
+### Cross-Cloud RAG — The Differentiator
+
+This is what makes Bonito unique. Example scenario:
+
+1. Company stores HR docs in **S3** (AWS account)
+2. Product docs in **Azure Blob Storage** (Azure account)  
+3. Support articles in **GCS** (GCP account)
+4. All three get ingested into Bonito knowledge bases
+5. A single query can search across ALL knowledge bases
+6. The answer gets routed to **any model on any cloud** via smart routing
+
+**No cloud provider can do this.** AWS KB → Bedrock only. Azure AI Search → Azure only. GCP RAG → Vertex only. Bonito breaks the wall.
 
 ---
 
@@ -37,6 +753,7 @@ _Last updated: 2026-02-17_
 
 ### 🖥️ CLI Finalization
 - [x] Core commands: auth, providers, models, deployments, chat, gateway, policies, analytics
+- [x] All CLI field mappings tested + fixed against prod (9 bugs, commit 75f7a86)
 - [ ] Publish to PyPI as `bonito-cli` (name available)
 - [ ] `bonito doctor` command — diagnose connectivity, auth, provider health
 - [ ] Shell completions (bash/zsh/fish) via `bonito completion install`
