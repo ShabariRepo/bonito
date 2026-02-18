@@ -24,7 +24,7 @@ class KnowledgeBase(Base):
     
     # Embedding configuration
     embedding_model: Mapped[str] = mapped_column(String(100), default='auto')
-    embedding_dimensions: Mapped[int] = mapped_column(Integer, default=1536)
+    embedding_dimensions: Mapped[int] = mapped_column(Integer, default=1024)
     chunk_size: Mapped[int] = mapped_column(Integer, default=512)
     chunk_overlap: Mapped[int] = mapped_column(Integer, default=50)
     
