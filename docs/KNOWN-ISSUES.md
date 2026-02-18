@@ -34,7 +34,35 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 4. Fixed pgvector column dimension mismatch (was 1536, GCP outputs 768)
 **Lesson**: Always prefer serverless/always-available models for background operations. Never assume catalog presence = activated. Add timeouts to all external API calls.
 
-### 5. Gateway model field showing '?'
+### 5. pgvector CAST syntax error in vector search
+**Date**: 2026-02-18
+**Symptom**: KB search queries fail with SQLAlchemy parameter conflict. pgvector `::vector` cast syntax conflicts with SQLAlchemy's named parameter syntax.
+**Cause**: Using `::vector` PostgreSQL cast operator in raw SQL within SQLAlchemy, which interprets `:vector` as a bind parameter.
+**Fix**: Switched to explicit `CAST(... AS vector)` syntax which is SQLAlchemy-safe (commit `9bed2bc`).
+**Impact**: KB search was broken until fix deployed; no data loss.
+
+### 6. KB search response schema mismatch
+**Date**: 2026-02-18
+**Symptom**: KB search API returning fields that didn't match the `KBSearchResponse` Pydantic schema — frontend couldn't parse results. Missing `score`, `document_id`, `document_name`, and metadata fields.
+**Cause**: Search endpoint was returning raw ORM objects instead of mapping to the response schema. Also `KBDocument.file_name` was accessed as `.name` in one code path.
+**Fix**: Aligned response mapping with `KBSearchResponse` schema — explicit mapping of `score`, `document_id`, `document_name`, and metadata fields (commits `99d8b15`, `c317480`).
+**Impact**: KB search results were malformed until fix; no data loss.
+
+### 7. RAG retrieval poisoning gateway DB session
+**Date**: 2026-02-18
+**Symptom**: Gateway requests intermittently failing after RAG context retrieval — DB session left in bad state.
+**Cause**: RAG vector search was sharing the same DB session as the main gateway transaction. If the search hit an error, it rolled back the entire gateway session.
+**Fix**: RAG retrieval now uses a separate, independent DB session (commit `f53ba2b`).
+**Impact**: Intermittent 500 errors on gateway requests with KB enabled.
+
+### 8. Bonito extension field forwarded to upstream LLM
+**Date**: 2026-02-18
+**Symptom**: Upstream LLM providers returning 400 errors when KB-augmented requests were forwarded.
+**Cause**: The `bonito` extension field in the request body (containing `knowledge_base` settings) was not being stripped before forwarding to the upstream provider.
+**Fix**: Strip bonito extension field from request body before forwarding (commit `39f604b`).
+**Impact**: All KB-enabled gateway requests were failing until fix.
+
+### 9. Gateway model field showing '?'
 **Date**: 2026-02-16
 **Symptom**: Gateway request logs show model as '?' instead of the actual model name.
 **Status**: TODO — field mapping needs updating.

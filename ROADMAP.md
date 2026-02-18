@@ -700,15 +700,17 @@ bonito chat -m gpt-4o --kb hr-docs "What's our PTO policy?"
 
 ---
 
-### Build Plan
+### Build Plan — COMPLETED ✅
 
-| Week | Deliverable |
-|------|------------|
-| **1** | **Foundation**: pgvector extension + migrations, `knowledge_bases` / `kb_documents` / `kb_chunks` tables, CRUD API endpoints, document parsing pipeline (PDF/DOCX/TXT/MD/HTML), chunking engine |
-| **2** | **Embeddings + Storage**: Embedding generation via gateway (route to cheapest embedding model), pgvector write/search, sync engine (S3/Blob/GCS read), background job for batch processing |
-| **3** | **Gateway Integration**: RAG middleware in gateway pipeline, knowledge base detection (request body / header / policy attachment), prompt augmentation with context injection, source citations in response |
-| **4** | **Frontend + Polish**: Knowledge Bases dashboard page, KB detail page with search/test, onboarding wizard Step 4, routing policy KB attachment, IaC template updates, CLI `kb` commands |
-| **5** | **Testing + Launch**: E2E testing across all 3 clouds, performance testing (retrieval latency <100ms), sync reliability testing, documentation, deploy to prod |
+All phases shipped to production on 2026-02-18.
+
+| Week | Deliverable | Status |
+|------|------------|--------|
+| **1** | **Foundation**: pgvector extension + migrations, `knowledge_bases` / `kb_documents` / `kb_chunks` tables, CRUD API endpoints, document parsing pipeline (PDF/DOCX/TXT/MD/HTML), chunking engine | ✅ Done |
+| **2** | **Embeddings + Storage**: Embedding generation via gateway (route to cheapest embedding model), pgvector write/search, sync engine (S3/Blob/GCS read), background job for batch processing | ✅ Done |
+| **3** | **Gateway Integration**: RAG middleware in gateway pipeline, knowledge base detection (request body / header / policy attachment), prompt augmentation with context injection, source citations in response | ✅ Done |
+| **4** | **Frontend + Polish**: Knowledge Bases dashboard page, KB detail page with search/test, onboarding wizard Step 4, routing policy KB attachment, IaC template updates, CLI `kb` commands | ✅ Done |
+| **5** | **Testing + Launch**: E2E testing across all 3 clouds, performance testing (retrieval latency <100ms), sync reliability testing, documentation, deploy to prod | ✅ Done |
 
 ---
 
@@ -727,7 +729,7 @@ This is what makes Bonito unique. Example scenario:
 
 ---
 
-## Near-Term (Next 2-4 weeks)
+## Near-Term (Next priorities)
 
 ### ⚡ Gateway Scaling (Done + Next)
 - [x] Workers 2→4 (start-prod.sh default)
