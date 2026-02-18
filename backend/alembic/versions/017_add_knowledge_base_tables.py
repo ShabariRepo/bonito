@@ -32,7 +32,7 @@ def upgrade() -> None:
         
         # Embedding configuration
         sa.Column("embedding_model", sa.String(length=100), nullable=False, server_default="'auto'"),
-        sa.Column("embedding_dimensions", sa.Integer(), nullable=False, server_default="1536"),
+        sa.Column("embedding_dimensions", sa.Integer(), nullable=False, server_default="768"),
         sa.Column("chunk_size", sa.Integer(), nullable=False, server_default="512"),
         sa.Column("chunk_overlap", sa.Integer(), nullable=False, server_default="50"),
         
@@ -127,7 +127,7 @@ def upgrade() -> None:
     op.create_index("ix_kb_chunks_org_id", "kb_chunks", ["org_id"])
     
     # Convert embedding column to vector type and create HNSW index
-    op.execute("ALTER TABLE kb_chunks ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector(1536)")
+    op.execute("ALTER TABLE kb_chunks ALTER COLUMN embedding TYPE vector(768) USING embedding::vector(768)")
     op.execute("""
         CREATE INDEX idx_kb_chunks_embedding 
         ON kb_chunks USING hnsw (embedding vector_cosine_ops) 

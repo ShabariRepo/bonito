@@ -303,7 +303,15 @@ class TextChunker:
 
 
 class EmbeddingGenerator:
-    """Generate embeddings through Bonito's gateway using customer's models."""
+    """Generate embeddings through Bonito's gateway using customer's models.
+    
+    Automatically selects the cheapest AVAILABLE embedding model from the
+    org's connected providers. Only considers models that are actually
+    routable (have credentials + are serverless or explicitly deployed).
+    Falls back through multiple models with a timeout to avoid hanging.
+    """
+    
+    EMBEDDING_TIMEOUT = 30  # seconds per batch — fail fast, don't hang
     
     def __init__(self, org_id: uuid.UUID):
         self.org_id = org_id
@@ -312,20 +320,25 @@ class EmbeddingGenerator:
         """
         Determine the cheapest available embedding model for the organization.
         
-        Queries available models via the gateway router and picks the cheapest
-        embedding model. Falls back through a priority list.
+        Only picks models that are actually routable through the gateway.
+        Serverless models (GCP Vertex, OpenAI) are preferred because they
+        don't require explicit deployment. AWS Bedrock models need activation.
         """
         from app.services.gateway import get_router
         
-        # Priority order of embedding models (cheapest first)
+        # Priority order: serverless-first (GCP/OpenAI always available if API enabled),
+        # then AWS (may need model activation), then others
         preferred_models = [
-            "amazon.titan-embed-text-v2:0",
-            "amazon.titan-embed-text-v1",
-            "cohere.embed-english-v3",
+            # GCP — serverless, always available if Vertex AI API is enabled
             "text-embedding-005",
             "text-multilingual-embedding-002",
             "gemini-embedding-001",
+            # OpenAI — serverless, always available with API key
             "text-embedding-3-small",
+            # AWS — may need model access activation first
+            "amazon.titan-embed-text-v2:0",
+            "amazon.titan-embed-text-v1",
+            "cohere.embed-english-v3",
             "cohere.embed-v4:0",
         ]
         
@@ -337,18 +350,27 @@ class EmbeddingGenerator:
                 if model in available:
                     logger.info(f"Selected embedding model: {model}")
                     return model
+            
+            # If none of our preferred models match, try ANY embedding model in the router
+            for m in router.model_list or []:
+                name = m.get("model_name", "").lower()
+                if "embed" in name or "embedding" in name:
+                    logger.info(f"Selected fallback embedding model: {m['model_name']}")
+                    return m["model_name"]
+                    
         except Exception as e:
             logger.warning(f"Failed to query available models: {e}")
         
-        # Default fallback
-        return "amazon.titan-embed-text-v2:0"
+        # Last resort — GCP is most likely to work serverlessly
+        return "text-embedding-005"
     
     async def generate_embeddings(self, texts: List[str], model: str = None) -> List[List[float]]:
         """
         Generate embeddings for a list of texts.
         
         Routes through the org's LiteLLM router to use their configured
-        embedding models and cloud credentials.
+        embedding models and cloud credentials. Includes timeout to prevent
+        hanging on unresponsive models (e.g., unactivated Bedrock models).
         """
         if not texts:
             return []
@@ -359,7 +381,6 @@ class EmbeddingGenerator:
         
         logger.info(f"Generating embeddings for {len(texts)} texts using model {model}")
         
-        # Use the org's LiteLLM router for real embeddings
         from app.services.gateway import get_router
         
         embeddings = []
@@ -370,12 +391,20 @@ class EmbeddingGenerator:
             try:
                 async with get_db_session() as db:
                     router = await get_router(db, self.org_id)
-                    response = await router.aembedding(
-                        model=model,
-                        input=batch,
+                    # Timeout to prevent hanging on unactivated/unavailable models
+                    response = await asyncio.wait_for(
+                        router.aembedding(model=model, input=batch),
+                        timeout=self.EMBEDDING_TIMEOUT,
                     )
                     for item in response.data:
                         embeddings.append(item["embedding"])
+            except asyncio.TimeoutError:
+                logger.error(f"Embedding timed out after {self.EMBEDDING_TIMEOUT}s for model {model} (batch {i//batch_size}). "
+                             f"Model may not be activated — check provider console or use one-click activation.")
+                raise RuntimeError(
+                    f"Embedding model '{model}' timed out. It may not be activated on your cloud provider. "
+                    f"Use Bonito's model activation feature or choose a different embedding model."
+                )
             except Exception as e:
                 logger.error(f"Embedding generation failed for batch {i//batch_size}: {e}")
                 raise

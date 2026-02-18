@@ -37,7 +37,7 @@ class KnowledgeBaseCreate(BaseModel):
     source_type: SourceType
     source_config: Dict[str, Any] = Field(default_factory=dict)
     embedding_model: str = Field(default="auto", max_length=100)
-    embedding_dimensions: int = Field(default=1536, ge=1, le=4096)
+    embedding_dimensions: int = Field(default=768, ge=1, le=4096)
     chunk_size: int = Field(default=512, ge=100, le=2048)
     chunk_overlap: int = Field(default=50, ge=0, le=200)
     sync_schedule: Optional[str] = None
