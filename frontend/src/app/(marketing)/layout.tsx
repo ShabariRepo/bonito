@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import SchematicBackground from "@/components/SchematicBackground";
 
 const navLinks = [
   { href: "/use-cases", label: "Use Cases" },
@@ -43,8 +44,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8]">
+      <SchematicBackground />
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-[#1a1a1a] bg-[#0a0a0a]/90 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 border-b border-[#1a1a1a] bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 flex items-center justify-between h-16">
           <Link href="/">
             <Image src="/logo-text-dark.png" alt="Bonito" width={130} height={43} priority />
@@ -142,12 +144,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="relative z-10"
       >
         {children}
       </motion.main>
 
       {/* Footer */}
-      <footer className="border-t border-[#1a1a1a] bg-[#0a0a0a]">
+      <footer className="relative z-10 border-t border-[#1a1a1a] bg-[#0a0a0a]">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-12 md:py-16">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="col-span-1 sm:col-span-2 lg:col-span-1">

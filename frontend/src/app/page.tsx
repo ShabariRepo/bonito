@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import Script from "next/script";
 import Image from "next/image";
 import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight } from "lucide-react";
-import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
+import SchematicBackground from "@/components/SchematicBackground";
 
 // ---------- Section Animations ----------
 
@@ -84,9 +84,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden scroll-smooth">
-      <NeuralNetworkBackground />
-      {/* Top gradient overlay for contrast */}
-      <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" style={{ height: "40vh" }} />
+      <SchematicBackground />
+      {/* Top gradient overlay for contrast — softened to let schematic show through */}
+      <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a]/80 via-[#0a0a0a]/40 to-transparent" style={{ height: "35vh" }} />
 
       <Script
         id="json-ld-org"
