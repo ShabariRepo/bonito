@@ -965,8 +965,21 @@ async def _perform_rag_retrieval(kb_name: str, messages: list, org_id: uuid.UUID
     """
     Perform RAG retrieval for a knowledge base.
     
+    Uses its own DB session to avoid poisoning the gateway's transaction
+    if a pgvector query fails (e.g., dimension mismatch).
+    
     Returns context dictionary with chunks and source information, or None if no results.
     """
+    from app.models.knowledge_base import KnowledgeBase, KBChunk, KBDocument
+    from app.services.kb_ingestion import EmbeddingGenerator
+    
+    # Use a separate session so RAG errors don't poison the gateway transaction
+    async with get_db_session() as rag_db:
+        return await _perform_rag_retrieval_inner(kb_name, messages, org_id, rag_db)
+
+
+async def _perform_rag_retrieval_inner(kb_name: str, messages: list, org_id: uuid.UUID, db: AsyncSession) -> Optional[dict]:
+    """Inner RAG retrieval with its own DB session."""
     from app.models.knowledge_base import KnowledgeBase, KBChunk, KBDocument
     from app.services.kb_ingestion import EmbeddingGenerator
     
