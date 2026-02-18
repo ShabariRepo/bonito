@@ -27,6 +27,8 @@ import {
   Eye,
   EyeOff,
   PartyPopper,
+  Database,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
@@ -136,6 +138,22 @@ const IAC_TOOLS: { id: IaCTool; name: string; icon: React.ReactNode; desc: strin
   { id: "manual", name: "Manual Setup", icon: <Terminal className="h-5 w-5" />, desc: "Step-by-step CLI instructions", providers: ["aws", "azure", "gcp"] },
 ];
 
+// KB storage config fields per cloud provider
+const KB_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
+  aws: [
+    { key: "bucket", label: "S3 Bucket Name", placeholder: "bonito-kb-{org}" },
+    { key: "prefix", label: "Prefix (folder)", placeholder: "documents/" },
+  ],
+  azure: [
+    { key: "storage_account", label: "Storage Account", placeholder: "bonitokb{org}" },
+    { key: "container_name", label: "Container Name", placeholder: "documents" },
+  ],
+  gcp: [
+    { key: "bucket", label: "GCS Bucket Name", placeholder: "bonito-kb-{org}" },
+    { key: "prefix", label: "Prefix (folder)", placeholder: "documents/" },
+  ],
+};
+
 // IAM Policy JSON for quick reference
 const IAM_POLICIES: Record<Provider, string> = {
   aws: JSON.stringify({
@@ -191,6 +209,10 @@ export default function OnboardingPage() {
   const [validating, setValidating] = useState(false);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [expandedPolicy, setExpandedPolicy] = useState<string | null>(null);
+
+  // Knowledge Base state
+  const [kbEnabled, setKbEnabled] = useState(false);
+  const [kbConfig, setKbConfig] = useState<Record<string, Record<string, string>>>({});
 
   // IaC state
   const [iacTool, setIacTool] = useState<IaCTool | null>(null);
@@ -353,10 +375,25 @@ export default function OnboardingPage() {
     setActiveProvider(provider);
     setIacLoading(true);
     try {
+      const kbPayload: Record<string, unknown> = {};
+      if (kbEnabled) {
+        kbPayload.enable_knowledge_base = true;
+        const providerKb = kbConfig[provider] || {};
+        if (provider === "aws") {
+          kbPayload.kb_bucket_name = providerKb.bucket || "";
+          kbPayload.kb_prefix = providerKb.prefix || "";
+        } else if (provider === "azure") {
+          kbPayload.kb_bucket_name = providerKb.storage_account || "";
+          kbPayload.kb_prefix = providerKb.container_name || "";
+        } else if (provider === "gcp") {
+          kbPayload.kb_bucket_name = providerKb.bucket || "";
+          kbPayload.kb_prefix = providerKb.prefix || "";
+        }
+      }
       const res = await apiRequest(`/api/onboarding/generate-iac`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, iac_tool: iacTool }),
+        body: JSON.stringify({ provider, iac_tool: iacTool, ...kbPayload }),
       });
       if (!res.ok) throw new Error("Failed to generate");
       const result = await res.json();
@@ -765,6 +802,89 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
+                  {/* Knowledge Base toggle — optional */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="max-w-2xl mx-auto text-left space-y-4"
+                  >
+                    <button
+                      onClick={() => setKbEnabled(!kbEnabled)}
+                      className={cn(
+                        "w-full flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all",
+                        kbEnabled
+                          ? "border-violet-500 bg-violet-500/10"
+                          : "border-border hover:border-violet-500/50"
+                      )}
+                    >
+                      <div className={cn(
+                        "rounded-lg p-3",
+                        kbEnabled ? "bg-violet-500/20" : "bg-accent"
+                      )}>
+                        <Database className={cn("h-6 w-6", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold">Enable Knowledge Base (RAG)</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Connect your document storage for AI-powered search and retrieval
+                        </p>
+                      </div>
+                      <div className={cn(
+                        "w-11 h-6 rounded-full transition-colors flex items-center px-0.5",
+                        kbEnabled ? "bg-violet-500" : "bg-zinc-700"
+                      )}>
+                        <motion.div
+                          className="w-5 h-5 rounded-full bg-white"
+                          animate={{ x: kbEnabled ? 20 : 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        />
+                      </div>
+                    </button>
+
+                    <AnimatePresence>
+                      {kbEnabled && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden space-y-4"
+                        >
+                          {providers.filter((p) => ["aws", "azure", "gcp"].includes(p)).map((provider) => (
+                            <div key={provider} className="rounded-lg border bg-card p-4 space-y-3">
+                              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-violet-400" />
+                                {provider.toUpperCase()} Storage Config
+                              </h4>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                {KB_FIELDS[provider]?.map((field) => (
+                                  <div key={field.key}>
+                                    <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
+                                    <input
+                                      type="text"
+                                      className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
+                                      placeholder={field.placeholder}
+                                      value={kbConfig[provider]?.[field.key] || ""}
+                                      onChange={(e) =>
+                                        setKbConfig((prev) => ({
+                                          ...prev,
+                                          [provider]: { ...prev[provider], [field.key]: e.target.value },
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                            💡 You can configure Knowledge Base storage later from the dashboard. Additional IAM permissions for storage read access may be required.
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+
                   <button
                     onClick={goToDashboard}
                     className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
@@ -847,6 +967,95 @@ export default function OnboardingPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Knowledge Base toggle for IaC flow */}
+                  {providers.some((p) => ["aws", "azure", "gcp"].includes(p)) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="max-w-2xl mx-auto space-y-4"
+                    >
+                      <button
+                        onClick={() => {
+                          setKbEnabled(!kbEnabled);
+                          // Clear cached IaC results so they regenerate with/without KB
+                          setIacResults({} as any);
+                          if (activeProvider) {
+                            setTimeout(() => handleGenerateIaC(activeProvider), 100);
+                          }
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-all",
+                          kbEnabled
+                            ? "border-violet-500 bg-violet-500/10"
+                            : "border-border hover:border-violet-500/50"
+                        )}
+                      >
+                        <div className={cn(
+                          "rounded-lg p-2.5",
+                          kbEnabled ? "bg-violet-500/20" : "bg-accent"
+                        )}>
+                          <Database className={cn("h-5 w-5", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-sm">Enable Knowledge Base (RAG)</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Include storage read permissions for document sync
+                          </p>
+                        </div>
+                        <div className={cn(
+                          "w-11 h-6 rounded-full transition-colors flex items-center px-0.5",
+                          kbEnabled ? "bg-violet-500" : "bg-zinc-700"
+                        )}>
+                          <motion.div
+                            className="w-5 h-5 rounded-full bg-white"
+                            animate={{ x: kbEnabled ? 20 : 0 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          />
+                        </div>
+                      </button>
+
+                      <AnimatePresence>
+                        {kbEnabled && activeProvider && ["aws", "azure", "gcp"].includes(activeProvider) && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="rounded-lg border bg-card p-4 space-y-3">
+                              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                                <BookOpen className="h-4 w-4 text-violet-400" />
+                                {activeProvider.toUpperCase()} Storage Config
+                              </h4>
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                {KB_FIELDS[activeProvider]?.map((field) => (
+                                  <div key={field.key}>
+                                    <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
+                                    <input
+                                      type="text"
+                                      className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
+                                      placeholder={field.placeholder}
+                                      value={kbConfig[activeProvider]?.[field.key] || ""}
+                                      onChange={(e) =>
+                                        setKbConfig((prev) => ({
+                                          ...prev,
+                                          [activeProvider!]: { ...prev[activeProvider!], [field.key]: e.target.value },
+                                        }))
+                                      }
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                                💡 The generated IaC code includes storage read permissions when Knowledge Base is enabled. Re-download if you&apos;ve already applied it.
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
 
                   {activeProvider && iacResults[activeProvider] ? (
                     <div className="space-y-4">

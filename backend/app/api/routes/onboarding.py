@@ -164,6 +164,9 @@ async def generate_iac_code(
             aws_account_id=body.aws_account_id,
             azure_subscription_id=body.azure_subscription_id,
             gcp_project_id=body.gcp_project_id,
+            enable_knowledge_base=body.enable_knowledge_base,
+            kb_bucket_name=body.kb_bucket_name,
+            kb_prefix=body.kb_prefix,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))

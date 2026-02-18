@@ -200,7 +200,7 @@ resource "azurerm_role_assignment" "cost_reader" {
 
 resource "azurerm_role_assignment" "bonito_kb_blob_reader" {
   count                = var.enable_knowledge_base ? 1 : 0
-  scope                = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group}/providers/Microsoft.Storage/storageAccounts/${var.kb_storage_account}"
+  scope                = "/subscriptions/${var.subscription_id}/resourceGroups/${azurerm_resource_group.bonito.name}/providers/Microsoft.Storage/storageAccounts/${var.kb_storage_account}/blobServices/default/containers/${var.kb_container_name}"
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = azuread_service_principal.bonito.object_id
 }

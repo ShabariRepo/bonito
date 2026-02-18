@@ -45,6 +45,10 @@ class GenerateIaCRequest(BaseModel):
     azure_subscription_id: Optional[str] = None
     # GCP-specific
     gcp_project_id: Optional[str] = None
+    # Knowledge Base (RAG) — optional storage integration
+    enable_knowledge_base: bool = False
+    kb_bucket_name: Optional[str] = None  # e.g. "bonito-kb-acme-corp"
+    kb_prefix: Optional[str] = None  # e.g. "documents/"
 
 
 class GenerateIaCResponse(BaseModel):
