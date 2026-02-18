@@ -826,9 +826,9 @@ export default function OnboardingPage() {
                         <Database className={cn("h-6 w-6", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">Document Context</h3>
+                        <h3 className="font-semibold">Your Data → AI</h3>
                         <p className="text-sm text-muted-foreground">
-                          Connect your document storage for AI-powered search and retrieval
+                          Give your AI models context from your own documents
                         </p>
                       </div>
                       <div className={cn(
@@ -903,7 +903,7 @@ export default function OnboardingPage() {
                           )}
 
                           <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                            💡 You can configure Document Context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
+                            💡 You can set up document context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
                           </p>
                         </motion.div>
                       )}
@@ -1023,9 +1023,9 @@ export default function OnboardingPage() {
                           <Database className={cn("h-5 w-5", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-sm">Document Context</h3>
+                          <h3 className="font-semibold text-sm">Your Data → AI</h3>
                           <p className="text-xs text-muted-foreground">
-                            Include storage read permissions for document sync
+                            Give your AI models context from your own documents
                           </p>
                         </div>
                         <div className={cn(
@@ -1098,7 +1098,7 @@ export default function OnboardingPage() {
                                   ))}
                                 </div>
                                 <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                                  💡 The generated IaC code includes storage read permissions when Document Context is enabled. Re-download if you&apos;ve already applied it.
+                                  💡 The generated IaC code includes storage read permissions when document context is enabled. Re-download if you&apos;ve already applied it.
                                 </p>
                               </div>
                             )}
