@@ -138,7 +138,7 @@ const IAC_TOOLS: { id: IaCTool; name: string; icon: React.ReactNode; desc: strin
   { id: "manual", name: "Manual Setup", icon: <Terminal className="h-5 w-5" />, desc: "Step-by-step CLI instructions", providers: ["aws", "azure", "gcp"] },
 ];
 
-// Document Context storage config fields per cloud provider
+// AI Context storage config fields per cloud provider
 const DOC_STORAGE_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
   aws: [
     { key: "bucket", label: "S3 Bucket Name", placeholder: "bonito-kb-{org}" },
@@ -803,7 +803,7 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
-                  {/* Document Context toggle — optional */}
+                  {/* AI Context toggle — optional */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -826,9 +826,9 @@ export default function OnboardingPage() {
                         <Database className={cn("h-6 w-6", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">Your Data → AI</h3>
+                        <h3 className="font-semibold">AI Context</h3>
                         <p className="text-sm text-muted-foreground">
-                          Give your AI models context from your own documents
+                          Give your models context from your own documents
                         </p>
                       </div>
                       <div className={cn(
@@ -903,7 +903,7 @@ export default function OnboardingPage() {
                           )}
 
                           <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                            💡 You can set up document context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
+                            💡 You can set up AI Context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
                           </p>
                         </motion.div>
                       )}
@@ -993,7 +993,7 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
-                  {/* Document Context toggle for IaC flow */}
+                  {/* AI Context toggle for IaC flow */}
                   {providers.some((p) => ["aws", "azure", "gcp"].includes(p)) && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -1023,9 +1023,9 @@ export default function OnboardingPage() {
                           <Database className={cn("h-5 w-5", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-sm">Your Data → AI</h3>
+                          <h3 className="font-semibold text-sm">AI Context</h3>
                           <p className="text-xs text-muted-foreground">
-                            Give your AI models context from your own documents
+                            Give your models context from your own documents
                           </p>
                         </div>
                         <div className={cn(
@@ -1098,7 +1098,7 @@ export default function OnboardingPage() {
                                   ))}
                                 </div>
                                 <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                                  💡 The generated IaC code includes storage read permissions when document context is enabled. Re-download if you&apos;ve already applied it.
+                                  💡 The generated IaC code includes storage read permissions when AI Context is enabled. Re-download if you&apos;ve already applied it.
                                 </p>
                               </div>
                             )}
