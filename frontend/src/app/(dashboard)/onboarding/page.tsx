@@ -154,12 +154,6 @@ const DOC_STORAGE_FIELDS: Record<string, { key: string; label: string; placehold
   ],
 };
 
-const DOC_STORAGE_PROVIDERS: { id: string; name: string; icon: string }[] = [
-  { id: "aws", name: "Amazon S3", icon: "☁️" },
-  { id: "azure", name: "Azure Blob Storage", icon: "🔷" },
-  { id: "gcp", name: "Google Cloud Storage", icon: "🌐" },
-];
-
 // IAM Policy JSON for quick reference
 const IAM_POLICIES: Record<Provider, string> = {
   aws: JSON.stringify({
@@ -383,8 +377,9 @@ export default function OnboardingPage() {
     setIacLoading(true);
     try {
       const kbPayload: Record<string, unknown> = {};
-      if (kbEnabled && kbProvider && kbProvider === provider) {
+      if (kbEnabled && kbProvider) {
         kbPayload.enable_knowledge_base = true;
+        kbPayload.kb_storage_provider = kbProvider;
         if (kbProvider === "aws") {
           kbPayload.kb_bucket_name = kbConfig.bucket || "";
           kbPayload.kb_prefix = kbConfig.prefix || "";
@@ -808,7 +803,7 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
-                  {/* Knowledge Base toggle — optional */}
+                  {/* Document Context toggle — optional */}
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -831,9 +826,9 @@ export default function OnboardingPage() {
                         <Database className={cn("h-6 w-6", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">AI Context</h3>
+                        <h3 className="font-semibold">Document Context</h3>
                         <p className="text-sm text-muted-foreground">
-                          Give your models context from your own documents
+                          Connect your document storage for AI-powered search and retrieval
                         </p>
                       </div>
                       <div className={cn(
@@ -889,7 +884,7 @@ export default function OnboardingPage() {
                                 {kbProvider === "aws" ? "S3" : kbProvider === "azure" ? "Azure Blob" : "GCS"} Configuration
                               </h4>
                               <div className="grid gap-3 sm:grid-cols-2">
-                                {KB_FIELDS[kbProvider]?.map((field) => (
+                                {DOC_STORAGE_FIELDS[kbProvider]?.map((field) => (
                                   <div key={field.key}>
                                     <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
                                     <input
@@ -908,7 +903,7 @@ export default function OnboardingPage() {
                           )}
 
                           <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                            💡 You can configure AI Context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
+                            💡 You can configure Document Context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
                           </p>
                         </motion.div>
                       )}
@@ -998,7 +993,7 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
-                  {/* Knowledge Base toggle for IaC flow */}
+                  {/* Document Context toggle for IaC flow */}
                   {providers.some((p) => ["aws", "azure", "gcp"].includes(p)) && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
@@ -1028,7 +1023,7 @@ export default function OnboardingPage() {
                           <Database className={cn("h-5 w-5", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-sm">AI Context</h3>
+                          <h3 className="font-semibold text-sm">Document Context</h3>
                           <p className="text-xs text-muted-foreground">
                             Include storage read permissions for document sync
                           </p>
@@ -1087,7 +1082,7 @@ export default function OnboardingPage() {
                                   {kbProvider === "aws" ? "S3" : kbProvider === "azure" ? "Azure Blob" : "GCS"} Configuration
                                 </h4>
                                 <div className="grid gap-3 sm:grid-cols-2">
-                                  {KB_FIELDS[kbProvider]?.map((field) => (
+                                  {DOC_STORAGE_FIELDS[kbProvider]?.map((field) => (
                                     <div key={field.key}>
                                       <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
                                       <input
@@ -1103,7 +1098,7 @@ export default function OnboardingPage() {
                                   ))}
                                 </div>
                                 <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                                  💡 The generated IaC code includes storage read permissions when AI Context is enabled. Re-download if you&apos;ve already applied it.
+                                  💡 The generated IaC code includes storage read permissions when Document Context is enabled. Re-download if you&apos;ve already applied it.
                                 </p>
                               </div>
                             )}
