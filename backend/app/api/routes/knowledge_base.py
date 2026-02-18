@@ -547,16 +547,35 @@ async def search_knowledge_base(
     
     search_time_ms = int((time.time() - start_time) * 1000)
     
+    # Look up document info for the chunks
+    chunk_ids = [row.id for row in rows]
+    doc_map: dict = {}
+    if chunk_ids:
+        from app.models.knowledge_base import KBDocument
+        doc_result = await db.execute(
+            select(KBDocument.id, KBDocument.name, KBChunk.id.label("chunk_id")).
+            join(KBChunk, KBChunk.document_id == KBDocument.id).
+            where(KBChunk.id.in_(chunk_ids))
+        )
+        for dr in doc_result.fetchall():
+            doc_map[dr.chunk_id] = {"document_id": str(dr.id), "document_name": dr.name}
+
     results = []
     for row in rows:
+        doc_info = doc_map.get(row.id, {"document_id": str(uuid.UUID(int=0)), "document_name": "unknown"})
         results.append({
             "chunk_id": str(row.id),
             "content": row.content,
+            "score": round(float(row.relevance_score), 4) if row.relevance_score else 0.0,
             "source_file": row.source_file,
             "source_page": row.source_page,
             "source_section": row.source_section,
-            "relevance_score": round(float(row.relevance_score), 4) if row.relevance_score else 0,
-            "token_count": row.token_count,
+            "document_id": doc_info["document_id"],
+            "document_name": doc_info["document_name"],
+            "metadata": {
+                "token_count": row.token_count,
+                "chunk_index": row.chunk_index,
+            },
         })
     
     return KBSearchResponse(
