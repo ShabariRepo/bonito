@@ -590,6 +590,10 @@ async def chat_completion(
             logger.error(f"RAG retrieval failed for KB '{kb_name}': {e}")
             # Continue without RAG rather than failing the request
 
+    # Strip Bonito extension fields before forwarding to upstream provider
+    # (LiteLLM/Azure/etc. will reject unknown fields)
+    request_data.pop("bonito", None)
+
     log_entry = GatewayRequest(
         org_id=org_id,
         key_id=key_id,
