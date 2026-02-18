@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 
-from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index, Boolean, JSON, Text
+from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index, Boolean, JSON, Text, Column
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -69,7 +69,7 @@ class KBDocument(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     # Metadata (customer can add tags, categories, etc.)
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -106,7 +106,7 @@ class KBChunk(Base):
     source_section: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     
     # Metadata
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    extra_metadata: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

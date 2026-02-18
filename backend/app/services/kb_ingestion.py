@@ -438,7 +438,7 @@ async def process_document(
                     source_file=doc.file_name,
                     source_page=None,  # TODO: Extract page numbers during parsing
                     source_section=None,  # TODO: Extract sections during parsing
-                    metadata={"processed_at": datetime.now(timezone.utc).isoformat()}
+                    extra_metadata={"processed_at": datetime.now(timezone.utc).isoformat()}
                 )
                 chunk_objects.append(chunk_obj)
             

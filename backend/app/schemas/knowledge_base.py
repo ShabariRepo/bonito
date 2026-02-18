@@ -101,12 +101,13 @@ class KBDocumentResponse(BaseModel):
     status: DocumentStatus
     chunk_count: int
     error_message: Optional[str]
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any] = Field(default_factory=dict, alias="extra_metadata")
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 # ─── Chunk schemas ───
@@ -133,11 +134,12 @@ class KBChunkResponse(BaseModel):
     source_file: Optional[str]
     source_page: Optional[int]
     source_section: Optional[str]
-    metadata: Dict[str, Any]
+    metadata: Dict[str, Any] = Field(default_factory=dict, alias="extra_metadata")
     created_at: datetime
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 # ─── Search schemas ───

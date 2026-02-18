@@ -327,7 +327,7 @@ async def upload_document(
         file_size=len(content),
         file_hash=file_hash,
         status="pending",
-        metadata={"uploaded_by": str(user.id), "upload_timestamp": datetime.now(timezone.utc).isoformat()}
+        extra_metadata={"uploaded_by": str(user.id), "upload_timestamp": datetime.now(timezone.utc).isoformat()}
     )
 
     db.add(doc)
