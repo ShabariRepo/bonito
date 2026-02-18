@@ -144,15 +144,15 @@ export default function SchematicBackground() {
 
     // Responsive config
     const isMobile = window.innerWidth < 768;
-    const NUM_GROUPS = isMobile ? 3 : 5;
+    const NUM_GROUPS = isMobile ? 5 : 9;
     const STICKS_PER_GROUP = 8;
-    const FREE_STICKS = isMobile ? 12 : 20;
+    const FREE_STICKS = isMobile ? 16 : 28;
     const TOTAL_STICKS = NUM_GROUPS * STICKS_PER_GROUP + FREE_STICKS;
 
     // Visual config
     const BASE_OPACITY = 0.09;
     const FORM_OPACITY = 0.22;
-    const LERP_SPEED = 1.8;
+    const LERP_SPEED = 2.5;
     const LINE_COLOR = "175, 180, 190"; // neutral grey
     const DOT_R = 2;
     const GRID_SPACING = 50;
@@ -201,11 +201,11 @@ export default function SchematicBackground() {
           scale: rand(isMobile ? 30 : 45, isMobile ? 55 : 85),
           shapeIdx: Math.floor(Math.random() * SHAPES.length),
           phase: "idle",
-          timer: rand(0.5, 5), // staggered start
-          formDur: rand(2.5, 4),
-          holdDur: rand(2.5, 4.5),
-          dissolveDur: rand(2, 3.5),
-          idleDur: rand(3, 7),
+          timer: rand(0.3, 3), // staggered start
+          formDur: rand(1.2, 2),
+          holdDur: rand(1.5, 3),
+          dissolveDur: rand(1, 2),
+          idleDur: rand(1, 3),
         });
       }
 
@@ -307,7 +307,7 @@ export default function SchematicBackground() {
               break;
             case "dissolving":
               g.phase = "idle";
-              g.timer = rand(3, 7);
+              g.timer = rand(1, 3);
               break;
           }
         }
