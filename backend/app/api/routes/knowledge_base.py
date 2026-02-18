@@ -498,15 +498,71 @@ async def search_knowledge_base(
             detail=f"Knowledge base is not ready (status: {kb.status})"
         )
 
-    # For now, return a placeholder response
-    # TODO: Implement actual vector search using pgvector
+    top_k = body.top_k if hasattr(body, "top_k") and body.top_k else 5
+    
+    # Generate embedding for the query
+    from app.services.kb_ingestion import EmbeddingGenerator
+    embedding_gen = EmbeddingGenerator(user.org_id)
+    
+    try:
+        query_embeddings = await embedding_gen.generate_embeddings([body.query])
+        if not query_embeddings:
+            raise HTTPException(status_code=500, detail="Failed to generate query embedding")
+        query_embedding = query_embeddings[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Embedding generation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Embedding generation failed: {str(e)}")
+    
+    # Vector similarity search using pgvector
+    from sqlalchemy import text as sa_text
+    embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+    
+    try:
+        search_result = await db.execute(
+            sa_text("""
+                SELECT c.id, c.content, c.token_count, c.chunk_index,
+                       c.source_file, c.source_page, c.source_section,
+                       1 - (c.embedding <=> :query_vec::vector) AS relevance_score
+                FROM kb_chunks c
+                WHERE c.knowledge_base_id = :kb_id
+                  AND c.org_id = :org_id
+                  AND c.embedding IS NOT NULL
+                ORDER BY c.embedding <=> :query_vec::vector
+                LIMIT :top_k
+            """),
+            {
+                "query_vec": embedding_str,
+                "kb_id": str(kb_id),
+                "org_id": str(user.org_id),
+                "top_k": top_k,
+            },
+        )
+        rows = search_result.fetchall()
+    except Exception as e:
+        logger.error(f"pgvector search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Vector search failed: {str(e)}")
+    
     search_time_ms = int((time.time() - start_time) * 1000)
+    
+    results = []
+    for row in rows:
+        results.append({
+            "chunk_id": str(row.id),
+            "content": row.content,
+            "source_file": row.source_file,
+            "source_page": row.source_page,
+            "source_section": row.source_section,
+            "relevance_score": round(float(row.relevance_score), 4) if row.relevance_score else 0,
+            "token_count": row.token_count,
+        })
     
     return KBSearchResponse(
         query=body.query,
-        results=[],  # TODO: Implement vector search
-        total_results=0,
-        search_time_ms=search_time_ms
+        results=results,
+        total_results=len(results),
+        search_time_ms=search_time_ms,
     )
 
 

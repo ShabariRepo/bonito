@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import litellm
-from sqlalchemy import select, func, and_, cast, Date
+from sqlalchemy import select, func, and_, cast, Date, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.vault import vault_client
@@ -1000,16 +1000,65 @@ async def _perform_rag_retrieval(kb_name: str, messages: list, org_id: uuid.UUID
         logger.error(f"Failed to generate query embedding: {e}")
         return None
     
-    # TODO: Implement actual vector search using pgvector
-    # For now, return placeholder results
-    logger.info(f"RAG retrieval for query: '{user_query[:100]}...' in KB {kb.id}")
+    # Vector similarity search using pgvector cosine distance
+    top_k = 5
+    embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
     
-    # Placeholder: return empty context for now
+    try:
+        search_result = await db.execute(
+            sa_text("""
+                SELECT c.id, c.content, c.token_count, c.chunk_index,
+                       c.source_file, c.source_page, c.source_section,
+                       1 - (c.embedding <=> :query_vec::vector) AS relevance_score
+                FROM kb_chunks c
+                WHERE c.knowledge_base_id = :kb_id
+                  AND c.org_id = :org_id
+                  AND c.embedding IS NOT NULL
+                ORDER BY c.embedding <=> :query_vec::vector
+                LIMIT :top_k
+            """),
+            {
+                "query_vec": embedding_str,
+                "kb_id": str(kb.id),
+                "org_id": str(org_id),
+                "top_k": top_k,
+            },
+        )
+        rows = search_result.fetchall()
+    except Exception as e:
+        logger.error(f"pgvector search failed: {e}")
+        return None
+    
+    if not rows:
+        logger.info(f"No matching chunks found in KB '{kb_name}' for query")
+        return None
+    
+    chunks = []
+    sources = []
+    for row in rows:
+        chunk = {
+            "content": row.content,
+            "source_file": row.source_file,
+            "source_page": row.source_page,
+            "source_section": row.source_section,
+            "relevance_score": round(float(row.relevance_score), 4) if row.relevance_score else 0,
+        }
+        chunks.append(chunk)
+        sources.append({
+            "document": row.source_file or "unknown",
+            "page": row.source_page,
+            "section": row.source_section,
+            "relevance_score": chunk["relevance_score"],
+            "chunk_preview": row.content[:150] + "…" if len(row.content) > 150 else row.content,
+        })
+    
+    logger.info(f"RAG retrieval: {len(chunks)} chunks for query '{user_query[:80]}…' in KB {kb.id}")
+    
     return {
-        "chunks": [],
-        "sources": [],
+        "chunks": chunks,
+        "sources": sources,
         "query": user_query,
-        "knowledge_base_id": str(kb.id)
+        "knowledge_base_id": str(kb.id),
     }
 
 
