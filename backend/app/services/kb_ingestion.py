@@ -312,14 +312,36 @@ class EmbeddingGenerator:
         """
         Determine the cheapest available embedding model for the organization.
         
-        Priority order:
-        1. AWS: amazon.titan-embed-text-v2
-        2. Azure: text-embedding-3-small
-        3. GCP: text-embedding-005
+        Queries available models via the gateway router and picks the cheapest
+        embedding model. Falls back through a priority list.
         """
-        # TODO: Query available models from the organization's deployments
-        # For now, return a default
-        return "text-embedding-3-small"
+        from app.services.gateway import get_router
+        
+        # Priority order of embedding models (cheapest first)
+        preferred_models = [
+            "amazon.titan-embed-text-v2:0",
+            "amazon.titan-embed-text-v1",
+            "cohere.embed-english-v3",
+            "text-embedding-005",
+            "text-multilingual-embedding-002",
+            "gemini-embedding-001",
+            "text-embedding-3-small",
+            "cohere.embed-v4:0",
+        ]
+        
+        try:
+            router = await get_router(db, self.org_id)
+            available = {m["model_name"] for m in router.model_list} if router.model_list else set()
+            
+            for model in preferred_models:
+                if model in available:
+                    logger.info(f"Selected embedding model: {model}")
+                    return model
+        except Exception as e:
+            logger.warning(f"Failed to query available models: {e}")
+        
+        # Default fallback
+        return "amazon.titan-embed-text-v2:0"
     
     async def generate_embeddings(self, texts: List[str], model: str = None) -> List[List[float]]:
         """
