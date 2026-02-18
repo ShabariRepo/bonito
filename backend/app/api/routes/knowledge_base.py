@@ -553,12 +553,12 @@ async def search_knowledge_base(
     if chunk_ids:
         from app.models.knowledge_base import KBDocument
         doc_result = await db.execute(
-            select(KBDocument.id, KBDocument.name, KBChunk.id.label("chunk_id")).
+            select(KBDocument.id, KBDocument.file_name, KBChunk.id.label("chunk_id")).
             join(KBChunk, KBChunk.document_id == KBDocument.id).
             where(KBChunk.id.in_(chunk_ids))
         )
         for dr in doc_result.fetchall():
-            doc_map[dr.chunk_id] = {"document_id": str(dr.id), "document_name": dr.name}
+            doc_map[dr.chunk_id] = {"document_id": str(dr.id), "document_name": dr.file_name}
 
     results = []
     for row in rows:
