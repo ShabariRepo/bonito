@@ -525,12 +525,12 @@ async def search_knowledge_base(
             sa_text("""
                 SELECT c.id, c.content, c.token_count, c.chunk_index,
                        c.source_file, c.source_page, c.source_section,
-                       1 - (c.embedding <=> :query_vec::vector) AS relevance_score
+                       1 - (c.embedding <=> CAST(:query_vec AS vector)) AS relevance_score
                 FROM kb_chunks c
                 WHERE c.knowledge_base_id = :kb_id
                   AND c.org_id = :org_id
                   AND c.embedding IS NOT NULL
-                ORDER BY c.embedding <=> :query_vec::vector
+                ORDER BY c.embedding <=> CAST(:query_vec AS vector)
                 LIMIT :top_k
             """),
             {
