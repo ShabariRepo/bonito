@@ -334,8 +334,9 @@ async def upload_document(
     await db.flush()
     await db.refresh(doc)
 
-    # Schedule background processing
-    background_tasks.add_task(_process_uploaded_document, doc.id, content, kb_id)
+    # Schedule background processing using the real ingestion pipeline
+    from app.services.kb_ingestion import process_document
+    background_tasks.add_task(process_document, doc.id, content, kb_id)
 
     logger.info(f"Uploaded document {doc.id} ({file.filename}) to KB {kb_id}")
     

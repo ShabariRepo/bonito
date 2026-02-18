@@ -325,31 +325,44 @@ class EmbeddingGenerator:
         """
         Generate embeddings for a list of texts.
         
-        This would route through Bonito's own gateway to use the customer's
-        embedding models and credits.
+        Routes through the org's LiteLLM router to use their configured
+        embedding models and cloud credentials.
         """
         if not texts:
             return []
         
         if model is None:
-            # Get the cheapest available model
             async with get_db_session() as db:
                 model = await self.get_cheapest_embedding_model(db)
         
-        # TODO: Implement actual embedding generation through the gateway
-        # For now, return dummy embeddings
         logger.info(f"Generating embeddings for {len(texts)} texts using model {model}")
         
-        # Placeholder: return random embeddings of the correct dimension
-        import random
-        embeddings = []
-        for text in texts:
-            # Generate a consistent embedding based on text hash (for testing)
-            text_hash = hashlib.md5(text.encode()).hexdigest()
-            random.seed(text_hash)
-            embedding = [random.uniform(-1, 1) for _ in range(1536)]
-            embeddings.append(embedding)
+        # Use the org's LiteLLM router for real embeddings
+        from app.services.gateway import get_router
         
+        embeddings = []
+        batch_size = 20  # Process in batches to avoid rate limits
+        
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            try:
+                async with get_db_session() as db:
+                    router = await get_router(db, self.org_id)
+                    response = await router.aembedding(
+                        model=model,
+                        input=batch,
+                    )
+                    for item in response.data:
+                        embeddings.append(item["embedding"])
+            except Exception as e:
+                logger.error(f"Embedding generation failed for batch {i//batch_size}: {e}")
+                raise
+            
+            # Small delay between batches to avoid rate limits
+            if i + batch_size < len(texts):
+                await asyncio.sleep(0.5)
+        
+        logger.info(f"Generated {len(embeddings)} embeddings successfully")
         return embeddings
 
 
@@ -451,6 +464,7 @@ async def process_document(
             doc.updated_at = datetime.now(timezone.utc)
             
             # Update knowledge base counters
+            kb.document_count += 1
             kb.chunk_count += len(chunks)
             kb.total_tokens += total_tokens
             if kb.status == "pending":
