@@ -16,6 +16,7 @@ from .commands.gateway import app as gateway_app
 from .commands.policies import app as policies_app
 from .commands.analytics import app as analytics_app
 from .commands.deployments import app as deployments_app
+from .commands.kb import app as kb_app
 
 console = Console()
 
@@ -67,6 +68,7 @@ app.add_typer(deployments_app, name="deployments",  help="🚀 Deployment manage
 app.add_typer(chat_app,        name="chat",        help="💬 Interactive AI chat")
 app.add_typer(gateway_app,     name="gateway",     help="🌐 API gateway management")
 app.add_typer(policies_app,    name="policies",    help="🎯 Routing policies")
+app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base management")
 app.add_typer(analytics_app,   name="analytics",   help="📊 Usage analytics & costs")
 
 

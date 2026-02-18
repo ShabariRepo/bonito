@@ -93,6 +93,26 @@ variable "cognitive_services_sku" {
   type        = string
   default     = "S0"
 }
+
+# ── Knowledge Base (Optional) ───────────────────────────────────────
+
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (Blob Storage read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_storage_account" {
+  description = "Azure Storage Account containing documents"
+  type        = string
+  default     = ""
+}
+
+variable "kb_container_name" {
+  description = "Blob container name for Knowledge Base documents"
+  type        = string
+  default     = ""
+}
 '''
 
 _TF_MAIN = r'''################################################################################
@@ -173,6 +193,15 @@ resource "azurerm_role_assignment" "cognitive_contributor" {
 resource "azurerm_role_assignment" "cost_reader" {
   scope                = data.azurerm_subscription.current.id
   role_definition_name = "Cost Management Reader"
+  principal_id         = azuread_service_principal.bonito.object_id
+}
+
+# ── Knowledge Base: Blob Storage Read Access (Optional) ────────────────
+
+resource "azurerm_role_assignment" "bonito_kb_blob_reader" {
+  count                = var.enable_knowledge_base ? 1 : 0
+  scope                = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group}/providers/Microsoft.Storage/storageAccounts/${var.kb_storage_account}"
+  role_definition_name = "Storage Blob Data Reader"
   principal_id         = azuread_service_principal.bonito.object_id
 }
 

@@ -130,10 +130,17 @@ async def chat_completions(
 
     key, policy = auth_context
     
+    # Detect knowledge base from header
+    kb_header = raw_request.headers.get("X-Bonito-Knowledge-Base")
+    
     # Handle routing policy requests
     if policy:
         try:
             data = request.model_dump(exclude_none=True)
+            
+            # Inject knowledge base if specified in header
+            if kb_header:
+                data.setdefault("bonito", {})["knowledge_base"] = kb_header
             
             # Apply routing policy to select model
             selected_model = await gateway_service.apply_routing_policy(policy, data, db)
@@ -170,6 +177,10 @@ async def chat_completions(
 
         try:
             data = request.model_dump(exclude_none=True)
+            
+            # Inject knowledge base if specified in header
+            if kb_header:
+                data.setdefault("bonito", {})["knowledge_base"] = kb_header
 
             # Streaming path
             if request.stream:

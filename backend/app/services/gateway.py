@@ -563,6 +563,32 @@ async def chat_completion(
     router = await get_router(db, org_id)
     model = request_data.get("model", "")
     start = time.time()
+    
+    # RAG Enhancement: Check for knowledge base in request
+    kb_context = None
+    kb_name = None
+    retrieval_cost = 0.0
+    retrieval_time_ms = 0
+    
+    # Check for knowledge base in bonito extension field
+    bonito_params = request_data.get("bonito", {})
+    if isinstance(bonito_params, dict):
+        kb_name = bonito_params.get("knowledge_base")
+    
+    if kb_name:
+        try:
+            retrieval_start = time.time()
+            kb_context = await _perform_rag_retrieval(kb_name, request_data.get("messages", []), org_id, db)
+            retrieval_time_ms = int((time.time() - retrieval_start) * 1000)
+            
+            if kb_context:
+                # Inject context into the request
+                request_data = _inject_rag_context(request_data, kb_context)
+                logger.info(f"Injected RAG context from KB '{kb_name}' with {len(kb_context['chunks'])} chunks")
+            
+        except Exception as e:
+            logger.error(f"RAG retrieval failed for KB '{kb_name}': {e}")
+            # Continue without RAG rather than failing the request
 
     log_entry = GatewayRequest(
         org_id=org_id,
@@ -594,7 +620,17 @@ async def chat_completion(
         db.add(log_entry)
         await db.flush()
 
-        return response.model_dump()
+        # Add RAG metadata to response
+        response_dict = response.model_dump()
+        if kb_context:
+            response_dict["bonito"] = {
+                "knowledge_base": kb_name,
+                "sources": kb_context["sources"],
+                "retrieval_cost": retrieval_cost,
+                "retrieval_latency_ms": retrieval_time_ms
+            }
+
+        return response_dict
 
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
@@ -917,3 +953,120 @@ async def get_request_logs(
     q = q.order_by(GatewayRequest.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(q)
     return list(result.scalars().all())
+
+
+# ─── RAG (Retrieval-Augmented Generation) Functions ───
+
+async def _perform_rag_retrieval(kb_name: str, messages: list, org_id: uuid.UUID, db: AsyncSession) -> Optional[dict]:
+    """
+    Perform RAG retrieval for a knowledge base.
+    
+    Returns context dictionary with chunks and source information, or None if no results.
+    """
+    from app.models.knowledge_base import KnowledgeBase, KBChunk, KBDocument
+    from app.services.kb_ingestion import EmbeddingGenerator
+    
+    # Find knowledge base by name
+    kb_result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.org_id == org_id, KnowledgeBase.name == kb_name)
+        )
+    )
+    kb = kb_result.scalar_one_or_none()
+    if not kb:
+        logger.warning(f"Knowledge base '{kb_name}' not found for org {org_id}")
+        return None
+    
+    if kb.status != "ready":
+        logger.warning(f"Knowledge base '{kb_name}' is not ready (status: {kb.status})")
+        return None
+    
+    # Extract user query from messages
+    user_query = _extract_user_query(messages)
+    if not user_query:
+        logger.warning("No user query found in messages")
+        return None
+    
+    # Generate embedding for the query
+    embedding_gen = EmbeddingGenerator(org_id)
+    try:
+        query_embeddings = await embedding_gen.generate_embeddings([user_query])
+        if not query_embeddings:
+            logger.error("Failed to generate query embedding")
+            return None
+        
+        query_embedding = query_embeddings[0]
+    except Exception as e:
+        logger.error(f"Failed to generate query embedding: {e}")
+        return None
+    
+    # TODO: Implement actual vector search using pgvector
+    # For now, return placeholder results
+    logger.info(f"RAG retrieval for query: '{user_query[:100]}...' in KB {kb.id}")
+    
+    # Placeholder: return empty context for now
+    return {
+        "chunks": [],
+        "sources": [],
+        "query": user_query,
+        "knowledge_base_id": str(kb.id)
+    }
+
+
+def _extract_user_query(messages: list) -> str:
+    """Extract the most recent user message as the search query."""
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "user":
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+    return ""
+
+
+def _inject_rag_context(request_data: dict, kb_context: dict) -> dict:
+    """
+    Inject RAG context into the chat completion request.
+    
+    Adds retrieved chunks as system context before the user messages.
+    """
+    messages = request_data.get("messages", [])
+    if not messages or not kb_context.get("chunks"):
+        return request_data
+    
+    # Build context from chunks
+    context_parts = ["Use the following context to answer the user's question. Cite sources when possible. If the context doesn't contain the answer, say so."]
+    context_parts.append("")  # Empty line
+    context_parts.append("Context:")
+    
+    for i, chunk in enumerate(kb_context["chunks"], 1):
+        source_info = ""
+        if chunk.get("source_file"):
+            source_info = f" (source: {chunk['source_file']}"
+            if chunk.get("source_page"):
+                source_info += f", p.{chunk['source_page']}"
+            source_info += ")"
+        
+        context_parts.append(f"[{i}] {chunk['content']}{source_info}")
+    
+    context_parts.append("")  # Empty line before user query
+    
+    context_message = {
+        "role": "system",
+        "content": "\n".join(context_parts)
+    }
+    
+    # Create new request with injected context
+    new_request = request_data.copy()
+    new_request["messages"] = [context_message] + messages
+    
+    return new_request
+
+
+async def detect_knowledge_base_from_policy(policy_id: uuid.UUID, db: AsyncSession) -> Optional[str]:
+    """
+    Check if a routing policy has an attached knowledge base.
+    
+    TODO: Implement when routing policy KB attachment is added.
+    """
+    # Placeholder - will be implemented when routing policy page is updated
+    return None

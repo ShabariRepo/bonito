@@ -77,6 +77,26 @@ variable "billing_account_id" {
   type        = string
   default     = ""
 }
+
+# ── Knowledge Base (Optional) ───────────────────────────────────────
+
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (GCS read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_gcs_bucket" {
+  description = "GCS bucket containing documents for Knowledge Base"
+  type        = string
+  default     = ""
+}
+
+variable "kb_gcs_prefix" {
+  description = "GCS prefix to scope document access"
+  type        = string
+  default     = ""
+}
 '''
 
 _TF_MAIN = r'''################################################################################
@@ -123,6 +143,15 @@ resource "google_billing_account_iam_member" "billing_viewer" {
   billing_account_id = var.billing_account_id
   role               = "roles/billing.viewer"
   member             = "serviceAccount:${google_service_account.bonito.email}"
+}
+
+# ── Knowledge Base: GCS Read Access (Optional) ────────────────────────
+
+resource "google_storage_bucket_iam_member" "bonito_kb_viewer" {
+  count  = var.enable_knowledge_base ? 1 : 0
+  bucket = var.kb_gcs_bucket
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.bonito.email}"
 }
 
 ################################################################################
