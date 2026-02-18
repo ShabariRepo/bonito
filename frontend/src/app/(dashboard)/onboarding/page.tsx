@@ -138,8 +138,8 @@ const IAC_TOOLS: { id: IaCTool; name: string; icon: React.ReactNode; desc: strin
   { id: "manual", name: "Manual Setup", icon: <Terminal className="h-5 w-5" />, desc: "Step-by-step CLI instructions", providers: ["aws", "azure", "gcp"] },
 ];
 
-// KB storage config fields per cloud provider
-const KB_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
+// Document Context storage config fields per cloud provider
+const DOC_STORAGE_FIELDS: Record<string, { key: string; label: string; placeholder: string }[]> = {
   aws: [
     { key: "bucket", label: "S3 Bucket Name", placeholder: "bonito-kb-{org}" },
     { key: "prefix", label: "Prefix (folder)", placeholder: "documents/" },
@@ -153,6 +153,12 @@ const KB_FIELDS: Record<string, { key: string; label: string; placeholder: strin
     { key: "prefix", label: "Prefix (folder)", placeholder: "documents/" },
   ],
 };
+
+const DOC_STORAGE_PROVIDERS: { id: string; name: string; icon: string }[] = [
+  { id: "aws", name: "Amazon S3", icon: "☁️" },
+  { id: "azure", name: "Azure Blob Storage", icon: "🔷" },
+  { id: "gcp", name: "Google Cloud Storage", icon: "🌐" },
+];
 
 // IAM Policy JSON for quick reference
 const IAM_POLICIES: Record<Provider, string> = {
@@ -210,9 +216,10 @@ export default function OnboardingPage() {
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [expandedPolicy, setExpandedPolicy] = useState<string | null>(null);
 
-  // Knowledge Base state
+  // AI Context state
   const [kbEnabled, setKbEnabled] = useState(false);
-  const [kbConfig, setKbConfig] = useState<Record<string, Record<string, string>>>({});
+  const [kbProvider, setKbProvider] = useState<Provider | null>(null);
+  const [kbConfig, setKbConfig] = useState<Record<string, string>>({});
 
   // IaC state
   const [iacTool, setIacTool] = useState<IaCTool | null>(null);
@@ -376,18 +383,17 @@ export default function OnboardingPage() {
     setIacLoading(true);
     try {
       const kbPayload: Record<string, unknown> = {};
-      if (kbEnabled) {
+      if (kbEnabled && kbProvider && kbProvider === provider) {
         kbPayload.enable_knowledge_base = true;
-        const providerKb = kbConfig[provider] || {};
-        if (provider === "aws") {
-          kbPayload.kb_bucket_name = providerKb.bucket || "";
-          kbPayload.kb_prefix = providerKb.prefix || "";
-        } else if (provider === "azure") {
-          kbPayload.kb_bucket_name = providerKb.storage_account || "";
-          kbPayload.kb_prefix = providerKb.container_name || "";
-        } else if (provider === "gcp") {
-          kbPayload.kb_bucket_name = providerKb.bucket || "";
-          kbPayload.kb_prefix = providerKb.prefix || "";
+        if (kbProvider === "aws") {
+          kbPayload.kb_bucket_name = kbConfig.bucket || "";
+          kbPayload.kb_prefix = kbConfig.prefix || "";
+        } else if (kbProvider === "azure") {
+          kbPayload.kb_bucket_name = kbConfig.storage_account || "";
+          kbPayload.kb_prefix = kbConfig.container_name || "";
+        } else if (kbProvider === "gcp") {
+          kbPayload.kb_bucket_name = kbConfig.bucket || "";
+          kbPayload.kb_prefix = kbConfig.prefix || "";
         }
       }
       const res = await apiRequest(`/api/onboarding/generate-iac`, {
@@ -825,9 +831,9 @@ export default function OnboardingPage() {
                         <Database className={cn("h-6 w-6", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">Enable Knowledge Base (RAG)</h3>
+                        <h3 className="font-semibold">AI Context</h3>
                         <p className="text-sm text-muted-foreground">
-                          Connect your document storage for AI-powered search and retrieval
+                          Give your models context from your own documents
                         </p>
                       </div>
                       <div className={cn(
@@ -850,35 +856,59 @@ export default function OnboardingPage() {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden space-y-4"
                         >
-                          {providers.filter((p) => ["aws", "azure", "gcp"].includes(p)).map((provider) => (
-                            <div key={provider} className="rounded-lg border bg-card p-4 space-y-3">
+                          {/* Pick ONE storage provider */}
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Where are your documents stored?</p>
+                            <div className="flex gap-2">
+                              {providers.filter((p) => ["aws", "azure", "gcp"].includes(p)).map((p) => (
+                                <button
+                                  key={p}
+                                  onClick={() => { setKbProvider(p); setKbConfig({}); }}
+                                  className={cn(
+                                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                                    kbProvider === p
+                                      ? "bg-violet-500 text-white"
+                                      : "bg-accent text-muted-foreground hover:bg-accent/80"
+                                  )}
+                                >
+                                  {p === "aws" ? "Amazon S3" : p === "azure" ? "Azure Blob" : "Google Cloud Storage"}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Storage config for chosen provider */}
+                          {kbProvider && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="rounded-lg border bg-card p-4 space-y-3"
+                            >
                               <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                                 <BookOpen className="h-4 w-4 text-violet-400" />
-                                {provider.toUpperCase()} Storage Config
+                                {kbProvider === "aws" ? "S3" : kbProvider === "azure" ? "Azure Blob" : "GCS"} Configuration
                               </h4>
                               <div className="grid gap-3 sm:grid-cols-2">
-                                {KB_FIELDS[provider]?.map((field) => (
+                                {KB_FIELDS[kbProvider]?.map((field) => (
                                   <div key={field.key}>
                                     <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
                                     <input
                                       type="text"
                                       className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
                                       placeholder={field.placeholder}
-                                      value={kbConfig[provider]?.[field.key] || ""}
+                                      value={kbConfig[field.key] || ""}
                                       onChange={(e) =>
-                                        setKbConfig((prev) => ({
-                                          ...prev,
-                                          [provider]: { ...prev[provider], [field.key]: e.target.value },
-                                        }))
+                                        setKbConfig((prev) => ({ ...prev, [field.key]: e.target.value }))
                                       }
                                     />
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          ))}
+                            </motion.div>
+                          )}
+
                           <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                            💡 You can configure Knowledge Base storage later from the dashboard. Additional IAM permissions for storage read access may be required.
+                            💡 You can configure AI Context later from the dashboard. Storage read permissions are included in the IaC code when enabled.
                           </p>
                         </motion.div>
                       )}
@@ -998,7 +1028,7 @@ export default function OnboardingPage() {
                           <Database className={cn("h-5 w-5", kbEnabled ? "text-violet-400" : "text-muted-foreground")} />
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold text-sm">Enable Knowledge Base (RAG)</h3>
+                          <h3 className="font-semibold text-sm">AI Context</h3>
                           <p className="text-xs text-muted-foreground">
                             Include storage read permissions for document sync
                           </p>
@@ -1016,41 +1046,67 @@ export default function OnboardingPage() {
                       </button>
 
                       <AnimatePresence>
-                        {kbEnabled && activeProvider && ["aws", "azure", "gcp"].includes(activeProvider) && (
+                        {kbEnabled && (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
+                            className="overflow-hidden space-y-3"
                           >
-                            <div className="rounded-lg border bg-card p-4 space-y-3">
-                              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                                <BookOpen className="h-4 w-4 text-violet-400" />
-                                {activeProvider.toUpperCase()} Storage Config
-                              </h4>
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                {KB_FIELDS[activeProvider]?.map((field) => (
-                                  <div key={field.key}>
-                                    <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
-                                    <input
-                                      type="text"
-                                      className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
-                                      placeholder={field.placeholder}
-                                      value={kbConfig[activeProvider]?.[field.key] || ""}
-                                      onChange={(e) =>
-                                        setKbConfig((prev) => ({
-                                          ...prev,
-                                          [activeProvider!]: { ...prev[activeProvider!], [field.key]: e.target.value },
-                                        }))
-                                      }
-                                    />
-                                  </div>
+                            {/* Pick ONE storage provider */}
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground">Where are your documents stored?</p>
+                              <div className="flex gap-2">
+                                {providers.filter((p) => ["aws", "azure", "gcp"].includes(p)).map((p) => (
+                                  <button
+                                    key={p}
+                                    onClick={() => {
+                                      setKbProvider(p);
+                                      setKbConfig({});
+                                      // Regenerate IaC for the active provider with KB settings
+                                      setIacResults({} as any);
+                                      if (activeProvider) setTimeout(() => handleGenerateIaC(activeProvider), 100);
+                                    }}
+                                    className={cn(
+                                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                                      kbProvider === p
+                                        ? "bg-violet-500 text-white"
+                                        : "bg-accent text-muted-foreground hover:bg-accent/80"
+                                    )}
+                                  >
+                                    {p === "aws" ? "Amazon S3" : p === "azure" ? "Azure Blob" : "Google Cloud Storage"}
+                                  </button>
                                 ))}
                               </div>
-                              <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
-                                💡 The generated IaC code includes storage read permissions when Knowledge Base is enabled. Re-download if you&apos;ve already applied it.
-                              </p>
                             </div>
+
+                            {kbProvider && (
+                              <div className="rounded-lg border bg-card p-4 space-y-3">
+                                <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                                  <BookOpen className="h-4 w-4 text-violet-400" />
+                                  {kbProvider === "aws" ? "S3" : kbProvider === "azure" ? "Azure Blob" : "GCS"} Configuration
+                                </h4>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  {KB_FIELDS[kbProvider]?.map((field) => (
+                                    <div key={field.key}>
+                                      <label className="text-xs text-muted-foreground mb-1 block">{field.label}</label>
+                                      <input
+                                        type="text"
+                                        className="w-full rounded-md border bg-zinc-950 px-3 py-2 text-sm font-mono"
+                                        placeholder={field.placeholder}
+                                        value={kbConfig[field.key] || ""}
+                                        onChange={(e) =>
+                                          setKbConfig((prev) => ({ ...prev, [field.key]: e.target.value }))
+                                        }
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+                                  💡 The generated IaC code includes storage read permissions when AI Context is enabled. Re-download if you&apos;ve already applied it.
+                                </p>
+                              </div>
+                            )}
                           </motion.div>
                         )}
                       </AnimatePresence>

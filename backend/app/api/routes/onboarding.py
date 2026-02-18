@@ -165,6 +165,7 @@ async def generate_iac_code(
             azure_subscription_id=body.azure_subscription_id,
             gcp_project_id=body.gcp_project_id,
             enable_knowledge_base=body.enable_knowledge_base,
+            kb_storage_provider=body.kb_storage_provider,
             kb_bucket_name=body.kb_bucket_name,
             kb_prefix=body.kb_prefix,
         )

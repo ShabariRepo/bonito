@@ -47,6 +47,7 @@ class GenerateIaCRequest(BaseModel):
     gcp_project_id: Optional[str] = None
     # Knowledge Base (RAG) — optional storage integration
     enable_knowledge_base: bool = False
+    kb_storage_provider: Optional[str] = None  # "aws", "azure", or "gcp" — which provider hosts docs
     kb_bucket_name: Optional[str] = None  # e.g. "bonito-kb-acme-corp"
     kb_prefix: Optional[str] = None  # e.g. "documents/"
 
