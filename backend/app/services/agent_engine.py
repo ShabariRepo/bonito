@@ -469,6 +469,7 @@ class AgentEngine:
         db: AsyncSession
     ) -> Dict[str, Any]:
         """Route through Bonito's gateway for model inference."""
+        from app.core.database import get_db_session
         try:
             # Use the gateway service directly for internal calls
             model_cfg = agent.model_config or {}
@@ -483,13 +484,15 @@ class AgentEngine:
                 request_data["tools"] = tools
                 request_data["tool_choice"] = "auto"
             
-            # Call the gateway directly (internal agent call, no API key)
-            response = await gateway_chat_completion(
-                request_data=request_data,
-                org_id=agent.org_id,
-                key_id=self.INTERNAL_KEY_ID,
-                db=db,
-            )
+            # Use a separate DB session so gateway queries don't conflict
+            # with the agent engine's transaction (same pattern as RAG retrieval)
+            async with get_db_session() as gw_db:
+                response = await gateway_chat_completion(
+                    request_data=request_data,
+                    org_id=agent.org_id,
+                    key_id=self.INTERNAL_KEY_ID,
+                    db=gw_db,
+                )
             
             return response
             
