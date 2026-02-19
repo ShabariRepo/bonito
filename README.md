@@ -14,9 +14,11 @@ Bonito solves this with:
 - **Governance & compliance** — Built-in policy engine for SOC-2, HIPAA, and GDPR compliance checks. Audit logging across every action.
 - **Cost visibility** — Real-time cost aggregation, forecasting, and optimization recommendations across all providers.
 - **AI Context (Knowledge Base)** — Cross-cloud RAG pipeline. Upload company docs, embed with any provider's model, and inject context into any LLM query — vendor-neutral knowledge that works with every model on every cloud.
-- **Team management** — Role-based access control, team seats, and (coming soon) SSO/SAML for enterprise identity management.
+- **Team management** — Role-based access control, team seats, and SSO/SAML for enterprise identity management.
+- **SAML SSO** — Enterprise single sign-on with SAML 2.0. Supports Okta, Azure AD, Google Workspace, and custom SAML providers. SSO enforcement, break-glass admin, JIT user provisioning.
 - **AI copilot** — An intelligent assistant that helps with onboarding, configuration, troubleshooting, and infrastructure-as-code generation.
 - **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, failover, and load balancing across providers.
+- **Bonobot — AI Agents** — Enterprise AI agent framework with visual canvas (React Flow), project-based organization, built-in tools (KB search, HTTP requests, agent-to-agent invocation), and enterprise security (default deny, budget enforcement, rate limiting, SSRF protection, full audit trail). All agent inference routes through the Bonito gateway for cost tracking and governance.
 
 ## How Bonito Compares
 
@@ -26,6 +28,8 @@ We're not the only platform in this space. Here's an honest look at how we fit:
 |---|---|---|---|---|
 | Multi-cloud gateway | ✅ | ✅ | ✅ | ✅ |
 | Cross-cloud Knowledge Base (RAG) | ✅ Built-in | ❌ | ❌ | ❌ |
+| AI Agent Framework | ✅ Built-in | ❌ | ❌ | ❌ |
+| SAML SSO | ✅ Built-in | ✅ | ❌ | ❌ |
 | Governance & compliance checks | ✅ Built-in | ❌ | ❌ | ❌ |
 | Infrastructure-as-Code (Terraform) | ✅ Built-in | ❌ | ❌ | ❌ |
 | AI copilot for operations | ✅ Built-in | ❌ | ❌ | ❌ |
@@ -167,8 +171,12 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 - ✅ IaC templates updated with KB storage permissions (S3, Azure Blob, GCS)
 - ✅ One-click model activation across all 3 clouds
 
+### Completed (Recent)
+- ✅ **SAML SSO** — Enterprise SSO with SAML 2.0 (Okta, Azure AD, Google Workspace, Custom SAML), SSO enforcement, break-glass admin, JIT provisioning
+- ✅ **Bonobot v1 — AI Agents** — Enterprise agent framework with visual canvas, OpenClaw-inspired execution engine, built-in tools, enterprise security (default deny, budget stops, rate limiting, SSRF protection, audit trail)
+
 ### Planned
-- 📋 SSO/SAML integration (OIDC first, then SAML 2.0) — [Scoping doc](docs/SSO-SCOPE.md)
+- ~~📋 SSO/SAML integration~~ ✅ Shipped
 - 📋 SOC-2 Type II certification — [Roadmap](docs/SOC2-ROADMAP.md)
 - 📋 Smart routing (complexity-aware model selection)
 - 📋 VPC Gateway Agent (enterprise self-hosted data plane)

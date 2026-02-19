@@ -1,9 +1,11 @@
 # Bonito Roadmap
 
-_Last updated: 2026-02-18_
+_Last updated: 2026-02-19_
 
 ## Current Status
 - All 18 core phases complete ✅
+- SAML SSO shipped ✅ (Okta, Azure AD, Google Workspace, Custom SAML)
+- Bonobot v1 — Enterprise AI Agent Framework shipped ✅
 - Live at https://getbonito.com
 - 3 cloud providers (AWS Bedrock, Azure OpenAI, GCP Vertex AI)
 - 387+ models catalogued, 12 active deployments
@@ -729,6 +731,45 @@ This is what makes Bonito unique. Example scenario:
 
 ---
 
+---
+
+## 🤖 Bonobot v1 — Enterprise AI Agent Framework ✅
+
+_Build, deploy, and govern AI agents — routed through Bonito's gateway for full cost tracking, rate limiting, and audit._
+
+Shipped 2026-02-19 on `feature/bonobot-agents`.
+
+### Backend (13 files, ~2,200 lines)
+- [x] 6 new DB models: projects, agents, agent_sessions, agent_messages, agent_connections, agent_triggers
+- [x] Migration 020
+- [x] Agent Engine — OpenClaw-inspired execution loop: intake → security checks → context assembly → gateway inference → tool execution → reply → persist
+- [x] Built-in tools: `search_knowledge_base`, `http_request`, `invoke_agent`, `send_notification`, `get_current_time`, `list_models`
+- [x] Full CRUD API for projects and agents + execute endpoint
+- [x] Routes all inference through Bonito's existing gateway (cost tracking, rate limiting, audit all apply)
+
+### Frontend (React Flow canvas)
+- [x] Projects overview page (`/agents`)
+- [x] Agent Canvas (`/agents/[projectId]`) — n8n/Railway-style visual graph with React Flow
+- [x] Custom AgentNode and TriggerNode components
+- [x] Agent Detail Panel (Configure, Chat, Sessions, Metrics tabs)
+- [x] Sidebar: "AI Agents" nav item added
+
+### Enterprise Security (baked in, not bolted on)
+- [x] Default deny tools (mode: `"none"`)
+- [x] Hard budget stops (402 error when budget exceeded)
+- [x] Per-agent rate limiting (Redis, 30 RPM default)
+- [x] Input sanitization (prompt injection detection)
+- [x] SSRF protection (private IP blocking, DNS check)
+- [x] HTTP URL allowlist enforcement
+- [x] KB isolation (agents only access assigned knowledge bases)
+- [x] Agent-to-agent isolation (same project only)
+- [x] Full audit trail (every execution + tool call logged)
+- [x] Credential isolation (agents never see API keys)
+- [x] No code execution tools
+- [x] Security metadata on every response
+
+---
+
 ## Near-Term (Next priorities)
 
 ### ⚡ Gateway Scaling (Done + Next)
@@ -747,11 +788,14 @@ This is what makes Bonito unique. Example scenario:
 - [ ] Gateway logs field consistency — some fields show blank in list view
 - [ ] UI warning when provider has 0 active deployments
 
-### 🔐 SSO / SAML
-- [ ] SAML 2.0 integration for enterprise SSO
-- [ ] Support Okta, Azure AD, Google Workspace
-- [ ] Role mapping from IdP groups → Bonito roles (admin, member, viewer)
-- [ ] Session management & token refresh for SSO users
+### 🔐 SSO / SAML ✅
+- [x] SAML 2.0 authentication (Okta, Azure AD, Google Workspace, Custom SAML)
+- [x] Settings → Security page for SSO configuration
+- [x] SSO enforcement with break-glass admin access
+- [x] JIT user provisioning (auto-create users on first SSO login)
+- [x] Account linking by email
+- [x] Tested E2E against mocksaml.com
+- [ ] Role mapping from IdP groups → Bonito roles (admin, member, viewer) — future
 
 ### 🖥️ CLI Finalization
 - [x] Core commands: auth, providers, models, deployments, chat, gateway, policies, analytics
