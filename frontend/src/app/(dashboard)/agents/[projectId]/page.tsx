@@ -17,7 +17,7 @@ import {
   Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Plus, ArrowLeft, Settings, Play, Zap } from "lucide-react";
+import { Plus, ArrowLeft, Settings, Play, Zap, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,7 @@ import { apiRequest } from "@/lib/auth";
 import { AgentNode } from "@/components/agents/agent-node";
 import { TriggerNode } from "@/components/agents/trigger-node";
 import { AgentDetailPanel } from "@/components/agents/agent-detail-panel";
+import { GroupManagementPanel } from "@/components/agents/group-management-panel";
 
 interface Project {
   id: string;
@@ -72,6 +73,7 @@ export default function ProjectCanvasPage() {
   const [loading, setLoading] = useState(true);
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [groupPanelOpen, setGroupPanelOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -210,6 +212,15 @@ export default function ProjectCanvasPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setGroupPanelOpen(true)}
+              className="bg-[#2a2a4e] border-gray-600 text-white hover:bg-[#3a3a6e]"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Manage Groups
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCreateTrigger}
               className="bg-[#2a2a4e] border-gray-600 text-white hover:bg-[#3a3a6e]"
             >
@@ -287,6 +298,14 @@ export default function ProjectCanvasPage() {
         }}
         agentId={selectedAgentId}
         onAgentUpdate={fetchGraphData}
+      />
+
+      {/* Group Management Panel */}
+      <GroupManagementPanel
+        isOpen={groupPanelOpen}
+        onClose={() => setGroupPanelOpen(false)}
+        projectId={projectId}
+        onGroupChange={fetchGraphData}
       />
 
       {/* Empty State */}
