@@ -1,22 +1,30 @@
 """
-Agent Engine - OpenClaw-inspired agent execution loop
+Agent Engine - OpenClaw-inspired agent execution loop with Enterprise Security
 
-Core pattern: intake → context assembly → model inference → tool execution → reply → persist
+Core pattern: intake → security checks → context assembly → model inference → tool execution → reply → persist
 
-This engine provides:
-- Serialized runs per session (no race conditions)
-- Tool execution loop with policy enforcement  
-- Context assembly with RAG injection
-- Integration with Bonito's existing gateway for cost tracking/rate limiting
-- Session management with compaction
+SECURITY-FIRST DESIGN:
+- Default deny on all tools (mode: "none")
+- Hard budget stops (402 errors)
+- Input sanitization against prompt injection  
+- URL allowlist enforcement for HTTP tools
+- Rate limiting per agent (Redis-backed)
+- Complete audit trail for every operation
+- No code execution capabilities
+- Session isolation and limits
 """
 
 import json
 import uuid
 import logging
+import re
+import time
+import httpx
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
+from urllib.parse import urlparse
+from ipaddress import ip_address, IPv4Address, IPv6Address
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,9 +34,11 @@ from app.models.agent import Agent
 from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.knowledge_base import KnowledgeBase, KnowledgeBaseChunk
+from app.models.audit import AuditLog
 from app.schemas.bonobot import AgentRunResult
 from app.services.gateway import GatewayService
 from app.services.kb_content import search_knowledge_base
+from app.services.audit_service import log_audit_event
 
 logger = logging.getLogger(__name__)
 

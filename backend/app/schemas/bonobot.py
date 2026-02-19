@@ -209,6 +209,17 @@ class AgentExecuteRequest(BaseModel):
     session_id: Optional[UUID] = None  # if not provided, creates new session
 
 
+class SecurityMetadata(BaseModel):
+    """Security metadata for agent execution."""
+    tools_used: List[str]
+    knowledge_bases_accessed: List[str]
+    budget_remaining: Optional[Decimal]
+    budget_percent_used: Optional[Decimal]
+    input_sanitized: bool
+    audit_id: UUID
+    rate_limit_remaining: int
+
+
 class AgentRunResult(BaseModel):
     """Result from running an agent."""
     content: Optional[str]
@@ -216,6 +227,7 @@ class AgentRunResult(BaseModel):
     cost: Decimal
     turns: int
     model_used: Optional[str]
+    security: SecurityMetadata
 
 
 class AgentExecuteResponse(BaseModel):
@@ -227,6 +239,7 @@ class AgentExecuteResponse(BaseModel):
     cost: Decimal
     turns: int
     model_used: Optional[str]
+    security: SecurityMetadata
     created_at: datetime
 
 

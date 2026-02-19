@@ -26,12 +26,17 @@ class Agent(Base):
     
     # Knowledge & Tools
     knowledge_base_ids: Mapped[list] = mapped_column(JSON, default=list)  # list of KB UUIDs this agent can access
-    tool_policy: Mapped[dict] = mapped_column(JSON, default=lambda: {"mode": "default", "allowed": [], "denied": []})
+    tool_policy: Mapped[dict] = mapped_column(JSON, default=lambda: {"mode": "none", "allowed": [], "denied": [], "http_allowlist": []})
     
     # Runtime settings
     max_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=25)  # max tool call loops per run
     timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=300)
     compaction_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    max_session_messages: Mapped[int] = mapped_column(Integer, nullable=False, default=200)  # force compaction when exceeded
+    
+    # Security & Rate Limiting
+    rate_limit_rpm: Mapped[int] = mapped_column(Integer, nullable=False, default=30)  # requests per minute
+    budget_alert_threshold: Mapped[Decimal] = mapped_column(Numeric(precision=3, scale=2), nullable=False, default=Decimal("0.8"))  # alert when 80% budget consumed
     
     # Status
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")  # active, paused, disabled
