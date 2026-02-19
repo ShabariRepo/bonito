@@ -67,8 +67,8 @@ export default function ProjectCanvasPage() {
   const { toast } = useToast();
 
   const [project, setProject] = useState<Project | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const [detailPanelOpen, setDetailPanelOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
