@@ -16,7 +16,7 @@ interface AgentNodeData {
   last_active_at?: string;
 }
 
-export const AgentNode = memo(({ data, selected }: NodeProps<AgentNodeData>) => {
+export const AgentNode = memo(({ data, selected }: { data: AgentNodeData; selected?: boolean }) => {
   const getStatusIndicator = (status: string) => {
     switch (status) {
       case "active":

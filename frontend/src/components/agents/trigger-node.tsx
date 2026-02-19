@@ -13,7 +13,7 @@ interface TriggerNodeData {
   last_fired_at?: string;
 }
 
-export const TriggerNode = memo(({ data, selected }: NodeProps<TriggerNodeData>) => {
+export const TriggerNode = memo(({ data, selected }: { data: TriggerNodeData; selected?: boolean }) => {
   const getTriggerIcon = (type: string) => {
     switch (type) {
       case "webhook":

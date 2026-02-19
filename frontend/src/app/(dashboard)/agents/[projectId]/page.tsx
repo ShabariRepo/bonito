@@ -58,7 +58,7 @@ interface GraphData {
 const nodeTypes = {
   agent: AgentNode,
   trigger: TriggerNode,
-};
+} as const satisfies Record<string, React.ComponentType<any>>;
 
 export default function ProjectCanvasPage() {
   const params = useParams();
