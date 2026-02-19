@@ -34,7 +34,7 @@ from redis.asyncio import Redis
 from app.models.agent import Agent
 from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
-from app.models.knowledge_base import KnowledgeBase, KnowledgeBaseChunk
+from app.models.knowledge_base import KnowledgeBase, KBChunk
 from app.models.audit import AuditLog
 from app.schemas.bonobot import AgentRunResult, SecurityMetadata
 from app.services.gateway import GatewayService
