@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.redis import redis_client
+from app.core.redis import get_redis
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.models.project import Project
@@ -307,7 +307,7 @@ async def execute_agent(
             message=request.message,
             session_id=request.session_id,
             db=db,
-            redis=redis_client,
+            redis=await get_redis(),
             user_id=current_user.id
         )
         
