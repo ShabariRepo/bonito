@@ -26,7 +26,7 @@ class AgentSession(Base):
     total_cost: Mapped[Decimal] = mapped_column(Numeric(precision=10, scale=4), nullable=False, default=0)
     
     # Configuration
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict)
+    session_metadata: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     
     # Timestamps
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
