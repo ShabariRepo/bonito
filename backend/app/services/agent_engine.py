@@ -80,9 +80,9 @@ class AgentEngine:
         self,
         agent: Agent,
         message: str,
-        session_id: Optional[uuid.UUID] = None,
         db: AsyncSession,
         redis: Redis,
+        session_id: Optional[uuid.UUID] = None,
         user_id: Optional[uuid.UUID] = None
     ) -> AgentRunResult:
         """Run a single agent turn with comprehensive security controls."""
@@ -169,6 +169,7 @@ class AgentEngine:
         self,
         session: AgentSession,
         role: str,
+        db: AsyncSession,
         content: Optional[str] = None,
         tool_calls: Optional[Dict] = None,
         tool_call_id: Optional[str] = None,
@@ -178,7 +179,6 @@ class AgentEngine:
         output_tokens: Optional[int] = None,
         cost: Optional[Decimal] = None,
         latency_ms: Optional[int] = None,
-        db: AsyncSession
     ):
         """Persist a message to the session."""
         # Get next sequence number
