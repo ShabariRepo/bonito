@@ -842,13 +842,11 @@ class AgentEngine:
         from fastapi import HTTPException
         from app.models.project import Project
         
-        if not hasattr(agent, 'project') or not agent.project:
-            # Load project if not already loaded
-            stmt = select(Project).where(Project.id == agent.project_id)
-            result = await db.execute(stmt)
-            project = result.scalar_one_or_none()
-        else:
-            project = agent.project
+        # Always query explicitly — accessing agent.project triggers a lazy load
+        # which fails in async context (greenlet_spawn error)
+        stmt = select(Project).where(Project.id == agent.project_id)
+        result = await db.execute(stmt)
+        project = result.scalar_one_or_none()
         
         if not project or not project.budget_monthly:
             return  # No budget limit set
