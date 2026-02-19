@@ -11,4 +11,12 @@ from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit, Gat
 from app.models.notifications import Notification, AlertRule, NotificationPreference
 from app.models.sso_config import SSOConfig
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig"]
+# Bonobot models
+from app.models.project import Project
+from app.models.agent import Agent
+from app.models.agent_session import AgentSession
+from app.models.agent_message import AgentMessage
+from app.models.agent_connection import AgentConnection
+from app.models.agent_trigger import AgentTrigger
+
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger"]
