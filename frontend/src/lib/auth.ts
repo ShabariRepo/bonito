@@ -113,7 +113,7 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 }
 
 export async function register(email: string, password: string, name: string) {
-  let res: Response;
+  let res!: Response;
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -144,7 +144,7 @@ export async function register(email: string, password: string, name: string) {
 }
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
-  let res: Response;
+  let res!: Response;
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
