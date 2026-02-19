@@ -14,6 +14,9 @@ if config.config_file_name is not None:
 # Override sqlalchemy.url from DATABASE_URL env var if set (production)
 database_url = os.getenv("DATABASE_URL")
 if database_url:
+    # Railway uses postgres:// but SQLAlchemy requires postgresql://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
     # Alembic needs synchronous URL — remove asyncpg driver
     sync_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
     config.set_main_option("sqlalchemy.url", sync_url)
