@@ -28,6 +28,7 @@ from app.models.policy import Policy
 from app.models.routing_policy import RoutingPolicy
 from app.models.model import Model
 from app.schemas.gateway import RoutingStrategy
+from app.services.log_service import log_service
 
 logger = logging.getLogger(__name__)
 
@@ -544,6 +545,20 @@ async def chat_completion(
         db.add(log_entry)
         await db.flush()
 
+        # Log to new platform logging system
+        await log_service.emit_gateway_request(
+            org_id=org_id,
+            user_id=None,  # Will need to get user_id from key mapping
+            model=model,
+            provider=log_entry.provider or "unknown",
+            status="success",
+            duration_ms=elapsed_ms,
+            cost=log_entry.cost,
+            input_tokens=log_entry.input_tokens,
+            output_tokens=log_entry.output_tokens,
+            trace_id=uuid.uuid4()  # Generate trace ID for this request
+        )
+
         return response.model_dump()
 
     except Exception as e:
@@ -558,6 +573,20 @@ async def chat_completion(
                 log_db.add(log_entry)
         except Exception as log_err:
             logger.error(f"Failed to log error request: {log_err}")
+        
+        # Log error to new platform logging system
+        await log_service.emit_gateway_request(
+            org_id=org_id,
+            user_id=None,  # Will need to get user_id from key mapping
+            model=model,
+            provider="unknown",
+            status="error",
+            duration_ms=elapsed_ms,
+            cost=0.0,
+            error_message=str(e)[:1000],
+            trace_id=uuid.uuid4()
+        )
+        
         raise
 
 

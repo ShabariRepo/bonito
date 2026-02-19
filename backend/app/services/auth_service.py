@@ -9,6 +9,7 @@ import redis.asyncio as redis
 
 from app.core.config import settings
 from app.models.user import User
+from app.services.log_service import log_service
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -93,3 +94,84 @@ async def create_user(
     await db.flush()
     await db.refresh(user)
     return user
+
+
+# ─── Authentication Logging Functions ───
+
+async def log_login_attempt(
+    org_id: uuid.UUID,
+    email: str,
+    user_id: uuid.UUID | None,
+    success: bool,
+    ip_address: str | None = None,
+    user_agent: str | None = None
+):
+    """Log a login attempt."""
+    await log_service.emit_auth_event(
+        org_id=org_id,
+        event_type="login",
+        user_id=user_id,
+        success=success,
+        metadata={
+            "email": email,
+            "ip_address": ip_address,
+            "user_agent": user_agent
+        },
+        message=f"Login {'successful' if success else 'failed'} for {email}"
+    )
+
+
+async def log_logout(
+    org_id: uuid.UUID,
+    user_id: uuid.UUID,
+    ip_address: str | None = None
+):
+    """Log a logout event."""
+    await log_service.emit_auth_event(
+        org_id=org_id,
+        event_type="logout",
+        user_id=user_id,
+        success=True,
+        metadata={
+            "ip_address": ip_address
+        },
+        message="User logged out"
+    )
+
+
+async def log_token_refresh(
+    org_id: uuid.UUID,
+    user_id: uuid.UUID,
+    success: bool,
+    ip_address: str | None = None
+):
+    """Log a token refresh event."""
+    await log_service.emit_auth_event(
+        org_id=org_id,
+        event_type="token_refresh",
+        user_id=user_id,
+        success=success,
+        metadata={
+            "ip_address": ip_address
+        },
+        message=f"Token refresh {'successful' if success else 'failed'}"
+    )
+
+
+async def log_password_change(
+    org_id: uuid.UUID,
+    user_id: uuid.UUID,
+    success: bool,
+    ip_address: str | None = None
+):
+    """Log a password change event."""
+    await log_service.emit_auth_event(
+        org_id=org_id,
+        event_type="password_change",
+        user_id=user_id,
+        success=success,
+        metadata={
+            "ip_address": ip_address
+        },
+        message=f"Password change {'successful' if success else 'failed'}"
+    )
