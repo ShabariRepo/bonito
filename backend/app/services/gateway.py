@@ -29,6 +29,7 @@ from app.models.routing_policy import RoutingPolicy
 from app.models.model import Model
 from app.models.deployment import Deployment
 from app.schemas.gateway import RoutingStrategy
+from app.services.log_emitters import emit_gateway_event
 
 logger = logging.getLogger(__name__)
 
@@ -634,6 +635,26 @@ async def chat_completion(
                 "retrieval_latency_ms": retrieval_time_ms
             }
 
+        # Emit to platform logging system (fire-and-forget)
+        try:
+            await emit_gateway_event(
+                org_id, "request",
+                resource_type="model",
+                message=f"Chat completion: {model}",
+                duration_ms=elapsed_ms,
+                cost=log_entry.cost,
+                metadata={
+                    "model": model,
+                    "model_used": log_entry.model_used,
+                    "input_tokens": log_entry.input_tokens,
+                    "output_tokens": log_entry.output_tokens,
+                    "provider": log_entry.provider,
+                    "kb_name": kb_name,
+                },
+            )
+        except Exception:
+            pass
+
         return response_dict
 
     except Exception as e:
@@ -648,6 +669,19 @@ async def chat_completion(
                 log_db.add(log_entry)
         except Exception as log_err:
             logger.error(f"Failed to log error request: {log_err}")
+
+        # Emit error to platform logging system
+        try:
+            await emit_gateway_event(
+                org_id, "error",
+                severity="error",
+                message=f"Chat completion error: {model} — {str(e)[:200]}",
+                duration_ms=elapsed_ms,
+                metadata={"model": model, "error": str(e)[:500]},
+            )
+        except Exception:
+            pass
+
         raise
 
 

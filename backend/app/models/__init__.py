@@ -18,5 +18,12 @@ from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.agent_connection import AgentConnection
 from app.models.agent_trigger import AgentTrigger
+# RBAC models
+from app.models.agent_group import AgentGroup
+from app.models.role import Role
+from app.models.role_assignment import RoleAssignment
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger"]
+# Logging models
+from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAggregation
+
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation"]

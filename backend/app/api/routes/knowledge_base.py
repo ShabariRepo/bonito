@@ -20,6 +20,7 @@ from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.models.knowledge_base import KnowledgeBase, KBDocument, KBChunk
+from app.services.log_emitters import emit_kb_event
 from app.schemas.knowledge_base import (
     KnowledgeBaseCreate,
     KnowledgeBaseUpdate,
@@ -88,6 +89,16 @@ async def create_knowledge_base(
     await db.refresh(kb)
     
     logger.info(f"Created knowledge base {kb.id} ({kb.name}) for org {user.org_id}")
+
+    try:
+        await emit_kb_event(
+            user.org_id, "create", user_id=user.id, resource_id=kb.id,
+            action="create", message=f"Created knowledge base '{kb.name}'",
+            metadata={"name": kb.name, "source_type": body.source_type},
+        )
+    except Exception:
+        pass
+
     return kb
 
 

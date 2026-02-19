@@ -18,6 +18,7 @@ from app.api.dependencies import require_superadmin
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.cloud_provider import CloudProvider
+from app.services.log_emitters import emit_admin_event
 from app.models.deployment import Deployment
 from app.models.gateway import GatewayRequest, GatewayKey
 
@@ -278,6 +279,22 @@ async def update_user(
         user.email_verified = not body.suspended
 
     await db.flush()
+
+    # Log admin action
+    try:
+        changes = {}
+        if body.role is not None:
+            changes["role"] = body.role
+        if body.suspended is not None:
+            changes["suspended"] = body.suspended
+        await emit_admin_event(
+            user.org_id, "user_update", user_id=_admin.id,
+            resource_id=user.id, resource_type="user", action="update",
+            message=f"Admin updated user {user.email}",
+            metadata={"target_email": user.email, "changes": changes},
+        )
+    except Exception:
+        pass
 
     # Fetch org name for response
     org_result = await db.execute(select(Organization.name).where(Organization.id == user.org_id))
