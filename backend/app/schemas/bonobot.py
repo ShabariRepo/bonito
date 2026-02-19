@@ -119,13 +119,13 @@ class AgentSessionResponse(BaseModel):
     agent_id: UUID
     org_id: UUID
     session_key: str
-    title: Optional[str]
+    title: Optional[str] = None
     status: str
     message_count: int
     total_tokens: int
     total_cost: Decimal
-    metadata: Dict[str, Any]
-    last_message_at: Optional[datetime]
+    session_metadata: Optional[Dict[str, Any]] = None
+    last_message_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
