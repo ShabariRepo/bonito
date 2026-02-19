@@ -517,15 +517,19 @@ async def list_agent_connections(
             detail="Agent not found"
         )
     
-    # Get connections with agent names
+    # Get connections — use aliased Agent for source/target to avoid duplicate join
+    from sqlalchemy.orm import aliased
+    SourceAgent = aliased(Agent, name="source_agent")
+    TargetAgent = aliased(Agent, name="target_agent")
+
     stmt = (
         select(
             AgentConnection,
-            Agent.name.label("source_name"),
-            Agent.name.label("target_name")
+            SourceAgent.name.label("source_name"),
+            TargetAgent.name.label("target_name")
         )
-        .join(Agent, AgentConnection.source_agent_id == Agent.id)
-        .join(Agent, AgentConnection.target_agent_id == Agent.id, isouter=True)
+        .join(SourceAgent, AgentConnection.source_agent_id == SourceAgent.id)
+        .join(TargetAgent, AgentConnection.target_agent_id == TargetAgent.id, isouter=True)
         .where(AgentConnection.source_agent_id == agent_id)
     )
     result = await db.execute(stmt)

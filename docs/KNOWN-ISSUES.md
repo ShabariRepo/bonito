@@ -67,19 +67,88 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Symptom**: Gateway request logs show model as '?' instead of the actual model name.
 **Status**: TODO — field mapping needs updating.
 
+### 10. Vercel: React Flow Controls style prop type error
+**Date**: 2026-02-19
+**Symptom**: Vercel build failed — `@xyflow/react` `<Controls>` component rejects `style` prop (typed as `CSSProperties | undefined`, not arbitrary).
+**Cause**: Passing `style={{ ... }}` to `<Controls>` from `@xyflow/react` — component doesn't accept React `style` prop directly.
+**Fix**: Replaced `style` prop with Tailwind child selectors (`[&>button]:!bg-gray-700` etc.) on a wrapping container (commit on `main`).
+
+### 11. Vercel: CreateProjectData.description required vs undefined
+**Date**: 2026-02-19
+**Symptom**: TypeScript strict mode error — `description` field on `CreateProjectData` was typed `string` but assigned `undefined` from form state.
+**Fix**: Made `description` optional (`string | undefined`) in the schema.
+
+### 12. Vercel: useSearchParams() outside Suspense boundary
+**Date**: 2026-02-19
+**Symptom**: SSO callback page crashed at build time — Next.js 14 requires `useSearchParams()` to be wrapped in a `<Suspense>` boundary.
+**Fix**: Split SSO callback into inner component + outer `<Suspense>` wrapper.
+
+### 13. Railway: python3-saml native deps missing in production Docker stage
+**Date**: 2026-02-19
+**Symptom**: Railway build failed — `xmlsec` Python package couldn't find `libxmlsec1` headers during pip install in the production stage.
+**Cause**: Dockerfile production stage only had runtime libs. `python3-saml` needs `libxmlsec1-dev`, `gcc`, `pkg-config` at install time.
+**Fix**: Added `libxmlsec1-dev`, `libxmlsec1-openssl`, `gcc`, `pkg-config` to the production stage's `apt-get install`.
+
+### 14. Railway: KnowledgeBaseChunk import renamed to KBChunk
+**Date**: 2026-02-19
+**Symptom**: `ImportError: cannot import name 'KnowledgeBaseChunk'` — agent engine importing old model name.
+**Fix**: Changed import to `KBChunk` (the actual model class name after KB refactor). Commit `83518e2`.
+
+### 15. Railway: Nonexistent GatewayService class in agent engine
+**Date**: 2026-02-19
+**Symptom**: `ImportError: cannot import name 'GatewayService'` — agent engine referenced a class that was never implemented.
+**Cause**: Agent engine was designed assuming a `GatewayService` wrapper class. Actual gateway is a direct `chat_completion()` function.
+**Fix**: Replaced with direct `gateway_chat_completion()` call using a separate DB session to avoid async conflicts. Created `kb_content.py` with `search_knowledge_base()` for vector search.
+
+### 16. Railway: Alembic postgres:// URL not converted
+**Date**: 2026-02-19
+**Symptom**: Alembic migrations fail on Railway — `NoSuchModuleError: sqlalchemy.dialects:postgres`.
+**Cause**: Railway sets `DATABASE_URL` with `postgres://` prefix. Alembic's `env.py` wasn't applying the same `postgres://` → `postgresql://` conversion that `config.py` does.
+**Fix**: Added URL prefix conversion in `alembic/env.py` `run_async_migrations()`. Commit `b3a5bd4`.
+
+### 17. Railway: get_db_session vs get_db (FastAPI dependency injection)
+**Date**: 2026-02-19
+**Symptom**: `TypeError: 'async_generator' object does not support the asynchronous context manager protocol` in bonobot routes.
+**Cause**: Routes used `async with get_db_session()` but `get_db` is a FastAPI `Depends()` async generator, not an `@asynccontextmanager`.
+**Fix**: Changed all bonobot routes to use `db: AsyncSession = Depends(get_db)` pattern. Commit `69477dc`.
+
+### 18. Railway: Agent model_config nullable JSON .get() crash
+**Date**: 2026-02-19
+**Symptom**: `AttributeError: 'NoneType' object has no attribute 'get'` when agent engine reads `model_config`.
+**Cause**: `model_config` is a nullable JSON column — defaults to `None` not `{}`.
+**Fix**: Guard with `(agent.model_config or {}).get(...)` everywhere model_config is accessed.
+
+### 19. Railway: AgentSession metadata column name mismatch
+**Date**: 2026-02-19
+**Symptom**: Pydantic validation error on `AgentSessionResponse` — field `session_metadata` not found.
+**Cause**: SQLAlchemy model maps Python attribute `session_metadata` to DB column `metadata`. Pydantic schema had `session_metadata` but `model_validate()` reads from the ORM attribute.
+**Fix**: Renamed DB column to `metadata` in prod, kept SQLAlchemy `mapped_column("metadata")` with Python attr `session_metadata`. Made nullable fields `Optional` in schema.
+
+### 20. Railway: redis_client is None at import time
+**Date**: 2026-02-19
+**Symptom**: `AttributeError: 'NoneType' object has no attribute 'get'` on redis operations in agent execution.
+**Cause**: `from app.core.redis import redis_client` captures `None` at module import. Redis client is initialized lazily.
+**Fix**: Changed to `await get_redis()` at call time instead of module-level import.
+
+### 21. Railway: greenlet_spawn error in agent engine gateway calls
+**Date**: 2026-02-19
+**Symptom**: `MissingGreenlet: greenlet_spawn has not been called; can't call await_only() here` during agent execution.
+**Cause**: Agent engine's `gateway_chat_completion()` used the same DB session as the route handler. SQLAlchemy async sessions can't be shared across different async contexts.
+**Fix**: Created a separate `get_db_session()` (`@asynccontextmanager`) specifically for the agent engine's internal gateway calls, independent of the route's DB session. Commit `2c12b5d`.
+
 ## Open — Bonobot v1 (AI Agents)
 
-### 10. Agent engine gateway integration — internal service call
+### 22. Agent engine gateway integration — internal service call
 **Date**: 2026-02-19
 **Symptom**: Agent engine calls the gateway via internal service function rather than HTTP. May need adjustment depending on the gateway service interface in different deployment environments.
 **Status**: Working in current architecture. Monitor when deploying to non-standard environments.
 
-### 11. Message compaction not yet implemented
+### 23. Message compaction not yet implemented
 **Date**: 2026-02-19
 **Symptom**: Agent sessions accumulate all messages without compaction. Long-running agent sessions will grow context windows unboundedly.
 **Status**: TODO in engine (marked in code). Compaction/summarization strategy needed for sessions exceeding context limits.
 
-### 12. send_notification and list_models tools are stubs
+### 24. send_notification and list_models tools are stubs
 **Date**: 2026-02-19
 **Symptom**: The `send_notification` and `list_models` built-in agent tools return placeholder/stub responses. They don't perform real notification delivery or dynamic model listing.
 **Status**: Stubs. Will be wired to real implementations in a future iteration.
