@@ -28,7 +28,7 @@ interface Project {
 
 interface CreateProjectData {
   name: string;
-  description: string;
+  description?: string;
   budget_monthly?: number;
 }
 

@@ -250,10 +250,7 @@ export default function ProjectCanvasPage() {
         />
         
         <Controls
-          className="!bg-[#1a1a2e] !border-gray-700"
-          style={{
-            button: { backgroundColor: "#1a1a2e", border: "1px solid #374151", color: "white" },
-          }}
+          className="!bg-[#1a1a2e] !border-gray-700 [&>button]:!bg-[#1a1a2e] [&>button]:!border-gray-700 [&>button]:!text-white"
         />
         
         <MiniMap

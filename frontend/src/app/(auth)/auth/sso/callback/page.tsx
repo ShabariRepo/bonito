@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setTokens } from "@/lib/auth";
 import { useAuth } from "@/components/auth/auth-context";
@@ -14,7 +14,8 @@ import { Loader2, AlertTriangle } from "lucide-react";
  * Tokens are passed in the URL fragment (hash) for security.
  * Errors are passed as query parameters.
  */
-export default function SSOCallbackPage() {
+
+function SSOCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
@@ -104,5 +105,29 @@ export default function SSOCallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SSOCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-md mx-auto px-6">
+          <div className="text-center mb-8">
+            <Image src="/logo-text-dark.png" alt="Bonito" width={160} height={53} className="mx-auto mb-4" />
+          </div>
+          <div className="bg-[#111] border border-[#222] rounded-xl p-8">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-[#7c3aed]" />
+              <div>
+                <h2 className="text-lg font-semibold text-[#f5f0e8]">Loading...</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <SSOCallbackContent />
+    </Suspense>
   );
 }
