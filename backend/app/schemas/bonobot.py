@@ -11,15 +11,15 @@ from pydantic import BaseModel, Field
 class ProjectCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
-    budget_monthly: Optional[Decimal] = Field(None, decimal_places=2)
+    budget_monthly: Optional[Decimal] = Field(default=None)
     settings: Optional[Dict[str, Any]] = None
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = Field(None, regex=r"^(active|paused|archived)$")
-    budget_monthly: Optional[Decimal] = Field(None, decimal_places=2)
+    status: Optional[str] = Field(None, pattern=r"^(active|paused|archived)$")
+    budget_monthly: Optional[Decimal] = Field(default=None)
     settings: Optional[Dict[str, Any]] = None
 
 
@@ -74,7 +74,7 @@ class AgentUpdate(BaseModel):
     max_session_messages: Optional[int] = Field(None, ge=10, le=1000)
     rate_limit_rpm: Optional[int] = Field(None, ge=1, le=1000)
     budget_alert_threshold: Optional[Decimal] = Field(None, ge=Decimal("0.1"), le=Decimal("1.0"))
-    status: Optional[str] = Field(None, regex=r"^(active|paused|disabled)$")
+    status: Optional[str] = Field(None, pattern=r"^(active|paused|disabled)$")
 
 
 class AgentResponse(BaseModel):
@@ -161,7 +161,7 @@ class AgentMessageResponse(BaseModel):
 
 class AgentConnectionCreate(BaseModel):
     target_agent_id: UUID
-    connection_type: str = Field(..., regex=r"^(handoff|escalation|data_feed|trigger)$")
+    connection_type: str = Field(..., pattern=r"^(handoff|escalation|data_feed|trigger)$")
     label: Optional[str] = Field(None, max_length=255)
     condition: Optional[Dict[str, Any]] = None
     enabled: bool = True
@@ -191,7 +191,7 @@ class AgentConnectionResponse(BaseModel):
 # ─── Trigger Schemas ───
 
 class AgentTriggerCreate(BaseModel):
-    trigger_type: str = Field(..., regex=r"^(webhook|schedule|event|manual|api)$")
+    trigger_type: str = Field(..., pattern=r"^(webhook|schedule|event|manual|api)$")
     config: Optional[Dict[str, Any]] = None
     enabled: bool = True
 
