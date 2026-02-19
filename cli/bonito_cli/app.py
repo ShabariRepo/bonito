@@ -70,6 +70,7 @@ app.add_typer(gateway_app,     name="gateway",     help="🌐 API gateway manage
 app.add_typer(policies_app,    name="policies",    help="🎯 Routing policies")
 app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base management")
 app.add_typer(analytics_app,   name="analytics",   help="📊 Usage analytics & costs")
+app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base (RAG)")
 
 
 # ── Callbacks ──────────────────────────────────────────────────

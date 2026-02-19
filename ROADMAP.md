@@ -1,15 +1,17 @@
 # Bonito Roadmap
 
-_Last updated: 2026-02-19_
+_Last updated: 2026-02-18_
 
 ## Current Status
 - All 18 core phases complete ✅
-- SAML SSO shipped ✅ (Okta, Azure AD, Google Workspace, Custom SAML)
-- Bonobot v1 — Enterprise AI Agent Framework shipped ✅
+- **AI Context (Knowledge Base) — SHIPPED** ✅ (cross-cloud RAG pipeline, fully E2E tested)
 - Live at https://getbonito.com
+- Backend: https://celebrated-contentment-production-0fc4.up.railway.app
 - 3 cloud providers (AWS Bedrock, Azure OpenAI, GCP Vertex AI)
-- 387+ models catalogued, 12 active deployments
+- 387+ models catalogued, 12 active deployments, 171+ gateway requests, $0.043 cost tracked
+- PostgreSQL 18.2 with pgvector (migrated from PG17 on 2026-02-18)
 - CLI tested and working against prod (25 commands, 9 bug fixes)
+- E2E tested: AWS ✅, GCP ✅, Azure ✅
 
 ---
 
@@ -702,17 +704,15 @@ bonito chat -m gpt-4o --kb hr-docs "What's our PTO policy?"
 
 ---
 
-### Build Plan — COMPLETED ✅
+### Build Plan
 
-All phases shipped to production on 2026-02-18.
-
-| Week | Deliverable | Status |
-|------|------------|--------|
-| **1** | **Foundation**: pgvector extension + migrations, `knowledge_bases` / `kb_documents` / `kb_chunks` tables, CRUD API endpoints, document parsing pipeline (PDF/DOCX/TXT/MD/HTML), chunking engine | ✅ Done |
-| **2** | **Embeddings + Storage**: Embedding generation via gateway (route to cheapest embedding model), pgvector write/search, sync engine (S3/Blob/GCS read), background job for batch processing | ✅ Done |
-| **3** | **Gateway Integration**: RAG middleware in gateway pipeline, knowledge base detection (request body / header / policy attachment), prompt augmentation with context injection, source citations in response | ✅ Done |
-| **4** | **Frontend + Polish**: Knowledge Bases dashboard page, KB detail page with search/test, onboarding wizard Step 4, routing policy KB attachment, IaC template updates, CLI `kb` commands | ✅ Done |
-| **5** | **Testing + Launch**: E2E testing across all 3 clouds, performance testing (retrieval latency <100ms), sync reliability testing, documentation, deploy to prod | ✅ Done |
+| Week | Deliverable |
+|------|------------|
+| **1** | **Foundation**: pgvector extension + migrations, `knowledge_bases` / `kb_documents` / `kb_chunks` tables, CRUD API endpoints, document parsing pipeline (PDF/DOCX/TXT/MD/HTML), chunking engine |
+| **2** | **Embeddings + Storage**: Embedding generation via gateway (route to cheapest embedding model), pgvector write/search, sync engine (S3/Blob/GCS read), background job for batch processing |
+| **3** | **Gateway Integration**: RAG middleware in gateway pipeline, knowledge base detection (request body / header / policy attachment), prompt augmentation with context injection, source citations in response |
+| **4** | **Frontend + Polish**: Knowledge Bases dashboard page, KB detail page with search/test, onboarding wizard Step 4, routing policy KB attachment, IaC template updates, CLI `kb` commands |
+| **5** | **Testing + Launch**: E2E testing across all 3 clouds, performance testing (retrieval latency <100ms), sync reliability testing, documentation, deploy to prod |
 
 ---
 
@@ -731,46 +731,7 @@ This is what makes Bonito unique. Example scenario:
 
 ---
 
----
-
-## 🤖 Bonobot v1 — Enterprise AI Agent Framework ✅
-
-_Build, deploy, and govern AI agents — routed through Bonito's gateway for full cost tracking, rate limiting, and audit._
-
-Shipped 2026-02-19 on `feature/bonobot-agents`.
-
-### Backend (13 files, ~2,200 lines)
-- [x] 6 new DB models: projects, agents, agent_sessions, agent_messages, agent_connections, agent_triggers
-- [x] Migration 020
-- [x] Agent Engine — OpenClaw-inspired execution loop: intake → security checks → context assembly → gateway inference → tool execution → reply → persist
-- [x] Built-in tools: `search_knowledge_base`, `http_request`, `invoke_agent`, `send_notification`, `get_current_time`, `list_models`
-- [x] Full CRUD API for projects and agents + execute endpoint
-- [x] Routes all inference through Bonito's existing gateway (cost tracking, rate limiting, audit all apply)
-
-### Frontend (React Flow canvas)
-- [x] Projects overview page (`/agents`)
-- [x] Agent Canvas (`/agents/[projectId]`) — n8n/Railway-style visual graph with React Flow
-- [x] Custom AgentNode and TriggerNode components
-- [x] Agent Detail Panel (Configure, Chat, Sessions, Metrics tabs)
-- [x] Sidebar: "AI Agents" nav item added
-
-### Enterprise Security (baked in, not bolted on)
-- [x] Default deny tools (mode: `"none"`)
-- [x] Hard budget stops (402 error when budget exceeded)
-- [x] Per-agent rate limiting (Redis, 30 RPM default)
-- [x] Input sanitization (prompt injection detection)
-- [x] SSRF protection (private IP blocking, DNS check)
-- [x] HTTP URL allowlist enforcement
-- [x] KB isolation (agents only access assigned knowledge bases)
-- [x] Agent-to-agent isolation (same project only)
-- [x] Full audit trail (every execution + tool call logged)
-- [x] Credential isolation (agents never see API keys)
-- [x] No code execution tools
-- [x] Security metadata on every response
-
----
-
-## Near-Term (Next priorities)
+## Near-Term (Next 2-4 weeks)
 
 ### ⚡ Gateway Scaling (Done + Next)
 - [x] Workers 2→4 (start-prod.sh default)
@@ -788,14 +749,11 @@ Shipped 2026-02-19 on `feature/bonobot-agents`.
 - [ ] Gateway logs field consistency — some fields show blank in list view
 - [ ] UI warning when provider has 0 active deployments
 
-### 🔐 SSO / SAML ✅
-- [x] SAML 2.0 authentication (Okta, Azure AD, Google Workspace, Custom SAML)
-- [x] Settings → Security page for SSO configuration
-- [x] SSO enforcement with break-glass admin access
-- [x] JIT user provisioning (auto-create users on first SSO login)
-- [x] Account linking by email
-- [x] Tested E2E against mocksaml.com
-- [ ] Role mapping from IdP groups → Bonito roles (admin, member, viewer) — future
+### 🔐 SSO / SAML
+- [ ] SAML 2.0 integration for enterprise SSO
+- [ ] Support Okta, Azure AD, Google Workspace
+- [ ] Role mapping from IdP groups → Bonito roles (admin, member, viewer)
+- [ ] Session management & token refresh for SSO users
 
 ### 🖥️ CLI Finalization
 - [x] Core commands: auth, providers, models, deployments, chat, gateway, policies, analytics
@@ -1293,61 +1251,11 @@ module "bonito_gateway" {
 - [ ] Budget alerts and automatic throttling
 - [ ] Weekly digest emails via Resend
 
-### 🤖 Bonobot — Enterprise AI Agents (Phase 19+)
-
-#### Projects System
-- [ ] Project model (org → project → agent) with scoped resources
-- [ ] Per-project AI Context (dedicated knowledge bases)
-- [ ] Per-project budget caps, spend tracking, and alerts
-- [ ] Per-project model routing policies
-- [ ] Project admin roles (project owner, member, viewer)
-
-#### Resource Connectors ⭐
-_Scoped, audited access to enterprise data sources. The enterprise equivalent of OpenClaw's file system access — but governed._
-
-**Two deployment modes:**
-- **Hosted agents ($349/mo)**: Up to 5 connectors per agent, Tier 1 connectors, credentials in Bonito Vault
-- **VPC agents ($599/mo)**: Unlimited connectors, all tiers + custom, credentials in customer's secrets manager
-
-**Tier 1 — Launch connectors (~4 weeks):**
-| Connector | Access | Auth |
-|---|---|---|
-| AWS S3 | Read/write buckets | IAM role (IaC already built) |
-| Azure Blob | Read/write containers | Service principal (IaC already built) |
-| GCS | Read/write buckets | Service account (IaC already built) |
-| SharePoint / OneDrive | Read/write files, lists | OAuth2 (Microsoft Graph API) |
-| Google Drive / Docs / Sheets | Read/write files | OAuth2 (Google Workspace) |
-| GitHub / GitLab | Read repos, issues, PRs | OAuth2 or PAT |
-
-**Tier 2 — Fast-follow connectors (~4 weeks after T1):**
-| Connector | Access | Auth |
-|---|---|---|
-| Confluence / Jira | Read/write pages, tickets | OAuth2 (Atlassian) |
-| Slack | Read/send messages | OAuth2 (Slack app) |
-| Microsoft Teams | Read/send messages | OAuth2 (Graph API) |
-| Snowflake | Read-only queries | Key pair auth |
-| PostgreSQL / MySQL | Read-only queries | Connection string (via VPC) |
-| Salesforce | Read/write records | OAuth2 |
-
-**Tier 3 — Custom connectors:**
-- REST/GraphQL adapter: customer defines endpoint, auth, and schema
-- Enterprise tier only
-
-**Security architecture:**
-- Project-scoped: agent can ONLY use connectors assigned to its project
-- No lateral movement: Ad Tech bot cannot discover HR's connectors
-- Credential isolation: short-lived tokens from Vault (hosted) or customer's secrets manager (VPC)
-- Full audit trail: every resource access logged (who, what, when, why, action, result)
-- Admin approval required to connect new resources
-- Exportable to SIEM (Splunk, Datadog, etc.)
-
-#### Agent Runtime
-- [ ] Agent registry — define AI agents with tool chains and persona
+### 🤖 Agent Framework (Phase 19+)
+- [ ] Agent registry — define AI agents with tool chains
 - [ ] Agent observability — trace multi-step agent runs
 - [ ] Agent cost attribution — who/what is spending
 - [ ] Multi-model agent pipelines (chain cheap→expensive for RAG patterns)
-- [ ] Multi-channel messaging (Slack, Teams, WhatsApp, email per agent)
-- [ ] Approval gates for sensitive actions (write operations, external sends)
 
 ---
 
@@ -1373,27 +1281,12 @@ _Scoped, audited access to enterprise data sources. The enterprise equivalent of
 ---
 
 ## Pricing Strategy
-
-### Platform (Bonito)
 | Tier | Price | Key Features |
 |------|-------|-------------|
 | Free | $0 | 3 providers, basic routing, 1K requests/mo |
-| Pro | $499/mo | **Smart routing**, unlimited requests, analytics, API keys, 5 KBs |
+| Pro | $499/mo | **Smart routing**, unlimited requests, analytics, API keys |
 | Enterprise | $2K-$5K/mo | VPC gateway, SSO/SAML, compliance, SLA |
 | Scale | $50K-$100K+/yr | Dedicated support, custom integrations, volume pricing |
-
-### Agents (Bonobot Add-on — requires Pro+)
-| | Hosted (Bonito infra) | Self-Hosted (Customer VPC) |
-|---|---|---|
-| Per Agent | $349/mo | $599/mo |
-| 5+ agents | $297/mo (15% off) | $509/mo (15% off) |
-| 10+ agents | $262/mo (25% off) | $449/mo (25% off) |
-
-**Per agent includes:** scoped AI Context, resource connectors, multi-channel messaging, governed routing, budget controls, audit trail, custom persona.
-
-**Connector limits:** Pro agents = 5 connectors (Tier 1 only). Enterprise agents = unlimited (all tiers + custom REST/GraphQL).
-
-**Upsell path:** Free → Pro ($499) → Pro + agents ($1.5K+) → Enterprise + VPC agents ($7K+) → Scale ($17K+)
 
 ---
 

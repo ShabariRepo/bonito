@@ -1,8 +1,8 @@
 # 🐟 Bonito CLI
 
-**Unified multi-cloud AI management from your terminal.**
+Unified multi-cloud AI management from your terminal.
 
-Bonito gives enterprise AI teams a single CLI to manage models, costs, and workloads across AWS Bedrock, Azure OpenAI, and Google Vertex AI — instead of juggling `aws bedrock`, `az cognitiveservices`, and `gcloud ai`.
+Bonito gives enterprise AI teams a single CLI to manage models, costs, and workloads across AWS Bedrock, Azure OpenAI, Google Vertex AI, and more.
 
 ## Install
 
@@ -13,66 +13,56 @@ pip install bonito-cli
 ## Quick Start
 
 ```bash
-# Authenticate
-bonito auth login
-
-# List connected cloud providers
-bonito providers list
-
-# Browse 300+ models across all providers
-bonito models list
-bonito models list --search "claude"
-
-# Chat with any model
-bonito chat -m <model-id> "What is quantum computing?"
-
-# Interactive chat
-bonito chat
-
-# View deployments
-bonito deployments list
-
-# Check gateway logs
-bonito gateway logs
+bonito auth login            # Authenticate
+bonito models list           # Browse 381+ models across 3 clouds
+bonito chat -m gpt-4o        # Start chatting
+bonito kb create --name docs # Create a knowledge base
 ```
 
 ## Commands
 
 | Command | Description |
-|---------|------------|
-| `bonito auth` | 🔐 Authentication & API keys |
-| `bonito providers` | ☁️ Cloud provider management |
-| `bonito models` | 🤖 AI model catalogue |
-| `bonito deployments` | 🚀 Deployment management |
-| `bonito chat` | 💬 Interactive AI chat |
-| `bonito gateway` | 🌐 API gateway management |
-| `bonito policies` | 🎯 Routing policies |
-| `bonito analytics` | 📊 Usage analytics & costs |
+|---------|-------------|
+| `bonito auth` | 🔐 Authentication & account management |
+| `bonito providers` | ☁️ Cloud provider management (AWS/Azure/GCP) |
+| `bonito models` | 🤖 AI model catalogue — list, search, enable |
+| `bonito chat` | 💬 Interactive AI chat with compare mode |
+| `bonito gateway` | 🌐 API gateway — keys, logs, config |
+| `bonito policies` | 🎯 Routing policies — cost/latency/quality optimization |
+| `bonito analytics` | 📊 Usage analytics, costs, trends, digest |
+| `bonito deployments` | 🚀 Model deployment management |
+| `bonito kb` | 📚 Knowledge base (RAG) — documents, search, sync |
 
-## Features
+## Knowledge Base (RAG)
 
-- **Multi-cloud** — AWS Bedrock, Azure OpenAI, Google Vertex AI in one tool
-- **Interactive chat** — Talk to any model with `/model`, `/temp`, `/export` commands
-- **Compare models** — `bonito chat --compare model1 --compare model2 "prompt"`
-- **Routing policies** — Cost-optimized, failover, A/B testing
-- **JSON output** — `--json` flag on every command for CI/CD automation
-- **Rich terminal UI** — Beautiful tables, progress bars, and formatted output
+```bash
+bonito kb create --name "Product Docs"         # Create a KB
+bonito kb upload <kb-id> report.pdf notes.md   # Upload documents
+bonito kb search <kb-id> "How to configure?"   # Semantic search
+bonito kb info <kb-id>                         # Stats & details
+```
+
+## JSON Output
+
+All commands support `--json` for scripting and CI/CD:
+
+```bash
+bonito models list --json | jq '.[] | .display_name'
+bonito analytics overview --json > report.json
+```
 
 ## Configuration
 
+Config stored in `~/.bonito/`:
+- Override with `BONITO_API_KEY` and `BONITO_API_URL` environment variables
+
+## Development
+
 ```bash
-# Environment variables (override config file)
-export BONITO_API_KEY=your-api-key
-export BONITO_API_URL=https://your-instance.example.com
-
-# Or use config file (~/.bonito/config.json)
-bonito auth login --email you@company.com
+cd cli/
+pip install -e .
+bonito --version
 ```
-
-## Requirements
-
-- Python 3.10+
-- A [Bonito](https://getbonito.com) account
 
 ## License
 

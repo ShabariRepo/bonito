@@ -21,123 +21,128 @@ pip install bonito-cli
 - `~/.bonito/credentials.json` — API key (or use env var `BONITO_API_KEY`)
 - Environment variables override file config:
   - `BONITO_API_KEY` — API key
-  - `BONITO_API_URL` — API endpoint (default: `https://getbonito.com/api`)
+  - `BONITO_API_URL` — API endpoint (default: `https://celebrated-contentment-production-0fc4.up.railway.app`)
 
 ## Authentication Flow
 Users sign up on the Bonito web app, then:
 ```bash
-bonito auth login                    # Opens browser for OAuth, or prompts for API key
-bonito auth login --api-key bk-xxx   # Direct API key auth
-bonito auth status                   # Show current auth state + org info
+bonito auth login                    # Prompts for email + password
+bonito auth login --email admin@co   # Direct email auth
+bonito auth whoami                   # Show current user
+bonito auth status                   # Check auth status + API connectivity
 bonito auth logout                   # Clear stored credentials
 ```
 
 ## Command Structure
 
-### `bonito auth` — Authentication & API Keys
+### `bonito auth` — Authentication & Account Management
 ```bash
-bonito auth login [--api-key KEY]    # Authenticate (browser OAuth or API key)
-bonito auth logout                   # Clear credentials
-bonito auth status                   # Show auth status, org, user info
-bonito auth keys list                # List API/gateway keys
-bonito auth keys create [--name N]   # Create new gateway key
-bonito auth keys revoke KEY_ID       # Revoke a key
+bonito auth login [--email E] [--password P] [--api-url URL]
+bonito auth logout
+bonito auth whoami
+bonito auth status
 ```
 
 ### `bonito providers` — Cloud Provider Management
 ```bash
-bonito providers list                          # List connected providers
-bonito providers add aws --access-key X --secret-key Y --region us-east-1
-bonito providers add azure --tenant-id X --client-id Y --client-secret Z --subscription-id S --endpoint E
-bonito providers add gcp --project-id X --service-account-json path/to/sa.json --region us-central1
-bonito providers test PROVIDER_ID              # Verify credentials
-bonito providers remove PROVIDER_ID            # Disconnect provider
-bonito providers models PROVIDER_ID            # List models for a provider
-bonito providers costs PROVIDER_ID [--days 30] # Show provider costs
+bonito providers list [--json]
+bonito providers status PROVIDER_ID [--json]
+bonito providers add aws [--access-key X] [--secret-key Y] [--region R]
+bonito providers add azure [--tenant-id X] [--client-id Y] [--client-secret Z] [--subscription-id S] [--endpoint E]
+bonito providers add gcp [--project-id X] [--service-account-json PATH] [--region R]
+bonito providers test PROVIDER_ID [--json]
+bonito providers remove PROVIDER_ID [--force] [--json]
 ```
 
 ### `bonito models` — Model Management
 ```bash
-bonito models list [--provider aws] [--enabled-only] [--search QUERY]
-bonito models info MODEL_ID                    # Detailed model info (pricing, capabilities, status)
-bonito models enable MODEL_ID                  # Activate model on cloud account
-bonito models enable --bulk ID1 ID2 ID3        # Bulk activate
-bonito models sync [--provider PROVIDER_ID]    # Sync model catalog from cloud
+bonito models list [--provider TYPE] [--search QUERY] [--json]
+bonito models search QUERY [--provider TYPE] [--json]
+bonito models info MODEL_ID [--json]
+bonito models enable MODEL_ID [MODEL_ID...] [--json]     # single or bulk activate
+bonito models sync [--provider PROVIDER_ID] [--json]
 ```
 
 ### `bonito chat` — Interactive AI Chat (Playground)
 ```bash
 bonito chat                                    # Interactive chat (picks default model)
-bonito chat -m claude-3-sonnet                 # Chat with specific model
-bonito chat -m gpt-4o --temperature 0.3        # With parameters
-bonito chat --compare model1 model2            # Compare mode
-echo "Summarize this" | bonito chat -m claude  # Pipe input
-bonito chat -m claude "What is 2+2?"           # One-shot (non-interactive)
+bonito chat -m MODEL_ID                        # Chat with specific model
+bonito chat -m MODEL_ID --temperature 0.3      # With parameters
+bonito chat --compare MODEL1 --compare MODEL2  # Compare mode
+echo "Summarize this" | bonito chat -m MODEL   # Pipe input
+bonito chat -m MODEL "What is 2+2?"            # One-shot (non-interactive)
 ```
+
+Interactive slash commands: `/model`, `/temp`, `/tokens`, `/clear`, `/export`, `/stats`, `/quit`
 
 ### `bonito gateway` — API Gateway Management
 ```bash
-bonito gateway status                          # Gateway health + config
-bonito gateway keys list                       # List gateway API keys
-bonito gateway keys create [--name N]          # Create key
-bonito gateway keys revoke KEY_ID              # Revoke key
-bonito gateway logs [--limit 50] [--model X]   # View recent gateway logs
-bonito gateway config                          # Show gateway config
-bonito gateway config set FIELD VALUE          # Update gateway config
+bonito gateway status [--json]
+bonito gateway usage [--days N] [--json]
+bonito gateway logs [--limit N] [--model M] [--json]
+bonito gateway keys list [--json]
+bonito gateway keys create [--name N] [--json]
+bonito gateway keys revoke KEY_ID [--force] [--json]
+bonito gateway config show [--json]
+bonito gateway config set FIELD VALUE [--json]
 ```
 
 ### `bonito policies` — Routing Policies
 ```bash
-bonito policies list                           # List routing policies
-bonito policies create --name N --strategy cost_optimized --models M1,M2
-bonito policies info POLICY_ID                 # Policy details + stats
-bonito policies test POLICY_ID "test prompt"   # Dry-run test
-bonito policies toggle POLICY_ID               # Enable/disable
-bonito policies delete POLICY_ID               # Delete policy
+bonito policies list [--json]
+bonito policies create [--name N] [--strategy S] [--models M1,M2] [--json]
+bonito policies info POLICY_ID [--json]
+bonito policies test POLICY_ID "test prompt" [--json]
+bonito policies stats POLICY_ID [--json]
+bonito policies delete POLICY_ID [--force] [--json]
 ```
+
+Strategies: `cost_optimized`, `latency_optimized`, `quality_optimized`, `round_robin`
 
 ### `bonito analytics` — Usage Analytics & Costs
 ```bash
-bonito analytics overview                      # Dashboard summary (requests, cost, top model)
-bonito analytics usage [--period day|week|month]  # Usage over time
-bonito analytics costs [--period daily|weekly|monthly]  # Cost breakdown
-bonito analytics trends                        # Trend analysis
-bonito analytics digest                        # Weekly digest
+bonito analytics overview [--json]
+bonito analytics usage [--period day|week|month] [--json]
+bonito analytics costs [--period daily|weekly|monthly] [--json]
+bonito analytics trends [--json]
+bonito analytics digest [--json]
 ```
 
-### `bonito costs` — Cloud Cost Intelligence
+### `bonito deployments` — Deployment Management
 ```bash
-bonito costs summary [--period monthly]        # Total spend across providers
-bonito costs breakdown                         # By provider, model, department
-bonito costs forecast                          # 14-day cost forecast
-bonito costs recommendations                   # Optimization recommendations
-bonito costs export [--format csv]             # Export cost data
+bonito deployments list [--json]
+bonito deployments create [--model M] [--name N] [--search S] [--units U] [--tpm T] [--tier TIER] [--json]
+bonito deployments status DEPLOYMENT_ID [--json]
+bonito deployments delete DEPLOYMENT_ID [--force] [--json]
 ```
 
-### `bonito config` — CLI Configuration
+### `bonito kb` — Knowledge Base / AI Context (RAG)
 ```bash
-bonito config show                             # Show current config
-bonito config set api_url https://...          # Set API endpoint
-bonito config set default_model claude-3-sonnet  # Set default model
-bonito config reset                            # Reset to defaults
+bonito kb list [--json]                                        # List all knowledge bases
+bonito kb create [--name N] [--description D] [--source TYPE]  # Create a knowledge base
+bonito kb info KB_ID [--json]                                  # Show KB details + stats
+bonito kb upload KB_ID FILE [FILE...] [--json]                 # Upload documents
+bonito kb documents KB_ID [--json]                             # List documents in a KB
+bonito kb search KB_ID "query" [--top-k K] [--json]            # Semantic search
+bonito kb delete KB_ID [--force] [--json]                      # Delete a knowledge base
+bonito kb delete-doc KB_ID DOC_ID [--force] [--json]           # Delete a document
+bonito kb sync KB_ID [--force] [--json]                        # Trigger cloud storage sync
+bonito kb sync-status KB_ID [--json]                           # Check sync progress
+bonito kb stats KB_ID [--json]                                 # Show KB statistics
 ```
 
-### `bonito completion` — Shell Completions
-```bash
-bonito completion install bash                 # Install bash completions
-bonito completion install zsh                  # Install zsh completions
-bonito completion install fish                 # Install fish completions
-```
+Source types: `upload` (default), `s3`, `azure_blob`, `gcs`
+
+Supported file formats: PDF, DOCX, TXT, MD, HTML, CSV, JSON (max 50MB)
 
 ## Output Formatting
 - Default: Rich-formatted tables, panels, and styled text
 - `--json` flag on any command: raw JSON output (for piping/scripting)
-- `--quiet` flag: minimal output (for CI/CD)
-- Color auto-detection (disable with `--no-color` or `NO_COLOR=1`)
+- Color auto-detection (disable with `NO_COLOR=1`)
 
 ## Interactive Chat UX
 ```
-╭─ Bonito Chat ─────────────────────────────────────╮
+╭─ 🐟 Bonito Chat ─────────────────────────────────╮
 │ Model: claude-3-sonnet (AWS Bedrock)               │
 │ Temperature: 0.7 │ Max Tokens: 1000               │
 ╰────────────────────────────────────────────────────╯
@@ -145,19 +150,20 @@ bonito completion install fish                 # Install fish completions
 You: What are the main differences between transformers and RNNs?
 
 Claude 3 Sonnet: Transformers and RNNs differ in several key ways...
-[tokens: 847 | cost: $0.0042 | latency: 1.2s]
+  ── 847 tokens · $0.0042 · 1.2s
 
 You: /help
-Commands: /model <name>, /temp <0-2>, /tokens <n>, /clear, /export, /quit
+Commands: /model <id>  /temp <0-2>  /tokens <n>  /clear  /export  /stats  /quit
 
 You: /quit
-Session saved. Total: 3 messages, $0.012, 2847 tokens.
+Session: 45s · 3 messages · 2.8K tokens · $0.012
 ```
 
 ## Error Handling
 - Clear error messages with suggested fixes
-- `bonito doctor` command to diagnose common issues (connectivity, auth, provider status)
+- Pydantic 422 validation errors parsed into friendly messages
 - Retry logic for transient failures (network timeouts, rate limits)
+- All auth-required commands check credentials and suggest `bonito auth login`
 
 ## API Endpoint Reference
 The CLI talks to the existing Bonito backend. Key endpoints:
@@ -171,15 +177,13 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 - POST /api/providers/connect → ProviderResponse
 - POST /api/providers/{id}/verify → VerifyResponse
 - DELETE /api/providers/{id}
-- GET /api/providers/{id}/models → List[ModelInfo]
-- GET /api/providers/{id}/costs → CostDataResponse
+- GET /api/providers/{id}/summary → ProviderSummary
 
 ### Models
 - GET /api/models/ → List[ModelResponse]
 - GET /api/models/{id} → ModelResponse
 - GET /api/models/{id}/details → ModelDetailsResponse
 - POST /api/models/{id}/playground → PlaygroundResponse
-- POST /api/models/compare → CompareResponse
 - POST /api/models/{id}/activate
 - POST /api/models/activate-bulk
 - POST /api/models/sync
@@ -193,12 +197,6 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 - PUT /api/gateway/config → GatewayConfigResponse
 - GET /api/gateway/usage → UsageSummary
 
-### Gateway Proxy (OpenAI-compatible)
-- POST /v1/chat/completions
-- POST /v1/completions
-- POST /v1/embeddings
-- GET /v1/models
-
 ### Routing Policies
 - GET /api/routing-policies/ → List[RoutingPolicyResponse]
 - POST /api/routing-policies/ → RoutingPolicyResponse
@@ -208,6 +206,12 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 - POST /api/routing-policies/{id}/test → PolicyTestResult
 - GET /api/routing-policies/{id}/stats → PolicyStats
 
+### Deployments
+- GET /api/deployments/ → List[DeploymentResponse]
+- POST /api/deployments/ → DeploymentResponse
+- POST /api/deployments/{id}/status → StatusResponse
+- DELETE /api/deployments/{id}
+
 ### Analytics
 - GET /api/analytics/overview
 - GET /api/analytics/usage?period=day|week|month
@@ -215,11 +219,19 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 - GET /api/analytics/trends
 - GET /api/analytics/digest
 
-### Costs
-- GET /api/costs/?period=daily|weekly|monthly
-- GET /api/costs/breakdown
-- GET /api/costs/forecast
-- GET /api/costs/recommendations
+### Knowledge Bases (RAG)
+- GET /api/knowledge-bases → List[KnowledgeBaseResponse]
+- POST /api/knowledge-bases → KnowledgeBaseResponse
+- GET /api/knowledge-bases/{kb_id} → KnowledgeBaseResponse
+- PUT /api/knowledge-bases/{kb_id} → KnowledgeBaseResponse
+- DELETE /api/knowledge-bases/{kb_id}
+- GET /api/knowledge-bases/{kb_id}/documents → List[KBDocumentResponse]
+- POST /api/knowledge-bases/{kb_id}/documents (multipart upload)
+- DELETE /api/knowledge-bases/{kb_id}/documents/{doc_id}
+- POST /api/knowledge-bases/{kb_id}/sync → KBSyncStatus
+- GET /api/knowledge-bases/{kb_id}/sync-status → KBSyncStatus
+- POST /api/knowledge-bases/{kb_id}/search → KBSearchResponse
+- GET /api/knowledge-bases/{kb_id}/stats → KBStats
 
 ### Health
 - GET /api/health
@@ -229,6 +241,8 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 ```
 cli/
 ├── pyproject.toml           # Package config, entry point
+├── CLI_SPEC.md              # This file
+├── CHANGELOG.md             # Version history
 ├── README.md                # CLI documentation
 ├── bonito_cli/
 │   ├── __init__.py          # Version
@@ -238,25 +252,23 @@ cli/
 │   ├── api.py               # HTTP client (httpx) wrapper
 │   ├── commands/
 │   │   ├── __init__.py
-│   │   ├── auth.py          # auth login/logout/status/keys
-│   │   ├── providers.py     # providers list/add/test/remove
-│   │   ├── models.py        # models list/info/enable/sync
-│   │   ├── chat.py          # Interactive chat + one-shot
-│   │   ├── gateway.py       # gateway status/keys/logs/config
-│   │   ├── policies.py      # routing policies CRUD + test
-│   │   ├── analytics.py     # analytics overview/usage/costs/trends
-│   │   ├── costs.py         # cost intelligence
-│   │   └── config_cmd.py    # CLI config management
+│   │   ├── auth.py          # auth login/logout/whoami/status
+│   │   ├── providers.py     # providers list/status/add/test/remove
+│   │   ├── models.py        # models list/search/info/enable/sync
+│   │   ├── chat.py          # Interactive chat + one-shot + compare
+│   │   ├── gateway.py       # gateway status/usage/logs/keys/config
+│   │   ├── policies.py      # routing policies CRUD + test + stats
+│   │   ├── analytics.py     # analytics overview/usage/costs/trends/digest
+│   │   ├── deployments.py   # deployment list/create/status/delete
+│   │   └── kb.py            # knowledge base CRUD + upload + search + sync
 │   └── utils/
 │       ├── __init__.py
 │       ├── display.py       # Rich formatting helpers (tables, panels, etc.)
 │       └── auth.py          # Token refresh, credential storage
 ```
 
-## Notes
-- The CLI must work with the EXISTING backend API — no new backend endpoints needed
-- Auth tokens: store access_token + refresh_token, auto-refresh on 401
-- All commands that require auth should check credentials first and give clear "run bonito auth login" messages
-- The `bonito chat` interactive mode is the killer feature — make it feel great
-- Support piping: `cat file.txt | bonito chat -m claude "Summarize this"`
-- The `--json` flag is critical for CI/CD automation
+## Version History
+See [CHANGELOG.md](CHANGELOG.md) for details.
+
+- **0.2.0** — Knowledge base (RAG) commands, deployment commands, bug fixes
+- **0.1.0** — Initial release: auth, providers, models, chat, gateway, policies, analytics
