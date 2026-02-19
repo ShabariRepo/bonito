@@ -181,8 +181,26 @@ async def login(
     r: redis_lib.Redis = Depends(get_redis),
 ):
     user = await auth_service.get_user_by_email(db, body.email)
-    if not user or not auth_service.verify_password(body.password, user.hashed_password):
+    if not user or not auth_service.verify_password(body.password, user.hashed_password or ""):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Check if the org has SSO enforced — block password login unless break-glass admin
+    from app.services.saml_service import get_sso_config
+    sso_config = await get_sso_config(db, user.org_id)
+    if sso_config and sso_config.enabled and sso_config.enforced:
+        # Allow break-glass admin to use password login
+        is_breakglass = (
+            sso_config.breakglass_user_id
+            and str(sso_config.breakglass_user_id) == str(user.id)
+        )
+        if not is_breakglass:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your organization requires SSO login.",
+                headers={
+                    "X-SSO-Login-URL": f"/api/auth/saml/{user.org_id}/login",
+                },
+            )
 
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Please verify your email before logging in")

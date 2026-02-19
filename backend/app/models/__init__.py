@@ -9,5 +9,6 @@ from app.models.audit import AuditLog
 from app.models.onboarding import OnboardingProgress
 from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit, GatewayConfig
 from app.models.notifications import Notification, AlertRule, NotificationPreference
+from app.models.sso_config import SSOConfig
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference"]
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig"]

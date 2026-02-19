@@ -1,7 +1,7 @@
 """Add knowledge base tables and enable pgvector extension
 
 Revision ID: 017_add_knowledge_base_tables
-Revises: 016_fix_key_prefix_length
+Revises: 016_fix_key_prefix
 Create Date: 2026-02-18
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "017_add_knowledge_base_tables"
-down_revision = "016_fix_key_prefix_length"
+down_revision = "016_fix_key_prefix"
 branch_labels = None
 depends_on = None
 
