@@ -65,13 +65,13 @@ class PlatformLogResponse(BaseModel):
     resource_id: Optional[UUID] = None
     resource_type: Optional[str] = None
     action: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(None, validation_alias="event_metadata")
     duration_ms: Optional[int] = None
     cost: Optional[float] = None
     message: Optional[str] = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class PlatformLogListResponse(BaseModel):

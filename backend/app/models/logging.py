@@ -49,7 +49,7 @@ class PlatformLog(Base):
     resource_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)
     resource_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # model, agent, project, etc.
     action: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # create, read, update, delete, execute, search
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)  # Event-specific structured data
+    event_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column("metadata", JSONB, nullable=True)  # Event-specific structured data
     duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Human-readable log message
