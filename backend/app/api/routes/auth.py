@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.organization import Organization
 from app.services import auth_service
 from app.services import email_service
+from app.services.log_emitters import emit_auth_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -208,6 +209,13 @@ async def login(
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh = auth_service.create_refresh_token(str(user.id))
     await auth_service.store_session(r, str(user.id), refresh)
+
+    # Log successful login (fire-and-forget)
+    try:
+        await emit_auth_event(user.org_id, user.id, "login_success", message=f"User {user.email} logged in")
+    except Exception:
+        pass
+
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
@@ -292,6 +300,12 @@ async def refresh(
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_tok = auth_service.create_refresh_token(str(user.id))
     await auth_service.store_session(r, str(user.id), refresh_tok)
+
+    try:
+        await emit_auth_event(user.org_id, user.id, "token_refresh", severity="debug", message="Token refreshed")
+    except Exception:
+        pass
+
     return TokenResponse(access_token=access, refresh_token=refresh_tok)
 
 
@@ -301,6 +315,11 @@ async def logout(
     r: redis_lib.Redis = Depends(get_redis),
 ):
     await auth_service.invalidate_session(r, str(user.id))
+
+    try:
+        await emit_auth_event(user.org_id, user.id, "logout", message=f"User {user.email} logged out")
+    except Exception:
+        pass
 
 
 @router.get("/me")

@@ -18,5 +18,6 @@ from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.agent_connection import AgentConnection
 from app.models.agent_trigger import AgentTrigger
+from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAggregation
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger"]
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation"]

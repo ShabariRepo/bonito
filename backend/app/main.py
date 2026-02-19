@@ -6,7 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
-from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents
+from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, logging as logging_routes
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -30,12 +30,22 @@ async def lifespan(app: FastAPI):
     from app.core.redis import init_redis
     await init_redis()
     
+    # Start the log service background flush loop
+    from app.services.log_service import log_service
+    await log_service.start()
+    
     # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
     # Don't run them again here — with multiple workers they'd race each other.
     
     yield
     
-    # Shutdown: Clean up connections
+    # Shutdown: Stop log service, clean up connections
+    from app.services.log_service import log_service as _log_service
+    try:
+        await _log_service.stop()
+    except Exception:
+        pass
+
     from app.core.database import database
     from app.core.redis import close_redis
     
@@ -111,6 +121,10 @@ app.include_router(knowledge_base.router, prefix="/api")
 app.include_router(sso.router, prefix="/api")
 app.include_router(sso_admin.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+
+# Logging & observability routes
+app.include_router(logging_routes.router, prefix="/api")
+app.include_router(logging_routes.integration_router, prefix="/api")
 
 # Bonobot routes
 app.include_router(bonobot_projects.router, prefix="/api")
