@@ -16,7 +16,9 @@ import {
   Copy,
   Check,
   Loader2,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/auth";
@@ -373,7 +375,6 @@ export default function SettingsPage() {
             <div className="space-y-4">
               {[
                 { label: "Two-factor authentication", key: "twoFactor" as const },
-                { label: "SSO / SAML integration", key: "sso" as const },
                 { label: "IP allowlist", key: "ipAllowlist" as const },
               ].map(item => (
                 <div key={item.key} className="flex items-center justify-between">
@@ -384,6 +385,19 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+              <div className="flex items-center justify-between border-t border-border pt-4">
+                <div>
+                  <p className="text-sm font-medium">SSO / SAML Integration</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Configure SAML Single Sign-On for your organization</p>
+                </div>
+                <Link
+                  href="/settings/security"
+                  className="flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+                >
+                  Configure
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
