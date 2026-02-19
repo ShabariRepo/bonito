@@ -16,7 +16,7 @@ from app.schemas.routing import (
     SimulationResult,
     RoutingAnalytics,
 )
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_feature
 from app.models.user import User
 from app.services.routing_service import simulate_routing, simulate_routing_real, route_and_invoke, get_routing_analytics
 
@@ -24,7 +24,10 @@ router = APIRouter(prefix="/routing", tags=["routing"])
 
 
 @router.get("/rules", response_model=List[RoutingRuleResponse])
-async def list_rules(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def list_rules(
+    db: AsyncSession = Depends(get_db), 
+    user: User = Depends(require_feature("routing"))
+):
     result = await db.execute(
         select(RoutingRule).where(RoutingRule.org_id == user.org_id).order_by(RoutingRule.priority)
     )

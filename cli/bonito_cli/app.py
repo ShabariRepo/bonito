@@ -17,6 +17,11 @@ from .commands.policies import app as policies_app
 from .commands.analytics import app as analytics_app
 from .commands.deployments import app as deployments_app
 from .commands.kb import app as kb_app
+from .commands.agents import app as agents_app
+from .commands.projects import app as projects_app
+from .commands.groups import app as groups_app
+from .commands.sso import app as sso_app
+from .commands.plan import app as plan_app
 
 console = Console()
 
@@ -70,6 +75,11 @@ app.add_typer(gateway_app,     name="gateway",     help="🌐 API gateway manage
 app.add_typer(policies_app,    name="policies",    help="🎯 Routing policies")
 app.add_typer(analytics_app,   name="analytics",   help="📊 Usage analytics & costs")
 app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base (RAG)")
+app.add_typer(agents_app,      name="agents",      help="🤖 Bonobot agents")
+app.add_typer(projects_app,    name="projects",    help="📁 Agent projects")
+app.add_typer(groups_app,      name="groups",      help="👥 Agent groups (RBAC)")
+app.add_typer(sso_app,         name="sso",         help="🔐 SAML Single Sign-On")
+app.add_typer(plan_app,        name="plan",        help="💎 Subscription plans & usage")
 
 
 # ── Callbacks ──────────────────────────────────────────────────

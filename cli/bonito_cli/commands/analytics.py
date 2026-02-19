@@ -11,6 +11,7 @@ from rich.panel import Panel
 
 from ..api import api, APIError
 from ..utils.auth import ensure_authenticated
+from ..utils.feature_gate import require_feature
 from ..utils.display import (
     format_cost,
     format_tokens,
@@ -39,6 +40,7 @@ def overview(
     """
     fmt = get_output_format(json_output)
     ensure_authenticated()
+    require_feature("analytics")
 
     try:
         with console.status("[cyan]Fetching analytics…[/cyan]"):
