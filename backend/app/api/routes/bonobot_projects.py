@@ -12,7 +12,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.database import get_db_session
+from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.models.project import Project
@@ -34,7 +34,7 @@ router = APIRouter()
 @router.get("/projects", response_model=List[ProjectResponse])
 async def list_projects(
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """List projects for the current organization."""
     # Get projects with agent count
@@ -65,7 +65,7 @@ async def list_projects(
 async def create_project(
     project_data: ProjectCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Create a new project."""
     project = Project(
@@ -87,7 +87,7 @@ async def create_project(
 async def get_project(
     project_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get project details."""
     stmt = select(Project).where(
@@ -121,7 +121,7 @@ async def update_project(
     project_id: UUID,
     project_data: ProjectUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Update project."""
     stmt = select(Project).where(
@@ -154,7 +154,7 @@ async def update_project(
 async def delete_project(
     project_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Soft delete project (set status to archived)."""
     stmt = select(Project).where(
@@ -180,7 +180,7 @@ async def delete_project(
 async def get_project_graph(
     project_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get project graph data for React Flow visualization."""
     # Verify project exists and user has access

@@ -13,7 +13,7 @@ from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.database import get_db_session
+from app.core.database import get_db
 from app.core.redis import redis_client
 from app.api.dependencies import get_current_user
 from app.models.user import User
@@ -48,7 +48,7 @@ agent_engine = AgentEngine()
 async def list_agents_in_project(
     project_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """List agents in a project."""
     # Verify project exists and user has access
@@ -80,7 +80,7 @@ async def create_agent(
     project_id: UUID,
     agent_data: AgentCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Create a new agent in a project."""
     # Verify project exists and user has access
@@ -147,7 +147,7 @@ async def get_agent(
     agent_id: UUID,
     include_sessions: bool = False,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get agent details with optional recent sessions."""
     stmt = select(Agent).where(
@@ -196,7 +196,7 @@ async def update_agent(
     agent_id: UUID,
     agent_data: AgentUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Update agent configuration."""
     stmt = select(Agent).where(
@@ -249,7 +249,7 @@ async def update_agent(
 async def delete_agent(
     agent_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Soft delete agent (set status to disabled)."""
     stmt = select(Agent).where(
@@ -276,7 +276,7 @@ async def execute_agent(
     agent_id: UUID,
     request: AgentExecuteRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Execute agent with a message."""
     stmt = select(Agent).where(
@@ -351,7 +351,7 @@ async def list_agent_sessions(
     limit: int = 20,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """List agent sessions."""
     # Verify agent exists and user has access
@@ -389,7 +389,7 @@ async def get_session_messages(
     agent_id: UUID,
     session_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get messages in a session."""
     # Verify session exists and belongs to user's agent
@@ -432,7 +432,7 @@ async def create_agent_connection(
     agent_id: UUID,
     connection_data: AgentConnectionCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Create connection from this agent to another agent."""
     # Verify source agent exists and user has access
@@ -496,7 +496,7 @@ async def create_agent_connection(
 async def list_agent_connections(
     agent_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """List connections from this agent."""
     # Verify agent exists and user has access
@@ -543,7 +543,7 @@ async def list_agent_connections(
 async def delete_connection(
     connection_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete a connection."""
     stmt = select(AgentConnection).where(
@@ -572,7 +572,7 @@ async def create_agent_trigger(
     agent_id: UUID,
     trigger_data: AgentTriggerCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Create trigger for agent."""
     # Verify agent exists and user has access
@@ -611,7 +611,7 @@ async def create_agent_trigger(
 async def list_agent_triggers(
     agent_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """List triggers for agent."""
     # Verify agent exists and user has access
@@ -642,7 +642,7 @@ async def list_agent_triggers(
 async def delete_trigger(
     trigger_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db)
 ):
     """Delete a trigger."""
     stmt = select(AgentTrigger).where(
