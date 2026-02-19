@@ -167,7 +167,7 @@ export default function LandingPage() {
               Trusted by teams managing AI at scale
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 opacity-40">
-              {["Acme Corp", "TechFlow", "DataPrime", "NeuralOps", "CloudScale"].map((name) => (
+              {["BidBaby", "BubbleDash", "OkapiDigital", "OddWons", "ApexConsultants"].map((name) => (
                 <div key={name} className="text-xl font-bold tracking-tight text-[#f5f0e8]">
                   {name}
                 </div>

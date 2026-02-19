@@ -67,6 +67,25 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Symptom**: Gateway request logs show model as '?' instead of the actual model name.
 **Status**: TODO — field mapping needs updating.
 
+## Open — Bonobot v1 (AI Agents)
+
+### 10. Agent engine gateway integration — internal service call
+**Date**: 2026-02-19
+**Symptom**: Agent engine calls the gateway via internal service function rather than HTTP. May need adjustment depending on the gateway service interface in different deployment environments.
+**Status**: Working in current architecture. Monitor when deploying to non-standard environments.
+
+### 11. Message compaction not yet implemented
+**Date**: 2026-02-19
+**Symptom**: Agent sessions accumulate all messages without compaction. Long-running agent sessions will grow context windows unboundedly.
+**Status**: TODO in engine (marked in code). Compaction/summarization strategy needed for sessions exceeding context limits.
+
+### 12. send_notification and list_models tools are stubs
+**Date**: 2026-02-19
+**Symptom**: The `send_notification` and `list_models` built-in agent tools return placeholder/stub responses. They don't perform real notification delivery or dynamic model listing.
+**Status**: Stubs. Will be wired to real implementations in a future iteration.
+
+---
+
 ## Architecture Notes
 
 ### Embedding Model Selection

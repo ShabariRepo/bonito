@@ -28,6 +28,7 @@ import {
   UsersRound,
   Server,
   BookOpen,
+  Bot,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -44,6 +45,7 @@ const navigation = [
   { name: "Governance", href: "/governance", icon: Shield },
   { name: "API Gateway", href: "/gateway", icon: Radio },
   { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
+  { name: "AI Agents", href: "/agents", icon: Bot },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Audit", href: "/audit", icon: ScrollText },
   { name: "Notifications", href: "/notifications", icon: Bell },

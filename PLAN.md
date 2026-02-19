@@ -75,7 +75,7 @@ Make Bonito a fully functional product tested against real AWS, Azure, and GCP a
 - [x] Redis session management (refresh tokens)
 - [x] Auth dependencies: get_current_user, require_admin, require_org_member
 - [x] Alembic migration for hashed_password column
-- [ ] SSO/SAML integration (Azure AD, Okta) — future
+- [x] SSO/SAML integration — SAML 2.0 (Okta, Azure AD, Google Workspace, Custom SAML) ✅
 - [ ] Email verification flow — future
 - [ ] NextAuth.js frontend integration — future
 
@@ -328,5 +328,7 @@ Deployed → monitoring → polished → ready to demo to real prospects
 
 ## Current Status
 - **Completed:** Phases 1-18 (full platform + model playground + routing policies + deployment provisioning + one-click activation)
+- **Completed:** SAML SSO ✅ (Okta, Azure AD, Google Workspace, Custom SAML — merged to main)
+- **Completed:** Bonobot v1 — Enterprise AI Agent Framework ✅ (on feature/bonobot-agents)
 - **Up Next:** End-to-end flow validation (gateway API → routing → cost tracking → dashboard)
-- **Remaining:** SSO/SAML, EULA display for AWS models, IaC export per deployment, production polish
+- **Remaining:** EULA display for AWS models, IaC export per deployment, production polish

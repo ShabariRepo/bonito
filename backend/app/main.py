@@ -6,7 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
-from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin
+from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -111,6 +111,10 @@ app.include_router(knowledge_base.router, prefix="/api")
 app.include_router(sso.router, prefix="/api")
 app.include_router(sso_admin.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+
+# Bonobot routes
+app.include_router(bonobot_projects.router, prefix="/api")
+app.include_router(bonobot_agents.router, prefix="/api")
 
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
