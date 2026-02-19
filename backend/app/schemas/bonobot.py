@@ -55,6 +55,9 @@ class AgentCreate(BaseModel):
     max_turns: Optional[int] = Field(25, ge=1, le=100)
     timeout_seconds: Optional[int] = Field(300, ge=30, le=3600)
     compaction_enabled: Optional[bool] = True
+    max_session_messages: Optional[int] = Field(200, ge=10, le=1000)
+    rate_limit_rpm: Optional[int] = Field(30, ge=1, le=1000)
+    budget_alert_threshold: Optional[Decimal] = Field(Decimal("0.8"), ge=Decimal("0.1"), le=Decimal("1.0"))
 
 
 class AgentUpdate(BaseModel):
@@ -68,6 +71,9 @@ class AgentUpdate(BaseModel):
     max_turns: Optional[int] = Field(None, ge=1, le=100)
     timeout_seconds: Optional[int] = Field(None, ge=30, le=3600)
     compaction_enabled: Optional[bool] = None
+    max_session_messages: Optional[int] = Field(None, ge=10, le=1000)
+    rate_limit_rpm: Optional[int] = Field(None, ge=1, le=1000)
+    budget_alert_threshold: Optional[Decimal] = Field(None, ge=Decimal("0.1"), le=Decimal("1.0"))
     status: Optional[str] = Field(None, regex=r"^(active|paused|disabled)$")
 
 
@@ -85,6 +91,9 @@ class AgentResponse(BaseModel):
     max_turns: int
     timeout_seconds: int
     compaction_enabled: bool
+    max_session_messages: int
+    rate_limit_rpm: int
+    budget_alert_threshold: Decimal
     status: str
     last_active_at: Optional[datetime]
     total_runs: int

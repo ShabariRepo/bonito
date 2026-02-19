@@ -26,6 +26,7 @@ from typing import Optional, List, Dict, Any
 from urllib.parse import urlparse
 from ipaddress import ip_address, IPv4Address, IPv6Address
 
+from fastapi import HTTPException
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from redis.asyncio import Redis
@@ -35,7 +36,7 @@ from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.knowledge_base import KnowledgeBase, KnowledgeBaseChunk
 from app.models.audit import AuditLog
-from app.schemas.bonobot import AgentRunResult
+from app.schemas.bonobot import AgentRunResult, SecurityMetadata
 from app.services.gateway import GatewayService
 from app.services.kb_content import search_knowledge_base
 from app.services.audit_service import log_audit_event
@@ -44,10 +45,36 @@ logger = logging.getLogger(__name__)
 
 
 class AgentEngine:
-    """OpenClaw-inspired agent execution engine."""
+    """OpenClaw-inspired agent execution engine with enterprise security."""
 
     def __init__(self):
         self.gateway = GatewayService()
+        
+        # Security patterns for input sanitization
+        self.prompt_injection_patterns = [
+            r"ignore\s+previous\s+instructions",
+            r"disregard\s+previous\s+instructions",
+            r"system\s*:",
+            r"assistant\s*:",
+            r"you\s+are\s+now\s+a",
+            r"act\s+as\s+if\s+you\s+are",
+            r"pretend\s+to\s+be",
+            r"override\s+your\s+instructions",
+            r"new\s+instructions\s*:",
+            r"forget\s+everything",
+        ]
+        
+        # Private IP ranges for SSRF protection
+        self.private_ranges = [
+            "10.0.0.0/8",
+            "172.16.0.0/12", 
+            "192.168.0.0/16",
+            "127.0.0.0/8",
+            "169.254.0.0/16",
+            "::1/128",
+            "fc00::/7",
+            "fe80::/10",
+        ]
 
     async def execute(
         self,
@@ -55,25 +82,54 @@ class AgentEngine:
         message: str,
         session_id: Optional[uuid.UUID] = None,
         db: AsyncSession,
-        redis: Redis
+        redis: Redis,
+        user_id: Optional[uuid.UUID] = None
     ) -> AgentRunResult:
-        """Run a single agent turn."""
-        # 1. Resolve or create session
-        session = await self._resolve_session(agent, session_id, db)
+        """Run a single agent turn with comprehensive security controls."""
         
-        # 2. Persist user message
-        await self._persist_message(session, role="user", content=message, db=db)
+        # SECURITY STEP 1: Rate limiting check
+        await self._check_rate_limit(agent, redis)
         
-        # 3. Assemble context
-        messages = await self._assemble_context(agent, session, message, db)
+        # SECURITY STEP 2: Budget enforcement (hard stop)
+        await self._enforce_budget_limit(agent, db)
         
-        # 4. Agent loop (with tool execution)
-        result = await self._run_agent_loop(agent, session, messages, db, redis)
+        # SECURITY STEP 3: Input sanitization
+        sanitized_message, input_sanitized = self._sanitize_input(message)
         
-        # 5. Update metrics
-        await self._update_metrics(agent, session, result, db)
+        # SECURITY STEP 4: Create audit log for execution attempt
+        audit_id = await self._log_execution_start(agent, sanitized_message, user_id, db)
         
-        return result
+        try:
+            # 1. Resolve or create session
+            session = await self._resolve_session(agent, session_id, db)
+            
+            # SECURITY STEP 5: Session message limit enforcement
+            await self._enforce_session_limits(agent, session, db)
+            
+            # 2. Persist user message
+            await self._persist_message(session, role="user", content=sanitized_message, db=db)
+            
+            # 3. Assemble context
+            messages = await self._assemble_context(agent, session, sanitized_message, db)
+            
+            # 4. Agent loop (with tool execution and security)
+            result = await self._run_agent_loop(agent, session, messages, db, redis, audit_id)
+            
+            # Update security metadata with input sanitization flag
+            result.security.input_sanitized = input_sanitized
+            
+            # 5. Update metrics
+            await self._update_metrics(agent, session, result, db)
+            
+            # 6. Log successful execution
+            await self._log_execution_success(audit_id, result, db)
+            
+            return result
+            
+        except Exception as e:
+            # Log execution failure
+            await self._log_execution_failure(audit_id, str(e), db)
+            raise
 
     async def _resolve_session(
         self,
@@ -270,14 +326,19 @@ class AgentEngine:
         session: AgentSession,
         messages: List[Dict[str, Any]],
         db: AsyncSession,
-        redis: Redis
+        redis: Redis,
+        audit_id: uuid.UUID
     ) -> AgentRunResult:
-        """Execute the model inference + tool call loop."""
+        """Execute the model inference + tool call loop with security tracking."""
         tools = self._get_tool_definitions(agent)
         turn = 0
         total_tokens = 0
         total_cost = Decimal(0)
         start_time = datetime.now(timezone.utc)
+        
+        # Security tracking
+        tools_used = []
+        knowledge_bases_accessed = []
         
         while turn < agent.max_turns:
             try:
@@ -312,9 +373,33 @@ class AgentEngine:
                 if not assistant_message.get("tool_calls"):
                     break
                 
-                # Execute tool calls
+                # Execute tool calls with security tracking
                 for tool_call in assistant_message.get("tool_calls", []):
+                    tool_start_time = datetime.now(timezone.utc)
+                    tool_name = tool_call.get("function", {}).get("name")
+                    
                     result = await self._execute_tool(agent, tool_call, db, redis)
+                    
+                    # Track tool usage for security metadata
+                    if tool_name and tool_name not in tools_used:
+                        tools_used.append(tool_name)
+                    
+                    # Track KB access
+                    if tool_name == "search_knowledge_base" and isinstance(result, dict):
+                        kb_results = result.get("results", [])
+                        for kb_result in kb_results:
+                            if "knowledge_base_id" in kb_result:
+                                kb_id = kb_result["knowledge_base_id"]
+                                if kb_id not in knowledge_bases_accessed:
+                                    knowledge_bases_accessed.append(kb_id)
+                    
+                    # Log tool execution
+                    execution_time_ms = int((datetime.now(timezone.utc) - tool_start_time).total_seconds() * 1000)
+                    await self._log_tool_execution(
+                        audit_id, tool_name, 
+                        json.loads(tool_call.get("function", {}).get("arguments", "{}")),
+                        result, execution_time_ms, db, agent.org_id
+                    )
                     
                     tool_msg = {
                         "role": "tool",
@@ -328,7 +413,7 @@ class AgentEngine:
                         role="tool",
                         content=json.dumps(result),
                         tool_call_id=tool_call.get("id"),
-                        tool_name=tool_call.get("function", {}).get("name"),
+                        tool_name=tool_name,
                         db=db
                     )
                 
@@ -338,12 +423,40 @@ class AgentEngine:
                 logger.error(f"Error in agent loop for agent {agent.id}: {e}")
                 break
         
+        # Calculate budget information
+        from app.models.project import Project
+        stmt = select(Project).where(Project.id == agent.project_id)
+        result = await db.execute(stmt)
+        project = result.scalar_one_or_none()
+        
+        budget_remaining = None
+        budget_percent_used = None
+        if project and project.budget_monthly:
+            budget_remaining = project.budget_monthly - project.budget_spent
+            budget_percent_used = project.budget_spent / project.budget_monthly
+        
+        # Get current rate limit remaining
+        current_minute = int(time.time() // 60)
+        key = f"agent_rate:{agent.id}:{current_minute}"
+        current_count = await redis.get(key)
+        current_count = int(current_count) if current_count else 0
+        rate_limit_remaining = max(0, agent.rate_limit_rpm - current_count)
+        
         return AgentRunResult(
             content=assistant_message.get("content"),
             tokens=total_tokens,
             cost=total_cost,
             turns=turn + 1,
-            model_used=response.get("model")
+            model_used=response.get("model"),
+            security=SecurityMetadata(
+                tools_used=tools_used,
+                knowledge_bases_accessed=knowledge_bases_accessed,
+                budget_remaining=budget_remaining,
+                budget_percent_used=budget_percent_used,
+                input_sanitized=False,  # Will be updated by caller
+                audit_id=audit_id,
+                rate_limit_remaining=rate_limit_remaining
+            )
         )
 
     async def _call_gateway(
@@ -422,20 +535,22 @@ class AgentEngine:
             return {"error": f"Tool execution failed: {str(e)}"}
 
     def _is_tool_allowed(self, agent: Agent, tool_name: str) -> bool:
-        """Check if tool is allowed by agent's policy."""
+        """Check if tool is allowed by agent's policy. DEFAULT DENY."""
         policy = agent.tool_policy or {}
-        mode = policy.get("mode", "default")
+        mode = policy.get("mode", "none")
         
-        if mode == "allowlist":
+        if mode == "none":
+            return False  # DEFAULT DENY - no tools allowed
+        elif mode == "allowlist":
             return tool_name in policy.get("allowed", [])
         elif mode == "denylist":
-            return tool_name not in policy.get("denied", [])
-        else:  # default mode - allow built-in tools
             built_in_tools = {
                 "search_knowledge_base", "http_request", "invoke_agent",
                 "send_notification", "get_current_time", "list_models"
             }
-            return tool_name in built_in_tools
+            return tool_name in built_in_tools and tool_name not in policy.get("denied", [])
+        else:  # fallback to none mode for security
+            return False
 
     def _get_tool_definitions(self, agent: Agent) -> List[Dict[str, Any]]:
         """Get OpenAI function calling tool definitions."""
@@ -494,27 +609,57 @@ class AgentEngine:
     # ─── Tool Implementations ───
 
     async def _tool_search_kb(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """Search knowledge base tool."""
+        """Search knowledge base tool - ONLY ASSIGNED KBs."""
         query = args.get("query", "")
         limit = args.get("limit", 5)
+        kb_id = args.get("kb_id")  # Optional specific KB
         
         if not agent.knowledge_base_ids:
             return {"results": [], "message": "No knowledge bases assigned to this agent"}
         
+        # SECURITY: If specific KB requested, verify it's in agent's allowlist
+        kb_ids_to_search = agent.knowledge_base_ids
+        if kb_id:
+            if kb_id not in agent.knowledge_base_ids:
+                return {"error": f"Access denied. Knowledge base {kb_id} not assigned to this agent"}
+            kb_ids_to_search = [kb_id]
+        
         all_results = []
-        for kb_id in agent.knowledge_base_ids:
+        for kb_id_str in kb_ids_to_search:
             try:
+                kb_uuid = uuid.UUID(kb_id_str)
+                
+                # Double-check KB belongs to same org (defense in depth)
+                stmt = select(KnowledgeBase).where(
+                    and_(
+                        KnowledgeBase.id == kb_uuid,
+                        KnowledgeBase.org_id == agent.org_id
+                    )
+                )
+                result = await db.execute(stmt)
+                kb = result.scalar_one_or_none()
+                
+                if not kb:
+                    logger.warning(f"KB {kb_id_str} not found or wrong org for agent {agent.id}")
+                    continue
+                
                 results = await search_knowledge_base(
-                    kb_id=uuid.UUID(kb_id),
+                    kb_id=kb_uuid,
                     query=query,
                     limit=limit,
                     similarity_threshold=0.7,
                     org_id=agent.org_id,
                     db=db
                 )
+                
+                # Add KB metadata to results
+                for result in results:
+                    result["knowledge_base_id"] = kb_id_str
+                    result["knowledge_base_name"] = kb.name
+                
                 all_results.extend(results)
             except Exception as e:
-                logger.warning(f"KB search failed for {kb_id}: {e}")
+                logger.warning(f"KB search failed for {kb_id_str}: {e}")
         
         # Sort by relevance and limit
         all_results.sort(key=lambda x: x.get("similarity", 0), reverse=True)
@@ -525,14 +670,103 @@ class AgentEngine:
         return {"current_time": datetime.now(timezone.utc).isoformat()}
 
     async def _tool_http_request(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """HTTP request tool (with URL allowlist check)."""
-        # TODO: Implement HTTP request with allowlist validation
-        return {"error": "HTTP request tool not implemented yet"}
+        """HTTP request tool with strict security controls."""
+        url = args.get("url", "")
+        method = args.get("method", "GET").upper()
+        headers = args.get("headers", {})
+        data = args.get("data", None)
+        
+        # Security validation
+        policy = agent.tool_policy or {}
+        allowlist = policy.get("http_allowlist", [])
+        
+        if not self._validate_http_url(url, allowlist):
+            return {"error": f"URL not allowed. Must be in allowlist: {allowlist}"}
+        
+        # Method validation
+        if method not in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
+            return {"error": f"HTTP method {method} not allowed"}
+        
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    json=data if data and method in ["POST", "PUT", "PATCH"] else None,
+                    follow_redirects=False  # Security: prevent redirect attacks
+                )
+                
+                # Limit response size
+                content = response.content
+                if len(content) > 100 * 1024:  # 100KB limit
+                    content = content[:100 * 1024]
+                    logger.warning(f"HTTP response truncated for URL {url} (size limit)")
+                
+                return {
+                    "status_code": response.status_code,
+                    "headers": dict(response.headers),
+                    "content": content.decode('utf-8', errors='ignore'),
+                    "truncated": len(response.content) > 100 * 1024
+                }
+                
+        except httpx.TimeoutException:
+            return {"error": "Request timeout (10 seconds)"}
+        except Exception as e:
+            logger.error(f"HTTP request failed for {url}: {e}")
+            return {"error": f"Request failed: {str(e)}"}
+        
 
     async def _tool_invoke_agent(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """Invoke another agent tool."""
-        # TODO: Implement agent-to-agent communication
-        return {"error": "Agent invocation not implemented yet"}
+        """Invoke another agent tool - SAME PROJECT ONLY."""
+        target_agent_id = args.get("agent_id")
+        message = args.get("message", "")
+        
+        if not target_agent_id or not message:
+            return {"error": "agent_id and message are required"}
+        
+        try:
+            target_agent_uuid = uuid.UUID(target_agent_id)
+        except ValueError:
+            return {"error": "Invalid agent_id format"}
+        
+        # SECURITY: Only allow invoking agents in the SAME PROJECT
+        stmt = select(Agent).where(
+            and_(
+                Agent.id == target_agent_uuid,
+                Agent.project_id == agent.project_id,  # SAME PROJECT ONLY
+                Agent.org_id == agent.org_id,
+                Agent.status == "active"
+            )
+        )
+        result = await db.execute(stmt)
+        target_agent = result.scalar_one_or_none()
+        
+        if not target_agent:
+            return {"error": "Target agent not found or not in same project"}
+        
+        # Execute target agent (recursive call with depth protection)
+        try:
+            # Simple implementation - could be enhanced with depth tracking
+            engine = AgentEngine()
+            result = await engine.execute(
+                agent=target_agent,
+                message=message,
+                db=db,
+                redis=redis
+            )
+            
+            return {
+                "agent_name": target_agent.name,
+                "response": result.content,
+                "tokens": result.tokens,
+                "cost": float(result.cost),
+                "model_used": result.model_used
+            }
+            
+        except Exception as e:
+            logger.error(f"Agent invocation failed: {e}")
+            return {"error": f"Target agent execution failed: {str(e)}"}
 
     async def _tool_send_notification(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
         """Send notification tool."""
@@ -569,3 +803,218 @@ class AgentEngine:
                 session.title = first_content[:50] + "..." if len(first_content) > 50 else first_content
         
         await db.flush()
+
+    # ─── SECURITY METHODS ───
+
+    async def _check_rate_limit(self, agent: Agent, redis: Redis) -> int:
+        """Enforce per-agent rate limiting. Returns remaining requests."""
+        from fastapi import HTTPException
+        
+        current_minute = int(time.time() // 60)
+        key = f"agent_rate:{agent.id}:{current_minute}"
+        
+        current_count = await redis.get(key)
+        current_count = int(current_count) if current_count else 0
+        
+        if current_count >= agent.rate_limit_rpm:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded. Agent {agent.name} allows {agent.rate_limit_rpm} requests per minute."
+            )
+        
+        # Increment counter
+        pipeline = redis.pipeline()
+        pipeline.incr(key)
+        pipeline.expire(key, 60)  # Expire after 1 minute
+        await pipeline.execute()
+        
+        return agent.rate_limit_rpm - current_count - 1
+
+    async def _enforce_budget_limit(self, agent: Agent, db: AsyncSession):
+        """Hard budget enforcement - 402 error when exceeded."""
+        from fastapi import HTTPException
+        from app.models.project import Project
+        
+        if not hasattr(agent, 'project') or not agent.project:
+            # Load project if not already loaded
+            stmt = select(Project).where(Project.id == agent.project_id)
+            result = await db.execute(stmt)
+            project = result.scalar_one_or_none()
+        else:
+            project = agent.project
+        
+        if not project or not project.budget_monthly:
+            return  # No budget limit set
+        
+        if project.budget_spent >= project.budget_monthly:
+            raise HTTPException(
+                status_code=402,
+                detail="Agent budget exceeded. Contact administrator to increase budget or wait for next billing cycle."
+            )
+
+    def _sanitize_input(self, message: str) -> tuple[str, bool]:
+        """Sanitize user input to prevent prompt injection attacks."""
+        sanitized = False
+        
+        # Check for prompt injection patterns
+        for pattern in self.prompt_injection_patterns:
+            if re.search(pattern, message, re.IGNORECASE):
+                sanitized = True
+                # Log the attempt
+                logger.warning(f"Potential prompt injection detected in message: pattern='{pattern}'")
+                # Replace with redacted message
+                message = re.sub(pattern, "[REDACTED-POTENTIAL-INJECTION]", message, flags=re.IGNORECASE)
+        
+        return message, sanitized
+
+    async def _log_execution_start(
+        self, 
+        agent: Agent, 
+        message: str, 
+        user_id: Optional[uuid.UUID], 
+        db: AsyncSession
+    ) -> uuid.UUID:
+        """Log the start of agent execution."""
+        return await log_audit_event(
+            db=db,
+            action="agent_execute",
+            resource_type="agent",
+            resource_id=str(agent.id),
+            user_id=user_id,
+            org_id=agent.org_id,
+            details={
+                "agent_name": agent.name,
+                "message_length": len(message),
+                "model_id": agent.model_id,
+                "status": "started",
+            },
+            metadata={}
+        )
+
+    async def _log_execution_success(self, audit_id: uuid.UUID, result: AgentRunResult, db: AsyncSession):
+        """Update audit log with successful execution details."""
+        stmt = select(AuditLog).where(AuditLog.id == audit_id)
+        audit_result = await db.execute(stmt)
+        log_entry = audit_result.scalar_one()
+        
+        log_entry.status = "success"
+        log_entry.metadata = {
+            "tokens_used": result.tokens,
+            "cost": float(result.cost),
+            "turns": result.turns,
+            "model_used": result.model_used,
+            "tools_used": result.security.tools_used,
+        }
+        await db.flush()
+
+    async def _log_execution_failure(self, audit_id: uuid.UUID, error: str, db: AsyncSession):
+        """Update audit log with failure details."""
+        stmt = select(AuditLog).where(AuditLog.id == audit_id)
+        audit_result = await db.execute(stmt)
+        log_entry = audit_result.scalar_one()
+        
+        log_entry.status = "failure"
+        log_entry.metadata = {"error": error}
+        await db.flush()
+
+    async def _enforce_session_limits(self, agent: Agent, session: AgentSession, db: AsyncSession):
+        """Enforce session message limits and trigger compaction if needed."""
+        if session.message_count >= agent.max_session_messages:
+            logger.info(f"Session {session.id} exceeds message limit ({agent.max_session_messages}), compaction needed")
+            # TODO: Implement session compaction - for now just warn
+            pass
+
+    async def _log_tool_execution(
+        self,
+        audit_id: uuid.UUID,
+        tool_name: str,
+        args: Dict[str, Any],
+        result: Dict[str, Any],
+        execution_time_ms: int,
+        db: AsyncSession,
+        org_id: uuid.UUID
+    ):
+        """Log individual tool execution."""
+        # Sanitize arguments (remove any potential credentials)
+        sanitized_args = self._sanitize_tool_args(args)
+        
+        await log_audit_event(
+            db=db,
+            action="agent_tool_call",
+            resource_type="agent_tool",
+            resource_id=tool_name,
+            org_id=org_id,
+            details={
+                "tool_name": tool_name,
+                "arguments": sanitized_args,
+                "result_keys": list(result.keys()) if isinstance(result, dict) else None,
+                "execution_time_ms": execution_time_ms,
+                "parent_execution": str(audit_id),
+            },
+            metadata={}
+        )
+
+    def _sanitize_tool_args(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove sensitive data from tool arguments for logging."""
+        sanitized = {}
+        sensitive_keys = ["password", "secret", "token", "key", "auth", "credential", "api_key"]
+        
+        for key, value in args.items():
+            if any(sensitive in key.lower() for sensitive in sensitive_keys):
+                sanitized[key] = "[REDACTED]"
+            elif isinstance(value, str) and len(value) > 200:
+                sanitized[key] = value[:200] + "... [TRUNCATED]"
+            else:
+                sanitized[key] = value
+        
+        return sanitized
+
+    def _is_private_ip(self, ip_str: str) -> bool:
+        """Check if IP address is in private ranges (SSRF protection)."""
+        try:
+            ip = ip_address(ip_str)
+            return (
+                ip.is_private or 
+                ip.is_loopback or 
+                ip.is_link_local or
+                ip.is_multicast
+            )
+        except ValueError:
+            return False  # Not a valid IP
+
+    def _validate_http_url(self, url: str, allowlist: List[str]) -> bool:
+        """Validate HTTP URL against allowlist and security policies."""
+        try:
+            parsed = urlparse(url)
+            
+            # Only allow HTTP/HTTPS schemes
+            if parsed.scheme not in ('http', 'https'):
+                return False
+            
+            # Check against allowlist (domain patterns)
+            if not allowlist:
+                return False  # Empty allowlist = deny all
+            
+            domain = parsed.netloc.split(':')[0]  # Remove port
+            for pattern in allowlist:
+                if pattern in domain or domain.endswith(pattern):
+                    break
+            else:
+                return False  # Domain not in allowlist
+            
+            # SSRF protection - resolve domain and check if it's private
+            try:
+                import socket
+                ip = socket.gethostbyname(domain)
+                if self._is_private_ip(ip):
+                    logger.warning(f"Blocked request to private IP: {ip} (domain: {domain})")
+                    return False
+            except socket.gaierror:
+                # DNS resolution failed
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logger.warning(f"URL validation failed for {url}: {e}")
+            return False

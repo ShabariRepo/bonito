@@ -126,10 +126,13 @@ async def create_agent(
         model_id=agent_data.model_id,
         model_config=agent_data.model_config or {},
         knowledge_base_ids=[str(kb_id) for kb_id in (agent_data.knowledge_base_ids or [])],
-        tool_policy=agent_data.tool_policy or {"mode": "default", "allowed": [], "denied": []},
+        tool_policy=agent_data.tool_policy or {"mode": "none", "allowed": [], "denied": [], "http_allowlist": []},
         max_turns=agent_data.max_turns,
         timeout_seconds=agent_data.timeout_seconds,
-        compaction_enabled=agent_data.compaction_enabled
+        compaction_enabled=agent_data.compaction_enabled,
+        max_session_messages=agent_data.max_session_messages,
+        rate_limit_rpm=agent_data.rate_limit_rpm,
+        budget_alert_threshold=agent_data.budget_alert_threshold
     )
     
     db.add(agent)
@@ -298,13 +301,14 @@ async def execute_agent(
         )
     
     try:
-        # Execute via agent engine
+        # Execute via agent engine with user context
         result = await agent_engine.execute(
             agent=agent,
             message=request.message,
             session_id=request.session_id,
             db=db,
-            redis=redis_client
+            redis=redis_client,
+            user_id=current_user.id
         )
         
         # Get the session ID (either existing or newly created)
@@ -330,6 +334,7 @@ async def execute_agent(
             cost=result.cost,
             turns=result.turns,
             model_used=result.model_used,
+            security=result.security,
             created_at=agent.last_active_at or agent.updated_at
         )
         
