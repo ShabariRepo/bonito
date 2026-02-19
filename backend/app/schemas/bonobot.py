@@ -63,6 +63,7 @@ class AgentCreate(BaseModel):
 class AgentUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
+    group_id: Optional[UUID] = None
     system_prompt: Optional[str] = Field(None, min_length=1)
     model_id: Optional[str] = Field(None, max_length=100)
     model_config: Optional[Dict[str, Any]] = None
@@ -81,6 +82,7 @@ class AgentResponse(BaseModel):
     id: UUID
     project_id: UUID
     org_id: UUID
+    group_id: Optional[UUID]
     name: str
     description: Optional[str]
     system_prompt: str

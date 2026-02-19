@@ -38,6 +38,39 @@ def create_access_token(user_id: str, org_id: str, role: str) -> str:
     )
 
 
+async def create_enhanced_access_token(db: AsyncSession, user: User) -> str:
+    """Create access token with role assignments for RBAC."""
+    from app.models.role_assignment import RoleAssignment
+    from app.models.role import Role
+    
+    # Get user's role assignments
+    stmt = select(RoleAssignment, Role.name).join(Role).where(
+        RoleAssignment.user_id == user.id
+    )
+    result = await db.execute(stmt)
+    assignments = result.all()
+    
+    role_assignments = []
+    for assignment, role_name in assignments:
+        role_assignments.append({
+            "role_id": str(assignment.role_id),
+            "role_name": role_name,
+            "scope_type": assignment.scope_type.value,
+            "scope_id": str(assignment.scope_id) if assignment.scope_id else None
+        })
+    
+    return create_token(
+        {
+            "sub": str(user.id),
+            "org_id": str(user.org_id),
+            "role": user.role,  # Legacy role for backward compatibility
+            "role_assignments": role_assignments,
+            "type": "access"
+        },
+        timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+
 def create_refresh_token(user_id: str) -> str:
     return create_token(
         {"sub": user_id, "type": "refresh"},

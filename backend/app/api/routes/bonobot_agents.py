@@ -99,6 +99,25 @@ async def create_agent(
             detail="Project not found"
         )
     
+    # Validate group exists if provided
+    if agent_data.group_id:
+        from app.models.agent_group import AgentGroup
+        stmt = select(AgentGroup).where(
+            and_(
+                AgentGroup.id == agent_data.group_id,
+                AgentGroup.project_id == project_id,
+                AgentGroup.org_id == current_user.org_id
+            )
+        )
+        result = await db.execute(stmt)
+        group = result.scalar_one_or_none()
+        
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Agent group not found or not in same project"
+            )
+    
     # Validate knowledge base IDs if provided
     if agent_data.knowledge_base_ids:
         stmt = select(func.count(KnowledgeBase.id)).where(
@@ -120,6 +139,7 @@ async def create_agent(
     agent = Agent(
         project_id=project_id,
         org_id=current_user.org_id,
+        group_id=agent_data.group_id,
         name=agent_data.name,
         description=agent_data.description,
         system_prompt=agent_data.system_prompt,
@@ -214,6 +234,26 @@ async def update_agent(
             detail="Agent not found"
         )
     
+    # Validate group exists if being updated
+    if agent_data.group_id is not None:
+        if agent_data.group_id:  # Not None and not setting to None
+            from app.models.agent_group import AgentGroup
+            stmt = select(AgentGroup).where(
+                and_(
+                    AgentGroup.id == agent_data.group_id,
+                    AgentGroup.project_id == agent.project_id,
+                    AgentGroup.org_id == current_user.org_id
+                )
+            )
+            result = await db.execute(stmt)
+            group = result.scalar_one_or_none()
+            
+            if not group:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Agent group not found or not in same project"
+                )
+
     # Validate knowledge base IDs if being updated
     if agent_data.knowledge_base_ids is not None:
         if agent_data.knowledge_base_ids:
