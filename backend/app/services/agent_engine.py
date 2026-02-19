@@ -893,29 +893,39 @@ class AgentEngine:
 
     async def _log_execution_success(self, audit_id: uuid.UUID, result: AgentRunResult, db: AsyncSession):
         """Update audit log with successful execution details."""
-        stmt = select(AuditLog).where(AuditLog.id == audit_id)
-        audit_result = await db.execute(stmt)
-        log_entry = audit_result.scalar_one()
-        
-        log_entry.status = "success"
-        log_entry.metadata = {
-            "tokens_used": result.tokens,
-            "cost": float(result.cost),
-            "turns": result.turns,
-            "model_used": result.model_used,
-            "tools_used": result.security.tools_used,
-        }
-        await db.flush()
+        try:
+            stmt = select(AuditLog).where(AuditLog.id == audit_id)
+            audit_result = await db.execute(stmt)
+            log_entry = audit_result.scalar_one_or_none()
+            if log_entry:
+                log_entry.details_json = {
+                    **(log_entry.details_json or {}),
+                    "status": "success",
+                    "tokens_used": result.tokens,
+                    "cost": float(result.cost),
+                    "turns": result.turns,
+                    "model_used": result.model_used,
+                    "tools_used": result.security.tools_used,
+                }
+                await db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to update audit log {audit_id}: {e}")
 
     async def _log_execution_failure(self, audit_id: uuid.UUID, error: str, db: AsyncSession):
         """Update audit log with failure details."""
-        stmt = select(AuditLog).where(AuditLog.id == audit_id)
-        audit_result = await db.execute(stmt)
-        log_entry = audit_result.scalar_one()
-        
-        log_entry.status = "failure"
-        log_entry.metadata = {"error": error}
-        await db.flush()
+        try:
+            stmt = select(AuditLog).where(AuditLog.id == audit_id)
+            audit_result = await db.execute(stmt)
+            log_entry = audit_result.scalar_one_or_none()
+            if log_entry:
+                log_entry.details_json = {
+                    **(log_entry.details_json or {}),
+                    "status": "failure",
+                    "error": error,
+                }
+                await db.flush()
+        except Exception as e:
+            logger.warning(f"Failed to update audit log {audit_id}: {e}")
 
     async def _enforce_session_limits(self, agent: Agent, session: AgentSession, db: AsyncSession):
         """Enforce session message limits and trigger compaction if needed."""

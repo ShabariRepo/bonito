@@ -1,8 +1,45 @@
-"""Audit logging service with mock seed data."""
+"""Audit logging service with real audit trail + mock seed data."""
 
 import uuid
+import logging
 import random
 from datetime import datetime, timedelta, timezone
+from typing import Optional, Dict, Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.audit import AuditLog
+
+logger = logging.getLogger(__name__)
+
+
+async def log_audit_event(
+    db: AsyncSession,
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    user_id: Optional[uuid.UUID] = None,
+    org_id: Optional[uuid.UUID] = None,
+    details: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = None,
+    user_name: Optional[str] = None,
+) -> uuid.UUID:
+    """Write a real audit log entry. Returns the audit log ID."""
+    entry = AuditLog(
+        org_id=org_id,
+        user_id=user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details_json=details or {},
+        ip_address=ip_address,
+        user_name=user_name,
+    )
+    db.add(entry)
+    await db.flush()
+    logger.info("Audit: %s %s %s (org=%s)", action, resource_type, resource_id, org_id)
+    return entry.id
 
 MOCK_USERS = [
     {"id": "10000000-0000-0000-0000-000000000001", "name": "Sarah Chen", "email": "sarah@bonito.ai"},
