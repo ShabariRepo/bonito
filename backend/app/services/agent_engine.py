@@ -37,7 +37,7 @@ from app.models.agent_message import AgentMessage
 from app.models.knowledge_base import KnowledgeBase, KBChunk
 from app.models.audit import AuditLog
 from app.schemas.bonobot import AgentRunResult, SecurityMetadata
-from app.services.gateway import GatewayService
+from app.services.gateway import chat_completion as gateway_chat_completion
 from app.services.kb_content import search_knowledge_base
 from app.services.audit_service import log_audit_event
 
@@ -47,8 +47,10 @@ logger = logging.getLogger(__name__)
 class AgentEngine:
     """OpenClaw-inspired agent execution engine with enterprise security."""
 
+    # Sentinel key_id for internal agent calls (no API key involved)
+    INTERNAL_KEY_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
+
     def __init__(self):
-        self.gateway = GatewayService()
         
         # Security patterns for input sanitization
         self.prompt_injection_patterns = [
@@ -480,11 +482,12 @@ class AgentEngine:
                 request_data["tools"] = tools
                 request_data["tool_choice"] = "auto"
             
-            # Call the gateway service internal method
-            response = await self.gateway.process_completion_request(
+            # Call the gateway directly (internal agent call, no API key)
+            response = await gateway_chat_completion(
                 request_data=request_data,
                 org_id=agent.org_id,
-                db=db
+                key_id=self.INTERNAL_KEY_ID,
+                db=db,
             )
             
             return response

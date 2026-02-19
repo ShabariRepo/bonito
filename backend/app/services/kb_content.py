@@ -1044,3 +1044,104 @@ def get_article_by_slug(slug: str) -> dict | None:
         if a["slug"] == slug:
             return a
     return None
+
+
+# ---------------------------------------------------------------------------
+# Vector KB search (used by Bonobot agent engine)
+# ---------------------------------------------------------------------------
+import uuid
+import logging
+from typing import List, Dict, Any, Optional
+
+from sqlalchemy import text as sa_text, select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
+
+_kb_logger = logging.getLogger(__name__)
+
+
+async def search_knowledge_base(
+    kb_id: uuid.UUID,
+    query: str,
+    limit: int = 5,
+    similarity_threshold: float = 0.5,
+    org_id: uuid.UUID = None,
+    db: AsyncSession = None,
+) -> List[Dict[str, Any]]:
+    """
+    Semantic search over a pgvector-backed knowledge base.
+
+    Returns a list of dicts with keys: content, source_name, score, chunk_index.
+    """
+    from app.models.knowledge_base import KnowledgeBase, KBChunk
+    from app.services.kb_ingestion import EmbeddingGenerator
+
+    if db is None:
+        return []
+
+    # Verify the KB exists and belongs to the org
+    if org_id:
+        kb_result = await db.execute(
+            select(KnowledgeBase).where(
+                and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == org_id)
+            )
+        )
+    else:
+        kb_result = await db.execute(
+            select(KnowledgeBase).where(KnowledgeBase.id == kb_id)
+        )
+    kb = kb_result.scalar_one_or_none()
+    if not kb:
+        _kb_logger.warning(f"Knowledge base {kb_id} not found")
+        return []
+
+    # Generate embedding for the query
+    embedding_gen = EmbeddingGenerator(org_id or kb.org_id)
+    try:
+        query_embeddings = await embedding_gen.generate_embeddings([query])
+        if not query_embeddings:
+            _kb_logger.error("Failed to generate query embedding")
+            return []
+        query_embedding = query_embeddings[0]
+    except Exception as e:
+        _kb_logger.error(f"Embedding generation failed: {e}")
+        return []
+
+    embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+
+    try:
+        result = await db.execute(
+            sa_text("""
+                SELECT c.content, c.source_file, c.chunk_index,
+                       1 - (c.embedding <=> CAST(:query_vec AS vector)) AS score
+                FROM kb_chunks c
+                WHERE c.knowledge_base_id = :kb_id
+                  AND c.org_id = :org_id
+                  AND c.embedding IS NOT NULL
+                ORDER BY c.embedding <=> CAST(:query_vec AS vector)
+                LIMIT :top_k
+            """),
+            {
+                "query_vec": embedding_str,
+                "kb_id": str(kb_id),
+                "org_id": str(org_id or kb.org_id),
+                "top_k": limit,
+            },
+        )
+        rows = result.fetchall()
+    except Exception as e:
+        _kb_logger.error(f"Vector search failed for KB {kb_id}: {e}")
+        return []
+
+    results: List[Dict[str, Any]] = []
+    for row in rows:
+        score = float(row.score) if row.score else 0.0
+        if score < similarity_threshold:
+            continue
+        results.append({
+            "content": row.content,
+            "source_name": row.source_file or "unknown",
+            "score": score,
+            "chunk_index": row.chunk_index,
+        })
+
+    return results
