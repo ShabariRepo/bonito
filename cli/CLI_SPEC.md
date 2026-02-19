@@ -108,6 +108,52 @@ bonito analytics trends [--json]
 bonito analytics digest [--json]
 ```
 
+### `bonito agents` — Bonobot Agent Management
+```bash
+bonito agents list [--project PROJECT_ID] [--json]
+bonito agents create --project PROJECT_ID --name NAME [--description DESC] [--prompt PROMPT] [--prompt-file FILE] [--model MODEL] [--max-turns N] [--timeout SECS] [--rate-limit RPM] [--json]
+bonito agents info AGENT_ID [--sessions] [--json]
+bonito agents update AGENT_ID [--name NAME] [--description DESC] [--model MODEL] [--max-turns N] [--timeout SECS] [--rate-limit RPM] [--status STATUS] [--json]
+bonito agents delete AGENT_ID [--force] 
+bonito agents execute AGENT_ID [MESSAGE] [--session SESSION_ID] [--json]
+bonito agents sessions AGENT_ID [--limit N] [--json]
+bonito agents messages AGENT_ID SESSION_ID [--json]
+bonito agents connections AGENT_ID [--json]
+bonito agents triggers AGENT_ID [--json]
+```
+
+### `bonito projects` — Agent Project Management
+```bash
+bonito projects list [--json]
+bonito projects create --name NAME [--description DESC] [--budget AMOUNT] [--json]
+bonito projects info PROJECT_ID [--json]
+bonito projects update PROJECT_ID [--name NAME] [--description DESC] [--budget AMOUNT] [--status STATUS] [--json]
+bonito projects delete PROJECT_ID [--force]
+bonito projects graph PROJECT_ID [--output FILE] [--json]
+```
+
+### `bonito groups` — Agent Group Management (RBAC)
+```bash
+bonito groups list [--project PROJECT_ID] [--json]
+bonito groups create --project PROJECT_ID --name NAME [--description DESC] [--budget AMOUNT] [--json]
+bonito groups info GROUP_ID [--json]
+bonito groups update GROUP_ID [--name NAME] [--description DESC] [--budget AMOUNT] [--json]
+bonito groups delete GROUP_ID [--force]
+bonito groups assign GROUP_ID AGENT_ID
+bonito groups unassign AGENT_ID
+```
+
+### `bonito sso` — SAML Single Sign-On Management
+```bash
+bonito sso config [--json]
+bonito sso setup [--provider TYPE] [--sso-url URL] [--entity-id ID] [--metadata-url URL] [--cert-file FILE] [--interactive/--non-interactive] [--json]
+bonito sso test
+bonito sso enable
+bonito sso enforce [--breakglass-admin USER_ID]
+bonito sso disable
+bonito sso status [--email EMAIL]
+```
+
 ### `bonito deployments` — Deployment Management
 ```bash
 bonito deployments list [--json]
@@ -232,6 +278,51 @@ The CLI talks to the existing Bonito backend. Key endpoints:
 - GET /api/knowledge-bases/{kb_id}/sync-status → KBSyncStatus
 - POST /api/knowledge-bases/{kb_id}/search → KBSearchResponse
 - GET /api/knowledge-bases/{kb_id}/stats → KBStats
+
+### Bonobot Agents
+- GET /api/projects/{project_id}/agents → List[AgentResponse]
+- POST /api/projects/{project_id}/agents → AgentResponse
+- GET /api/agents/{agent_id} → AgentDetailResponse
+- PUT /api/agents/{agent_id} → AgentResponse
+- DELETE /api/agents/{agent_id}
+- POST /api/agents/{agent_id}/execute → AgentExecuteResponse
+- GET /api/agents/{agent_id}/sessions → List[AgentSessionResponse]
+- GET /api/agents/{agent_id}/sessions/{session_id}/messages → List[AgentMessageResponse]
+- GET /api/agents/{agent_id}/connections → List[AgentConnectionResponse]
+- POST /api/agents/{agent_id}/connections → AgentConnectionResponse
+- DELETE /api/connections/{connection_id}
+- GET /api/agents/{agent_id}/triggers → List[AgentTriggerResponse]
+- POST /api/agents/{agent_id}/triggers → AgentTriggerResponse
+- DELETE /api/triggers/{trigger_id}
+
+### Projects
+- GET /api/projects → List[ProjectResponse]
+- POST /api/projects → ProjectResponse
+- GET /api/projects/{project_id} → ProjectResponse
+- PUT /api/projects/{project_id} → ProjectResponse
+- DELETE /api/projects/{project_id}
+- GET /api/projects/{project_id}/graph → ProjectGraphResponse
+
+### Agent Groups (RBAC)
+- GET /api/groups → List[AgentGroupResponse]
+- POST /api/groups → AgentGroupResponse
+- GET /api/groups/{group_id} → AgentGroupResponse
+- PUT /api/groups/{group_id} → AgentGroupResponse
+- DELETE /api/groups/{group_id}
+- GET /api/projects/{project_id}/groups → List[AgentGroupResponse]
+
+### SSO/SAML
+- GET /api/sso/config → SSOConfigResponse
+- PUT /api/sso/config → SSOConfigResponse
+- POST /api/sso/test → SSOTestResult
+- POST /api/sso/enable → SSOStatusResult
+- POST /api/sso/enforce → SSOStatusResult
+- POST /api/sso/disable → SSOStatusResult
+- POST /api/auth/saml/check-sso → SSOStatusResponse
+- GET /api/auth/saml/{org_id}/metadata (XML)
+- GET /api/auth/saml/{org_id}/login → Redirect
+- POST /api/auth/saml/{org_id}/acs → Redirect
+- GET /api/auth/saml/{org_id}/slo → Redirect
 
 ### Health
 - GET /api/health
