@@ -84,8 +84,11 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
     
     setLoading(true);
     try {
-      const data = await apiRequest(`/api/agents/${agentId}?include_sessions=true`);
-      setAgent(data);
+      const res = await apiRequest(`/api/agents/${agentId}?include_sessions=true`);
+      if (res.ok) {
+        const data = await res.json();
+        setAgent(data);
+      }
     } catch (error) {
       console.error("Failed to fetch agent:", error);
       toast({
@@ -102,8 +105,11 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
     if (!agentId) return;
     
     try {
-      const data = await apiRequest(`/api/agents/${agentId}/sessions?limit=10`);
-      setSessions(data);
+      const res = await apiRequest(`/api/agents/${agentId}/sessions?limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data);
+      }
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     }
@@ -113,8 +119,11 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
     if (!agentId) return;
     
     try {
-      const data = await apiRequest(`/api/agents/${agentId}/sessions/${sessionId}/messages`);
-      setMessages(data);
+      const res = await apiRequest(`/api/agents/${agentId}/sessions/${sessionId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data);
+      }
     } catch (error) {
       console.error("Failed to fetch messages:", error);
     }
@@ -126,7 +135,7 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
 
     setChatLoading(true);
     try {
-      const response = await apiRequest(`/api/agents/${agentId}/execute`, {
+      const res = await apiRequest(`/api/agents/${agentId}/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,6 +143,8 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
           session_id: selectedSession?.id,
         }),
       });
+
+      if (!res.ok) throw new Error("Execution failed");
 
       setChatMessage("");
       
@@ -143,9 +154,12 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
         await fetchSessionMessages(selectedSession.id);
       } else {
         // If no session was selected, select the new one
-        const newSessions = await apiRequest(`/api/agents/${agentId}/sessions?limit=1`);
-        if (newSessions.length > 0) {
-          setSelectedSession(newSessions[0]);
+        const sessRes = await apiRequest(`/api/agents/${agentId}/sessions?limit=1`);
+        if (sessRes.ok) {
+          const newSessions = await sessRes.json();
+          if (newSessions.length > 0) {
+            setSelectedSession(newSessions[0]);
+          }
         }
       }
 

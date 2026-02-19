@@ -52,8 +52,11 @@ export default function AgentsOverviewPage() {
 
   const fetchProjects = async () => {
     try {
-      const data = await apiRequest("/api/projects");
-      setProjects(data);
+      const res = await apiRequest("/api/projects");
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      }
     } catch (error) {
       console.error("Failed to fetch projects:", error);
       toast({
@@ -77,13 +80,16 @@ export default function AgentsOverviewPage() {
         budget_monthly: formData.budget_monthly || undefined,
       };
 
-      const newProject = await apiRequest("/api/projects", {
+      const res = await apiRequest("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(projectData),
       });
 
-      setProjects([newProject, ...projects]);
+      if (res.ok) {
+        const newProject = await res.json();
+        setProjects([newProject, ...projects]);
+      }
       setCreateDialogOpen(false);
       setFormData({ name: "", description: "", budget_monthly: undefined });
       

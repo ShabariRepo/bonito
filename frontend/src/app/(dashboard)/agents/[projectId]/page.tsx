@@ -82,8 +82,11 @@ export default function ProjectCanvasPage() {
 
   const fetchProjectData = async () => {
     try {
-      const data = await apiRequest(`/api/projects/${projectId}`);
-      setProject(data);
+      const res = await apiRequest(`/api/projects/${projectId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProject(data);
+      }
     } catch (error) {
       console.error("Failed to fetch project:", error);
       toast({
@@ -96,7 +99,9 @@ export default function ProjectCanvasPage() {
 
   const fetchGraphData = async () => {
     try {
-      const data: GraphData = await apiRequest(`/api/projects/${projectId}/graph`);
+      const res = await apiRequest(`/api/projects/${projectId}/graph`);
+      if (!res.ok) return;
+      const data: GraphData = await res.json();
       
       // Convert graph data to React Flow format
       const flowNodes: Node[] = data.nodes.map((node, index) => ({
