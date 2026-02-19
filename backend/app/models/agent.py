@@ -16,6 +16,7 @@ class Agent(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    group_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("agent_groups.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
@@ -53,6 +54,7 @@ class Agent(Base):
     
     # Relationships
     project = relationship("Project", back_populates="agents")
+    group = relationship("AgentGroup", back_populates="agents")
     sessions = relationship("AgentSession", back_populates="agent")
     triggers = relationship("AgentTrigger", back_populates="agent")
     source_connections = relationship("AgentConnection", foreign_keys="[AgentConnection.source_agent_id]", back_populates="source_agent")

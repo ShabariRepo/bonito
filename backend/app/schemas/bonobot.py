@@ -252,13 +252,132 @@ class AgentExecuteResponse(BaseModel):
     created_at: datetime
 
 
+# ─── Agent Group Schemas ───
+
+class AgentGroupCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    knowledge_base_ids: Optional[List[UUID]] = None
+    budget_limit: Optional[Decimal] = None
+    model_allowlist: Optional[List[str]] = None
+    tool_policy: Optional[Dict[str, Any]] = None
+    canvas_position: Optional[Dict[str, float]] = None
+    canvas_style: Optional[Dict[str, str]] = None
+
+
+class AgentGroupUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = None
+    knowledge_base_ids: Optional[List[UUID]] = None
+    budget_limit: Optional[Decimal] = None
+    model_allowlist: Optional[List[str]] = None
+    tool_policy: Optional[Dict[str, Any]] = None
+    canvas_position: Optional[Dict[str, float]] = None
+    canvas_style: Optional[Dict[str, str]] = None
+
+
+class AgentGroupResponse(BaseModel):
+    id: UUID
+    project_id: UUID
+    org_id: UUID
+    name: str
+    description: Optional[str]
+    knowledge_base_ids: List[UUID]
+    budget_limit: Optional[Decimal]
+    model_allowlist: List[str]
+    tool_policy: Dict[str, Any]
+    canvas_position: Dict[str, float]
+    canvas_style: Dict[str, str]
+    created_at: datetime
+    updated_at: datetime
+    
+    # Derived fields
+    agent_count: Optional[int] = None
+    knowledge_bases: Optional[List[Dict[str, Any]]] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Role Schemas ───
+
+class RoleCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    permissions: List[Dict[str, Any]] = Field(..., min_items=1)
+
+
+class RoleUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = None
+    permissions: Optional[List[Dict[str, Any]]] = None
+
+
+class RoleResponse(BaseModel):
+    id: UUID
+    org_id: UUID
+    name: str
+    description: Optional[str]
+    is_managed: bool
+    permissions: List[Dict[str, Any]]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Role Assignment Schemas ───
+
+from enum import Enum
+
+class ScopeType(str, Enum):
+    ORG = "org"
+    PROJECT = "project"
+    GROUP = "group"
+
+
+class RoleAssignmentCreate(BaseModel):
+    user_id: UUID
+    role_id: UUID
+    scope_type: ScopeType
+    scope_id: Optional[UUID] = None
+
+
+class RoleAssignmentResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    role_id: UUID
+    org_id: UUID
+    scope_type: ScopeType
+    scope_id: Optional[UUID]
+    created_at: datetime
+    
+    # Populated from joins
+    user_name: Optional[str] = None
+    role_name: Optional[str] = None
+    scope_name: Optional[str] = None  # Project or group name
+
+    class Config:
+        from_attributes = True
+
+
+class UserPermissionResponse(BaseModel):
+    """Response for user's effective permissions."""
+    user_id: UUID
+    permissions: List[Dict[str, Any]]
+    role_assignments: List[RoleAssignmentResponse]
+
+
 # ─── Graph Schemas ───
 
 class GraphNode(BaseModel):
     id: UUID
-    type: str  # "agent" or "trigger"
+    type: str  # "agent", "trigger", or "group"
     data: Dict[str, Any]  # node-specific data
     position: Optional[Dict[str, float]] = None  # {x: float, y: float}
+    parentNode: Optional[UUID] = None  # for agents in groups
+    extent: Optional[str] = None  # "parent" for constrained nodes
 
 
 class GraphEdge(BaseModel):

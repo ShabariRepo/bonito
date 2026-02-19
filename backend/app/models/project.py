@@ -32,4 +32,5 @@ class Project(Base):
     
     # Relationships
     agents = relationship("Agent", back_populates="project")
+    agent_groups = relationship("AgentGroup", back_populates="project")
     connections = relationship("AgentConnection", back_populates="project")
