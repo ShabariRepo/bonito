@@ -23,6 +23,9 @@ from app.models.agent_group import AgentGroup
 from app.models.role import Role
 from app.models.role_assignment import RoleAssignment
 
+# Subscription models
+from app.models.subscription_history import SubscriptionHistory
+
 # Logging models
 from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAggregation
 
