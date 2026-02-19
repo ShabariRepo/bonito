@@ -13,10 +13,12 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 
-from ..api import APIClient
+from ..api import api, APIError
+from ..utils.auth import ensure_authenticated
 from ..utils.display import (
-    success_panel, error_panel, info_panel,
-    format_currency, format_datetime
+    print_success, print_error, print_info,
+    format_cost, format_timestamp, get_output_format,
+    print_json_or_table, format_status
 )
 
 console = Console()
@@ -28,16 +30,22 @@ def list_projects(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """List all projects in your organization."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
-    response = client.get("/api/projects")
+    try:
+        with console.status("[cyan]Fetching projects…[/cyan]"):
+            response = api.get("/projects")
+    except APIError as e:
+        print_error(f"Failed to fetch projects: {e}")
+        return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     if not response:
-        console.print(info_panel("No projects found. Create one with 'bonito projects create'."))
+        print_info("No projects found. Create one with 'bonito projects create'.")
         return
     
     table = Table(title="Projects")
@@ -49,8 +57,8 @@ def list_projects(
     table.add_column("Created", style="dim")
     
     for project in response:
-        budget_str = format_currency(project.get('budget_monthly')) if project.get('budget_monthly') else "No limit"
-        spent_str = format_currency(project.get('budget_spent', 0))
+        budget_str = format_cost(project.get('budget_monthly')) if project.get('budget_monthly') else "No limit"
+        spent_str = format_cost(project.get('budget_spent', 0))
         
         # Color code spent vs budget
         if project.get('budget_monthly') and project.get('budget_spent'):
@@ -62,11 +70,11 @@ def list_projects(
         
         table.add_row(
             project["name"],
-            project["status"].upper(),
+            format_status(project["status"]),
             str(project.get("agent_count", 0)),
             budget_str,
             spent_str,
-            format_datetime(project["created_at"])
+            format_timestamp(project["created_at"])
         )
     
     console.print(table)
@@ -80,7 +88,8 @@ def create_project(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Create a new project."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     payload = {
         "name": name,
@@ -92,16 +101,20 @@ def create_project(
         try:
             payload["budget_monthly"] = str(Decimal(budget))
         except ValueError:
-            console.print(error_panel(f"Invalid budget format: {budget}. Use decimal format like '100.00'"))
-            raise typer.Exit(1)
+            print_error(f"Invalid budget format: {budget}. Use decimal format like '100.00'")
+            return
     
-    response = client.post("/api/projects", json=payload)
-    
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    try:
+        response = api.post("/projects", data=payload)
+    except APIError as e:
+        print_error(f"Failed to create project: {e}")
         return
     
-    console.print(success_panel(f"✅ Project '{name}' created successfully!"))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
+        return
+    
+    print_success(f"Project '{name}' created successfully!")
     console.print(f"Project ID: [cyan]{response['id']}[/cyan]")
 
 
@@ -111,31 +124,36 @@ def project_info(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Get detailed information about a project."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     # Try to get project by ID first, fallback to searching by name
     try:
-        response = client.get(f"/api/projects/{project_id}")
-    except Exception:
+        response = api.get(f"/projects/{project_id}")
+    except APIError:
         # If not found by ID, search by name
-        projects = client.get("/api/projects")
-        matching = [p for p in projects if p['name'].lower() == project_id.lower()]
-        if not matching:
-            console.print(error_panel(f"Project not found: {project_id}"))
-            raise typer.Exit(1)
-        response = matching[0]
+        try:
+            projects = api.get("/projects")
+            matching = [p for p in projects if p['name'].lower() == project_id.lower()]
+            if not matching:
+                print_error(f"Project not found: {project_id}")
+                return
+            response = matching[0]
+        except APIError as e:
+            print_error(f"Failed to fetch project info: {e}")
+            return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     # Project details
     project = response
     
     info_text = f"""[bold cyan]Name:[/bold cyan] {project['name']}
-[bold cyan]Status:[/bold cyan] {project['status'].upper()}
+[bold cyan]Status:[/bold cyan] {format_status(project['status'])}
 [bold cyan]Agent Count:[/bold cyan] {project.get('agent_count', 0)}
-[bold cyan]Created:[/bold cyan] {format_datetime(project['created_at'])}"""
+[bold cyan]Created:[/bold cyan] {format_timestamp(project['created_at'])}"""
     
     if project.get("description"):
         info_text = f"[bold cyan]Description:[/bold cyan] {project['description']}\n" + info_text
@@ -146,8 +164,8 @@ def project_info(
         budget_spent = project.get('budget_spent', 0)
         budget_pct = (float(budget_spent) / float(project['budget_monthly'])) * 100
         
-        budget_info.append(f"[bold cyan]Monthly Budget:[/bold cyan] {format_currency(project['budget_monthly'])}")
-        budget_info.append(f"[bold cyan]Spent This Month:[/bold cyan] {format_currency(budget_spent)}")
+        budget_info.append(f"[bold cyan]Monthly Budget:[/bold cyan] {format_cost(project['budget_monthly'])}")
+        budget_info.append(f"[bold cyan]Spent This Month:[/bold cyan] {format_cost(budget_spent)}")
         budget_info.append(f"[bold cyan]Budget Used:[/bold cyan] {budget_pct:.1f}%")
     else:
         budget_info.append("[bold cyan]Budget:[/bold cyan] No limit set")
@@ -173,7 +191,8 @@ def update_project(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Update project configuration."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     payload = {}
     if name is not None:
@@ -182,27 +201,31 @@ def update_project(
         payload["description"] = description
     if status is not None:
         if status not in ["active", "paused", "archived"]:
-            console.print(error_panel("Status must be one of: active, paused, archived"))
-            raise typer.Exit(1)
+            print_error("Status must be one of: active, paused, archived")
+            return
         payload["status"] = status
     if budget is not None:
         try:
             payload["budget_monthly"] = str(Decimal(budget))
         except ValueError:
-            console.print(error_panel(f"Invalid budget format: {budget}. Use decimal format like '100.00'"))
-            raise typer.Exit(1)
+            print_error(f"Invalid budget format: {budget}. Use decimal format like '100.00'")
+            return
     
     if not payload:
-        console.print(error_panel("No updates specified"))
-        raise typer.Exit(1)
-    
-    response = client.put(f"/api/projects/{project_id}", json=payload)
-    
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+        print_error("No updates specified")
         return
     
-    console.print(success_panel("✅ Project updated successfully!"))
+    try:
+        response = api.put(f"/projects/{project_id}", data=payload)
+    except APIError as e:
+        print_error(f"Failed to update project: {e}")
+        return
+    
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
+        return
+    
+    print_success("Project updated successfully!")
 
 
 @app.command("delete")
@@ -211,11 +234,15 @@ def delete_project(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
 ):
     """Delete (archive) a project."""
-    client = APIClient()
+    ensure_authenticated()
     
     if not force:
         # Get project info first
-        project = client.get(f"/api/projects/{project_id}")
+        try:
+            project = api.get(f"/projects/{project_id}")
+        except APIError as e:
+            print_error(f"Failed to fetch project info: {e}")
+            return
         
         # Warn if project has agents
         if project.get('agent_count', 0) > 0:
@@ -226,8 +253,13 @@ def delete_project(
             console.print("Cancelled.")
             return
     
-    client.delete(f"/api/projects/{project_id}")
-    console.print(success_panel("✅ Project archived successfully!"))
+    try:
+        api.delete(f"/projects/{project_id}")
+    except APIError as e:
+        print_error(f"Failed to delete project: {e}")
+        return
+    
+    print_success("Project archived successfully!")
 
 
 @app.command("graph")
@@ -237,18 +269,23 @@ def project_graph(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Get project graph data for visualization."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
-    response = client.get(f"/api/projects/{project_id}/graph")
+    try:
+        response = api.get(f"/projects/{project_id}/graph")
+    except APIError as e:
+        print_error(f"Failed to fetch project graph: {e}")
+        return
     
     if output_file:
         with open(output_file, 'w') as f:
             json.dump(response, f, indent=2, default=str)
-        console.print(success_panel(f"✅ Graph data saved to {output_file}"))
+        print_success(f"Graph data saved to {output_file}")
         return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     # Display summary
@@ -279,10 +316,10 @@ def project_graph(
             data = node['data']
             agent_table.add_row(
                 data['name'],
-                data['status'].upper(),
+                format_status(data['status']),
                 data['model_id'],
                 str(data['total_runs']),
-                format_currency(data['total_cost'])
+                format_cost(data['total_cost'])
             )
         
         console.print(agent_table)

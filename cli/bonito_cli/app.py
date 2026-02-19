@@ -112,12 +112,16 @@ def main(
 
         bonito auth login
         bonito models list
+        bonito projects create --name "My Project"
+        bonito agents create --project <id> --name "Assistant" --prompt "You are helpful"
+        bonito agents execute <agent-id> "Hello!"
         bonito chat
 
     [bold]Get help on any command:[/bold]
 
-        bonito providers --help
-        bonito chat --help
+        bonito agents --help
+        bonito projects --help
+        bonito sso --help
     """
     # When invoked with no subcommand and not --version, show help
     if ctx.invoked_subcommand is None:

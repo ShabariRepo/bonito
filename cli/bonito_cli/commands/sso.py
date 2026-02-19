@@ -5,7 +5,6 @@ Configure and manage SAML Single Sign-On for your organization.
 
 import json
 from typing import Optional
-import re
 
 import typer
 from rich.console import Console
@@ -13,10 +12,11 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 
-from ..api import APIClient
+from ..api import api, APIError
+from ..utils.auth import ensure_authenticated
 from ..utils.display import (
-    success_panel, error_panel, info_panel,
-    format_datetime
+    print_success, print_error, print_info,
+    format_timestamp, get_output_format
 )
 
 console = Console()
@@ -28,18 +28,20 @@ def get_config(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Show current SSO configuration."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     try:
-        response = client.get("/api/sso/config")
-    except Exception as e:
-        if "404" in str(e):
-            console.print(info_panel("SSO not configured. Use 'bonito sso setup' to configure."))
+        response = api.get("/sso/config")
+    except APIError as e:
+        if e.status_code == 404:
+            print_info("SSO not configured. Use 'bonito sso setup' to configure.")
             return
-        raise
+        print_error(f"Failed to fetch SSO config: {e}")
+        return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     config = response
@@ -53,7 +55,7 @@ def get_config(
 [bold cyan]Enforced:[/bold cyan] {enforced_icon} {config['enforced']}
 [bold cyan]SP Entity ID:[/bold cyan] {config.get('sp_entity_id', 'Not set')}
 [bold cyan]SP ACS URL:[/bold cyan] {config.get('sp_acs_url', 'Not set')}
-[bold cyan]Created:[/bold cyan] {format_datetime(config['created_at'])}"""
+[bold cyan]Created:[/bold cyan] {format_timestamp(config['created_at'])}"""
     
     console.print(Panel(info_text, title="SSO Configuration"))
     
@@ -105,11 +107,12 @@ def setup_sso(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Setup or update SSO configuration."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     if provider not in ["okta", "azure_ad", "google", "custom"]:
-        console.print(error_panel("Provider must be one of: okta, azure_ad, google, custom"))
-        raise typer.Exit(1)
+        print_error("Provider must be one of: okta, azure_ad, google, custom")
+        return
     
     payload = {"provider_type": provider}
     
@@ -134,11 +137,11 @@ def setup_sso(
     
     # Validate required fields
     if not idp_sso_url:
-        console.print(error_panel("IdP SSO URL is required"))
-        raise typer.Exit(1)
+        print_error("IdP SSO URL is required")
+        return
     if not idp_entity_id:
-        console.print(error_panel("IdP Entity ID is required"))
-        raise typer.Exit(1)
+        print_error("IdP Entity ID is required")
+        return
     
     payload["idp_sso_url"] = idp_sso_url
     payload["idp_entity_id"] = idp_entity_id
@@ -153,8 +156,8 @@ def setup_sso(
                 cert_content = f.read().strip()
                 payload["idp_certificate"] = cert_content
         except FileNotFoundError:
-            console.print(error_panel(f"Certificate file not found: {cert_file}"))
-            raise typer.Exit(1)
+            print_error(f"Certificate file not found: {cert_file}")
+            return
     
     # Default attribute mapping
     payload["attribute_mapping"] = {
@@ -169,13 +172,17 @@ def setup_sso(
         "user": ["Bonito Users", "user"]
     }
     
-    response = client.put("/api/sso/config", json=payload)
-    
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    try:
+        response = api.put("/sso/config", data=payload)
+    except APIError as e:
+        print_error(f"Failed to setup SSO: {e}")
         return
     
-    console.print(success_panel("✅ SSO configuration saved successfully!"))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
+        return
+    
+    print_success("SSO configuration saved successfully!")
     console.print(f"SP Entity ID: [cyan]{response.get('sp_entity_id')}[/cyan]")
     console.print(f"SP ACS URL: [cyan]{response.get('sp_acs_url')}[/cyan]")
     console.print("\n[yellow]⚠️  SSO is configured but not enabled. Use 'bonito sso test' then 'bonito sso enable'.[/yellow]")
@@ -184,13 +191,17 @@ def setup_sso(
 @app.command("test")
 def test_sso():
     """Test the SSO configuration."""
-    client = APIClient()
+    ensure_authenticated()
     
-    with console.status("[bold green]Testing SSO configuration...", spinner="dots"):
-        response = client.post("/api/sso/test")
+    try:
+        with console.status("[bold green]Testing SSO configuration...", spinner="dots"):
+            response = api.post("/sso/test")
+    except APIError as e:
+        print_error(f"SSO test failed: {e}")
+        return
     
     if response.get('status') == 'ok':
-        console.print(success_panel("✅ SSO configuration test passed!"))
+        print_success("SSO configuration test passed!")
         
         console.print(f"\n[bold]Test Login URL:[/bold] {response.get('test_login_url')}")
         console.print(f"[bold]SP Metadata URL:[/bold] {response.get('sp_metadata_url')}")
@@ -199,7 +210,7 @@ def test_sso():
         
         console.print("\n[green]✨ Ready to enable SSO![/green]")
     else:
-        console.print(error_panel("❌ SSO configuration test failed"))
+        print_error("SSO configuration test failed")
         if response.get('errors'):
             for error in response['errors']:
                 console.print(f"  • {error}")
@@ -208,7 +219,7 @@ def test_sso():
 @app.command("enable")
 def enable_sso():
     """Enable SSO for your organization."""
-    client = APIClient()
+    ensure_authenticated()
     
     # Confirm
     confirmed = Confirm.ask(
@@ -219,9 +230,13 @@ def enable_sso():
         console.print("Cancelled.")
         return
     
-    response = client.post("/api/sso/enable")
+    try:
+        response = api.post("/sso/enable")
+    except APIError as e:
+        print_error(f"Failed to enable SSO: {e}")
+        return
     
-    console.print(success_panel("✅ SSO enabled successfully!"))
+    print_success("SSO enabled successfully!")
     console.print(response.get('message', ''))
 
 
@@ -230,19 +245,19 @@ def enforce_sso(
     breakglass_user_id: Optional[str] = typer.Option(None, "--breakglass-admin", help="Break-glass admin user ID"),
 ):
     """Enforce SSO-only authentication (disable password login)."""
-    client = APIClient()
+    ensure_authenticated()
     
     if not breakglass_user_id:
         console.print("[yellow]⚠️  Enforcing SSO will disable password login for all users except one break-glass admin.[/yellow]")
         
         # Get current user ID as default
         try:
-            me = client.get("/api/auth/me")
+            me = api.get("/auth/me")
             default_admin = me.get('id')
             if me.get('role') != 'admin':
-                console.print(error_panel("You must be an admin to enforce SSO"))
-                raise typer.Exit(1)
-        except Exception:
+                print_error("You must be an admin to enforce SSO")
+                return
+        except APIError:
             default_admin = None
         
         if default_admin:
@@ -263,9 +278,14 @@ def enforce_sso(
         return
     
     payload = {"breakglass_user_id": breakglass_user_id}
-    response = client.post("/api/sso/enforce", json=payload)
     
-    console.print(success_panel("✅ SSO enforcement enabled!"))
+    try:
+        response = api.post("/sso/enforce", data=payload)
+    except APIError as e:
+        print_error(f"Failed to enforce SSO: {e}")
+        return
+    
+    print_success("SSO enforcement enabled!")
     console.print(response.get('message', ''))
     if response.get('breakglass_admin'):
         console.print(f"Break-glass admin: [cyan]{response['breakglass_admin']}[/cyan]")
@@ -274,7 +294,7 @@ def enforce_sso(
 @app.command("disable")
 def disable_sso():
     """Disable SSO and enforcement."""
-    client = APIClient()
+    ensure_authenticated()
     
     confirmed = Confirm.ask(
         "Disable SSO? This will disable SSO login and enforcement. "
@@ -284,9 +304,13 @@ def disable_sso():
         console.print("Cancelled.")
         return
     
-    response = client.post("/api/sso/disable")
+    try:
+        response = api.post("/sso/disable")
+    except APIError as e:
+        print_error(f"Failed to disable SSO: {e}")
+        return
     
-    console.print(success_panel("✅ SSO disabled successfully!"))
+    print_success("SSO disabled successfully!")
     console.print(response.get('message', ''))
 
 
@@ -295,12 +319,16 @@ def check_status(
     email: Optional[str] = typer.Option(None, "--email", help="Check SSO status for a specific email domain"),
 ):
     """Check SSO status for your organization or an email domain."""
-    client = APIClient()
+    ensure_authenticated()
     
     if email:
         # Check SSO status for email domain
         payload = {"email": email}
-        response = client.post("/api/auth/saml/check-sso", json=payload)
+        try:
+            response = api.post("/auth/saml/check-sso", data=payload)
+        except APIError as e:
+            print_error(f"Failed to check SSO status: {e}")
+            return
         
         if response.get('sso_enabled'):
             console.print(f"✅ SSO is [green]enabled[/green] for {email}")
@@ -314,7 +342,7 @@ def check_status(
     else:
         # Show org SSO config
         try:
-            config = client.get("/api/sso/config")
+            config = api.get("/sso/config")
             
             status_text = f"""[bold cyan]SSO Enabled:[/bold cyan] {"✅" if config['enabled'] else "❌"} {config['enabled']}
 [bold cyan]SSO Enforced:[/bold cyan] {"✅" if config['enforced'] else "❌"} {config['enforced']}
@@ -322,11 +350,11 @@ def check_status(
             
             console.print(Panel(status_text, title="SSO Status"))
             
-        except Exception as e:
-            if "404" in str(e):
-                console.print(info_panel("SSO not configured"))
+        except APIError as e:
+            if e.status_code == 404:
+                print_info("SSO not configured")
             else:
-                raise
+                print_error(f"Failed to check SSO status: {e}")
 
 
 if __name__ == "__main__":

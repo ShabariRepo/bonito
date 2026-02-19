@@ -14,10 +14,12 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
 
-from ..api import APIClient
+from ..api import api, APIError
+from ..utils.auth import ensure_authenticated
 from ..utils.display import (
-    success_panel, error_panel, info_panel,
-    format_currency, format_datetime
+    print_success, print_error, print_info,
+    format_cost, format_timestamp, get_output_format,
+    print_json_or_table
 )
 
 console = Console()
@@ -30,29 +32,31 @@ def list_groups(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """List agent groups in a project or all projects."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     # Note: This endpoint doesn't exist yet in the backend
     try:
         if project_id:
-            response = client.get(f"/api/projects/{project_id}/groups")
+            response = api.get(f"/projects/{project_id}/groups")
         else:
-            response = client.get("/api/groups")
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+            response = api.get("/groups")
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
+            )
+            return
+        print_error(f"Failed to fetch groups: {e}")
+        return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     if not response:
-        console.print(info_panel("No agent groups found."))
+        print_info("No agent groups found.")
         return
     
     table = Table(title="Agent Groups")
@@ -64,7 +68,7 @@ def list_groups(
     table.add_column("Created", style="dim")
     
     for group in response:
-        budget_str = format_currency(group.get('budget_limit')) if group.get('budget_limit') else "No limit"
+        budget_str = format_cost(group.get('budget_limit')) if group.get('budget_limit') else "No limit"
         kb_count = len(group.get('knowledge_base_ids', []))
         
         table.add_row(
@@ -73,7 +77,7 @@ def list_groups(
             str(group.get("agent_count", 0)),
             budget_str,
             str(kb_count),
-            format_datetime(group["created_at"])
+            format_timestamp(group["created_at"])
         )
     
     console.print(table)
@@ -88,7 +92,8 @@ def create_group(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Create a new agent group."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     payload = {
         "name": name,
@@ -101,25 +106,26 @@ def create_group(
         try:
             payload["budget_limit"] = str(Decimal(budget_limit))
         except ValueError:
-            console.print(error_panel(f"Invalid budget format: {budget_limit}. Use decimal format like '50.00'"))
-            raise typer.Exit(1)
+            print_error(f"Invalid budget format: {budget_limit}. Use decimal format like '50.00'")
+            return
     
     try:
-        response = client.post("/api/groups", json=payload)
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+        response = api.post("/groups", data=payload)
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
-    
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+            )
+            return
+        print_error(f"Failed to create group: {e}")
         return
     
-    console.print(success_panel(f"✅ Agent group '{name}' created successfully!"))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
+        return
+    
+    print_success(f"Agent group '{name}' created successfully!")
     console.print(f"Group ID: [cyan]{response['id']}[/cyan]")
 
 
@@ -129,21 +135,23 @@ def group_info(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Get detailed information about an agent group."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     try:
-        response = client.get(f"/api/groups/{group_id}")
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+        response = api.get(f"/groups/{group_id}")
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
+            )
+            return
+        print_error(f"Failed to fetch group info: {e}")
+        return
     
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
         return
     
     # Group details
@@ -152,14 +160,14 @@ def group_info(
     info_text = f"""[bold cyan]Name:[/bold cyan] {group['name']}
 [bold cyan]Project ID:[/bold cyan] {group['project_id']}
 [bold cyan]Agent Count:[/bold cyan] {group.get('agent_count', 0)}
-[bold cyan]Created:[/bold cyan] {format_datetime(group['created_at'])}"""
+[bold cyan]Created:[/bold cyan] {format_timestamp(group['created_at'])}"""
     
     if group.get("description"):
         info_text = f"[bold cyan]Description:[/bold cyan] {group['description']}\n" + info_text
     
     # Budget info
     if group.get('budget_limit'):
-        info_text += f"\n[bold cyan]Budget Limit:[/bold cyan] {format_currency(group['budget_limit'])}"
+        info_text += f"\n[bold cyan]Budget Limit:[/bold cyan] {format_cost(group['budget_limit'])}"
     
     # Knowledge base count
     kb_count = len(group.get('knowledge_base_ids', []))
@@ -188,7 +196,8 @@ def update_group(
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
     """Update agent group configuration."""
-    client = APIClient()
+    ensure_authenticated()
+    fmt = get_output_format(json_output)
     
     payload = {}
     if name is not None:
@@ -199,29 +208,30 @@ def update_group(
         try:
             payload["budget_limit"] = str(Decimal(budget_limit))
         except ValueError:
-            console.print(error_panel(f"Invalid budget format: {budget_limit}. Use decimal format like '50.00'"))
-            raise typer.Exit(1)
+            print_error(f"Invalid budget format: {budget_limit}. Use decimal format like '50.00'")
+            return
     
     if not payload:
-        console.print(error_panel("No updates specified"))
-        raise typer.Exit(1)
-    
-    try:
-        response = client.put(f"/api/groups/{group_id}", json=payload)
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
-                "❌ Agent Groups feature not available yet.\n"
-                "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
-    
-    if json_output:
-        console.print(json.dumps(response, indent=2, default=str))
+        print_error("No updates specified")
         return
     
-    console.print(success_panel("✅ Agent group updated successfully!"))
+    try:
+        response = api.put(f"/groups/{group_id}", data=payload)
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
+                "❌ Agent Groups feature not available yet.\n"
+                "This requires the RBAC groups backend implementation."
+            )
+            return
+        print_error(f"Failed to update group: {e}")
+        return
+    
+    if fmt == "json":
+        console.print_json(json.dumps(response, default=str))
+        return
+    
+    print_success("Agent group updated successfully!")
 
 
 @app.command("delete")
@@ -230,12 +240,12 @@ def delete_group(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
 ):
     """Delete an agent group."""
-    client = APIClient()
+    ensure_authenticated()
     
     if not force:
         try:
             # Get group info first
-            group = client.get(f"/api/groups/{group_id}")
+            group = api.get(f"/groups/{group_id}")
             
             # Warn if group has agents
             if group.get('agent_count', 0) > 0:
@@ -246,27 +256,29 @@ def delete_group(
             if not confirmed:
                 console.print("Cancelled.")
                 return
-        except Exception as e:
-            if "404" in str(e):
-                console.print(error_panel(
+        except APIError as e:
+            if e.status_code == 404:
+                print_error(
                     "❌ Agent Groups feature not available yet.\n"
                     "This requires the RBAC groups backend implementation."
-                ))
-                raise typer.Exit(1)
-            raise
+                )
+                return
+            print_error(f"Failed to fetch group info: {e}")
+            return
     
     try:
-        client.delete(f"/api/groups/{group_id}")
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+        api.delete(f"/groups/{group_id}")
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
+            )
+            return
+        print_error(f"Failed to delete group: {e}")
+        return
     
-    console.print(success_panel("✅ Agent group deleted successfully!"))
+    print_success("Agent group deleted successfully!")
 
 
 @app.command("assign")
@@ -275,22 +287,23 @@ def assign_agent(
     agent_id: str = typer.Argument(..., help="Agent ID to assign to group"),
 ):
     """Assign an agent to a group."""
-    client = APIClient()
+    ensure_authenticated()
     
     try:
         # This would be a PUT or PATCH to the agent to update its group_id
         payload = {"group_id": group_id}
-        client.put(f"/api/agents/{agent_id}", json=payload)
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+        api.put(f"/agents/{agent_id}", data=payload)
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
+            )
+            return
+        print_error(f"Failed to assign agent to group: {e}")
+        return
     
-    console.print(success_panel("✅ Agent assigned to group successfully!"))
+    print_success("Agent assigned to group successfully!")
 
 
 @app.command("unassign")
@@ -298,22 +311,23 @@ def unassign_agent(
     agent_id: str = typer.Argument(..., help="Agent ID to remove from group"),
 ):
     """Remove an agent from its group."""
-    client = APIClient()
+    ensure_authenticated()
     
     try:
         # This would set group_id to null
         payload = {"group_id": None}
-        client.put(f"/api/agents/{agent_id}", json=payload)
-    except Exception as e:
-        if "404" in str(e):
-            console.print(error_panel(
+        api.put(f"/agents/{agent_id}", data=payload)
+    except APIError as e:
+        if e.status_code == 404:
+            print_error(
                 "❌ Agent Groups feature not available yet.\n"
                 "This requires the RBAC groups backend implementation."
-            ))
-            raise typer.Exit(1)
-        raise
+            )
+            return
+        print_error(f"Failed to unassign agent from group: {e}")
+        return
     
-    console.print(success_panel("✅ Agent removed from group successfully!"))
+    print_success("Agent removed from group successfully!")
 
 
 if __name__ == "__main__":
