@@ -12,8 +12,17 @@ SECURITY-FIRST DESIGN:
 - Complete audit trail for every operation
 - No code execution capabilities
 - Session isolation and limits
+
+ASYNC ORCHESTRATION (v2):
+- Parallel invoke_agent: multiple invoke_agent tool calls in a single turn run concurrently via asyncio.gather
+- delegate_task: fire-and-forget background sub-agent execution, returns task_id immediately
+- check_task: poll a background task's status by task_id
+- collect_results: wait for multiple background tasks to complete and gather results
+- Depth tracking: max recursion depth of 3 to prevent infinite loops
+- Redis-backed task state with TTL and org-namespaced keys
 """
 
+import asyncio
 import json
 import uuid
 import logging
@@ -44,6 +53,15 @@ from app.services.audit_service import log_audit_event
 
 logger = logging.getLogger(__name__)
 
+# Maximum recursion depth for agent invocations (prevents infinite loops)
+MAX_AGENT_DEPTH = 3
+
+# Background task TTL in Redis (seconds)
+BACKGROUND_TASK_TTL = 300  # 5 minutes
+
+# Maximum wait time for collect_results (seconds)
+COLLECT_RESULTS_MAX_WAIT = 60
+
 
 class AgentEngine:
     """OpenClaw-inspired agent execution engine with enterprise security."""
@@ -51,7 +69,10 @@ class AgentEngine:
     # Sentinel key_id for internal agent calls (no API key involved)
     INTERNAL_KEY_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
 
-    def __init__(self):
+    def __init__(self, _depth: int = 0):
+        
+        # Track recursion depth for nested agent invocations
+        self._depth = _depth
         
         # Security patterns for input sanitization
         self.prompt_injection_patterns = [
@@ -306,10 +327,16 @@ class AgentEngine:
                 )
             system_prompt += (
                 f"\n\n## Team Members\n"
-                f"You can delegate tasks to these agents using invoke_agent:\n"
+                f"You can delegate tasks to these agents:\n"
                 + "\n".join(agent_roster)
-                + "\n\nWhen you receive a complex task, break it into subtasks and delegate to the appropriate team member. "
-                "Wait for their response, then synthesize the results."
+                + "\n\n### Orchestration Patterns\n"
+                "- **invoke_agent**: Synchronous — call one agent and wait for the result inline.\n"
+                "- **delegate_task**: Async — fire off a task in the background. Returns a task_id immediately.\n"
+                "- **check_task**: Poll a single background task's status.\n"
+                "- **collect_results**: Wait for multiple background tasks to finish and gather all results.\n\n"
+                "**Fan-out pattern** (preferred for complex tasks): Call delegate_task for each subtask, "
+                "then call collect_results with all task_ids to get everything at once.\n"
+                "**Simple pattern**: Use invoke_agent when you need one agent's answer before proceeding."
             )
         
         return system_prompt
@@ -428,13 +455,66 @@ class AgentEngine:
                 if not assistant_message.get("tool_calls"):
                     break
                 
-                # Execute tool calls with security tracking
-                for tool_call in assistant_message.get("tool_calls", []):
+                # ── Execute tool calls with parallel invoke_agent support ──
+                all_tool_calls = assistant_message.get("tool_calls", [])
+                
+                # Separate parallelizable invoke_agent calls from sequential ones
+                parallelizable_names = {"invoke_agent"}
+                invoke_calls = [
+                    tc for tc in all_tool_calls
+                    if tc.get("function", {}).get("name") in parallelizable_names
+                ]
+                other_calls = [
+                    tc for tc in all_tool_calls
+                    if tc.get("function", {}).get("name") not in parallelizable_names
+                ]
+                
+                # Helper to execute a single tool call with tracking
+                async def _execute_and_track(tool_call):
                     tool_start_time = datetime.now(timezone.utc)
                     tool_name = tool_call.get("function", {}).get("name")
                     
                     result = await self._execute_tool(agent, tool_call, db, redis)
                     
+                    execution_time_ms = int(
+                        (datetime.now(timezone.utc) - tool_start_time).total_seconds() * 1000
+                    )
+                    return tool_call, tool_name, result, execution_time_ms
+                
+                # Collect all (tool_call, name, result, time) tuples in original order
+                executed_results = []
+                
+                # 1. Run non-invoke tools sequentially first (they may have side effects)
+                for tc in other_calls:
+                    executed_results.append(await _execute_and_track(tc))
+                
+                # 2. Run invoke_agent calls in PARALLEL via asyncio.gather
+                if invoke_calls:
+                    if len(invoke_calls) == 1:
+                        # Single invoke — no need for gather overhead
+                        executed_results.append(await _execute_and_track(invoke_calls[0]))
+                    else:
+                        parallel_results = await asyncio.gather(
+                            *[_execute_and_track(tc) for tc in invoke_calls],
+                            return_exceptions=True
+                        )
+                        for pr in parallel_results:
+                            if isinstance(pr, Exception):
+                                # Wrap exception so we can still append a tool message
+                                logger.error(f"Parallel invoke_agent failed: {pr}")
+                                # Find the corresponding tool_call from invoke_calls
+                                idx = parallel_results.index(pr)
+                                tc = invoke_calls[idx]
+                                executed_results.append(
+                                    (tc, tc.get("function", {}).get("name"),
+                                     {"error": f"Parallel execution failed: {str(pr)}"},
+                                     0)
+                                )
+                            else:
+                                executed_results.append(pr)
+                
+                # 3. Process all results: track, log, append to messages
+                for tool_call, tool_name, result, execution_time_ms in executed_results:
                     # Track tool usage for security metadata
                     if tool_name and tool_name not in tools_used:
                         tools_used.append(tool_name)
@@ -449,9 +529,8 @@ class AgentEngine:
                                     knowledge_bases_accessed.append(kb_id)
                     
                     # Log tool execution
-                    execution_time_ms = int((datetime.now(timezone.utc) - tool_start_time).total_seconds() * 1000)
                     await self._log_tool_execution(
-                        audit_id, tool_name, 
+                        audit_id, tool_name,
                         json.loads(tool_call.get("function", {}).get("arguments", "{}")),
                         result, execution_time_ms, db, agent.org_id
                     )
@@ -578,6 +657,9 @@ class AgentEngine:
             "search_knowledge_base": self._tool_search_kb,
             "http_request": self._tool_http_request,
             "invoke_agent": self._tool_invoke_agent,
+            "delegate_task": self._tool_delegate_task,
+            "check_task": self._tool_check_task,
+            "collect_results": self._tool_collect_results,
             "send_notification": self._tool_send_notification,
             "get_current_time": self._tool_get_time,
             "list_models": self._tool_list_models,
@@ -599,6 +681,12 @@ class AgentEngine:
         policy = agent.tool_policy or {}
         mode = policy.get("mode", "none")
         
+        built_in_tools = {
+            "search_knowledge_base", "http_request", "invoke_agent",
+            "delegate_task", "check_task", "collect_results",
+            "send_notification", "get_current_time", "list_models",
+        }
+        
         if mode == "none":
             return False  # DEFAULT DENY - no tools allowed
         elif mode in ("allowlist", "selected"):
@@ -606,18 +694,9 @@ class AgentEngine:
             allowed = policy.get("allowed", []) or policy.get("allowed_tools", [])
             return tool_name in allowed
         elif mode in ("denylist", "blocked"):
-            built_in_tools = {
-                "search_knowledge_base", "http_request", "invoke_agent",
-                "send_notification", "get_current_time", "list_models"
-            }
             denied = policy.get("denied", []) or policy.get("denied_tools", [])
             return tool_name in built_in_tools and tool_name not in denied
         elif mode == "all":
-            # Allow all built-in tools
-            built_in_tools = {
-                "search_knowledge_base", "http_request", "invoke_agent",
-                "send_notification", "get_current_time", "list_models"
-            }
             return tool_name in built_in_tools
         else:  # fallback to none mode for security
             return False
@@ -670,15 +749,22 @@ class AgentEngine:
             }
         }
         
-        # Dynamic invoke_agent tool — only if agent has outbound connections
+        # Dynamic agent orchestration tools — only if agent has outbound connections
         if connected_agents:
             agent_enum = [ca["agent_id"] for ca in connected_agents]
             agent_descriptions = ", ".join([f"{ca['name']} ({ca['agent_id']})" for ca in connected_agents])
+            
+            # Synchronous invoke — blocks until sub-agent completes
             all_tools["invoke_agent"] = {
                 "type": "function",
                 "function": {
                     "name": "invoke_agent",
-                    "description": f"Delegate a task to another agent on your team. Available agents: {agent_descriptions}. Use this to break complex tasks into subtasks and delegate to specialists.",
+                    "description": (
+                        f"Synchronously delegate a task to another agent and wait for the result. "
+                        f"Available agents: {agent_descriptions}. "
+                        f"Use this when you need the response immediately before continuing. "
+                        f"For parallel work, prefer delegate_task instead."
+                    ),
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -693,6 +779,77 @@ class AgentEngine:
                             }
                         },
                         "required": ["agent_id", "message"]
+                    }
+                }
+            }
+            
+            # Async delegate — fires in background, returns task_id immediately
+            all_tools["delegate_task"] = {
+                "type": "function",
+                "function": {
+                    "name": "delegate_task",
+                    "description": (
+                        f"Fire off a task to another agent in the background without waiting. "
+                        f"Returns a task_id immediately. Use check_task or collect_results to get the response later. "
+                        f"Available agents: {agent_descriptions}. "
+                        f"Use this for fan-out patterns: delegate multiple tasks, do other work, then collect results."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "agent_id": {
+                                "type": "string",
+                                "description": "The UUID of the target agent",
+                                "enum": agent_enum
+                            },
+                            "message": {
+                                "type": "string",
+                                "description": "The task or message to send to the target agent"
+                            }
+                        },
+                        "required": ["agent_id", "message"]
+                    }
+                }
+            }
+            
+            # Check a single background task
+            all_tools["check_task"] = {
+                "type": "function",
+                "function": {
+                    "name": "check_task",
+                    "description": "Check the status of a previously delegated background task by its task_id.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "string",
+                                "description": "The task_id returned by delegate_task"
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
+                }
+            }
+            
+            # Collect results from multiple background tasks (waits for completion)
+            all_tools["collect_results"] = {
+                "type": "function",
+                "function": {
+                    "name": "collect_results",
+                    "description": (
+                        "Wait for multiple delegated tasks to complete and gather all results. "
+                        "Polls until all tasks finish or the timeout (60s) is reached."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "task_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of task_ids to wait for and collect"
+                            }
+                        },
+                        "required": ["task_ids"]
                     }
                 }
             }
@@ -814,56 +971,235 @@ class AgentEngine:
             return {"error": f"Request failed: {str(e)}"}
         
 
-    async def _tool_invoke_agent(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """Invoke another agent tool - SAME PROJECT ONLY."""
-        target_agent_id = args.get("agent_id")
-        message = args.get("message", "")
-        
-        if not target_agent_id or not message:
-            return {"error": "agent_id and message are required"}
-        
+    # ─── Agent Orchestration Tools ───
+
+    async def _validate_target_agent(
+        self, agent: Agent, target_agent_id: str, db: AsyncSession
+    ) -> tuple[Optional[Agent], Optional[Dict[str, Any]]]:
+        """Validate and load a target agent. Returns (agent, None) or (None, error_dict)."""
+        if not target_agent_id:
+            return None, {"error": "agent_id is required"}
         try:
             target_agent_uuid = uuid.UUID(target_agent_id)
         except ValueError:
-            return {"error": "Invalid agent_id format"}
-        
-        # SECURITY: Only allow invoking agents in the SAME PROJECT
+            return None, {"error": "Invalid agent_id format"}
+
+        # SECURITY: Only allow invoking agents in the SAME PROJECT + ORG
         stmt = select(Agent).where(
             and_(
                 Agent.id == target_agent_uuid,
-                Agent.project_id == agent.project_id,  # SAME PROJECT ONLY
+                Agent.project_id == agent.project_id,
                 Agent.org_id == agent.org_id,
-                Agent.status == "active"
+                Agent.status == "active",
             )
         )
         result = await db.execute(stmt)
         target_agent = result.scalar_one_or_none()
-        
+
         if not target_agent:
-            return {"error": "Target agent not found or not in same project"}
-        
-        # Execute target agent (recursive call with depth protection)
+            return None, {"error": "Target agent not found or not in same project"}
+        return target_agent, None
+
+    async def _tool_invoke_agent(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
+        """Synchronously invoke another agent — blocks until the sub-agent completes."""
+        target_agent_id = args.get("agent_id")
+        message = args.get("message", "")
+
+        if not message:
+            return {"error": "message is required"}
+
+        # Depth check — prevent infinite recursion
+        if self._depth >= MAX_AGENT_DEPTH:
+            return {"error": f"Maximum agent invocation depth ({MAX_AGENT_DEPTH}) exceeded. Cannot invoke further agents."}
+
+        target_agent, error = await self._validate_target_agent(agent, target_agent_id, db)
+        if error:
+            return error
+
         try:
-            # Simple implementation - could be enhanced with depth tracking
-            engine = AgentEngine()
+            engine = AgentEngine(_depth=self._depth + 1)
             result = await engine.execute(
                 agent=target_agent,
                 message=message,
                 db=db,
-                redis=redis
+                redis=redis,
             )
-            
+
             return {
                 "agent_name": target_agent.name,
                 "response": result.content,
                 "tokens": result.tokens,
                 "cost": float(result.cost),
-                "model_used": result.model_used
+                "model_used": result.model_used,
             }
-            
+
         except Exception as e:
             logger.error(f"Agent invocation failed: {e}")
             return {"error": f"Target agent execution failed: {str(e)}"}
+
+    async def _tool_delegate_task(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
+        """Non-blocking delegation. Fires a sub-agent in the background, returns task_id immediately."""
+        target_agent_id = args.get("agent_id")
+        message = args.get("message", "")
+
+        if not message:
+            return {"error": "message is required"}
+
+        # Depth check
+        if self._depth >= MAX_AGENT_DEPTH:
+            return {"error": f"Maximum agent invocation depth ({MAX_AGENT_DEPTH}) exceeded."}
+
+        target_agent, error = await self._validate_target_agent(agent, target_agent_id, db)
+        if error:
+            return error
+
+        task_id = str(uuid.uuid4())
+        redis_key = f"task:{agent.org_id}:{task_id}"
+
+        # Store task metadata in Redis
+        await redis.hset(redis_key, mapping={
+            "status": "pending",
+            "agent_id": target_agent_id,
+            "agent_name": target_agent.name,
+            "message": message[:500],  # Truncate for storage
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "depth": str(self._depth + 1),
+        })
+        await redis.expire(redis_key, BACKGROUND_TASK_TTL)
+
+        # Fire the background task — runs in its own DB session
+        asyncio.create_task(
+            self._execute_background_task(
+                task_id=task_id,
+                org_id=agent.org_id,
+                project_id=agent.project_id,
+                target_agent_id=target_agent_id,
+                message=message,
+                depth=self._depth + 1,
+                redis=redis,
+            )
+        )
+
+        return {
+            "task_id": task_id,
+            "status": "delegated",
+            "agent_id": target_agent_id,
+            "agent_name": target_agent.name,
+        }
+
+    async def _execute_background_task(
+        self,
+        task_id: str,
+        org_id: uuid.UUID,
+        project_id: uuid.UUID,
+        target_agent_id: str,
+        message: str,
+        depth: int,
+        redis: Redis,
+    ):
+        """Run agent execution in the background and store the result in Redis.
+
+        Uses its own DB session since the original request may have already completed.
+        """
+        redis_key = f"task:{org_id}:{task_id}"
+
+        try:
+            from app.core.database import get_db_session
+
+            async with get_db_session() as bg_db:
+                target_agent = await bg_db.get(Agent, uuid.UUID(target_agent_id))
+                if not target_agent:
+                    await redis.hset(redis_key, mapping={
+                        "status": "failed",
+                        "error": "Target agent not found in background execution",
+                    })
+                    return
+
+                engine = AgentEngine(_depth=depth)
+                result = await engine.execute(
+                    agent=target_agent,
+                    message=message,
+                    db=bg_db,
+                    redis=redis,
+                )
+
+                await redis.hset(redis_key, mapping={
+                    "status": "completed",
+                    "response": (result.content or "")[:4000],  # Cap stored response
+                    "tokens": str(result.tokens),
+                    "cost": str(float(result.cost)),
+                    "model_used": result.model_used or "",
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                })
+
+        except Exception as e:
+            logger.error(f"Background task {task_id} failed: {e}")
+            try:
+                await redis.hset(redis_key, mapping={
+                    "status": "failed",
+                    "error": str(e)[:1000],
+                    "failed_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except Exception:
+                logger.error(f"Failed to write error state for task {task_id}")
+
+    async def _tool_check_task(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
+        """Check the status of a previously delegated background task."""
+        task_id = args.get("task_id")
+        if not task_id:
+            return {"error": "task_id is required"}
+
+        redis_key = f"task:{agent.org_id}:{task_id}"
+        task_data = await redis.hgetall(redis_key)
+
+        if not task_data:
+            return {"error": "Task not found or expired"}
+
+        # Redis returns bytes — decode to strings
+        return {
+            k.decode() if isinstance(k, bytes) else k:
+            v.decode() if isinstance(v, bytes) else v
+            for k, v in task_data.items()
+        }
+
+    async def _tool_collect_results(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
+        """Collect results from multiple delegated tasks. Polls until all complete or timeout."""
+        task_ids = args.get("task_ids", [])
+        if not task_ids:
+            return {"error": "task_ids list is required"}
+
+        start = time.time()
+        results = []
+        all_done = False
+
+        while time.time() - start < COLLECT_RESULTS_MAX_WAIT:
+            all_done = True
+            results = []
+
+            for tid in task_ids:
+                redis_key = f"task:{agent.org_id}:{tid}"
+                task_data = await redis.hgetall(redis_key)
+
+                if not task_data:
+                    results.append({"task_id": tid, "status": "not_found"})
+                    continue
+
+                decoded = {
+                    k.decode() if isinstance(k, bytes) else k:
+                    v.decode() if isinstance(v, bytes) else v
+                    for k, v in task_data.items()
+                }
+                results.append({"task_id": tid, **decoded})
+
+                if decoded.get("status") == "pending":
+                    all_done = False
+
+            if all_done:
+                break
+
+            await asyncio.sleep(1)
+
+        return {"results": results, "all_completed": all_done}
 
     async def _tool_send_notification(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
         """Send notification tool."""
