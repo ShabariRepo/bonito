@@ -695,14 +695,27 @@ export default function UseCasesPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 md:px-12">
+      {/* Page Hero */}
+      <section className="pt-24 pb-12">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight max-w-4xl">
+          AI Shouldn&apos;t Be Your Biggest Expense.{" "}
+          <span className="text-[#7c3aed]">It Should Be Your Biggest Edge.</span>
+        </h1>
+        <p className="mt-6 text-lg text-[#888] max-w-2xl leading-relaxed">
+          Most enterprises burn 60–80% of their AI budget running premium models on tasks that
+          don&apos;t need them. The ones who fix this first don&apos;t just save money — they move
+          faster, ship smarter, and leave competitors scrambling to catch up.
+        </p>
+      </section>
+
       {/* Tab Navigation */}
-      <section className="pt-20 pb-2 sticky top-0 z-20 bg-[#09090b]/95 backdrop-blur-sm">
+      <section className="pb-2 sticky top-0 z-20 bg-[#09090b]/95 backdrop-blur-sm pt-4">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-8 h-8 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
             <Building2 className="w-4 h-4 text-[#7c3aed]" />
           </div>
           <span className="text-sm font-medium text-[#7c3aed] uppercase tracking-wider">
-            Use Cases
+            Real Results
           </span>
         </div>
         <div className="flex gap-2 border-b border-[#1a1a1a] pb-0">
@@ -775,7 +788,7 @@ export default function UseCasesPage() {
 
           {/* The Problem */}
           <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-8">The Problem</h2>
+            <h2 className="text-3xl font-bold mb-8">Where Most Companies Lose Their Edge</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {uc.painPoints.map((point, i) => (
                 <motion.div
@@ -802,10 +815,10 @@ export default function UseCasesPage() {
 
           {/* AI Use Cases */}
           <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-3">What They Want to Build</h2>
+            <h2 className="text-3xl font-bold mb-3">The AI Advantage</h2>
             <p className="text-[#888] mb-8">
-              Multiple AI-powered features, each with different requirements for cost, latency, and
-              model quality.
+              The competitive edge comes from matching each task to the right model at the right
+              price — not throwing a premium model at everything and hoping for the best.
             </p>
             <div className="space-y-4">
               {uc.aiUseCases.map((item, i) => (
@@ -845,12 +858,12 @@ export default function UseCasesPage() {
               <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
                 <Zap className="w-5 h-5 text-[#7c3aed]" />
               </div>
-              <h2 className="text-3xl font-bold">How Bonito Solves This</h2>
+              <h2 className="text-3xl font-bold">How Bonito Gets You There</h2>
             </div>
             <p className="text-[#888] mb-8 max-w-3xl">
-              Instead of each team building their own AI integration, managing their own credentials,
-              and tracking their own costs, the platform team sets up Bonito once. Every team gets a
-              single API endpoint, governed routing, and full visibility.
+              One setup. Every team gets a single API endpoint with intelligent routing, cost
+              controls, and full visibility — while your competitors are still juggling three cloud
+              consoles.
             </p>
 
             <div className="grid sm:grid-cols-3 gap-4 mb-8">
@@ -858,21 +871,24 @@ export default function UseCasesPage() {
                 <Cloud className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Connect once</h3>
                 <p className="text-sm text-[#888]">
-                  Plug in your cloud service accounts. Bonito handles the rest.
+                  Plug in your cloud accounts. Bonito syncs every model automatically — no more
+                  juggling consoles.
                 </p>
               </div>
               <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
                 <Route className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Route intelligently</h3>
                 <p className="text-sm text-[#888]">
-                  Each use case gets the right model at the right price with automatic failover.
+                  Right model, right price, every request. Automatic failover means zero downtime
+                  when it matters.
                 </p>
               </div>
               <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
                 <Shield className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
                 <h3 className="font-semibold mb-1">Govern everything</h3>
                 <p className="text-sm text-[#888]">
-                  Costs, compliance, audit trails, and access controls from one dashboard.
+                  Budget caps, audit trails, and access controls — the visibility your CFO and CISO
+                  have been asking for.
                 </p>
               </div>
             </div>
@@ -916,7 +932,7 @@ export default function UseCasesPage() {
 
           {/* Results */}
           <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-8">The Results</h2>
+            <h2 className="text-3xl font-bold mb-8">The Competitive Edge</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {uc.results.map((r, i) => (
                 <motion.div
@@ -1042,17 +1058,20 @@ export default function UseCasesPage() {
       {/* CTA */}
       <section className="pb-24">
         <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-3">Sound like your team?</h2>
+          <h2 className="text-2xl md:text-3xl font-bold mb-3">
+            Your Competitors Aren&apos;t Waiting.
+          </h2>
           <p className="text-[#888] mb-6 max-w-xl mx-auto">
-            If you&apos;re running AI workloads across multiple cloud providers and want unified
-            control without the infrastructure overhead, Bonito was built for you.
+            Every month you overspend on AI or manage three separate cloud consoles is a month your
+            competitors use to pull ahead. Bonito gets you unified, optimized, and shipping — in
+            under an hour.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Link
               href="/register"
               className="px-6 py-3 rounded-lg bg-[#7c3aed] text-white font-semibold hover:bg-[#6d28d9] transition"
             >
-              Get Started Free
+              Start Your Edge
             </Link>
             <Link
               href="/contact"
