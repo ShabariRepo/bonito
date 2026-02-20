@@ -22,6 +22,21 @@ from app.models.organization import Organization
 # Import all models so Base.metadata.create_all creates all tables
 import app.models  # noqa: F401
 
+# ── SQLite compat: map PostgreSQL-only types to generic equivalents ──
+from sqlalchemy import JSON, Text as _SAText
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY as PG_ARRAY
+from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler as _STC
+
+if not getattr(_STC, "_pg_compat_patched", False):
+    _STC.visit_JSONB = _STC.visit_JSON  # type: ignore[attr-defined]
+
+    def _visit_ARRAY(self, type_, **kw):  # noqa: N802
+        """Render PG ARRAY as TEXT in SQLite (not used for real queries in tests)."""
+        return "TEXT"
+
+    _STC.visit_ARRAY = _visit_ARRAY  # type: ignore[attr-defined]
+    _STC._pg_compat_patched = True  # type: ignore[attr-defined]
+
 # Mark the test environment so middleware (e.g. rate limiter) can skip
 os.environ["TESTING"] = "1"
 
