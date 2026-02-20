@@ -104,15 +104,15 @@ async def send_password_reset_email(to: str, token: str):
 async def send_welcome_email(to: str, name: str):
     await _ensure_initialized()
     html = _base_template(f"""
-    <h2 style="color:#18181b;margin:0 0 12px;font-size:20px;">Welcome to Bonito, {name}! 🐟</h2>
+    <h2 style="color:#18181b;margin:0 0 12px;font-size:20px;">You're verified, {name}! 🎉</h2>
     <p style="color:#52525b;font-size:15px;line-height:1.6;margin:0 0 24px;">
-      Your email has been verified. You're all set to manage your AI infrastructure from a single control plane.
+      Your email has been verified and your Bonito account is ready. Sign in to start managing your AI infrastructure from a single control plane.
     </p>
-    <div style="margin:24px 0;">{_button(f"{FRONTEND_URL}/dashboard", "Go to Dashboard")}</div>
+    <div style="margin:24px 0;">{_button(f"{FRONTEND_URL}/login", "Sign In")}</div>
     """)
     resend.Emails.send({
         "from": FROM_EMAIL,
         "to": [to],
-        "subject": "Welcome to Bonito 🎉",
+        "subject": "Email verified — your Bonito account is ready ✅",
         "html": html,
     })
