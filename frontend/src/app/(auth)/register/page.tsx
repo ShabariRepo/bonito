@@ -42,7 +42,7 @@ export default function RegisterPage() {
   return (
     <div className="w-full max-w-md mx-auto px-6">
       <div className="text-center mb-8">
-        <Image src="/logo-text-dark.png" alt="Bonito" width={160} height={53} className="mx-auto mb-4" />
+        <Image src="/bonito-logo-400.png" alt="Bonito" width={64} height={43} className="mx-auto mb-4" />
         <p className="text-[#888] mt-2">Create your account</p>
       </div>
       <div className="bg-[#111] border border-[#222] rounded-xl p-8">

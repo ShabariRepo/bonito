@@ -120,7 +120,8 @@ export function Sidebar() {
               exit="collapsed"
               transition={{ duration: 0.2 }}
             >
-              <Image src="/logo-text-dark.png" alt="Bonito" width={120} height={40} className="shrink-0" priority />
+              <Image src="/bonito-logo-400.png" alt="Bonito" width={40} height={27} className="shrink-0" priority />
+              <span className="text-lg font-semibold text-white ml-2">Bonito</span>
             </motion.div>
           ) : (
             <motion.div
@@ -131,7 +132,7 @@ export function Sidebar() {
               transition={{ duration: 0.2 }}
               className="mx-auto"
             >
-              <Image src="/logo.png" alt="Bonito" width={32} height={21} className="shrink-0" priority />
+              <Image src="/bonito-logo-400.png" alt="Bonito" width={32} height={21} className="shrink-0" priority />
             </motion.div>
           )}
         </AnimatePresence>

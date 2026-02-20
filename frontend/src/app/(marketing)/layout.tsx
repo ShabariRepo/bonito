@@ -49,8 +49,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       {/* Navigation */}
       <nav className="sticky top-0 z-50 border-b border-[#1a1a1a] bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 flex items-center justify-between h-16">
-          <Link href="/">
-            <Image src="/logo-text-dark.png" alt="Bonito" width={130} height={43} priority />
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/bonito-logo-400.png" alt="Bonito" width={36} height={24} priority className="object-contain" />
+            <span className="text-lg font-semibold text-white">Bonito</span>
           </Link>
           
           {/* Desktop Navigation */}
@@ -155,8 +156,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 py-12 md:py-16">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="col-span-1 sm:col-span-2 lg:col-span-1">
-              <Link href="/">
-                <Image src="/logo-text-dark.png" alt="Bonito" width={110} height={36} />
+              <Link href="/" className="flex items-center gap-3">
+                <Image src="/bonito-logo-400.png" alt="Bonito" width={48} height={32} className="object-contain" />
+                <span className="text-lg font-semibold text-white">Bonito</span>
               </Link>
               <p className="mt-3 text-sm text-[#666] leading-relaxed">
                 The unified AI control plane for enterprise teams.

@@ -25,7 +25,7 @@ export function MobileTopBar() {
           <Menu className="h-5 w-5" />
         </motion.button>
         
-        <Image src="/logo-text-dark.png" alt="Bonito" width={110} height={36} />
+        <Image src="/bonito-logo-400.png" alt="Bonito" width={36} height={24} />
       </div>
 
       {/* Right: Notification Bell */}

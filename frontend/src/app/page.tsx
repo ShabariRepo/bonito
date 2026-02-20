@@ -97,7 +97,7 @@ export default function LandingPage() {
             "@type": "Organization",
             name: "Bonito",
             url: "https://getbonito.com",
-            logo: "https://getbonito.com/icon-512.png",
+            logo: "https://getbonito.com/bonito-logo-400.png",
             description: "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure.",
             contactPoint: {
               "@type": "ContactPoint",
@@ -110,7 +110,10 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
-        <Image src="/logo-text-dark.png" alt="Bonito" width={130} height={43} priority />
+        <div className="flex items-center gap-2">
+          <Image src="/bonito-logo-400.png" alt="Bonito" width={40} height={27} priority className="object-contain" />
+          <span className="text-xl font-semibold text-white">Bonito</span>
+        </div>
         <div className="hidden md:flex items-center gap-6">
           <Link href="/pricing" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Pricing</Link>
           <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>
