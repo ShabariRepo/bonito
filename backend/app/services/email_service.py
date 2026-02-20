@@ -44,10 +44,12 @@ def _base_template(content: str) -> str:
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="background-color:#111;border:1px solid #1a1a1a;border-radius:12px;overflow:hidden;">
 
-<!-- Header: centered large logo -->
-<tr><td style="padding:36px 40px 28px;border-bottom:1px solid #1a1a1a;" align="center">
+<!-- Header: logo in white circle -->
+<tr><td style="padding:40px 40px 28px;border-bottom:1px solid #1a1a1a;" align="center">
   <a href="{FRONTEND_URL}" target="_blank" style="text-decoration:none;">
-    <img src="{LOGO_FULL_URL}" alt="Bonito" width="220" style="display:block;height:auto;max-width:220px;" />
+    <div style="display:inline-block;width:100px;height:100px;border-radius:50%;background-color:#ffffff;text-align:center;line-height:100px;">
+      <img src="{LOGO_ICON_URL}" alt="Bonito" width="64" style="display:inline-block;height:auto;max-width:64px;vertical-align:middle;" />
+    </div>
   </a>
 </td></tr>
 
@@ -56,12 +58,12 @@ def _base_template(content: str) -> str:
   {content}
 </td></tr>
 
-<!-- Footer: icon + Bonito text -->
+<!-- Footer: icon stacked above Bonito text -->
 <tr><td style="padding:28px 40px;border-top:1px solid #1a1a1a;" align="center">
-  <a href="{FRONTEND_URL}" target="_blank" style="text-decoration:none;">
-    <img src="{LOGO_ICON_URL}" alt="Bonito" width="36" style="display:inline-block;height:auto;max-width:36px;vertical-align:middle;" />
+  <a href="{FRONTEND_URL}" target="_blank" style="text-decoration:none;display:block;">
+    <img src="{LOGO_ICON_URL}" alt="Bonito" width="40" style="display:block;height:auto;max-width:40px;margin:0 auto 8px;" />
+    <span style="display:block;font-size:18px;font-weight:700;color:#f5f0e8;letter-spacing:-0.3px;">Bonito</span>
   </a>
-  <span style="display:inline-block;vertical-align:middle;margin-left:8px;font-size:18px;font-weight:700;color:#f5f0e8;letter-spacing:-0.3px;">Bonito</span>
   <div style="margin-top:12px;font-size:12px;color:#555;">
     Enterprise AI Control Plane
   </div>
