@@ -85,21 +85,30 @@ class TestAzureCredentials:
         )
         assert c.tenant_id == "t"
 
+    def test_all_fields_optional_defaults(self):
+        """All credential fields now default to empty string (supports multiple azure modes)."""
+        c = AzureCredentials()
+        assert c.azure_mode == "foundry"
+        assert c.tenant_id == ""
+        assert c.client_id == ""
+        assert c.client_secret == ""
+        assert c.subscription_id == ""
+
     def test_missing_tenant_id(self):
-        with pytest.raises(ValidationError):
-            AzureCredentials(client_id="c", client_secret="s", subscription_id="sub")
+        c = AzureCredentials(client_id="c", client_secret="s", subscription_id="sub")
+        assert c.tenant_id == ""
 
     def test_missing_client_id(self):
-        with pytest.raises(ValidationError):
-            AzureCredentials(tenant_id="t", client_secret="s", subscription_id="sub")
+        c = AzureCredentials(tenant_id="t", client_secret="s", subscription_id="sub")
+        assert c.client_id == ""
 
     def test_missing_client_secret(self):
-        with pytest.raises(ValidationError):
-            AzureCredentials(tenant_id="t", client_id="c", subscription_id="sub")
+        c = AzureCredentials(tenant_id="t", client_id="c", subscription_id="sub")
+        assert c.client_secret == ""
 
     def test_missing_subscription_id(self):
-        with pytest.raises(ValidationError):
-            AzureCredentials(tenant_id="t", client_id="c", client_secret="s")
+        c = AzureCredentials(tenant_id="t", client_id="c", client_secret="s")
+        assert c.subscription_id == ""
 
 
 class TestGCPCredentials:

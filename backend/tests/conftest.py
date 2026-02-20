@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.database import Base, get_db
 from app.core.redis import get_redis
-from app.main import app as fastapi_app
+from app.main import app as asgi_app, fastapi_app
 from app.services import auth_service
 from app.models.user import User
 from app.models.organization import Organization
@@ -108,7 +108,7 @@ async def client(test_engine, mock_redis) -> AsyncGenerator[AsyncClient, None]:
     fastapi_app.dependency_overrides[get_db] = override_get_db
     fastapi_app.dependency_overrides[get_redis] = lambda: mock_redis
 
-    transport = ASGITransport(app=fastapi_app)
+    transport = ASGITransport(app=asgi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
@@ -135,7 +135,7 @@ async def client_no_redis(test_engine) -> AsyncGenerator[AsyncClient, None]:
     fastapi_app.dependency_overrides[get_db] = override_get_db
     fastapi_app.dependency_overrides[get_redis] = lambda: mock_redis
 
-    transport = ASGITransport(app=fastapi_app)
+    transport = ASGITransport(app=asgi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
@@ -156,9 +156,17 @@ class _FakeCredentialInfo:
 def mock_cloud_providers():
     """Prevent tests from calling real cloud APIs (AWS STS, Azure, GCP)."""
     fake = AsyncMock(return_value=_FakeCredentialInfo())
+    fake_provision = AsyncMock(return_value={
+        "endpoint": "https://test-bonito.openai.azure.com",
+        "api_key": "test-key",
+        "resource_group": "test-rg",
+        "resource_name": "test-bonito",
+        "location": "eastus",
+    })
     with (
         patch("app.services.providers.aws_bedrock.AWSBedrockProvider.validate_credentials", fake),
         patch("app.services.providers.azure_foundry.AzureFoundryProvider.validate_credentials", fake),
+        patch("app.services.providers.azure_foundry.AzureFoundryProvider.provision_foundry_resource", fake_provision),
         patch("app.services.providers.gcp_vertex.GCPVertexProvider.validate_credentials", fake),
         patch("app.services.provider_service.store_credentials_in_vault", AsyncMock(return_value="vault:test")),
     ):
@@ -270,6 +278,7 @@ AZURE_CREDENTIALS = {
     "client_id": "12345678-1234-1234-1234-123456789013",
     "client_secret": "super-secret-value-here",
     "subscription_id": "12345678-1234-1234-1234-123456789014",
+    "endpoint": "https://test-bonito.openai.azure.com",
 }
 
 GCP_CREDENTIALS = {
