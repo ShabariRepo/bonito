@@ -21,11 +21,18 @@ import {
   Settings,
   BarChart3,
   ArrowRight,
+  Network,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { API_URL } from "@/lib/utils";
 import { useAPI } from "@/lib/swr";
+import dynamic from "next/dynamic";
+
+const NetworkTopology = dynamic(
+  () => import("@/components/gateway/network-topology").then((m) => m.NetworkTopology),
+  { ssr: false, loading: () => <div className="h-[600px] flex items-center justify-center"><LoadingDots /></div> }
+);
 
 /* ─── Types ─── */
 
@@ -162,6 +169,7 @@ export default function GatewayPage() {
   const loading = usageLoading || keysLoading || logsLoading;
   const error = usageError ? "Failed to load gateway data. Please check your connection and try again." : null;
 
+  const [networkView, setNetworkView] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -210,9 +218,42 @@ export default function GatewayPage() {
       <PageHeader
         title="API Gateway"
         description="Route AI requests through a unified OpenAI-compatible endpoint with automatic failover, cost tracking, and rate limiting."
+        actions={
+          <button
+            onClick={() => setNetworkView((v) => !v)}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+              networkView
+                ? "bg-violet-600 text-white shadow-lg shadow-violet-600/25 hover:bg-violet-500"
+                : "border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <Network className="h-4 w-4" />
+            Network View
+          </button>
+        }
       />
 
-      {error && <ErrorBanner message={error} onRetry={fetchData} />}
+      {error && !networkView && <ErrorBanner message={error} onRetry={fetchData} />}
+
+      {/* ─── Network Topology View ─── */}
+      <AnimatePresence mode="wait">
+        {networkView && (
+          <motion.div
+            key="network"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}
+            className="rounded-xl border border-zinc-800 overflow-hidden"
+            style={{ height: "calc(100vh - 220px)", minHeight: 500 }}
+          >
+            <NetworkTopology />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Standard Gateway View ─── */}
+      {!networkView && <>
 
       {/* Quick Navigation */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -459,6 +500,8 @@ export default function GatewayPage() {
           )}
         </CardContent>
       </Card>
+
+      </>}
     </div>
   );
 }
