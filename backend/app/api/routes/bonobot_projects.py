@@ -5,6 +5,7 @@ Project CRUD operations and project graph visualization
 """
 
 from typing import List, Optional
+import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -301,7 +302,7 @@ async def get_project_graph(
         }
         
         edges.append(GraphEdge(
-            id=UUID(f"trigger-{trigger.id}"),  # Generate unique ID
+            id=uuid.uuid5(uuid.NAMESPACE_DNS, f"trigger-edge-{trigger.id}"),
             source=trigger.id,
             target=trigger.agent_id,
             type="trigger",
