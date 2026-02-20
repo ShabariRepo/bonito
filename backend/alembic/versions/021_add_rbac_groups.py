@@ -25,9 +25,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create scope_type enum
+    # Create scope_type enum (checkfirst=True for re-run safety)
     scope_type_enum = postgresql.ENUM('org', 'project', 'group', name='scope_type')
-    scope_type_enum.create(op.get_bind())
+    scope_type_enum.create(op.get_bind(), checkfirst=True)
     
     # ─── Agent Groups Table ───
     op.create_table(

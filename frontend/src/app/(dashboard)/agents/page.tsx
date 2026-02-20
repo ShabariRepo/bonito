@@ -37,6 +37,7 @@ export default function AgentsOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"active" | "all">("active");
   const router = useRouter();
   const { toast } = useToast();
 
@@ -240,6 +241,32 @@ export default function AgentsOverviewPage() {
         </Dialog>
       </div>
 
+      {/* Tabs */}
+      {projects.length > 0 && (
+        <div className="flex gap-1 bg-muted/50 p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab("active")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "active"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Active ({projects.filter((p) => p.status === "active").length})
+          </button>
+          <button
+            onClick={() => setActiveTab("all")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "all"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All ({projects.length})
+          </button>
+        </div>
+      )}
+
       {projects.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
@@ -260,7 +287,15 @@ export default function AgentsOverviewPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
+          {[...projects]
+            .sort((a, b) => {
+              // Active first, then by updated_at desc
+              if (a.status === "active" && b.status !== "active") return -1;
+              if (a.status !== "active" && b.status === "active") return 1;
+              return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+            })
+            .filter((p) => activeTab === "all" || p.status === "active")
+            .map((project) => (
             <Link key={project.id} href={`/agents/${project.id}`}>
               <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-500/20">
                 <CardHeader className="pb-3">
