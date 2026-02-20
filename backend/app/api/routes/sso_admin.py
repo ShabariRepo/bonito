@@ -33,7 +33,14 @@ async def get_sso_config(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the current SSO configuration for the admin's organization."""
-    config = await saml_service.get_sso_config(db, user.org_id)
+    try:
+        config = await saml_service.get_sso_config(db, user.org_id)
+    except Exception:
+        # sso_configs table may not exist or query failed — treat as not configured
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SSO not configured. Use PUT /api/sso/config to create a configuration.",
+        )
     if not config:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

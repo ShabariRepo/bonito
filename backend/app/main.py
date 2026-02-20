@@ -97,6 +97,25 @@ app.add_middleware(RequestIDMiddleware)
 # GZip compression (very outer layer)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
+# Strip trailing slashes (outermost — normalize before any routing)
+# Required because: redirect_slashes=False (Vercel 308 conflicts with FastAPI 307),
+# but some frontend calls still include trailing slashes.
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+class TrailingSlashMiddleware:
+    """Strip trailing slashes from request paths (except root /)."""
+    def __init__(self, app: ASGIApp):
+        self.app = app
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http" and scope["path"] != "/" and scope["path"].endswith("/"):
+            scope["path"] = scope["path"].rstrip("/")
+            if scope.get("raw_path"):
+                scope["raw_path"] = scope["raw_path"].rstrip(b"/")
+        await self.app(scope, receive, send)
+
+app = TrailingSlashMiddleware(app)  # type: ignore[assignment]
+
 # Routes
 app.include_router(health.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
