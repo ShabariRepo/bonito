@@ -467,6 +467,63 @@ async def get_session_messages(
     return [AgentMessageResponse.model_validate(msg) for msg in messages]
 
 
+# ─── Metrics ───
+
+
+@router.get("/agents/{agent_id}/metrics")
+async def get_agent_metrics(
+    agent_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get agent usage metrics."""
+    stmt = select(Agent).where(
+        and_(
+            Agent.id == agent_id,
+            Agent.org_id == current_user.org_id
+        )
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found"
+        )
+
+    # Count sessions
+    session_count_stmt = select(func.count(AgentSession.id)).where(AgentSession.agent_id == agent_id)
+    session_count = (await db.execute(session_count_stmt)).scalar() or 0
+
+    # Recent sessions for activity timeline
+    recent_stmt = (
+        select(AgentSession.created_at, AgentSession.total_tokens, AgentSession.total_cost)
+        .where(AgentSession.agent_id == agent_id)
+        .order_by(desc(AgentSession.created_at))
+        .limit(20)
+    )
+    recent = (await db.execute(recent_stmt)).all()
+
+    return {
+        "agent_id": str(agent.id),
+        "total_runs": agent.total_runs,
+        "total_tokens": agent.total_tokens,
+        "total_cost": float(agent.total_cost),
+        "total_sessions": session_count,
+        "status": agent.status,
+        "last_active_at": agent.last_active_at.isoformat() if agent.last_active_at else None,
+        "recent_sessions": [
+            {
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+                "tokens": s.total_tokens,
+                "cost": float(s.total_cost) if s.total_cost else 0,
+            }
+            for s in recent
+        ],
+    }
+
+
 # ─── Connections ───
 
 @router.post("/agents/{agent_id}/connections", response_model=AgentConnectionResponse, status_code=status.HTTP_201_CREATED)
