@@ -601,14 +601,24 @@ class AgentEngine:
         
         if mode == "none":
             return False  # DEFAULT DENY - no tools allowed
-        elif mode == "allowlist":
-            return tool_name in policy.get("allowed", [])
-        elif mode == "denylist":
+        elif mode in ("allowlist", "selected"):
+            # Support both "allowed" and "allowed_tools" key names
+            allowed = policy.get("allowed", []) or policy.get("allowed_tools", [])
+            return tool_name in allowed
+        elif mode in ("denylist", "blocked"):
             built_in_tools = {
                 "search_knowledge_base", "http_request", "invoke_agent",
                 "send_notification", "get_current_time", "list_models"
             }
-            return tool_name in built_in_tools and tool_name not in policy.get("denied", [])
+            denied = policy.get("denied", []) or policy.get("denied_tools", [])
+            return tool_name in built_in_tools and tool_name not in denied
+        elif mode == "all":
+            # Allow all built-in tools
+            built_in_tools = {
+                "search_knowledge_base", "http_request", "invoke_agent",
+                "send_notification", "get_current_time", "list_models"
+            }
+            return tool_name in built_in_tools
         else:  # fallback to none mode for security
             return False
 
