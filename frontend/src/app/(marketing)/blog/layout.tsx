@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Blog — Multi-Cloud AI Management Insights",
+  title: "Blog — Enterprise AI Insights",
   description:
-    "Expert insights on multi-cloud AI management, cost optimization, AI governance, and platform engineering. Stay ahead of the AI infrastructure curve.",
+    "Insights on enterprise AI operations, multi-cloud management, AI cost optimization, and governed AI agents. From the team building Bonito.",
   openGraph: {
-    title: "Bonito Blog — AI Infrastructure Insights",
+    title: "Bonito Blog — Enterprise AI Insights",
     description:
-      "Expert insights on multi-cloud AI management, cost optimization, and building scalable AI infrastructure.",
+      "Insights on enterprise AI operations, multi-cloud management, cost optimization, and governed AI agents.",
     url: "https://getbonito.com/blog",
   },
+  alternates: { canonical: "https://getbonito.com/blog" },
 };
 
 export default function BlogLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return children;
 }
