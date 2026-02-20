@@ -549,7 +549,7 @@ export function NetworkTopology() {
       const [keysRes, policiesRes, modelsRes, providersRes] = await Promise.allSettled([
         apiRequest("/api/gateway/keys"),
         apiRequest("/api/routing-policies"),
-        apiRequest("/api/models/?status=deployed"),
+        apiRequest("/api/models/"),
         apiRequest("/api/providers/"),
       ]);
 
@@ -560,24 +560,27 @@ export function NetworkTopology() {
 
       const keysData: GatewayKey[] = keysOk ? await keysRes.value.json() : [];
       const policiesData: RoutingPolicy[] = policiesOk ? await policiesRes.value.json() : [];
-      let modelsData: ModelEntry[] = modelsOk ? await modelsRes.value.json() : [];
+      const allModels: ModelEntry[] = modelsOk ? await modelsRes.value.json() : [];
       const providersData: Provider[] = providersOk ? await providersRes.value.json() : [];
 
-      // Only show deployed models + models referenced by routing policies
+      // Collect model IDs referenced by routing policies
       const policyModelIds = new Set<string>();
       policiesData.forEach((p) => p.models.forEach((m) => policyModelIds.add(m.model_id)));
 
-      modelsData = modelsData.filter(
-        (m) =>
-          m.status === "deployed" ||
-          m.status === "active" && policyModelIds.has(m.model_id) ||
-          policyModelIds.has(m.id)
-      );
-
-      // Cap at 50 models max to prevent DOM overload
-      if (modelsData.length > 50) {
-        modelsData = modelsData.slice(0, 50);
-      }
+      // Include: (1) models in routing policies, (2) up to 4 per provider as representatives
+      const perProviderCount = new Map<string, number>();
+      let modelsData = allModels.filter((m) => {
+        // Always include models referenced by policies
+        if (policyModelIds.has(m.model_id) || policyModelIds.has(m.id)) return true;
+        // Include a few representative models per provider
+        const pid = m.provider_id || "unknown";
+        const count = perProviderCount.get(pid) || 0;
+        if (count < 4) {
+          perProviderCount.set(pid, count + 1);
+          return true;
+        }
+        return false;
+      });
 
       setKeys(keysData);
       setPolicies(policiesData);
