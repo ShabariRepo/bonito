@@ -47,6 +47,7 @@ class ProjectResponse(BaseModel):
 class AgentCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
+    group_id: Optional[UUID] = None
     system_prompt: str = Field(..., min_length=1)
     model_id: str = Field("auto", max_length=100)
     model_config: Optional[Dict[str, Any]] = None
