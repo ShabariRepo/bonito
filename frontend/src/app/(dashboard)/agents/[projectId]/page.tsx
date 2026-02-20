@@ -173,7 +173,7 @@ export default function ProjectCanvasPage() {
 
   if (loading) {
     return (
-      <div className="h-screen bg-[#0a0a1a] flex items-center justify-center">
+      <div className="h-[calc(100vh-4rem)] lg:h-screen bg-[#0a0a1a] flex items-center justify-center">
         <Card className="w-96 p-6 bg-[#1a1a2e] border-gray-800">
           <CardContent className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -185,9 +185,9 @@ export default function ProjectCanvasPage() {
   }
 
   return (
-    <div className="h-screen bg-[#0a0a1a] text-white relative">
+    <div className="h-[calc(100vh-4rem)] lg:h-screen bg-[#0a0a1a] text-white relative overflow-hidden">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-[#1a1a2e]/90 backdrop-blur-sm border-b border-gray-800 p-4">
+      <div className="absolute top-0 left-0 right-0 z-10 bg-[#1a1a2e]/90 backdrop-blur-sm border-b border-gray-800 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button

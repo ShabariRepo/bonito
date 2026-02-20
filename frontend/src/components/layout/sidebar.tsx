@@ -46,13 +46,16 @@ const navigation = [
   { name: "Governance", href: "/governance", icon: Shield },
   { name: "API Gateway", href: "/gateway", icon: Radio },
   { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
-  { name: "AI Agents", href: "/agents", icon: Bot },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Logs", href: "/logs", icon: FileText },
   { name: "Audit", href: "/audit", icon: ScrollText },
   { name: "Notifications", href: "/notifications", icon: Bell },
   { name: "Alerts", href: "/alerts", icon: AlertTriangle },
   { name: "Settings", href: "/settings", icon: Settings },
+];
+
+const bonobotNavigation = [
+  { name: "Projects", href: "/agents", icon: Bot },
 ];
 
 const adminNavigation = [
@@ -177,6 +180,59 @@ export function Sidebar() {
         <div className="border-b border-border mb-2" />
 
         {navigation.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          return (
+            <Link key={item.name} href={item.href} className="relative block">
+              {isActive && (
+                <motion.div
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-md bg-accent"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              <div
+                className={cn(
+                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  isCollapsed && !isMobile && "justify-center"
+                )}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <AnimatePresence>
+                  {(!isCollapsed || isMobile) && (
+                    <motion.span
+                      variants={contentVariants}
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Link>
+          );
+        })}
+
+        {/* Bonobot section */}
+        <div className="border-b border-border my-2" />
+        <AnimatePresence>
+          {(!isCollapsed || isMobile) && (
+            <motion.p
+              variants={contentVariants}
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              transition={{ duration: 0.2 }}
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+            >
+              Bonobot
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {bonobotNavigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
             <Link key={item.name} href={item.href} className="relative block">
