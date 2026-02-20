@@ -35,6 +35,146 @@ export const blogTags = [
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "introducing-bonobot-enterprise-ai-agent-platform",
+    title: "Introducing Bonobot: The Governed AI Agent Platform for Enterprise Teams",
+    date: "Feb 20, 2026",
+    dateISO: "2026-02-20",
+    author: "Shabari, Founder",
+    readTime: "9 min read",
+    tags: ["AI Agents", "Enterprise AI", "AI Governance", "AI Security", "AI Orchestration"],
+    metaDescription: "Bonobot brings autonomous AI agents to enterprise teams with default-deny security, async fan-out orchestration, and full audit trails. Built on Bonito's AI control plane for governed enterprise AI agent deployment at scale.",
+    excerpt: "AI agents just went mainstream. OpenClaw's founder joining OpenAI confirms what builders already knew — autonomous agents are the next platform shift. Bonobot brings that same power to enterprise teams, with the governance layer organizations require.",
+    content: `AI agents just went mainstream. When [OpenClaw's founder joined OpenAI](https://openai.com) earlier this month, it confirmed what builders have known for a while: autonomous AI agents — systems that don't just answer questions but take actions, remember context, and work across tools — aren't a research curiosity anymore. They're the next platform shift.
+
+For individuals, tools like OpenClaw have already proven the thesis. Give an AI agent persistent memory, tool access, and the ability to execute tasks autonomously, and it becomes genuinely transformative. Developers delegate entire research workflows. Writers let agents draft, fact-check, and format in the background. Power users build agents that monitor inboxes, manage calendars, and orchestrate work across dozens of applications.
+
+But here's the question nobody's answered yet: **how do you bring that same power to an enterprise team of 50, 500, or 5,000 people — without creating a security and governance nightmare?**
+
+That's what Bonobot is. And today, it's live on Bonito's control plane.
+
+## What Are Enterprise AI Agents? Bonobot and Governed Autonomy
+
+Bonobot is an enterprise AI agent framework built directly into [Bonito's control plane](/about). It takes the same agent patterns that power tools like OpenClaw — persistent memory, tool access, autonomous execution, background processing — and wraps them in the governance layer that organizations require.
+
+The key word is **governed**. Every Bonobot agent operates within an explicitly defined security perimeter. Default-deny tool policies. Hard budget stops. Per-agent rate limiting. Full audit trails. Credential isolation. No arbitrary code execution. SSRF protection. Input sanitization. Org-scoped resource access.
+
+This isn't "AI agents with guardrails bolted on." It's a fundamentally different trust architecture designed for multi-tenant, compliance-heavy enterprise environments.
+
+> The same agent patterns that power tools like OpenClaw — persistent memory, tool access, autonomous execution — are now available for enterprise teams, with the governance layer that organizations require.
+
+## How Enterprise AI Agents Actually Work: The Ad Operations Example
+
+Abstract descriptions of AI agents don't land. So let's walk through a real use case: an Ad Operations team at a mid-size company running campaigns across Google, Meta, and programmatic channels.
+
+Today, their workflow looks like this. At the end of every week, a senior analyst pulls campaign data from three platforms, exports it to spreadsheets, cross-references it with budget allocations in Google Sheets, identifies underperforming campaigns, drafts optimization recommendations, and compiles everything into a stakeholder report. This takes **two full days**. Every week. For one person who could be doing strategic work instead.
+
+With Bonobot, the team gets an AI agent with scoped access to their campaign data in S3, their performance metrics in Google Sheets, and their reporting templates. Here's what changes:
+
+**Monday morning, 9:00 AM.** The team lead sends a message to their Bonobot agent: *"Analyze Q4 performance across all channels. Compare against budget targets. Flag any campaigns running more than 15% over or under target CPA. Draft the weekly stakeholder report."*
+
+**Monday morning, 9:01 AM.** The team lead goes back to strategic planning. The agent works in the background.
+
+What happens next is where Bonobot's orchestration architecture separates it from simple chatbot interfaces.
+
+## How Enterprise AI Orchestration Works: Fan-Out and Fan-In
+
+Bonobot doesn't process that entire request as a single monolithic task. Instead, it uses a **coordinator-specialist pattern** — the same async orchestration architecture that powers modern microservices, adapted for enterprise AI agents.
+
+The **coordinator agent** receives the team lead's request and decomposes it into discrete sub-tasks:
+
+1. **Research task:** Pull Q4 campaign data from S3 for all channels
+2. **Analysis task (Google):** Analyze Google Ads performance vs. budget targets
+3. **Analysis task (Meta):** Analyze Meta Ads performance vs. budget targets
+4. **Analysis task (Programmatic):** Analyze programmatic campaign performance vs. budget targets
+5. **Synthesis task:** Aggregate all channel analyses, flag outliers, draft the stakeholder report
+
+Tasks 2, 3, and 4 execute **in parallel**. Each is handled by a specialist agent configured with access to the relevant data sources and optimized for analytical reasoning. The coordinator fans out the work, waits for all specialists to complete, then fans in the results for synthesis.
+
+This is the **fan-out/fan-in pattern**, and it's how Bonobot turns a 2-day manual process into a 15-minute automated one.
+
+:::stats
+2 days|manual weekly reporting process
+15 min|same process with Bonobot orchestration
+3→1|analyst days freed per week for strategy
+:::
+
+The critical difference from a personal AI agent: every one of these sub-agents operates within the same governance boundary. The Google Ads analyst agent can read campaign data from S3 but cannot access the finance team's budget files. The coordinator can draft a report but cannot email it externally without explicit permission. Every data access, every model query, every tool invocation is logged and attributed.
+
+## Why Enterprise AI Agent Security Can't Be an Afterthought
+
+Personal AI agents like OpenClaw operate on implicit trust — you trust yourself, so you trust the agent with your data and your tools. That model doesn't translate to enterprise environments where a single misconfigured agent could access confidential data across departments, burn through quarterly AI budgets, or exfiltrate data through prompt injection attacks.
+
+Bonobot's security architecture is built on **eight pillars** that address the specific threat model of governed AI agents in enterprise environments:
+
+**1. Default-Deny Tool Policy.** New agents start with zero capabilities. Every tool, every data source, every network endpoint must be explicitly granted. There's no "oops, I didn't realize it had access to that."
+
+**2. Hard Budget Stops.** Not soft limits. Not alerts-after-the-fact. When a department's agent hits its budget ceiling, execution stops. Period. The control plane enforces this in the request path, before the API call is made.
+
+**3. Per-Agent Rate Limiting.** Each agent has independently configurable rate limits — requests per minute, tokens per hour, concurrent tasks. A runaway agent loop can't starve other teams' agents of capacity.
+
+**4. Input Sanitization.** Every user input and every tool output is sanitized before being passed to the model. This mitigates prompt injection attacks where malicious content in retrieved data attempts to hijack agent behavior.
+
+**5. SSRF Protection.** Agents cannot be tricked into making requests to internal services or arbitrary external endpoints. Network access is allow-listed at the resource connector level.
+
+**6. Credential Isolation.** Each department's agents operate with isolated credentials. The ad-tech team's S3 connector uses different credentials than the engineering team's monitoring connector. Compromise of one doesn't expose the other.
+
+**7. No Code Execution.** Bonobot agents use tools and resource connectors — they do not execute arbitrary code. This eliminates the entire class of attacks that target code execution environments: sandbox escapes, dependency injection, and supply chain attacks on agent tooling.
+
+**8. Full Audit Trail.** Every action, every data access, every model query, every tool invocation is logged with the acting agent, the requesting user, the timestamp, the data accessed, and the cost incurred. These logs integrate directly with Bonito's compliance scanning for SOC 2, HIPAA, GDPR, and ISO 27001.
+
+:::insight
+Default-deny means a new Bonobot agent starts with zero capabilities. Every permission is explicitly granted, scoped to specific resources and time windows, and produces a complete audit trail. This is the fundamental architectural difference between personal AI agents and enterprise-grade AI agent platforms.
+:::
+
+## The Background Agent Pattern: Why Async Changes Everything
+
+There's a subtle but important shift in how Bonobot changes team workflows. Traditional AI tools — chatbots, copilots, inline assistants — operate synchronously. You ask a question, you wait for the answer, you continue your work. The AI is in your foreground.
+
+Bonobot agents work in the **background**. You delegate a task, and the agent processes it asynchronously while you do other things. When the agent finishes, it delivers results through your configured channels — Slack, email, dashboard, whatever the organization has set up.
+
+This is more than a UX convenience. It fundamentally changes the relationship between teams and AI. Instead of using AI as a tool you interact with moment-to-moment, you use it as a **teammate you delegate to**. The ad operations team doesn't sit and watch the agent analyze campaigns. They delegate the analysis, move on to strategic planning, and review the synthesized results when they're ready.
+
+For teams that are already capacity-constrained — and in 2026, that's most of them — the background agent pattern effectively multiplies headcount without adding headcount. Your three-person ad ops team now has the analytical throughput of a six-person team, because the routine analytical work is happening in parallel with the strategic work humans are uniquely good at.
+
+> Bonobot agents don't replace your team. They give your team back the hours they're currently spending on work that should have been automated years ago.
+
+## Built on Bonito's AI Control Plane
+
+Bonobot isn't a standalone product bolted onto Bonito. It's a native capability of the control plane, which means enterprise AI agents inherit every governance, routing, and cost optimization feature that Bonito already provides.
+
+**Intelligent model routing.** Bonobot agents route through [Bonito's gateway](/blog/introducing-bonito-your-ai-control-plane). Simple sub-tasks — data retrieval, formatting, lookups — go to cost-efficient models like Amazon Nova Lite or Gemini Flash. Complex reasoning tasks — analysis, synthesis, strategy recommendations — route to premium models like GPT-4o or Gemini 2.5 Pro. The routing is automatic, and the cost savings cascade across every agent in the organization.
+
+**AI Context (RAG).** Bonobot agents can reference the organization's shared knowledge base through Bonito's AI Context layer. Upload your campaign playbooks, brand guidelines, and reporting templates, and every agent across every department can reference them. No more recreating context for every conversation.
+
+**Unified cost visibility.** Every token consumed by every agent rolls up into Bonito's cost intelligence dashboard. You can see spend by department, by agent, by task type, by model. The CFO gets a single number for "how much did we spend on AI agents this month" — broken down to whatever granularity they need. Read more about [why AI cost transparency matters](/blog/ai-openpath-problem-enterprise-cost-transparency).
+
+**Cross-cloud failover.** If AWS Bedrock goes down during an agent's execution, the task automatically fails over to the next provider in the routing policy. The agent doesn't crash, the team doesn't notice, and the results arrive on time.
+
+:::stats
+8|security pillars in Bonobot's architecture
+0|default capabilities for new agents
+100%|of agent actions logged and auditable
+:::
+
+## AI Agents Are Going Mainstream. Enterprise Needs Governed Versions.
+
+The momentum behind AI agents is undeniable. OpenClaw's founder joining OpenAI. Anthropic shipping tool use and computer use capabilities. Google launching Project Mariner. Microsoft integrating agents into every surface of their product suite. The direction is clear: AI is moving from "answers questions" to "takes actions."
+
+For enterprises, this transition creates both enormous opportunity and significant risk. The opportunity is clear — autonomous agents that can research, analyze, draft, and coordinate can dramatically amplify what every team in the organization accomplishes. The risk is equally clear — ungoverned agents operating with broad access across enterprise systems are a security, compliance, and financial liability that no CISO or CFO can accept.
+
+Bonobot is our answer to that tension. Full agent capability. Full governance. No compromise on either side.
+
+The companies that figure out governed AI agents first will have compounding advantages for years — the same way companies that adopted cloud infrastructure early outpaced those that waited. The [enterprise AI market is projected to hit $94.3 billion by 2030](/blog/the-94-billion-bet-enterprise-ai-adoption). The organizations running governed AI agents will capture a disproportionate share of that value.
+
+If you're running Bonito today, Bonobot is available now — [reach out to learn more](/contact). If you're exploring how to bring enterprise AI agents to your organization responsibly, [start with a free Bonito account](/register) and see what governed AI infrastructure looks like from the inside.`,
+    images: [
+      { section: "How Enterprise AI Agents Actually Work: The Ad Operations Example", src: "", alt: "Bonobot ad operations agent workflow", position: "right" },
+      { section: "How Enterprise AI Orchestration Works: Fan-Out and Fan-In", src: "", alt: "Fan-out fan-in orchestration diagram", position: "left" },
+      { section: "Why Enterprise AI Agent Security Can't Be an Afterthought", src: "", alt: "Bonobot eight security pillars", position: "right" },
+      { section: "Built on Bonito's AI Control Plane", src: "", alt: "Bonito control plane integration", position: "left" },
+    ],
+  },
+  {
     slug: "ai-openpath-problem-enterprise-cost-transparency",
     title: "The AI Industry's OpenPath Problem: Why Cost Transparency Will Define Enterprise AI in 2026",
     date: "Feb 20, 2026",
