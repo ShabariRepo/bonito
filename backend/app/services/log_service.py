@@ -53,6 +53,7 @@ class LogService:
         self._flush_task: Optional[asyncio.Task] = None
         self._running = False
         self._lock = asyncio.Lock()
+        self._db_warned = False
 
     async def start(self):
         """Start the background flush loop."""
@@ -147,7 +148,9 @@ class LogService:
         try:
             await self._write_to_db(batch)
         except Exception as e:
-            logger.error(f"Failed to write {len(batch)} logs to DB: {e}", exc_info=True)
+            if not self._db_warned:
+                logger.warning(f"Log DB write failed (will suppress further): {e}")
+                self._db_warned = True
             return  # Don't dispatch to integrations if DB write failed
 
         # Dispatch to integrations (async, best-effort)
@@ -173,7 +176,7 @@ class LogService:
                     "resource_id": entry.get("resource_id"),
                     "resource_type": entry.get("resource_type"),
                     "action": entry.get("action"),
-                    "metadata": entry.get("metadata"),
+                    "event_metadata": entry.get("metadata"),
                     "duration_ms": entry.get("duration_ms"),
                     "cost": entry.get("cost"),
                     "message": entry.get("message"),

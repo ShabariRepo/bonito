@@ -39,16 +39,16 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         
         # Knowledge Base Isolation
-        sa.Column("knowledge_base_ids", sa.JSON(), nullable=False, server_default="'[]'"),
+        sa.Column("knowledge_base_ids", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
         
         # Group-level Settings
         sa.Column("budget_limit", sa.Numeric(precision=10, scale=2), nullable=True),
-        sa.Column("model_allowlist", sa.JSON(), nullable=False, server_default="'[]'"),
-        sa.Column("tool_policy", sa.JSON(), nullable=False, server_default="'{\"mode\": \"inherit\", \"allowed\": [], \"denied\": []}'"),
+        sa.Column("model_allowlist", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
+        sa.Column("tool_policy", sa.JSON(), nullable=False, server_default=sa.text("'{\"mode\": \"inherit\", \"allowed\": [], \"denied\": []}'")),
         
         # Visual Grouping (for React Flow canvas)
-        sa.Column("canvas_position", sa.JSON(), nullable=True, server_default="'{\"x\": 0, \"y\": 0}'"),
-        sa.Column("canvas_style", sa.JSON(), nullable=True, server_default="'{\"backgroundColor\": \"#f0f0f0\", \"borderColor\": \"#ccc\"}'"),
+        sa.Column("canvas_position", sa.JSON(), nullable=True, server_default=sa.text("'{\"x\": 0, \"y\": 0}'")),
+        sa.Column("canvas_style", sa.JSON(), nullable=True, server_default=sa.text("'{\"backgroundColor\": \"#f0f0f0\", \"borderColor\": \"#ccc\"}'")),
         
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
@@ -63,7 +63,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("is_managed", sa.Boolean(), nullable=False, server_default="false"),
-        sa.Column("permissions", sa.JSON(), nullable=False, server_default="'[]'"),
+        sa.Column("permissions", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.PrimaryKeyConstraint("id"),
