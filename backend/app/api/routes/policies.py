@@ -14,7 +14,7 @@ from app.schemas.policy import PolicyCreate, PolicyUpdate, PolicyResponse
 router = APIRouter(prefix="/policies", tags=["policies"])
 
 
-@router.get("/", response_model=List[PolicyResponse])
+@router.get("", response_model=List[PolicyResponse])
 async def list_policies(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -25,7 +25,7 @@ async def list_policies(
     return result.scalars().all()
 
 
-@router.post("/", response_model=PolicyResponse, status_code=201)
+@router.post("", response_model=PolicyResponse, status_code=201)
 async def create_policy(
     data: PolicyCreate,
     db: AsyncSession = Depends(get_db),

@@ -20,7 +20,7 @@ from app.services.notifications import notification_service
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
-@router.get("/", response_model=NotificationListResponse)
+@router.get("", response_model=NotificationListResponse)
 async def list_notifications(
     type: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -72,7 +72,7 @@ async def update_preferences(
 alert_router = APIRouter(prefix="/alert-rules", tags=["alert-rules"])
 
 
-@alert_router.get("/", response_model=list[AlertRuleResponse])
+@alert_router.get("", response_model=list[AlertRuleResponse])
 async def list_alert_rules(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -80,7 +80,7 @@ async def list_alert_rules(
     return await notification_service.get_alert_rules(db, user.org_id)
 
 
-@alert_router.post("/", response_model=AlertRuleResponse, status_code=201)
+@alert_router.post("", response_model=AlertRuleResponse, status_code=201)
 async def create_alert_rule(
     data: AlertRuleCreate,
     db: AsyncSession = Depends(get_db),

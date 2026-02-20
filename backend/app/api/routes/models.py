@@ -146,7 +146,7 @@ async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), u
     return response
 
 
-@router.get("/", response_model=List[ModelResponse])
+@router.get("", response_model=List[ModelResponse])
 async def list_models(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -187,7 +187,7 @@ async def get_model(model_id: UUID, db: AsyncSession = Depends(get_db), user: Us
     return model
 
 
-@router.post("/", response_model=ModelResponse, status_code=201)
+@router.post("", response_model=ModelResponse, status_code=201)
 async def create_model(data: ModelCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     model = Model(
         provider_id=data.provider_id,

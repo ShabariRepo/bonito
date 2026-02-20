@@ -66,7 +66,7 @@ app = FastAPI(
     description="Enterprise AI Platform API",
     version="0.1.0",
     lifespan=lifespan,
-    redirect_slashes=True,
+    redirect_slashes=False,  # Must be False — Vercel strips trailing slashes (308), conflicting with FastAPI 307 redirects
 )
 
 # Add global exception handlers

@@ -53,7 +53,7 @@ async def _get_provider_secrets(provider_id: str) -> dict:
         return {}
 
 
-@router.get("/", response_model=List[DeploymentResponse])
+@router.get("", response_model=List[DeploymentResponse])
 async def list_deployments(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(
         select(Deployment).where(Deployment.org_id == user.org_id).order_by(Deployment.created_at.desc())
@@ -98,7 +98,7 @@ async def estimate_deployment_cost(
     }
 
 
-@router.post("/", response_model=DeploymentResponse, status_code=201)
+@router.post("", response_model=DeploymentResponse, status_code=201)
 async def create_deployment(
     data: DeploymentCreate,
     db: AsyncSession = Depends(get_db),

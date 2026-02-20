@@ -60,7 +60,7 @@ async def get_model_names(model_ids: List[UUID], db: AsyncSession) -> Dict[str, 
     return {str(model_id): display_name for model_id, display_name in result.all()}
 
 
-@router.post("/", response_model=RoutingPolicyResponse, status_code=201)
+@router.post("", response_model=RoutingPolicyResponse, status_code=201)
 async def create_routing_policy(
     data: RoutingPolicyCreate,
     db: AsyncSession = Depends(get_db),
@@ -101,7 +101,7 @@ async def create_routing_policy(
     return policy
 
 
-@router.get("/", response_model=List[RoutingPolicyResponse])
+@router.get("", response_model=List[RoutingPolicyResponse])
 async def list_routing_policies(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)

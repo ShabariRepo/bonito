@@ -67,7 +67,7 @@ def _to_response(p: CloudProvider, model_count: int = None) -> dict:
     }
 
 
-@router.get("/", response_model=List[ProviderResponse])
+@router.get("", response_model=List[ProviderResponse])
 async def list_providers(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     import asyncio
     result = await db.execute(select(CloudProvider).where(CloudProvider.org_id == user.org_id))
@@ -594,7 +594,7 @@ async def provision_azure_resource(
         return VerifyResponse(success=False, message=f"Provisioning failed: {str(e)}")
 
 
-@router.post("/", response_model=ProviderResponse, status_code=201)
+@router.post("", response_model=ProviderResponse, status_code=201)
 async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     provider = CloudProvider(
         org_id=data.org_id,
