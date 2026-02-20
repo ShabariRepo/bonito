@@ -122,7 +122,7 @@ export default function BlogPostPage() {
               </span>
             ))}
           </div>
-          <div className="text-sm text-[#666] mb-4">{post.date} · {post.readTime}</div>
+          <div className="text-sm text-[#666] mb-4">{post.date} · {post.readTime}{post.author ? ` · ${post.author}` : ""}</div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-8">{post.title}</h1>
           <div className="prose prose-invert prose-sm max-w-none">
             {renderContent(post.content)}

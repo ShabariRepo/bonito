@@ -107,7 +107,7 @@ export default function BlogPage() {
                   </span>
                 ))}
               </div>
-              <div className="text-xs text-[#666] mb-3">{post.date} · {post.readTime}</div>
+              <div className="text-xs text-[#666] mb-3">{post.date} · {post.readTime}{post.author ? ` · ${post.author}` : ""}</div>
               <h2 className="text-lg font-semibold mb-3 group-hover:text-[#7c3aed] transition">{post.title}</h2>
               <p className="text-sm text-[#888] leading-relaxed mb-4">{post.excerpt}</p>
               <span className="text-sm text-[#7c3aed] flex items-center gap-1 group-hover:gap-2 transition-all">
