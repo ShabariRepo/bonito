@@ -34,6 +34,7 @@ from redis.asyncio import Redis
 from app.models.agent import Agent
 from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
+from app.models.agent_connection import AgentConnection
 from app.models.knowledge_base import KnowledgeBase, KBChunk
 from app.models.audit import AuditLog
 from app.schemas.bonobot import AgentRunResult, SecurityMetadata
@@ -111,11 +112,11 @@ class AgentEngine:
             # 2. Persist user message
             await self._persist_message(session, role="user", content=sanitized_message, db=db)
             
-            # 3. Assemble context
-            messages = await self._assemble_context(agent, session, sanitized_message, db)
+            # 3. Assemble context + tools (including dynamic invoke_agent)
+            messages, tools = await self._assemble_context(agent, session, sanitized_message, db)
             
             # 4. Agent loop (with tool execution and security)
-            result = await self._run_agent_loop(agent, session, messages, db, redis, audit_id)
+            result = await self._run_agent_loop(agent, session, messages, tools, db, redis, audit_id)
             
             # Update security metadata with input sanitization flag
             result.security.input_sanitized = input_sanitized
@@ -219,15 +220,53 @@ class AgentEngine:
 
         await db.flush()
 
+    async def _get_connected_agents(self, agent: Agent, db: AsyncSession) -> List[Dict[str, Any]]:
+        """Load agents connected to this agent (outbound handoff/escalation connections)."""
+        stmt = (
+            select(AgentConnection, Agent)
+            .join(Agent, Agent.id == AgentConnection.target_agent_id)
+            .where(
+                and_(
+                    AgentConnection.source_agent_id == agent.id,
+                    AgentConnection.project_id == agent.project_id,
+                    AgentConnection.enabled == True,
+                    Agent.status == "active"
+                )
+            )
+        )
+        result = await db.execute(stmt)
+        rows = result.all()
+        
+        connected = []
+        for connection, target_agent in rows:
+            connected.append({
+                "agent_id": str(target_agent.id),
+                "name": target_agent.name,
+                "description": target_agent.description or target_agent.system_prompt[:100] if target_agent.system_prompt else "No description",
+                "connection_type": connection.connection_type,
+            })
+        return connected
+
     async def _assemble_context(
         self,
         agent: Agent,
         session: AgentSession,
         user_message: str,
         db: AsyncSession
-    ) -> List[Dict[str, Any]]:
-        """Build the message array for the model."""
-        system_prompt = self._build_system_prompt(agent)
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Build the message array and tool definitions for the model.
+        
+        Returns (messages, tools) tuple so both system prompt and agent loop
+        use the same tool definitions (including dynamic invoke_agent).
+        """
+        # Load connected agents for invoke_agent tool
+        connected_agents = await self._get_connected_agents(agent, db)
+        
+        # Build tools (with connection-aware invoke_agent)
+        tools = self._get_tool_definitions(agent, connected_agents)
+        
+        # Build system prompt with tool info
+        system_prompt = self._build_system_prompt(agent, tools, connected_agents)
         
         # Inject RAG context if agent has knowledge bases
         if agent.knowledge_base_ids:
@@ -242,14 +281,13 @@ class AgentEngine:
         history = await self._get_session_history(session, db)
         messages.extend(history)
         
-        return messages
+        return messages, tools
 
-    def _build_system_prompt(self, agent: Agent) -> str:
-        """Build system prompt from agent config + tool definitions."""
+    def _build_system_prompt(self, agent: Agent, tools: List[Dict[str, Any]], connected_agents: List[Dict[str, Any]]) -> str:
+        """Build system prompt from agent config + tool definitions + connected agents."""
         system_prompt = agent.system_prompt
         
         # Add tool definitions
-        tools = self._get_tool_definitions(agent)
         if tools:
             tool_descriptions = []
             for tool in tools:
@@ -258,6 +296,21 @@ class AgentEngine:
                 tool_descriptions.append(f"- {name}: {desc}")
             
             system_prompt += f"\n\n## Available Tools\nYou have access to these tools:\n" + "\n".join(tool_descriptions)
+        
+        # Add connected agent roster so the model knows WHO to invoke
+        if connected_agents:
+            agent_roster = []
+            for ca in connected_agents:
+                agent_roster.append(
+                    f"- **{ca['name']}** (agent_id: `{ca['agent_id']}`): {ca['description']}"
+                )
+            system_prompt += (
+                f"\n\n## Team Members\n"
+                f"You can delegate tasks to these agents using invoke_agent:\n"
+                + "\n".join(agent_roster)
+                + "\n\nWhen you receive a complex task, break it into subtasks and delegate to the appropriate team member. "
+                "Wait for their response, then synthesize the results."
+            )
         
         return system_prompt
 
@@ -327,12 +380,12 @@ class AgentEngine:
         agent: Agent,
         session: AgentSession,
         messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
         db: AsyncSession,
         redis: Redis,
         audit_id: uuid.UUID
     ) -> AgentRunResult:
         """Execute the model inference + tool call loop with security tracking."""
-        tools = self._get_tool_definitions(agent)
         turn = 0
         total_tokens = 0
         total_cost = Decimal(0)
@@ -559,8 +612,8 @@ class AgentEngine:
         else:  # fallback to none mode for security
             return False
 
-    def _get_tool_definitions(self, agent: Agent) -> List[Dict[str, Any]]:
-        """Get OpenAI function calling tool definitions."""
+    def _get_tool_definitions(self, agent: Agent, connected_agents: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+        """Get OpenAI function calling tool definitions (including dynamic invoke_agent)."""
         tools = []
         
         # Built-in tools (filtered by policy)
@@ -606,6 +659,33 @@ class AgentEngine:
                 }
             }
         }
+        
+        # Dynamic invoke_agent tool — only if agent has outbound connections
+        if connected_agents:
+            agent_enum = [ca["agent_id"] for ca in connected_agents]
+            agent_descriptions = ", ".join([f"{ca['name']} ({ca['agent_id']})" for ca in connected_agents])
+            all_tools["invoke_agent"] = {
+                "type": "function",
+                "function": {
+                    "name": "invoke_agent",
+                    "description": f"Delegate a task to another agent on your team. Available agents: {agent_descriptions}. Use this to break complex tasks into subtasks and delegate to specialists.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "agent_id": {
+                                "type": "string",
+                                "description": "The UUID of the target agent to invoke",
+                                "enum": agent_enum
+                            },
+                            "message": {
+                                "type": "string",
+                                "description": "The task or message to send to the target agent"
+                            }
+                        },
+                        "required": ["agent_id", "message"]
+                    }
+                }
+            }
         
         for tool_name, tool_def in all_tools.items():
             if self._is_tool_allowed(agent, tool_name):
