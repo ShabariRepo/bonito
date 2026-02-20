@@ -98,24 +98,6 @@ app.add_middleware(RequestIDMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
-# Strip trailing slashes (outermost — normalize before any routing)
-# Required because: redirect_slashes=False (Vercel 308 conflicts with FastAPI 307),
-# but some frontend calls still include trailing slashes.
-from starlette.types import ASGIApp, Receive, Scope, Send
-
-class TrailingSlashMiddleware:
-    """Strip trailing slashes from request paths (except root /)."""
-    def __init__(self, app: ASGIApp):
-        self.app = app
-    async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] == "http" and scope["path"] != "/" and scope["path"].endswith("/"):
-            scope["path"] = scope["path"].rstrip("/")
-            if scope.get("raw_path"):
-                scope["raw_path"] = scope["raw_path"].rstrip(b"/")
-        await self.app(scope, receive, send)
-
-app = TrailingSlashMiddleware(app)  # type: ignore[assignment]
-
 # Routes
 app.include_router(health.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
@@ -154,3 +136,23 @@ app.include_router(subscriptions.router, prefix="/api")
 
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
+
+
+# ─── Trailing Slash Normalization (MUST be after all routers) ───
+# Wraps the ASGI app to strip trailing slashes before routing.
+# Required because: redirect_slashes=False (Vercel 308 conflicts with FastAPI 307),
+# but some frontend calls still include trailing slashes.
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+class TrailingSlashMiddleware:
+    """Strip trailing slashes from request paths (except root /)."""
+    def __init__(self, inner: ASGIApp):
+        self.inner = inner
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http" and scope["path"] != "/" and scope["path"].endswith("/"):
+            scope["path"] = scope["path"].rstrip("/")
+            if scope.get("raw_path"):
+                scope["raw_path"] = scope["raw_path"].rstrip(b"/")
+        await self.inner(scope, receive, send)
+
+app = TrailingSlashMiddleware(app)  # type: ignore[assignment]
