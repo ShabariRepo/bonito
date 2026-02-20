@@ -157,8 +157,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
             <div className="col-span-1 sm:col-span-2 lg:col-span-1">
               <Link href="/" className="flex items-center gap-3">
-                <Image src="/bonito-icon.png" alt="Bonito" width={48} height={24} className="object-contain" />
-                <span className="text-2xl font-semibold text-white">Bonito</span>
+                <Image src="/bonito-icon.png" alt="Bonito" width={80} height={40} className="object-contain" />
+                <span className="text-3xl font-bold text-white">Bonito</span>
               </Link>
               <p className="mt-4 text-sm text-[#666] leading-relaxed">
                 The unified AI control plane for enterprise teams.
