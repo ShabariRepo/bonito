@@ -269,7 +269,8 @@ export function Sidebar() {
           );
         })}
 
-        {/* Admin / Platform section */}
+        {/* Admin / Platform section — only visible to org admins */}
+        {user?.role === "admin" && (<>
         <div className="border-b border-border my-2" />
         <AnimatePresence>
           {(!isCollapsed || isMobile) && (
@@ -321,6 +322,7 @@ export function Sidebar() {
             </Link>
           );
         })}
+        </>)}
       </nav>
 
       {/* Footer */}

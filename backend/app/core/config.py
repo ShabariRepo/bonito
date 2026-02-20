@@ -71,6 +71,7 @@ class Settings(BaseSettings):
             self.notion_api_key = notion_secrets.get("api_key") or self.notion_api_key
             self.notion_page_id = notion_secrets.get("page_id") or self.notion_page_id
             self.notion_changelog_id = notion_secrets.get("changelog_id") or self.notion_changelog_id
+            self.admin_emails = app_secrets.get("admin_emails") or self.admin_emails
             vault_ok = True
                     
         except Exception as e:
@@ -83,6 +84,7 @@ class Settings(BaseSettings):
         self.notion_api_key = self.notion_api_key or os.getenv("NOTION_API_KEY")
         self.notion_page_id = self.notion_page_id or os.getenv("NOTION_PAGE_ID")
         self.notion_changelog_id = self.notion_changelog_id or os.getenv("NOTION_CHANGELOG_ID")
+        self.admin_emails = self.admin_emails or os.getenv("ADMIN_EMAILS", "")
 
         if self.production_mode:
             # In production, required secrets must exist from either source
