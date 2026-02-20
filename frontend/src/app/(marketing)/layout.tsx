@@ -50,8 +50,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <nav className="sticky top-0 z-50 border-b border-[#1a1a1a] bg-[#0a0a0a]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-12 flex items-center justify-between h-16">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/bonito-logo-400.png" alt="Bonito" width={36} height={24} priority className="object-contain" />
-            <span className="text-lg font-semibold text-white">Bonito</span>
+            <Image src="/bonito-icon.png" alt="Bonito" width={40} height={20} priority className="object-contain" />
+            <span className="text-xl font-bold text-white">Bonito</span>
           </Link>
           
           {/* Desktop Navigation */}

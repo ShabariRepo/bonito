@@ -110,32 +110,24 @@ export function Sidebar() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center border-b border-border px-4 shrink-0">
-        <AnimatePresence mode="wait">
-          {(!isCollapsed || isMobile) ? (
-            <motion.div
-              key="full"
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-            >
-              <Image src="/bonito-logo-400.png" alt="Bonito" width={40} height={27} className="shrink-0" priority />
-              <span className="text-lg font-semibold text-white ml-2">Bonito</span>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="icon"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mx-auto"
-            >
-              <Image src="/bonito-logo-400.png" alt="Bonito" width={32} height={21} className="shrink-0" priority />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Image src="/bonito-icon.png" alt="Bonito" width={36} height={18} className="shrink-0" priority />
+          <AnimatePresence>
+            {(!isCollapsed || isMobile) && (
+              <motion.span
+                key="brand-text"
+                variants={contentVariants}
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                transition={{ duration: 0.2 }}
+                className="text-lg font-bold text-white"
+              >
+                Bonito
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Link>
       </div>
 
       {/* Navigation */}

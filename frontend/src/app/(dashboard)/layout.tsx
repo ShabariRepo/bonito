@@ -23,13 +23,14 @@ function SidebarToggle() {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       onClick={toggle}
-      className="fixed left-4 top-4 z-30 p-2 rounded-md bg-card border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
+      style={{ left: isCollapsed ? 52 : 244 }}
+      className="fixed top-5 z-30 p-1.5 rounded-full bg-card border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shadow-sm min-h-[28px] min-w-[28px] flex items-center justify-center"
       aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
       {isCollapsed ? (
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-3.5 w-3.5" />
       ) : (
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-3.5 w-3.5" />
       )}
     </motion.button>
   );
