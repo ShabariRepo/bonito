@@ -398,7 +398,7 @@ function buildGraph(
           source: `policy-${policy.id}`,
           target: `model-${model.id}`,
           type: "smoothstep",
-          animated: true,
+          animated: false,
           style: { stroke: "#7c3aed", strokeWidth: 1.5, opacity: 0.6 },
         });
       }
@@ -549,7 +549,7 @@ export function NetworkTopology() {
       const [keysRes, policiesRes, modelsRes, providersRes] = await Promise.allSettled([
         apiRequest("/api/gateway/keys"),
         apiRequest("/api/routing-policies"),
-        apiRequest("/api/models/"),
+        apiRequest("/api/models/?status=deployed"),
         apiRequest("/api/providers/"),
       ]);
 
@@ -560,8 +560,24 @@ export function NetworkTopology() {
 
       const keysData: GatewayKey[] = keysOk ? await keysRes.value.json() : [];
       const policiesData: RoutingPolicy[] = policiesOk ? await policiesRes.value.json() : [];
-      const modelsData: ModelEntry[] = modelsOk ? await modelsRes.value.json() : [];
+      let modelsData: ModelEntry[] = modelsOk ? await modelsRes.value.json() : [];
       const providersData: Provider[] = providersOk ? await providersRes.value.json() : [];
+
+      // Only show deployed models + models referenced by routing policies
+      const policyModelIds = new Set<string>();
+      policiesData.forEach((p) => p.models.forEach((m) => policyModelIds.add(m.model_id)));
+
+      modelsData = modelsData.filter(
+        (m) =>
+          m.status === "deployed" ||
+          m.status === "active" && policyModelIds.has(m.model_id) ||
+          policyModelIds.has(m.id)
+      );
+
+      // Cap at 50 models max to prevent DOM overload
+      if (modelsData.length > 50) {
+        modelsData = modelsData.slice(0, 50);
+      }
 
       setKeys(keysData);
       setPolicies(policiesData);

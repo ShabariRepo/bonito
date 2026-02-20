@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, aliased
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
@@ -213,15 +213,17 @@ async def get_project_graph(
     result = await db.execute(stmt)
     triggers_with_agents = result.all()
     
-    # Get connections
+    # Get connections (alias Agent to avoid duplicate join error)
+    SourceAgent = aliased(Agent, name="source_agent")
+    TargetAgent = aliased(Agent, name="target_agent")
     stmt = (
         select(
             AgentConnection,
-            Agent.name.label("source_agent_name"),
-            Agent.name.label("target_agent_name")
+            SourceAgent.name.label("source_agent_name"),
+            TargetAgent.name.label("target_agent_name")
         )
-        .join(Agent, AgentConnection.source_agent_id == Agent.id)
-        .join(Agent, AgentConnection.target_agent_id == Agent.id, isouter=True)
+        .join(SourceAgent, AgentConnection.source_agent_id == SourceAgent.id)
+        .join(TargetAgent, AgentConnection.target_agent_id == TargetAgent.id, isouter=True)
         .where(AgentConnection.project_id == project_id)
     )
     result = await db.execute(stmt)

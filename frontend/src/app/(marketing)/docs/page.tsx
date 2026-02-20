@@ -181,7 +181,7 @@ export default function DocsPage() {
 
           <CodeBlock
             code={`# Make your first request through Bonito
-curl -X POST https://gateway.getbonito.com/v1/chat/completions \\
+curl -X POST https://getbonito.com/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_BONITO_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -473,7 +473,7 @@ curl -X POST https://gateway.getbonito.com/v1/chat/completions \\
           </Paragraph>
 
           <SubHeading title="Endpoint" />
-          <CodeBlock code="POST https://gateway.getbonito.com/v1/chat/completions" />
+          <CodeBlock code="POST https://getbonito.com/v1/chat/completions" />
 
           <SubHeading title="Authentication" />
           <Paragraph>
@@ -487,7 +487,7 @@ curl -X POST https://gateway.getbonito.com/v1/chat/completions \\
             code={`from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://gateway.getbonito.com/v1",
+    base_url="https://getbonito.com/v1",
     api_key="YOUR_BONITO_API_KEY"
 )
 
@@ -501,7 +501,7 @@ print(response.choices[0].message.content)`}
 
           <SubHeading title="Example: curl" />
           <CodeBlock
-            code={`curl https://gateway.getbonito.com/v1/chat/completions \\
+            code={`curl https://getbonito.com/v1/chat/completions \\
   -H "Authorization: Bearer YOUR_BONITO_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

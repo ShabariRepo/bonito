@@ -174,7 +174,8 @@ export default function GatewayPage() {
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const baseUrl = API_URL;
+  const isProduction = typeof window !== "undefined" && window.location.hostname !== "localhost";
+  const baseUrl = isProduction ? `https://${window.location.hostname}` : API_URL;
   const gatewayUrl = `${baseUrl}/v1/chat/completions`;
 
   const fetchData = useCallback(() => { mutateUsage(); mutateKeys(); mutateLogs(); }, [mutateUsage, mutateKeys, mutateLogs]);

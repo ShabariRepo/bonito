@@ -137,7 +137,7 @@ export default function RoutingPoliciesPage() {
   };
 
   const copyApiEndpoint = (apiKeyPrefix: string) => {
-    const endpoint = `https://api.bonito.ai/v1/chat/completions`;
+    const endpoint = `https://getbonito.com/v1/chat/completions`;
     const curlCommand = `curl -X POST ${endpoint} \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${apiKeyPrefix}" \\

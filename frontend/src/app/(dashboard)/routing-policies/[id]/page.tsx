@@ -359,7 +359,7 @@ export default function PolicyDetailPage() {
   const copyApiEndpoint = () => {
     if (!policy) return;
     
-    const endpoint = `https://api.bonito.ai/v1/chat/completions`;
+    const endpoint = `https://getbonito.com/v1/chat/completions`;
     const curlCommand = `curl -X POST ${endpoint} \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${policy.api_key_prefix}" \\
@@ -690,7 +690,7 @@ export default function PolicyDetailPage() {
                   <div>
                     <label className="block text-xs font-medium text-muted-foreground mb-1">Endpoint</label>
                     <code className="block text-xs p-2 bg-secondary/30 rounded-md">
-                      POST https://api.bonito.ai/v1/chat/completions
+                      POST https://getbonito.com/v1/chat/completions
                     </code>
                   </div>
                 </div>
