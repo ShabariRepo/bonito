@@ -1,3 +1,10 @@
+export interface BlogPostImage {
+  section: string;
+  src: string;
+  alt: string;
+  position: "left" | "right";
+}
+
 export interface BlogPost {
   slug: string;
   title: string;
@@ -9,6 +16,7 @@ export interface BlogPost {
   metaDescription: string;
   tags: string[];
   content: string;
+  images?: BlogPostImage[];
 }
 
 export const blogTags = [
@@ -40,6 +48,8 @@ That's exactly what happened at Meridian Technologies, a mid-size fintech servin
 ## Three Clouds, Zero Visibility
 
 The pain wasn't theoretical. Meridian's finance team estimated their total AI spend was "somewhere between $15K and $40K per month," which is a remarkable range for a company that prides itself on financial precision. The truth is nobody knew the real number, because each team managed their own provider relationship, their own billing, and their own cost tracking. Getting a unified picture meant pulling three separate invoices, normalizing the data manually, and hoping nobody had spun up an expensive model without telling anyone.
+
+> "Somewhere between $15K and $40K per month" — that was their best estimate for total AI spend. For a company that prides itself on financial precision, it was a wake-up call.
 
 But cost blindness was only the beginning. As a fintech handling sensitive financial data, Meridian needed compliance across SOC 2, HIPAA, GDPR, and ISO 27001. With three separate AI environments, that meant three separate audit trails, three sets of access controls, and three compliance reviews. Their compliance team was essentially doing the same work three times over, and gaps were inevitable. There was no single place to answer the question regulators would eventually ask: who accessed what model, with what data, and when?
 
@@ -81,7 +91,17 @@ When you add it all up, the projected annual savings are substantial. API cost s
 
 Against a Bonito platform cost of $60,000 per year on the Enterprise tier, Meridian's projected annual savings come to **$2.25 million**, representing an **84% total cost reduction** and a **37.5:1 return on investment**. The payback period is under 10 days.
 
+:::stats
+84%|total cost reduction
+$2.25M|projected annual savings
+37.5:1|return on investment
+:::
+
 And perhaps more importantly, Meridian's developers got their time back. Adding a new AI model went from a 2-3 week project to a 5-minute configuration change. Setting up a RAG pipeline dropped from 4-6 weeks per cloud to 30 minutes total. Creating a new routing policy went from weeks of custom code to a 2-minute setup in the dashboard. Compliance audit preparation compressed from a three-month, three-environment ordeal to a single click generating a unified report.
+
+:::insight
+Adding a new AI model: 2-3 weeks → 5 minutes. Setting up a RAG pipeline: 4-6 weeks → 30 minutes. Compliance audit prep: 3 months → a single click. That's the difference between managing infrastructure and building with AI.
+:::
 
 ## What This Means for Your Team
 
@@ -90,6 +110,11 @@ Meridian's story isn't unique. It's the story of every enterprise that adopted A
 Bonito was built for exactly this moment. A single control plane that connects your existing providers, routes intelligently across all of them, shares knowledge universally, and gives you the visibility and governance you need to operate AI at scale. You don't have to rip anything out. You don't have to pick a winner among your cloud providers. You just connect them all and let the platform do what platforms do best.
 
 If Meridian's story resonates, [start with a free account](/register) and connect your first provider. It takes about five minutes, and you'll immediately see what unified AI operations look like.`,
+    images: [
+      { section: "Three Clouds, Zero Visibility", src: "", alt: "Multi-cloud architecture diagram", position: "right" },
+      { section: "Smart Routing Changes the Economics", src: "", alt: "Cost optimization dashboard", position: "left" },
+      { section: "AI Context: The Knowledge Breakthrough", src: "", alt: "Knowledge graph visualization", position: "right" },
+    ],
   },
   {
     slug: "openclaw-proved-ai-agents-work-enterprise-needs-them-governed",
@@ -117,6 +142,8 @@ The gap between these two modes isn't technical. We know how to build capable ag
 
 That's not a hypothetical. That's the literal use case we've been building toward. And it's why we created Bonobot.
 
+> The gap between chatbots and capable AI agents isn't technical — it's operational. We know how to build agents that act. We don't yet know how to govern them at organizational scale.
+
 ## Bonobot: OpenClaw for the Enterprise
 
 Bonobot is what happens when you take everything that makes OpenClaw powerful and rebuild it on top of an enterprise control plane with governance as a first-class concern. It's not a watered-down version. It's not OpenClaw with some guardrails bolted on. It's a fundamentally different architecture designed for a fundamentally different trust model.
@@ -126,6 +153,10 @@ With OpenClaw, you're the administrator, the user, and the security team all rol
 In an enterprise, the blast radius is the entire organization. A misconfigured agent could access confidential HR data. A runaway process could burn through the department's quarterly AI budget in an afternoon. An agent with unrestricted network access could exfiltrate data to external endpoints. The trust model has to be inverted: instead of defaulting to "the user knows what they're doing," you default to "nothing is allowed unless explicitly granted."
 
 Bonobot implements this through what we call the default-deny architecture. When you create a new agent for a department, it starts with zero capabilities. No tool access. No data access. No network access. No code execution. Every capability has to be explicitly granted by an administrator, and every grant is scoped to specific resources, specific actions, and specific time windows.
+
+:::insight
+Default-deny means a new agent starts with zero capabilities — no tool access, no data access, no network access, no code execution. Every permission is explicitly granted, scoped, and auditable.
+:::
 
 ## How It Works in Practice
 
@@ -164,6 +195,11 @@ But that same thesis, deployed at enterprise scale, demands a different infrastr
 Bonobot delivers all of this without sacrificing what makes agents powerful in the first place. Your ad tech team still gets an AI agent that can analyze campaign data, generate insights, and automate reporting. Your engineering team still gets agents that can query monitoring systems, draft incident reports, and surface relevant documentation. Every team gets the "it actually does things" experience that makes AI agents transformative, wrapped in the governance layer that makes them deployable.
 
 If you're already running Bonito as your AI control plane, Bonobot is the natural next step. If you're exploring how to bring capable AI agents to your organization without the security and compliance nightmares, [we'd love to show you how it works](/contact).`,
+    images: [
+      { section: "The Governance Gap", src: "", alt: "Governance architecture overview", position: "right" },
+      { section: "How It Works in Practice", src: "", alt: "Agent configuration flow", position: "left" },
+      { section: "Resource Connectors vs. Raw Access", src: "", alt: "Security model comparison", position: "right" },
+    ],
   },
   {
     slug: "the-94-billion-bet-enterprise-ai-adoption",
@@ -177,6 +213,12 @@ If you're already running Bonito as your AI control plane, Bonobot is the natura
     excerpt: "The AI platform market is on track to hit $94.3 billion by 2030. But there's a massive gap between infrastructure spending and operational readiness. The companies that close it will define the next era of enterprise software.",
     content: `There's a number that should be on every enterprise technology leader's radar right now: $94.3 billion. That's where MarketsandMarkets projects the enterprise AI platform market will land by 2030, up from $18.2 billion in 2025, representing a compound annual growth rate of 38.9%. Zoom out further and the picture gets even more dramatic. Grand View Research pegs the broader AI market at $391 billion today, growing to $3.5 trillion by 2033. We're not talking about incremental growth in an established category. We're watching the fastest expansion of an enterprise technology market in history.
 
+:::stats
+$94.3B|projected market by 2030
+38.9%|compound annual growth rate
+$200B+|infrastructure investment 2024-25
+:::
+
 But here's what those headline numbers don't capture: the gap between how much money is being spent on AI infrastructure and how effectively that infrastructure is actually being used. Hyperscalers poured over $200 billion into AI infrastructure in 2024 and 2025 combined, building out GPU clusters, training foundation models, and launching managed AI services across every major cloud platform. The supply side of enterprise AI has never been stronger. You can spin up access to GPT-4o, Claude 3.5, Gemini 2.5 Pro, Llama 3, and dozens of other frontier models in minutes.
 
 And yet, most enterprises are still struggling to answer basic operational questions. How much are we spending on AI across all our providers? Which models are our teams actually using, and are they using the right ones for their workloads? Do we have an audit trail that satisfies our compliance requirements? If one provider goes down, does our AI infrastructure fail gracefully or fail completely? These aren't exotic concerns. They're table-stakes operational requirements that every enterprise has already solved for traditional cloud infrastructure through platforms like Datadog, Terraform, and Kubernetes. For AI, most organizations are still flying blind.
@@ -188,6 +230,8 @@ We call this the "operations gap," and it's the single biggest bottleneck in ent
 Consider a concrete example. A typical mid-size enterprise in 2026 uses two or more cloud providers for their AI workloads. In fact, Flexera's 2025 State of the Cloud report found that 87% of enterprises now run multi-cloud environments. That means your engineering teams are likely working across AWS Bedrock, Azure OpenAI, and GCP Vertex AI simultaneously. Each provider has its own billing dashboard, its own API format, its own model catalog, its own governance tools, and its own way of handling everything from rate limiting to failover.
 
 Without an operational layer that unifies these providers, you end up with what we've seen at company after company: siloed AI stacks managed by individual teams, no unified cost visibility, manual failover procedures that assume someone is awake at 2 AM, and compliance reviews that have to be conducted separately for each provider environment. The overhead compounds. Engineering time that should be spent building AI-powered features gets consumed by infrastructure management. Finance teams can't forecast AI spending because they can't even measure it accurately. Compliance teams are drowning in audit work that multiplies with every new provider connection.
+
+> How much are we actually spending on AI? Which models are our teams using? Do we have a complete audit trail? Most enterprises still can't answer these basic questions.
 
 ## Validation from the Market
 
@@ -211,6 +255,10 @@ Here's what makes this moment particularly consequential. Enterprise technology 
 
 AI operations is at that same inflection point. The organizations that invest now in unified AI management, that build the operational muscle to run multi-cloud AI infrastructure effectively, that establish governance frameworks before regulators force their hand, will have a two-to-three year head start on organizations that wait. And in a market growing at nearly 40% annually, a two-to-three year head start isn't just an advantage. It's potentially an insurmountable one.
 
+:::insight
+Organizations that invest now in unified AI management will have a two-to-three year head start. In a market growing at nearly 40% annually, that's not just an advantage — it's potentially an insurmountable one.
+:::
+
 The math supports this. If your organization is spending, say, $2.5 million per year on fragmented AI infrastructure across multiple providers (a realistic number for a mid-size enterprise running 50,000 AI requests per day), and a unified operations platform can reduce that by 70-84% through smart routing, consolidation, and optimization, you're looking at $1.75 to $2.1 million in annual savings. Over three years, that's $5 to $6 million in recovered budget that can be reinvested in building actual AI capabilities instead of managing infrastructure overhead.
 
 But the financial case, as compelling as it is, understates the strategic value. The organizations that achieve operational maturity in AI will move faster on every subsequent AI initiative. They'll deploy new models in minutes instead of weeks. They'll add new use cases without adding new infrastructure complexity. They'll satisfy regulatory requirements as a routine part of operations rather than a quarterly fire drill. They'll attract and retain AI talent who want to build, not babysit infrastructure.
@@ -224,6 +272,10 @@ At Bonito, we've built that layer. We've validated it in production with real en
 The $94 billion question isn't whether enterprises will adopt AI platforms. The market trajectory makes that inevitable. The question is which organizations will be operating AI effectively when the market hits that scale, and which will still be juggling three dashboards, three billing cycles, and three separate compliance reviews while their competitors run everything from a [single control plane](/register).
 
 The window to establish that advantage is open right now. It won't stay open forever.`,
+    images: [
+      { section: "The Operations Gap", src: "", alt: "Market growth projection", position: "right" },
+      { section: "The Two-to-Three Year Window", src: "", alt: "Enterprise adoption timeline", position: "left" },
+    ],
   },
   {
     slug: "why-multi-cloud-ai-management-matters-2026",
@@ -238,6 +290,8 @@ The window to establish that advantage is open right now. It won't stay open for
     content: `The AI landscape in 2026 looks nothing like it did two years ago. What was once an experiment confined to R&D labs is now powering customer-facing products, internal workflows, and **revenue-critical systems** across every industry.
 
 With this shift comes a hard truth: **relying on a single AI provider is a strategic risk.**
+
+> When your entire AI stack depends on one provider, you're one outage, one pricing change, or one deprecation away from your product going down.
 
 ## The Single-Provider Problem
 
@@ -259,6 +313,11 @@ Leading engineering teams are adopting **multi-cloud AI strategies**, connecting
 
 According to [Gartner's 2025 AI infrastructure report](https://www.gartner.com/en/information-technology/insights/artificial-intelligence), over 60% of enterprises now use two or more AI providers in production. The trend toward **multi-cloud AI orchestration** is accelerating.
 
+:::stats
+87%|of enterprises run multi-cloud
+60%|use 2+ AI providers in production
+:::
+
 ## Why a Unified AI Control Plane Is Essential
 
 The challenge isn't connecting multiple providers — it's **managing them effectively**. Without a unified control plane, teams end up with:
@@ -276,6 +335,10 @@ This is exactly the problem [Bonito](/about) solves. A **single AI management pl
 In 2026, multi-cloud AI isn't a nice-to-have — it's a requirement for any team serious about **reliability, cost control, and operational excellence**. The question isn't whether to go multi-cloud, but how to manage it effectively.
 
 Read more about how Bonito helps: [Introducing Bonito: Your AI Control Plane](/blog/introducing-bonito-your-ai-control-plane).`,
+    images: [
+      { section: "The Single-Provider Problem", src: "", alt: "Single vs multi-provider risk", position: "right" },
+      { section: "The Multi-Cloud AI Approach", src: "", alt: "Multi-cloud routing diagram", position: "left" },
+    ],
   },
   {
     slug: "introducing-bonito-your-ai-control-plane",
@@ -324,7 +387,15 @@ Bonito is available today with a **free tier** that includes up to 3 provider co
 
 For teams that need more, check our [pricing plans](/pricing) — our Pro plan includes unlimited providers, advanced analytics, and the full API gateway.
 
+:::insight
+Connect your first AI provider in under 5 minutes. Bonito's free tier includes up to 3 provider connections — no credit card required.
+:::
+
 We can't wait to see what you build.`,
+    images: [
+      { section: "Why We Built Bonito", src: "", alt: "Platform architecture", position: "right" },
+      { section: "What Bonito Does", src: "", alt: "Dashboard overview", position: "left" },
+    ],
   },
   {
     slug: "reducing-ai-costs-across-aws-azure-gcp",
