@@ -61,13 +61,14 @@ async def lifespan(app: FastAPI):
         pass
 
 
-app = FastAPI(
+fastapi_app = FastAPI(
     title="Bonito API",
     description="Enterprise AI Platform API",
     version="0.1.0",
     lifespan=lifespan,
     redirect_slashes=False,  # Must be False — Vercel strips trailing slashes (308), conflicting with FastAPI 307 redirects
 )
+app = fastapi_app  # alias; reassigned to TrailingSlashMiddleware wrapper at bottom of file
 
 # Add global exception handlers
 app.add_exception_handler(HTTPException, handle_http_exception)

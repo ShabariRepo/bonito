@@ -355,7 +355,8 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
 
     # Sync discovered models into DB
     from app.api.routes.models import sync_provider_models
-    model_count = await sync_provider_models(provider, db)
+    sync_result = await sync_provider_models(provider, db)
+    model_count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
     logger.info(f"Synced {model_count} models for {data.provider_type} provider {provider_id}")
 
     return _to_response(provider, model_count)
@@ -576,7 +577,8 @@ async def provision_azure_resource(
 
         # Sync models
         from app.api.routes.models import sync_provider_models
-        model_count = await sync_provider_models(provider, db)
+        sync_result = await sync_provider_models(provider, db)
+        model_count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
 
         return VerifyResponse(
             success=True,
