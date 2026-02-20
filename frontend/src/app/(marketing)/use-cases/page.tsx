@@ -490,6 +490,154 @@ const useCases: UseCase[] = [
         "Based on 50,000 requests/day (18.25M/year) projected from actual E2E test data. Token averages from production tests: ~35-43 prompt tokens, ~270-277 completion tokens per request. AI Context (RAG) validated with 49 indexed chunks across 15 documents, average search time 484ms, average relevance score 0.634. All tests run against live production infrastructure on February 18, 2026.",
     },
   },
+  {
+    id: "ai-agent-workflows",
+    tab: "AI Agent Workflows",
+    title: "How NovaMart Deployed 8 Autonomous AI Agents with Full Budget Controls",
+    subtitle:
+      "A real-world walkthrough: a product marketplace with 200K+ sellers and 5M+ monthly buyers deploys Bonobot AI agents for ad operations and seller support — cutting report cycles from 2 days to 12 minutes and deflecting 78% of support tickets.",
+    company: {
+      industry: "Product Marketplace with Bonobot AI Agents",
+      scale: "300 employees, 200K+ sellers, 5M+ monthly buyers, 25K agent interactions/day",
+      cloud: "AWS Bedrock + GCP Vertex AI (via Bonito gateway)",
+      teams: "Ad Operations, Seller Support, Platform Engineering",
+      data: "Campaign analytics across 15+ channels, seller documentation, product catalogs, fee schedules, policy docs",
+      goal: "Deploy governed AI agents that autonomously handle research, reporting, and support — with budget controls and full audit trails",
+    },
+    painPoints: [
+      {
+        icon: BarChart3,
+        title: "2-day report cycles",
+        description:
+          "Ad ops team manually compiles performance reports across 15+ channels. Each weekly report takes 2 full days of analyst time.",
+      },
+      {
+        icon: Headphones,
+        title: "800 tickets/day drowning support",
+        description:
+          "Seller support handles 800+ daily tickets with 4-hour avg response time. 70% are repetitive questions about fees, policies, and payouts.",
+      },
+      {
+        icon: DollarSign,
+        title: "No cost control on AI experiments",
+        description:
+          "Teams experimenting with AI models had no budget caps. One runaway prompt chain cost $2,400 in a single afternoon before anyone noticed.",
+      },
+      {
+        icon: Shield,
+        title: "Compliance blind spots",
+        description:
+          "Marketplace regulations require audit trails for all automated seller communications. Existing AI tools had no logging.",
+      },
+    ],
+    aiUseCases: [
+      {
+        icon: Bot,
+        title: "Coordinator Agent — Campaign Analysis",
+        description:
+          'Receives "Analyze Q4 performance" → delegates to 5 channel-specific analyst agents in parallel using delegate_task → collects all results via collect_results → synthesizes executive summary.',
+        model: "Gemini 2.5 Flash (coordinator + synthesis)",
+        strategy: "Fan-out/fan-in orchestration",
+      },
+      {
+        icon: BarChart3,
+        title: "Channel Analyst Agents (×5)",
+        description:
+          "Each analyst agent specializes in one ad channel (Google Ads, Meta, TikTok, Amazon, programmatic). Runs independently with scoped S3 read-only access to channel data.",
+        model: "Amazon Nova Lite (high volume, low cost)",
+        strategy: "Cost-optimized parallel execution",
+      },
+      {
+        icon: Target,
+        title: "Report Generation Agent",
+        description:
+          "Takes synthesized insights from coordinator and generates formatted executive reports with charts and recommendations. Delivers to Slack via send_notification tool.",
+        model: "GPT-4o (complex formatting + reasoning)",
+        strategy: "Quality-first",
+      },
+      {
+        icon: MessageSquare,
+        title: "Frontline Support Agent",
+        description:
+          "Handles 80% of seller queries using AI Context (RAG) with 45 indexed documents (312 chunks). Answers fee questions, policy lookups, payout schedules in 8 seconds avg.",
+        model: "Amazon Nova Lite + AI Context",
+        strategy: "Cost-optimized + RAG",
+      },
+      {
+        icon: Users,
+        title: "Specialist Escalation Agent",
+        description:
+          "Connected via escalation connection from Frontline agent. Handles complex account-specific issues requiring DB lookups. Only activated for the 20% of tickets Frontline can't resolve.",
+        model: "Gemini 2.5 Flash (reasoning required)",
+        strategy: "Balanced — escalation only",
+      },
+      {
+        icon: Search,
+        title: "Knowledge Maintenance Agent",
+        description:
+          "Periodically re-indexes seller documentation, flags outdated policies, and suggests updates. Runs on a scheduled trigger.",
+        model: "Amazon Nova Lite",
+        strategy: "Background scheduled task",
+      },
+    ],
+    results: [
+      {
+        metric: "2 days → 12 min",
+        label: "report generation",
+        detail: "Coordinator delegates to 5 parallel analyst agents, collects results, and synthesizes — fully autonomous",
+      },
+      {
+        metric: "78%",
+        label: "ticket deflection",
+        detail: "Frontline agent resolves 78% of seller queries autonomously using AI Context (RAG)",
+      },
+      {
+        metric: "$449K/yr",
+        label: "annual savings",
+        detail: "$45K/mo → $7.6K/mo all-in (agents + compute + platform)",
+      },
+      {
+        metric: "12:1",
+        label: "ROI",
+        detail: "8 Bonobot agents at $2,792/mo platform cost vs $37,400/mo in savings",
+      },
+    ],
+    costAnalysis: {
+      headline: "Real Cost Breakdown: 8 Agents, Full Governance",
+      description:
+        "Cost projections based on 25,000 daily agent interactions across both teams, using Bonito's smart routing to match each task to the most cost-effective model. All agents operate under hard budget caps with per-agent rate limiting.",
+      models: [
+        { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$1,750/yr", color: "text-green-400" },
+        { model: "Gemini 2.5 Flash", cost: "$0.96 / 1K req", annual: "$8,760/yr", color: "text-yellow-400" },
+        { model: "GPT-4o", cost: "$2.80 / 1K req", annual: "$5,110/yr", color: "text-yellow-400" },
+        { model: "Bonobot Platform (8 agents)", cost: "$349/agent/mo", annual: "$33,504/yr", color: "text-blue-400" },
+      ],
+      scenarios: [
+        {
+          label: "Before Bonobot — manual + uncontrolled AI",
+          cost: "$540,000 / year",
+          detail: "2 FTE analysts ($180K), support overhead ($120K), uncontrolled AI spend ($240K/year projected)",
+        },
+        {
+          label: "With Bonobot — governed autonomous agents",
+          cost: "$91,124 / year",
+          detail: "8 agents: Nova Lite (60%) + Gemini Flash (25%) + GPT-4o (15%) + platform cost. Hard budget caps prevent runaway spend.",
+          highlight: true,
+        },
+        {
+          label: "Security included at no extra cost",
+          cost: "$0 additional",
+          detail: "Default-deny tools, per-agent $500/mo budget caps, S3 prefix scoping, 30 RPM rate limiting, full audit trail for compliance",
+        },
+      ],
+      savingsSummary: [
+        { vs: "Total annual savings", saved: "$449K saved (83%)", pct: "83%", detail: "$540K/yr → $91K/yr" },
+        { vs: "Return on investment", saved: "12:1 ROI", pct: "12x", detail: "$449K saved ÷ $37K platform cost" },
+      ],
+      footnote:
+        "Based on 25,000 agent interactions/day. Model costs from published AWS and GCP rates as of February 2026. Bonobot pricing: $349/mo per hosted agent. Budget caps enforced in real-time via Redis — agents receive HTTP 402 before exceeding limits. FTE savings estimated from industry averages for ad operations analysts ($90K) and support specialists ($60K).",
+    },
+  },
 ];
 
 /* ─── Shared Onboarding Steps ─────────────────────────────────────── */
