@@ -527,7 +527,7 @@ class AgentEngine:
             # Use the gateway service directly for internal calls
             model_cfg = agent.model_config or {}
             request_data = {
-                "model": agent.model_id if agent.model_id != "auto" else "gpt-4o",  # TODO: Smart routing
+                "model": agent.model_id if agent.model_id and agent.model_id != "auto" else "gemini-2.0-flash-001",
                 "messages": messages,
                 "max_tokens": model_cfg.get("max_tokens", 1024),
                 "temperature": model_cfg.get("temperature", 0.7),
