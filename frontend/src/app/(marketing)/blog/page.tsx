@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import Script from "next/script";
 import { ArrowRight } from "lucide-react";
 import { blogPosts, blogTags } from "./posts";
@@ -44,13 +45,14 @@ export default function BlogPage() {
       />
 
       <section className="pt-20 pb-10">
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl md:text-6xl font-bold tracking-tight"
+          className="flex items-center gap-4 mb-4"
         >
-          Blog
-        </motion.h1>
+          <Image src="/bonito-logo-purple.png" alt="Bonito" width={56} height={40} className="object-contain" />
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight">Blog</h1>
+        </motion.div>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
