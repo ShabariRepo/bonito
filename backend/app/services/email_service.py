@@ -121,6 +121,35 @@ async def send_password_reset_email(to: str, token: str):
     })
 
 
+CONTACT_NOTIFY_TO = os.getenv("CONTACT_EMAIL", "shabari@bonito.ai")
+
+
+async def send_contact_notification(name: str, email: str, company: str, message: str):
+    """Forward a contact-form submission to the team."""
+    await _ensure_initialized()
+    company_line = f'<p style="color:#999;font-size:14px;margin:0 0 4px;"><strong style="color:#ccc;">Company:</strong> {company}</p>' if company else ""
+    html = _base_template(f"""
+    <h2 style="color:#f5f0e8;margin:0 0 16px;font-size:22px;font-weight:600;">New contact form submission</h2>
+    <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:20px;margin-bottom:20px;">
+      <p style="color:#999;font-size:14px;margin:0 0 4px;"><strong style="color:#ccc;">Name:</strong> {name}</p>
+      <p style="color:#999;font-size:14px;margin:0 0 4px;"><strong style="color:#ccc;">Email:</strong> <a href="mailto:{email}" style="color:#7c3aed;">{email}</a></p>
+      {company_line}
+    </div>
+    <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:20px;">
+      <p style="color:#ccc;font-size:14px;margin:0 0 8px;font-weight:600;">Message</p>
+      <p style="color:#999;font-size:14px;line-height:1.7;margin:0;white-space:pre-wrap;">{message}</p>
+    </div>
+    <div style="margin-top:20px;">{_button(f"mailto:{email}", "Reply to " + name + " →")}</div>
+    """)
+    resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [CONTACT_NOTIFY_TO],
+        "subject": f"[Bonito Contact] {name}" + (f" — {company}" if company else ""),
+        "html": html,
+        "reply_to": email,
+    })
+
+
 async def send_welcome_email(to: str, name: str):
     await _ensure_initialized()
     html = _base_template(f"""

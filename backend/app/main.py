@@ -135,6 +135,10 @@ app.include_router(agent_groups.router, prefix="/api")
 app.include_router(rbac.router, prefix="/api")
 app.include_router(subscriptions.router, prefix="/api")
 
+# Contact form
+from app.api.routes import contact
+app.include_router(contact.router, prefix="/api")
+
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
 

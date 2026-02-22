@@ -1,11 +1,35 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Clock, MessageSquare } from "lucide-react";
+import { Mail, Clock, MessageSquare, Loader2 } from "lucide-react";
 import { useState } from "react";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://celebrated-contentment-production-0fc4.up.railway.app";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({ name: "", email: "", company: "", message: "" });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_URL}/api/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error("Failed to send");
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please email us directly at sales@getbonito.com");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -41,18 +65,14 @@ export default function ContactPage() {
               <p className="text-sm text-[#888]">We&apos;ll get back to you within 24 hours.</p>
             </motion.div>
           ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setSubmitted(true);
-              }}
-              className="space-y-5"
-            >
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium mb-2 text-[#999]">Name</label>
                 <input
                   type="text"
                   required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full px-4 py-3 bg-[#111] border border-[#1a1a1a] rounded-lg text-[#f5f0e8] text-sm focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed] outline-none transition"
                   placeholder="Your name"
                 />
@@ -62,6 +82,8 @@ export default function ContactPage() {
                 <input
                   type="email"
                   required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="w-full px-4 py-3 bg-[#111] border border-[#1a1a1a] rounded-lg text-[#f5f0e8] text-sm focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed] outline-none transition"
                   placeholder="you@company.com"
                 />
@@ -70,6 +92,8 @@ export default function ContactPage() {
                 <label className="block text-sm font-medium mb-2 text-[#999]">Company</label>
                 <input
                   type="text"
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
                   className="w-full px-4 py-3 bg-[#111] border border-[#1a1a1a] rounded-lg text-[#f5f0e8] text-sm focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed] outline-none transition"
                   placeholder="Your company (optional)"
                 />
@@ -79,15 +103,19 @@ export default function ContactPage() {
                 <textarea
                   required
                   rows={5}
+                  value={form.message}
+                  onChange={(e) => setForm({ ...form, message: e.target.value })}
                   className="w-full px-4 py-3 bg-[#111] border border-[#1a1a1a] rounded-lg text-[#f5f0e8] text-sm focus:border-[#7c3aed] focus:ring-1 focus:ring-[#7c3aed] outline-none transition resize-none"
                   placeholder="How can we help?"
                 />
               </div>
+              {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 type="submit"
-                className="w-full py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-lg transition"
+                disabled={sending}
+                className="w-full py-3 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
               >
-                Send Message
+                {sending ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</> : "Send Message"}
               </button>
             </form>
           )}
