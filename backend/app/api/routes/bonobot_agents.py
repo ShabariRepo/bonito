@@ -17,6 +17,7 @@ from app.core.database import get_db
 from app.core.redis import get_redis
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.models.organization import Organization
 from app.models.project import Project
 from app.models.agent import Agent
 from app.models.agent_session import AgentSession
@@ -83,6 +84,38 @@ async def create_agent(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new agent in a project."""
+    # Feature gate: check bonobot_plan and agent limit
+    stmt = select(Organization).where(Organization.id == current_user.org_id)
+    result = await db.execute(stmt)
+    org = result.scalar_one_or_none()
+    
+    if not org or org.bonobot_plan == "none":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Bonobot agents require a Pro or Enterprise plan. Upgrade at getbonito.com/pricing",
+                "required_tier": "pro",
+                "upgrade_url": "https://getbonito.com/pricing"
+            }
+        )
+    
+    # Check agent limit (-1 = unlimited)
+    if org.bonobot_agent_limit >= 0:
+        stmt = select(func.count(Agent.id)).join(Project).where(
+            and_(Project.org_id == current_user.org_id, Agent.status != "archived")
+        )
+        result = await db.execute(stmt)
+        current_count = result.scalar() or 0
+        if current_count >= org.bonobot_agent_limit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "message": f"Agent limit reached ({org.bonobot_agent_limit}). Upgrade your plan for more agents.",
+                    "required_tier": "enterprise",
+                    "upgrade_url": "https://getbonito.com/pricing"
+                }
+            )
+    
     # Verify project exists and user has access
     stmt = select(Project).where(
         and_(

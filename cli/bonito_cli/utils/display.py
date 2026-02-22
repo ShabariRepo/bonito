@@ -24,7 +24,13 @@ console = Console()
 # ── formatting helpers ──────────────────────────────────────────
 
 
-def format_cost(amount: Union[int, float]) -> str:
+def format_cost(amount: Union[int, float, str, None]) -> str:
+    if amount is None:
+        return "$0.00"
+    try:
+        amount = float(amount)
+    except (ValueError, TypeError):
+        return "$0.00"
     if amount == 0:
         return "$0.00"
     if amount < 0.01:
@@ -46,12 +52,14 @@ def format_latency(seconds: float) -> str:
     return f"{seconds:.1f}s"
 
 
-def format_timestamp(ts: str) -> str:
+def format_timestamp(ts) -> str:
+    if not ts:
+        return "—"
     try:
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M")
     except Exception:
-        return ts
+        return str(ts) if ts else "—"
 
 
 def format_status(status: str) -> str:

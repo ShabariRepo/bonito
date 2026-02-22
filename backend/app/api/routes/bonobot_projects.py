@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload, aliased
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.models.organization import Organization
 from app.models.project import Project
 from app.models.agent import Agent
 from app.models.agent_connection import AgentConnection
@@ -28,6 +29,9 @@ from app.schemas.bonobot import (
     GraphNode,
     GraphEdge
 )
+
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -69,6 +73,21 @@ async def create_project(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new project."""
+    # Feature gate: check bonobot_plan
+    stmt = select(Organization).where(Organization.id == current_user.org_id)
+    result = await db.execute(stmt)
+    org = result.scalar_one_or_none()
+    
+    if not org or org.bonobot_plan == "none":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Bonobot agents require a Pro or Enterprise plan. Upgrade at getbonito.com/pricing",
+                "required_tier": "pro",
+                "upgrade_url": "https://getbonito.com/pricing"
+            }
+        )
+    
     project = Project(
         org_id=current_user.org_id,
         name=project_data.name,
