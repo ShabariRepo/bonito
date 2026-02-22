@@ -121,7 +121,7 @@ async def send_password_reset_email(to: str, token: str):
     })
 
 
-CONTACT_NOTIFY_TO = os.getenv("CONTACT_EMAIL", "shabari@bonito.ai")
+CONTACT_NOTIFY_TO = os.getenv("CONTACT_EMAIL", "cat.shabari@gmail.com")
 
 
 async def send_contact_notification(name: str, email: str, company: str, message: str):
