@@ -9,6 +9,7 @@ import sys
 
 from . import __version__
 from .commands.auth import app as auth_app
+from .commands.init import app as init_app
 from .commands.providers import app as providers_app
 from .commands.models import app as models_app
 from .commands.chat import app as chat_app
@@ -66,6 +67,7 @@ app = typer.Typer(
 )
 
 # ── Subcommand groups ──────────────────────────────────────────
+app.add_typer(init_app,        name="init",        help="🚀 Setup wizard")
 app.add_typer(auth_app,        name="auth",        help="🔐 Authentication & API keys")
 app.add_typer(providers_app,   name="providers",   help="☁️  Cloud provider management")
 app.add_typer(models_app,      name="models",      help="🤖 AI model catalogue")
