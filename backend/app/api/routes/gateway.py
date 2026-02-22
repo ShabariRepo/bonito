@@ -40,6 +40,7 @@ from app.services import gateway as gateway_service
 from app.services.gateway import PolicyViolation
 from app.models.cloud_provider import CloudProvider
 from app.models.model import Model
+from app.services.usage_tracker import usage_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,17 @@ async def chat_completions(
 
     key, policy = auth_context
     
+    # Track usage (check limits before processing request)
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+    if org_id:
+        try:
+            await usage_tracker.track_gateway_request(db, str(org_id))
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(e)
+            )
+
     # Detect knowledge base from header
     kb_header = raw_request.headers.get("X-Bonito-Knowledge-Base")
     

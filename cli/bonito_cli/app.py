@@ -8,7 +8,9 @@ from rich.columns import Columns
 import sys
 
 from . import __version__
+from .commands.admin import app as admin_app
 from .commands.auth import app as auth_app
+from .commands.init import app as init_app
 from .commands.providers import app as providers_app
 from .commands.models import app as models_app
 from .commands.chat import app as chat_app
@@ -66,6 +68,8 @@ app = typer.Typer(
 )
 
 # ── Subcommand groups ──────────────────────────────────────────
+app.add_typer(init_app,        name="init",        help="🚀 Setup wizard")
+app.add_typer(admin_app,       name="admin",       help="⚙️  Platform admin")
 app.add_typer(auth_app,        name="auth",        help="🔐 Authentication & API keys")
 app.add_typer(providers_app,   name="providers",   help="☁️  Cloud provider management")
 app.add_typer(models_app,      name="models",      help="🤖 AI model catalogue")
@@ -73,13 +77,13 @@ app.add_typer(deployments_app, name="deployments",  help="🚀 Deployment manage
 app.add_typer(chat_app,        name="chat",        help="💬 Interactive AI chat")
 app.add_typer(gateway_app,     name="gateway",     help="🌐 API gateway management")
 app.add_typer(policies_app,    name="policies",    help="🎯 Routing policies")
-app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base (RAG)")
 app.add_typer(analytics_app,   name="analytics",   help="📊 Usage analytics & costs")
-app.add_typer(agents_app,      name="agents",      help="🤖 Bonobot AI agents")
-app.add_typer(projects_app,    name="projects",    help="📁 Project management")
+app.add_typer(kb_app,          name="kb",          help="📚 Knowledge base (RAG)")
+app.add_typer(agents_app,      name="agents",      help="🤖 Bonobot agents")
+app.add_typer(projects_app,    name="projects",    help="📁 Agent projects")
 app.add_typer(groups_app,      name="groups",      help="👥 Agent groups (RBAC)")
-app.add_typer(sso_app,         name="sso",         help="🔒 SSO/SAML configuration")
-app.add_typer(plan_app,        name="plan",        help="💳 Subscription & usage")
+app.add_typer(sso_app,         name="sso",         help="🔐 SAML Single Sign-On")
+app.add_typer(plan_app,        name="plan",        help="💎 Subscription plans & usage")
 
 
 # ── Callbacks ──────────────────────────────────────────────────
