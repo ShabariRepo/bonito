@@ -236,6 +236,10 @@ async def update_provider_credentials(
 
 @router.post("/connect", response_model=ProviderResponse, status_code=201)
 async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    # Check provider count limit based on subscription tier
+    from app.services.feature_gate import feature_gate
+    await feature_gate.require_usage_limit(db, str(user.org_id), "providers")
+
     # Validate credential format
     valid, error = validate_credentials(data.provider_type, data.credentials)
     if not valid:

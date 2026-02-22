@@ -166,6 +166,13 @@ async def chat_completions(
     
     # Handle regular gateway key requests
     elif key:
+        # Check monthly gateway call limit based on tier
+        try:
+            from app.services.feature_gate import feature_gate
+            await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+        except HTTPException as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
         # Policy enforcement — check before forwarding to upstream
         try:
             await gateway_service.enforce_policies(db, key, request.model)
