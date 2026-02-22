@@ -124,6 +124,8 @@ async def list_organizations(
         summaries.append({
             "id": str(org.id),
             "name": org.name,
+            "subscription_tier": getattr(org, "subscription_tier", "free"),
+            "bonobot_plan": getattr(org, "bonobot_plan", "none"),
             "user_count": user_count,
             "provider_count": provider_count,
             "deployment_count": deployment_count,
@@ -309,6 +311,37 @@ async def update_user(
         "role": user.role,
         "email_verified": user.email_verified,
         "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
+
+
+@router.post("/organizations/{org_id}/tier", response_model=dict)
+async def update_org_tier(
+    org_id: uuid.UUID,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Admin: update an organization's subscription tier and bonobot plan."""
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    tier = body.get("tier")
+    bonobot_plan = body.get("bonobot_plan")
+
+    if tier and tier in ("free", "pro", "enterprise"):
+        org.subscription_tier = tier
+    if bonobot_plan and bonobot_plan in ("none", "pro", "enterprise"):
+        org.bonobot_plan = bonobot_plan
+
+    await db.flush()
+
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "subscription_tier": org.subscription_tier,
+        "bonobot_plan": getattr(org, "bonobot_plan", "none"),
     }
 
 

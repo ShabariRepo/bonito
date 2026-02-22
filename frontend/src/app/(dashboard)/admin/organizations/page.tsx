@@ -20,7 +20,18 @@ import {
   ChevronUp,
   AlertTriangle,
   X,
+  Crown,
+  Sparkles,
 } from "lucide-react";
+
+const TIER_COLORS: Record<string, string> = {
+  free: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
+  pro: "bg-violet-500/15 text-violet-400 border-violet-500/30",
+  enterprise: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+};
+
+const TIER_OPTIONS = ["free", "pro", "enterprise"] as const;
+const BONOBOT_OPTIONS = ["none", "pro", "enterprise"] as const;
 
 interface OrgSummary {
   id: string;
@@ -30,6 +41,8 @@ interface OrgSummary {
   deployment_count: number;
   total_requests: number;
   total_cost: number;
+  subscription_tier: string;
+  bonobot_plan: string;
   created_at: string | null;
 }
 
@@ -159,8 +172,9 @@ export default function AdminOrganizationsPage() {
       ) : (
         <div className="space-y-3">
           {/* Table header */}
-          <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             <span>Organization</span>
+            <span>Tier</span>
             <span>Users</span>
             <span>Providers</span>
             <span>Deployments</span>
@@ -179,7 +193,7 @@ export default function AdminOrganizationsPage() {
             >
               <Card className="overflow-hidden">
                 <div
-                  className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-accent/30 transition-colors"
+                  className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-3 items-center cursor-pointer hover:bg-accent/30 transition-colors"
                   onClick={() => toggleExpand(org.id)}
                 >
                   <div className="flex items-center gap-3">
@@ -187,6 +201,13 @@ export default function AdminOrganizationsPage() {
                       <Building2 className="h-4 w-4 text-violet-500" />
                     </div>
                     <span className="font-medium truncate">{org.name}</span>
+                  </div>
+                  <div>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${TIER_COLORS[org.subscription_tier] || TIER_COLORS.free}`}>
+                      {org.subscription_tier === "enterprise" && <Crown className="h-3 w-3" />}
+                      {org.subscription_tier === "pro" && <Sparkles className="h-3 w-3" />}
+                      {org.subscription_tier?.toUpperCase() || "FREE"}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Users className="h-3.5 w-3.5 text-muted-foreground" />
@@ -244,6 +265,59 @@ export default function AdminOrganizationsPage() {
                             <LoadingDots size="sm" />
                           </div>
                         ) : orgDetail ? (
+                          <div className="space-y-4">
+                            {/* Tier Management */}
+                            <div className="flex flex-wrap items-center gap-4 p-3 rounded-lg bg-accent/20 border border-border">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Subscription Tier:</span>
+                                <select
+                                  value={org.subscription_tier || "free"}
+                                  onChange={async (e) => {
+                                    const newTier = e.target.value;
+                                    try {
+                                      const res = await apiRequest(`/api/admin/organizations/${org.id}/tier`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ tier: newTier }),
+                                      });
+                                      if (res.ok) {
+                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, subscription_tier: newTier } : o));
+                                      }
+                                    } catch {}
+                                  }}
+                                  className="bg-[#111] border border-[#1a1a1a] rounded-md px-3 py-1.5 text-sm focus:border-violet-500 outline-none"
+                                >
+                                  {TIER_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Bonobot Plan:</span>
+                                <select
+                                  value={org.bonobot_plan || "none"}
+                                  onChange={async (e) => {
+                                    const newPlan = e.target.value;
+                                    try {
+                                      const res = await apiRequest(`/api/admin/organizations/${org.id}/tier`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ bonobot_plan: newPlan }),
+                                      });
+                                      if (res.ok) {
+                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, bonobot_plan: newPlan } : o));
+                                      }
+                                    } catch {}
+                                  }}
+                                  className="bg-[#111] border border-[#1a1a1a] rounded-md px-3 py-1.5 text-sm focus:border-violet-500 outline-none"
+                                >
+                                  {BONOBOT_OPTIONS.map((t) => (
+                                    <option key={t} value={t}>{t === "none" ? "None" : t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+
                           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             {/* Users */}
                             <div>
@@ -314,6 +388,7 @@ export default function AdminOrganizationsPage() {
                                 )}
                               </div>
                             </div>
+                          </div>
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">Failed to load details.</p>
