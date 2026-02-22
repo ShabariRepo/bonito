@@ -132,9 +132,9 @@ def add_aws(
         secret_key = Prompt.ask("AWS Secret Access Key", password=True)
     _connect_provider(
         {
-            "type": "aws_bedrock",
+            "provider_type": "aws",
             "name": name or f"AWS Bedrock ({region})",
-            "config": {"access_key_id": access_key, "secret_access_key": secret_key, "region": region},
+            "credentials": {"access_key_id": access_key, "secret_access_key": secret_key, "region": region},
         },
         get_output_format(json_output),
         "AWS Bedrock",
@@ -167,9 +167,9 @@ def add_azure(
 
     _connect_provider(
         {
-            "type": "azure_openai",
+            "provider_type": "azure",
             "name": name or f"Azure OpenAI ({region})",
-            "config": {
+            "credentials": {
                 "tenant_id": tenant_id,
                 "client_id": client_id,
                 "client_secret": client_secret,
@@ -206,9 +206,9 @@ def add_gcp(
 
     _connect_provider(
         {
-            "type": "gcp_vertex",
+            "provider_type": "gcp",
             "name": name or f"Google Vertex AI ({region})",
-            "config": {"project_id": project_id, "service_account_json": sa_data, "region": region},
+            "credentials": {"project_id": project_id, "service_account_json": sa_data, "region": region},
         },
         get_output_format(json_output),
         "Google Vertex AI",

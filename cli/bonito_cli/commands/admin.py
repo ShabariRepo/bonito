@@ -90,7 +90,7 @@ def set_tier(
 
     try:
         with console.status(f"[cyan]Setting tier to {tier}…[/cyan]"):
-            result = api.post("/subscription/update", data={
+            result = api.post("/subscriptions/update", data={
                 "org_id": org_id,
                 "tier": tier,
                 "reason": reason,

@@ -80,8 +80,7 @@ def signup(
                 json={
                     "email": email,
                     "password": password,
-                    "full_name": name,
-                    "organization_name": org
+                    "name": name,
                 },
                 timeout=15,
             )
