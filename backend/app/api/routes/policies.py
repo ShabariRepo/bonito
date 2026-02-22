@@ -14,11 +14,18 @@ from app.schemas.policy import PolicyCreate, PolicyUpdate, PolicyResponse
 router = APIRouter(prefix="/policies", tags=["policies"])
 
 
+async def _require_routing(db: AsyncSession, user: User):
+    """Check that the organization has access to the routing feature."""
+    from app.services.feature_gate import feature_gate
+    await feature_gate.require_feature(db, str(user.org_id), "routing")
+
+
 @router.get("", response_model=List[PolicyResponse])
 async def list_policies(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _require_routing(db, user)
     result = await db.execute(
         select(Policy).where(Policy.org_id == user.org_id).order_by(Policy.created_at)
     )
@@ -31,6 +38,7 @@ async def create_policy(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _require_routing(db, user)
     policy = Policy(
         id=uuid.uuid4(),
         org_id=user.org_id,
@@ -53,6 +61,7 @@ async def update_policy(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _require_routing(db, user)
     result = await db.execute(
         select(Policy).where(
             Policy.id == uuid.UUID(policy_id),
@@ -85,6 +94,7 @@ async def delete_policy(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _require_routing(db, user)
     result = await db.execute(
         select(Policy).where(
             Policy.id == uuid.UUID(policy_id),

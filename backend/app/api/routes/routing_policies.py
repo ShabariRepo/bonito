@@ -26,6 +26,12 @@ from app.schemas.routing_policy import (
 router = APIRouter(prefix="/routing-policies", tags=["routing-policies"])
 
 
+async def _require_routing(db: AsyncSession, user: User):
+    """Check that the organization has access to the routing feature."""
+    from app.services.feature_gate import feature_gate
+    await feature_gate.require_feature(db, str(user.org_id), "routing")
+
+
 def generate_api_key_prefix() -> str:
     """Generate a unique API key prefix for routing policies."""
     return f"rt-{secrets.token_hex(8)}"
@@ -67,6 +73,7 @@ async def create_routing_policy(
     user: User = Depends(get_current_user)
 ):
     """Create a new routing policy."""
+    await _require_routing(db, user)
     # Validate that all model IDs belong to the organization
     model_ids = [model.model_id for model in data.models]
     await validate_model_ids(model_ids, user.org_id, db)
@@ -107,6 +114,7 @@ async def list_routing_policies(
     user: User = Depends(get_current_user)
 ):
     """List all routing policies for the organization."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy)
         .where(RoutingPolicy.org_id == user.org_id)
@@ -122,6 +130,7 @@ async def get_routing_policy(
     user: User = Depends(get_current_user)
 ):
     """Get routing policy details with resolved model names."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
@@ -154,6 +163,7 @@ async def update_routing_policy(
     user: User = Depends(get_current_user)
 ):
     """Update a routing policy."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
@@ -190,6 +200,7 @@ async def delete_routing_policy(
     user: User = Depends(get_current_user)
 ):
     """Delete a routing policy."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
@@ -213,6 +224,7 @@ async def test_routing_policy(
     user: User = Depends(get_current_user)
 ):
     """Test a routing policy with a sample prompt (dry-run)."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
@@ -301,6 +313,7 @@ async def get_policy_stats(
     user: User = Depends(get_current_user)
 ):
     """Get usage statistics for a routing policy."""
+    await _require_routing(db, user)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(

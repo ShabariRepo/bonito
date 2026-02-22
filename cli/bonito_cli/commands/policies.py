@@ -26,7 +26,7 @@ console = Console()
 app = typer.Typer(help="🎯 Routing policy management")
 
 # Backend route prefix
-_RP = "/routing-policies"
+_RP = "/policies"
 
 
 # ── list ────────────────────────────────────────────────────────

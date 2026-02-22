@@ -175,6 +175,7 @@ def add_azure(
                 "client_secret": client_secret,
                 "subscription_id": subscription_id,
                 "endpoint": endpoint,
+                "azure_mode": "openai",
             },
         },
         get_output_format(json_output),
