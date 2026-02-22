@@ -1,362 +1,254 @@
-# Bonito Logging and Observability Strategy
+# Bonito Platform Logging & Observability Strategy
 
 ## Overview
 
-This document outlines the comprehensive logging and observability system for the Bonito enterprise AI control plane. The system is designed to provide hierarchical, queryable, and exportable logs with seamless integration to external industry-standard observability tools.
+Bonito's logging system provides hierarchical, structured observability across the entire platform with support for external integration destinations. It operates as an internal event bus that captures, stores, aggregates, and forwards platform events to enterprise logging tools.
 
-## Architecture Principles
-
-1. **Hierarchical Organization**: Logs are organized in a customer → feature area → event type hierarchy
-2. **Non-Blocking**: Logging never blocks the main application flow
-3. **Scalable**: Designed for high-throughput environments with batching and async processing
-4. **Extensible**: Support for multiple external integrations
-5. **Compliant**: Meets enterprise audit and compliance requirements
-
-## Log Schema
-
-### Hierarchical Structure
+## Architecture
 
 ```
-org_id (top level) → log_type (feature area) → event_type → metadata
+┌─────────────────────────────────────────────────────────────────┐
+│                        Application Layer                        │
+│  Gateway │ Auth │ Agents │ KB │ Admin │ Deployments │ Billing   │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ emit()
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Log Service (async)                        │
+│                                                                 │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
+│  │ Buffered │→ │  DB Writer   │  │  Integration Dispatcher  │  │
+│  │  Queue   │→ │ (batch flush)│  │  (fan-out to providers)  │  │
+│  └──────────┘  └──────────────┘  └──────────────────────────┘  │
+└──────────────────────┬─────────────────────┬────────────────────┘
+                       │                     │
+              ┌────────▼────────┐    ┌───────▼────────────────┐
+              │   PostgreSQL    │    │  External Destinations  │
+              │  platform_logs  │    │  ┌─────────────────┐   │
+              │  log_aggregates │    │  │ Datadog         │   │
+              │  log_exports    │    │  │ Splunk HEC      │   │
+              │  log_integrations│   │  │ CloudWatch      │   │
+              └─────────────────┘    │  │ Elasticsearch   │   │
+                                     │  │ Webhook         │   │
+                                     │  │ Cloud Storage   │   │
+                                     │  └─────────────────┘   │
+                                     └────────────────────────┘
 ```
 
-### Core Schema
+## Hierarchy
 
-```json
-{
-  "org_id": "uuid",                    // Customer ID (top level)
-  "log_type": "gateway|agent|auth|admin|kb|deployment|billing",  // Feature area
-  "event_type": "string",              // Specific event within the feature area
-  "severity": "debug|info|warn|error|critical",
-  "timestamp": "ISO-8601",
-  "trace_id": "uuid",                  // For distributed tracing
-  "user_id": "uuid",                   // Actor who performed the action
-  "resource_id": "uuid",               // Resource being acted upon
-  "resource_type": "model|agent|project|group|kb|deployment|policy",
-  "action": "create|read|update|delete|execute|search",
-  "metadata": {},                      // Event-specific structured data
-  "duration_ms": 0,                    // For timed operations
-  "cost": 0.0                         // For billable operations
-}
+The logging hierarchy enables efficient querying at every level:
+
+```
+org_id (tenant isolation)
+  └── log_type (feature area)
+        ├── gateway      — API proxy requests, rate limits, key usage
+        ├── auth         — login, logout, token refresh, SSO, password reset
+        ├── agent        — execution start/complete/error, tool use
+        ├── kb           — document upload, search, delete
+        ├── admin        — user invite, role change, config change
+        ├── deployment   — model deploy, scale, status change
+        ├── billing      — cost alerts, usage thresholds
+        └── compliance   — policy violations, governance events
+              └── event_type (specific event)
+                    ├── request, response, error, timeout
+                    ├── login_success, login_failed, token_refresh
+                    ├── agent_start, agent_complete, agent_error
+                    └── ...
+                          └── severity (debug, info, warn, error, critical)
+                                └── metadata (JSONB — event-specific structured data)
 ```
 
-### Event Types by Log Type
+## Data Model
 
-#### Gateway (`log_type: "gateway"`)
-- `request` - API requests through the gateway
-- `error` - Gateway errors and failures
-- `rate_limit` - Rate limiting events
-- `provider_failover` - Provider failover events
+### `platform_logs` — Primary event table
+- **Partitioning consideration**: For high-volume orgs, time-based partitioning on `created_at` is recommended
+- **Indexes**: Composite indexes on (org_id, log_type, created_at), (org_id, severity, created_at), GIN index on metadata JSONB
+- **Retention**: Configurable per org (default 90 days), enforced by background job
 
-#### Agent (`log_type: "agent"`)
-- `execute` - Agent execution events
-- `tool_use` - Tool usage within agents
-- `error` - Agent execution errors
+### `log_integrations` — External destination config
+- Per-org integration configurations
+- Credentials stored in Vault at `log-integrations/{integration_id}`
+- Supports enable/disable, test connectivity, last status tracking
 
-#### Auth (`log_type: "auth"`)
-- `login` - User login events
-- `logout` - User logout events
-- `token_refresh` - Token refresh events
-- `sso_auth` - SSO authentication events
-- `failed_auth` - Failed authentication attempts
+### `log_export_jobs` — Async export tracking
+- Supports CSV, JSON, Parquet export formats
+- Progress tracking with percentage
+- Time-limited download URLs
 
-#### Admin (`log_type: "admin"`)
-- `user_invite` - User invitations
-- `role_change` - Role and permission changes
-- `config_change` - System configuration changes
-- `policy_update` - Policy updates
+### `log_aggregations` — Pre-computed stats
+- Daily and hourly buckets for dashboard performance
+- Updated asynchronously after log emission
+- Unique constraint prevents duplicate aggregation rows
 
-#### Knowledge Base (`log_type: "kb"`)
-- `upload` - Document uploads
-- `search` - Knowledge base searches
-- `delete` - Document deletions
-- `ingestion` - Document processing events
+## Log Service Design
 
-#### Deployment (`log_type: "deployment"`)
-- `create` - Deployment creation
-- `update` - Deployment updates
-- `delete` - Deployment deletions
-- `status_change` - Deployment status changes
-
-#### Billing (`log_type: "billing"`)
-- `usage_calculation` - Usage calculations
-- `invoice_generation` - Invoice generation
-- `cost_alert` - Cost alerts and notifications
-
-## Database Schema
-
-### Tables
-
-#### `platform_logs`
-Primary logging table with monthly partitioning strategy:
-- Partitioned by `created_at` (monthly)
-- Indexed on `(org_id, log_type, created_at)`
-- TTL policy: 13 months retention
-- JSON metadata column for flexible event-specific data
-
-#### `log_integrations`
-Per-organization external integrations:
-- Encrypted credential storage
-- Integration-specific configuration
-- Health monitoring and status tracking
-
-#### `log_export_jobs`
-Async export job tracking:
-- Export format (CSV, JSON)
-- Status tracking (pending, running, completed, failed)
-- Progress monitoring
-
-### Indexing Strategy
-
-1. **Primary Queries**:
-   - `(org_id, log_type, created_at)` - Main query path
-   - `(org_id, user_id, created_at)` - User activity queries
-   - `(org_id, resource_id, created_at)` - Resource-specific logs
-
-2. **Trace Queries**:
-   - `(trace_id)` - Distributed tracing
-   - `(org_id, trace_id)` - Scoped trace queries
-
-## Core Services
-
-### Log Service (`app/services/log_service.py`)
-
-The central logging service with the following key methods:
-
+### Core API
 ```python
-async def emit(
-    org_id: UUID,
-    log_type: str,
-    event_type: str,
-    severity: str,
-    user_id: Optional[UUID] = None,
-    resource_id: Optional[UUID] = None,
-    resource_type: Optional[str] = None,
-    action: Optional[str] = None,
-    metadata: Optional[Dict] = None,
-    duration_ms: Optional[int] = None,
-    cost: Optional[float] = None,
-    trace_id: Optional[UUID] = None
-) -> None
-```
-
-**Features**:
-- Async/non-blocking design
-- Batching for high throughput (configurable batch size and flush interval)
-- Automatic retry logic for failed writes
-- Circuit breaker for external integrations
-
-### Integration Service (`app/services/log_integrations.py`)
-
-Manages external log destinations with support for:
-
-#### Tier 1 Integrations (Fully Implemented)
-1. **Datadog** - HTTP API to logs endpoint
-2. **Splunk** - HTTP Event Collector (HEC)
-3. **AWS CloudWatch** - boto3 SDK
-
-#### Tier 2 Integrations (Stub Implementation)
-4. **Elasticsearch/OpenSearch** - HTTP API
-5. **Azure Monitor** - Ingestion API
-6. **Google Cloud Logging** - Client library
-7. **Generic Webhook** - HTTP POST to custom endpoints
-8. **Cloud Storage** - S3/GCS/Azure Blob batch export
-
-#### Integration Configuration
-Each integration supports:
-- Per-org configuration
-- Encrypted credential storage using Vault
-- Health checks and status monitoring
-- Retry logic and error handling
-- Rate limiting and batching
-
-### Query Service
-
-Provides efficient log querying capabilities:
-- Time-range queries with pagination
-- Multi-dimensional filtering (org, log_type, severity, etc.)
-- Full-text search on metadata
-- Aggregation queries for dashboards
-
-## API Endpoints
-
-### Log Query API
-```
-GET /api/logs
-  ?org_id=uuid
-  &log_type=gateway,agent
-  &event_type=request,error
-  &severity=error,critical
-  &start_date=2024-01-01T00:00:00Z
-  &end_date=2024-01-31T23:59:59Z
-  &user_id=uuid
-  &resource_id=uuid
-  &limit=100
-  &offset=0
-```
-
-### Export API
-```
-POST /api/logs/export
-{
-  "filters": { ... },
-  "format": "csv|json",
-  "delivery": "download|email|integration"
-}
-```
-
-### Integration Management
-```
-POST /api/log-integrations
-PUT /api/log-integrations/{id}
-GET /api/log-integrations
-DELETE /api/log-integrations/{id}
-POST /api/log-integrations/{id}/test
-```
-
-### Analytics API
-```
-GET /api/logs/stats
-  ?metric=volume,errors,top_users
-  &groupby=hour,day,week
-  &org_id=uuid
-```
-
-## Instrumentation Strategy
-
-### Existing Code Integration
-
-The system will instrument key flows in the existing codebase:
-
-1. **Gateway Service**:
-   - Bridge existing `GatewayRequest` logs to new system
-   - Log provider failovers and rate limiting
-   - Track request routing decisions
-
-2. **Auth Events**:
-   - Login/logout events
-   - Token operations
-   - SSO authentication flows
-
-3. **Agent Operations**:
-   - Agent execution lifecycle
-   - Tool usage and results
-   - Error conditions and failures
-
-4. **Knowledge Base**:
-   - Document upload and processing
-   - Search queries and results
-   - RAG retrieval operations
-
-5. **Admin Actions**:
-   - User management operations
-   - Policy and configuration changes
-   - System administration events
-
-### Implementation Pattern
-
-```python
-from app.services.log_service import log_service
-
-# Within existing service methods
 await log_service.emit(
-    org_id=org_id,
-    log_type="gateway",
-    event_type="request",
-    severity="info",
-    user_id=user_id,
-    metadata={
-        "model": request.model,
-        "provider": provider,
-        "tokens": usage.total_tokens
-    },
-    duration_ms=elapsed_ms,
-    cost=calculated_cost
+    org_id=uuid,
+    log_type="gateway",        # Feature area
+    event_type="request",      # Specific event
+    severity="info",           # debug|info|warn|error|critical
+    user_id=uuid,              # Optional: acting user
+    resource_id=uuid,          # Optional: affected resource
+    resource_type="model",     # Optional: resource type
+    action="execute",          # Optional: CRUD action
+    message="Processed request to gpt-4",
+    metadata={"model": "gpt-4", "tokens": 150, "latency_ms": 230},
+    duration_ms=230,
+    cost=0.0045,
+    trace_id=uuid,             # Optional: correlation ID
 )
 ```
 
-## Data Retention and Archival
+### Non-blocking Execution
+1. `emit()` is fire-and-forget — adds to an in-memory buffer
+2. Background task flushes buffer every 2 seconds or when 100 events accumulate
+3. DB writes use batch INSERT for efficiency
+4. Integration dispatch happens after DB write, in parallel per destination
+5. Failures are logged but never propagate to the caller
 
-### Retention Policy
-- **Hot Storage**: 3 months in primary database
-- **Warm Storage**: 10 months in compressed format
-- **Cold Storage**: Long-term archival to object storage
-- **Purge**: Complete deletion after regulatory requirements
+### Batching Strategy
+```
+emit() → Buffer (deque, maxlen=10000)
+              │
+              ├── Flush trigger: 100 events OR 2 seconds elapsed
+              │
+              ▼
+         Batch INSERT into platform_logs
+              │
+              ▼
+         Fan-out to enabled integrations (per org)
+```
 
-### Compliance Features
-- Immutable audit trail
-- Data export capabilities for compliance audits
-- Role-based access control for log access
-- Retention policy enforcement
+## Integration Architecture
+
+### Supported Destinations
+
+| Provider | Protocol | Implementation | Status |
+|----------|----------|----------------|--------|
+| Datadog | HTTP API (v2/logs) | Full | ✅ |
+| Splunk | HEC (HTTP Event Collector) | Full | ✅ |
+| AWS CloudWatch | boto3 put_log_events | Full | ✅ |
+| Elasticsearch | HTTP bulk API | Stub | 🔲 |
+| Azure Monitor | Ingestion API | Stub | 🔲 |
+| Google Cloud Logging | Client library | Stub | 🔲 |
+| Webhook | Generic HTTP POST | Full | ✅ |
+| S3/GCS/Azure Blob | Batch file upload | Stub | 🔲 |
+
+### Credential Security
+- Integration credentials stored in Vault at path `log-integrations/{id}`
+- Credentials never returned in API responses (write-only)
+- Config (non-sensitive) stored in JSONB column
+- AES-GCM encrypted fallback in DB when Vault unavailable
+
+### Test Connectivity
+Each integration supports a `test()` method that:
+1. Sends a test log event to the destination
+2. Validates credentials and configuration
+3. Returns success/failure with diagnostic message
+4. Updates `last_test_status` and `last_test_at` on the integration record
+
+## API Design
+
+### Log Querying
+```
+GET /api/logs?log_type=gateway&severity=error&from=2026-01-01&to=2026-02-01&page=1&page_size=50
+```
+- Scoped to user's org automatically
+- Supports all hierarchy levels as filters
+- Full-text search on message field
+- Date range filtering with ISO 8601
+
+### Log Statistics
+```
+GET /api/logs/stats?range=7d&granularity=hourly
+```
+- Returns volume by type, severity over time
+- Powered by pre-computed aggregations table
+- Falls back to live query for custom ranges
+
+### Integration Management
+```
+POST   /api/log-integrations          — create
+GET    /api/log-integrations          — list (credentials masked)
+PUT    /api/log-integrations/{id}     — update
+DELETE /api/log-integrations/{id}     — delete
+POST   /api/log-integrations/{id}/test — test connectivity
+```
+
+### Export
+```
+GET /api/logs/export?format=csv&log_type=auth&from=2026-01-01
+```
+- Creates async export job
+- Returns job ID for polling
+- Download URL when complete
+
+## Instrumentation Points
+
+### Gateway (log_type: "gateway")
+- Every proxied request: model, tokens, latency, status, cost
+- Rate limit hits, key validation failures
+- Bridges existing `gateway_requests` table data
+
+### Auth (log_type: "auth")
+- Login success/failure (with IP, user agent)
+- Logout, token refresh
+- SSO events, password reset
+- Email verification
+
+### Agents (log_type: "agent")
+- Session start, complete, error
+- Tool invocations with results
+- Token usage per turn
+
+### Knowledge Base (log_type: "kb")
+- Document upload, processing complete
+- Search queries with result counts
+- Document deletion
+
+### Admin (log_type: "admin")
+- User invitations, role changes
+- Organization config changes
+- Integration create/update/delete
+
+## Frontend
+
+### Log Viewer (`/logs`)
+- Real-time log stream with auto-refresh
+- Filterable by all hierarchy levels
+- Severity-colored rows (debug=gray, info=blue, warn=amber, error=red, critical=purple)
+- Expandable rows showing full metadata
+- Export button (CSV/JSON)
+
+### Integration Management (`/settings/integrations`)
+- Card-based UI for each integration type
+- Create/edit modal with type-specific config fields
+- Test connectivity button with live status
+- Enable/disable toggle
+
+### Log Stats Dashboard
+- Volume over time chart (line/bar)
+- Breakdown by severity (pie/donut)
+- Breakdown by type (stacked bar)
+- Top errors table
 
 ## Performance Considerations
 
-### High-Throughput Design
-- Async logging with configurable batching
-- Connection pooling for external integrations
-- Circuit breakers to prevent cascading failures
-- Background processing for non-critical operations
+1. **Buffer prevents DB pressure**: Logs are batched, not written one-by-one
+2. **Aggregation table**: Dashboard stats served from pre-computed data
+3. **Composite indexes**: Queries always hit covering indexes
+4. **GIN index on metadata**: Supports efficient JSONB queries
+5. **Async integration dispatch**: External calls never block the request path
+6. **Connection pooling**: Reuses DB connections via SQLAlchemy async pool
 
-### Scalability
-- Database partitioning by time
-- Horizontal scaling of log processing workers
-- Caching for frequently accessed data
-- Efficient indexing strategy
+## Future Enhancements
 
-### Monitoring
-- Service health metrics
-- Log ingestion rate monitoring
-- External integration status
-- Error rate and latency tracking
-
-## Security
-
-### Data Protection
-- Encryption at rest and in transit
-- PII detection and masking
-- Secure credential management via Vault
-- Access logging and audit trails
-
-### Access Control
-- Organization-scoped data access
-- Role-based permissions for log access
-- API key authentication for exports
-- Rate limiting on query endpoints
-
-## Migration Strategy
-
-### Phase 1: Foundation
-- Deploy database schema
-- Implement core log service
-- Basic instrumentation of gateway
-
-### Phase 2: Integration
-- Implement Tier 1 external integrations
-- Add instrumentation for auth and admin events
-- Deploy query and export APIs
-
-### Phase 3: Enhancement
-- Add Tier 2 integrations
-- Implement advanced analytics
-- Deploy frontend interface
-
-### Phase 4: Optimization
-- Performance tuning and optimization
-- Advanced features (alerting, anomaly detection)
-- Full compliance feature set
-
-## Monitoring and Alerting
-
-The logging system itself will be monitored for:
-- Log ingestion rate and latency
-- External integration health
-- Database performance metrics
-- Error rates and system health
-
-Critical alerts will be configured for:
-- Log ingestion failures
-- External integration outages
-- Unusual log patterns or volumes
-- System performance degradation
-
-This comprehensive strategy ensures that Bonito provides enterprise-grade logging and observability capabilities while maintaining high performance and reliability.
+- [ ] Time-based table partitioning for platform_logs (by month)
+- [ ] Configurable per-org retention policies with auto-cleanup
+- [ ] Real-time log streaming via WebSocket
+- [ ] Log-based alerting rules (e.g., "alert when error rate > 5%")
+- [ ] Correlation/tracing view (group events by trace_id)
+- [ ] Sampling for high-volume debug logs

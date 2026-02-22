@@ -87,10 +87,12 @@ def estimate_cost(provider_type: str, model_id: str, config: dict) -> CostEstima
                 hourly_per_unit = price
                 break
         
-        commitment = config.get("commitment_term", "none")
+        commitment = config.get("commitment_term", "1_week")
         discount = 1.0
         if commitment == "1_month":
             discount = 0.80  # ~20% discount for 1-month commitment
+        elif commitment == "3_month":
+            discount = 0.60  # ~40% discount for 3-month commitment
         elif commitment == "6_month":
             discount = 0.50  # ~50% discount for 6-month commitment
         
@@ -158,7 +160,7 @@ async def deploy_aws(
     deployment_name = config.get("name", f"bonito-{model_id.split('.')[-1][:20]}")
     
     # On-demand mode: just verify access and return endpoint
-    if model_units == 0 or commitment == "none":
+    if model_units == 0:
         try:
             async with session.client("bedrock-runtime") as runtime:
                 # Verify model is accessible by checking if we can describe it
@@ -192,13 +194,20 @@ async def deploy_aws(
             )
     
     # Map commitment terms to AWS API values
+    # Note: AWS minimum commitment for PT is 1 week — no "NoCommitment" option
     commitment_map = {
-        "none": "NoCommitment",
-        "no_commitment": "NoCommitment",
+        "1_week": "OneWeek",
         "1_month": "OneMonth",
+        "3_month": "ThreeMonths",
         "6_month": "SixMonths",
     }
-    aws_commitment = commitment_map.get(commitment, "NoCommitment")
+    aws_commitment = commitment_map.get(commitment)
+    if not aws_commitment:
+        return DeploymentResult(
+            success=False,
+            status="failed",
+            message=f"Provisioned Throughput requires a commitment term. Valid options: 1_week, 1_month, 3_month, 6_month. Minimum commitment is 1 week.",
+        )
     
     try:
         async with session.client("bedrock") as bedrock:

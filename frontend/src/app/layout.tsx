@@ -49,6 +49,38 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Bonito",
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              url: "https://getbonito.com",
+              description:
+                "Enterprise AI control plane — unified governance, routing, and cost management across AWS, Azure, and GCP. With Bonobot governed AI agents.",
+              offers: {
+                "@type": "AggregateOffer",
+                lowPrice: "0",
+                highPrice: "5000",
+                priceCurrency: "USD",
+                offerCount: "4",
+              },
+              creator: {
+                "@type": "Organization",
+                name: "Bonito",
+                url: "https://getbonito.com",
+                founder: {
+                  "@type": "Person",
+                  name: "Shabari",
+                  jobTitle: "Founder & CEO",
+                },
+              },
+            }),
+          }}
+        />
         <Script
           id="microsoft-clarity"
           strategy="afterInteractive"

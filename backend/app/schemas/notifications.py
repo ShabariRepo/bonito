@@ -8,6 +8,8 @@ from pydantic import BaseModel
 # ─── Notifications ───
 
 class NotificationResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: UUID
     org_id: UUID
     user_id: UUID
@@ -45,6 +47,8 @@ class AlertRuleUpdate(BaseModel):
 
 
 class AlertRuleResponse(BaseModel):
+    model_config = {"from_attributes": True}
+
     id: UUID
     org_id: UUID
     type: str

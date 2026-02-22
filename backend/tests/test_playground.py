@@ -152,16 +152,15 @@ async def test_compare_cross_org_blocked(client, auth_headers, test_org, test_or
 
 
 @pytest.mark.asyncio
-@patch("app.api.routes.models.get_router")
-async def test_playground_execute_basic(mock_get_router, client, auth_headers, test_org, test_user, test_engine):
+@patch("app.services.provider_service._get_provider_secrets", new_callable=AsyncMock, return_value={"access_key_id": "AKIAIOSFODNN7EXAMPLE", "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "region": "us-east-1"})
+@patch("litellm.acompletion", new_callable=AsyncMock)
+async def test_playground_execute_basic(mock_acompletion, mock_secrets, client, auth_headers, test_org, test_user, test_engine):
     """Test basic playground execution with mocked LiteLLM call."""
-    mock_router = AsyncMock()
     mock_msg = type("Msg", (), {"content": "Hello! I'm here to help.", "role": "assistant"})()
     mock_choice = type("Choice", (), {"message": mock_msg, "index": 0, "finish_reason": "stop"})()
     mock_usage = type("Usage", (), {"prompt_tokens": 10, "completion_tokens": 15, "total_tokens": 25})()
     mock_resp = type("Resp", (), {"choices": [mock_choice], "usage": mock_usage, "model": "claude-3-sonnet"})()
-    mock_router.acompletion.return_value = mock_resp
-    mock_get_router.return_value = mock_router
+    mock_acompletion.return_value = mock_resp
 
     _, model = await _create_provider_and_model(test_engine, test_org.id)
 
@@ -184,8 +183,9 @@ async def test_playground_execute_basic(mock_get_router, client, auth_headers, t
 
 
 @pytest.mark.asyncio
-@patch("app.api.routes.models.get_router")
-async def test_compare_multiple_models(mock_get_router, client, auth_headers, test_org, test_engine):
+@patch("app.services.provider_service._get_provider_secrets", new_callable=AsyncMock, return_value={"access_key_id": "AKIAIOSFODNN7EXAMPLE", "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "region": "us-east-1"})
+@patch("litellm.acompletion", new_callable=AsyncMock)
+async def test_compare_multiple_models(mock_acompletion, mock_secrets, client, auth_headers, test_org, test_engine):
     """Test multi-model comparison endpoint."""
     responses = []
     for i, name in enumerate(["Sonnet", "Haiku"]):
@@ -194,9 +194,7 @@ async def test_compare_multiple_models(mock_get_router, client, auth_headers, te
         usage = type("Usage", (), {"prompt_tokens": 10, "completion_tokens": 15, "total_tokens": 25})()
         responses.append(type("Resp", (), {"choices": [choice], "usage": usage, "model": f"model-{i}"})())
 
-    mock_router = AsyncMock()
-    mock_router.acompletion.side_effect = responses
-    mock_get_router.return_value = mock_router
+    mock_acompletion.side_effect = responses
 
     _, model1 = await _create_provider_and_model(test_engine, test_org.id, "model-0", "Sonnet")
     _, model2 = await _create_provider_and_model(test_engine, test_org.id, "model-1", "Haiku",

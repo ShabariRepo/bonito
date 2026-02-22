@@ -24,6 +24,12 @@ import {
   AlertTriangle,
   Play,
   LogOut,
+  Building2,
+  UsersRound,
+  Server,
+  BookOpen,
+  Bot,
+  FileText,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -41,10 +47,22 @@ const navigation = [
   { name: "API Gateway", href: "/gateway", icon: Radio },
   { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Logs", href: "/logs", icon: FileText },
   { name: "Audit", href: "/audit", icon: ScrollText },
   { name: "Notifications", href: "/notifications", icon: Bell },
   { name: "Alerts", href: "/alerts", icon: AlertTriangle },
   { name: "Settings", href: "/settings", icon: Settings },
+];
+
+const bonobotNavigation = [
+  { name: "Projects", href: "/agents", icon: Bot },
+];
+
+const adminNavigation = [
+  { name: "Organizations", href: "/admin/organizations", icon: Building2 },
+  { name: "All Users", href: "/admin/users", icon: UsersRound },
+  { name: "System", href: "/admin/system", icon: Server },
+  { name: "Knowledge Base", href: "/admin/kb", icon: BookOpen },
 ];
 
 export function Sidebar() {
@@ -95,31 +113,24 @@ export function Sidebar() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center border-b border-border px-4 shrink-0">
-        <AnimatePresence mode="wait">
-          {(!isCollapsed || isMobile) ? (
-            <motion.div
-              key="full"
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-            >
-              <Image src="/logo-text-dark.png" alt="Bonito" width={120} height={40} className="shrink-0" priority />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="icon"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="mx-auto"
-            >
-              <Image src="/logo.png" alt="Bonito" width={32} height={21} className="shrink-0" priority />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <Image src="/bonito-icon.png" alt="Bonito" width={36} height={18} className="shrink-0" priority />
+          <AnimatePresence>
+            {(!isCollapsed || isMobile) && (
+              <motion.span
+                key="brand-text"
+                variants={contentVariants}
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                transition={{ duration: 0.2 }}
+                className="text-lg font-bold text-white"
+              >
+                Bonito
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -204,6 +215,114 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Bonobot section */}
+        <div className="border-b border-border my-2" />
+        <AnimatePresence>
+          {(!isCollapsed || isMobile) && (
+            <motion.p
+              variants={contentVariants}
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              transition={{ duration: 0.2 }}
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+            >
+              Bonobot
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {bonobotNavigation.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          return (
+            <Link key={item.name} href={item.href} className="relative block">
+              {isActive && (
+                <motion.div
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-md bg-accent"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              <div
+                className={cn(
+                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  isCollapsed && !isMobile && "justify-center"
+                )}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <AnimatePresence>
+                  {(!isCollapsed || isMobile) && (
+                    <motion.span
+                      variants={contentVariants}
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Link>
+          );
+        })}
+
+        {/* Admin / Platform section — only visible to org admins */}
+        {user?.role === "admin" && (<>
+        <div className="border-b border-border my-2" />
+        <AnimatePresence>
+          {(!isCollapsed || isMobile) && (
+            <motion.p
+              variants={contentVariants}
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              transition={{ duration: 0.2 }}
+              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+            >
+              Platform
+            </motion.p>
+          )}
+        </AnimatePresence>
+        {adminNavigation.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          return (
+            <Link key={item.name} href={item.href} className="relative block">
+              {isActive && (
+                <motion.div
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-md bg-accent"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              <div
+                className={cn(
+                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+                  isCollapsed && !isMobile && "justify-center"
+                )}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <AnimatePresence>
+                  {(!isCollapsed || isMobile) && (
+                    <motion.span
+                      variants={contentVariants}
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      transition={{ duration: 0.2 }}
+                    >
+                      {item.name}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Link>
+          );
+        })}
+        </>)}
       </nav>
 
       {/* Footer */}

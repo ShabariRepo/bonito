@@ -103,6 +103,70 @@ class NotificationService:
         await db.refresh(notification)
         return notification
 
+    async def create_notification(
+        self,
+        db: AsyncSession,
+        org_id,
+        user_id,
+        type: str,
+        title: str,
+        body: str,
+    ) -> Notification:
+        """Create an in-app notification for a user."""
+        notification = Notification(
+            id=uuid.uuid4(),
+            org_id=org_id,
+            user_id=user_id,
+            type=type,
+            title=title,
+            body=body,
+            read=False,
+        )
+        db.add(notification)
+        await db.flush()
+        await db.refresh(notification)
+        return notification
+
+    async def notify_org_admins(
+        self,
+        db: AsyncSession,
+        org_id,
+        type: str,
+        title: str,
+        body: str,
+    ):
+        """Send a notification to all users in the org."""
+        from app.models.user import User as UserModel
+        result = await db.execute(
+            select(UserModel.id).where(UserModel.org_id == org_id)
+        )
+        user_ids = result.scalars().all()
+        for uid in user_ids:
+            await self.create_notification(db, org_id, uid, type, title, body)
+
+        # Check alert rules for webhook/email delivery
+        rules = await self.get_alert_rules(db, org_id)
+        for rule in rules:
+            if not rule.enabled:
+                continue
+            # Match rule type to notification type
+            type_map = {
+                "budget_threshold": "cost_alert",
+                "compliance_violation": "compliance_alert",
+                "model_deprecation": "model_deprecation",
+                "deployment_status": "deployment_alert",
+                "gateway_error": "gateway_alert",
+            }
+            if type_map.get(rule.type) == type or rule.type == type:
+                if rule.channel == "webhook" and hasattr(rule, 'webhook_url'):
+                    await self.send_webhook(
+                        getattr(rule, 'webhook_url', ''),
+                        {"type": type, "title": title, "body": body, "org_id": str(org_id)},
+                    )
+                elif rule.channel == "email":
+                    # Email would go to org admin emails
+                    logger.info(f"[ALERT-EMAIL] Would email org {org_id}: {title}")
+
     async def get_unread_count(self, db: AsyncSession, org_id, user_id) -> int:
         result = await db.execute(
             select(func.count(Notification.id)).where(

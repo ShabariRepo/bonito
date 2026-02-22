@@ -16,6 +16,7 @@ from app.models.user import User
 from app.models.organization import Organization
 from app.services import auth_service
 from app.services import email_service
+from app.services.log_emitters import emit_auth_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -181,8 +182,32 @@ async def login(
     r: redis_lib.Redis = Depends(get_redis),
 ):
     user = await auth_service.get_user_by_email(db, body.email)
-    if not user or not auth_service.verify_password(body.password, user.hashed_password):
+    if not user or not auth_service.verify_password(body.password, user.hashed_password or ""):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Check if the org has SSO enforced — block password login unless break-glass admin
+    try:
+        from app.services.saml_service import get_sso_config
+        sso_config = await get_sso_config(db, user.org_id)
+        if sso_config and sso_config.enabled and sso_config.enforced:
+            # Allow break-glass admin to use password login
+            is_breakglass = (
+                sso_config.breakglass_user_id
+                and str(sso_config.breakglass_user_id) == str(user.id)
+            )
+            if not is_breakglass:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Your organization requires SSO login.",
+                    headers={
+                        "X-SSO-Login-URL": f"/api/auth/saml/{user.org_id}/login",
+                    },
+                )
+    except HTTPException:
+        raise  # Re-raise SSO enforcement errors
+    except Exception:
+        # SSO check failed (table missing, connection issue, etc.) — allow login
+        pass
 
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Please verify your email before logging in")
@@ -190,6 +215,13 @@ async def login(
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh = auth_service.create_refresh_token(str(user.id))
     await auth_service.store_session(r, str(user.id), refresh)
+
+    # Log successful login (fire-and-forget)
+    try:
+        await emit_auth_event(user.org_id, user.id, "login_success", message=f"User {user.email} logged in")
+    except Exception:
+        pass
+
     return TokenResponse(access_token=access, refresh_token=refresh)
 
 
@@ -274,6 +306,12 @@ async def refresh(
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_tok = auth_service.create_refresh_token(str(user.id))
     await auth_service.store_session(r, str(user.id), refresh_tok)
+
+    try:
+        await emit_auth_event(user.org_id, user.id, "token_refresh", severity="debug", message="Token refreshed")
+    except Exception:
+        pass
+
     return TokenResponse(access_token=access, refresh_token=refresh_tok)
 
 
@@ -284,7 +322,37 @@ async def logout(
 ):
     await auth_service.invalidate_session(r, str(user.id))
 
+    try:
+        await emit_auth_event(user.org_id, user.id, "logout", message=f"User {user.email} logged out")
+    except Exception:
+        pass
 
-@router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return user
+
+@router.get("/me")
+async def me(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current user profile with organization details."""
+    org_name = None
+    try:
+        result = await db.execute(
+            select(Organization).where(Organization.id == user.org_id)
+        )
+        org = result.scalar_one_or_none()
+        if org:
+            org_name = org.name
+    except Exception:
+        pass
+
+    return {
+        "id": str(user.id),
+        "org_id": str(user.org_id),
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "avatar_url": user.avatar_url,
+        "email_verified": user.email_verified,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "org": {"name": org_name} if org_name else None,
+    }

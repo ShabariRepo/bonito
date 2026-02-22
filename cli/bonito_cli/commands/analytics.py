@@ -174,11 +174,16 @@ def costs(
 
         summary = data.get("summary", data)
         total = summary.get("total_cost", 0)
+        # total_cost might be at top level (not in summary)
+        if total == 0:
+            # Sum from by_provider or by_model if summary didn't have it
+            for p in data.get("by_provider", []):
+                total += p.get("cost", 0)
         console.print(f"\n[bold green]💰 Total cost:[/bold green] ${total:.2f}")
 
-        # By model
+        # By model — check both nested (breakdown.by_model) and top-level
         breakdown = data.get("breakdown", {})
-        by_model = breakdown.get("by_model", [])
+        by_model = breakdown.get("by_model", data.get("by_model", []))
         if by_model:
             rows = [
                 {
@@ -192,8 +197,8 @@ def costs(
             ]
             print_table(rows, title="💸 Cost by Model")
 
-        # By provider
-        by_prov = breakdown.get("by_provider", [])
+        # By provider — check both nested and top-level
+        by_prov = breakdown.get("by_provider", data.get("by_provider", []))
         if by_prov:
             rows = [
                 {
@@ -310,30 +315,37 @@ def digest(
         console.print(f"\n[bold cyan]📋 Weekly Digest[/bold cyan]")
         console.print(f"[dim]{data.get('period', 'Last 7 days')}[/dim]\n")
 
-        s = data.get("executive_summary", {})
+        # Support both 'executive_summary' and 'summary' from backend
+        s = data.get("executive_summary", data.get("summary", {}))
         if s:
             text = (
                 f"[bold green]Requests:[/bold green]     {s.get('total_requests', 0):,}"
-                f"  ({s.get('requests_change', 0):+.1f}%)\n"
-                f"[bold green]Cost:[/bold green]         ${s.get('total_cost', 0):.2f}"
-                f"  ({s.get('cost_change', 0):+.1f}%)\n"
-                f"[bold green]Success rate:[/bold green] {s.get('success_rate', 0):.1f}%\n"
-                f"[bold green]Avg latency:[/bold green]  {s.get('avg_latency', 0):.0f}ms"
+                f"  ({s.get('cost_change_pct', s.get('requests_change', 0)):+.1f}%)\n"
+                f"[bold green]Cost:[/bold green]         ${s.get('total_cost', 0):.2f}\n"
+                f"[bold green]Top Model:[/bold green]    {s.get('top_model', '—')}"
+                f"  ({s.get('top_model_pct', 0):.1f}%)\n"
+                f"[bold green]Active Users:[/bold green] {s.get('active_users', 0)}"
             )
             console.print(Panel(text, title="Week at a Glance", border_style="green"))
 
         tp = data.get("top_performers", {})
         if tp:
             console.print("[bold]🏆 Top Performers:[/bold]")
-            console.print(f"  Most used:         [cyan]{tp.get('most_used_model', '—')}[/cyan]")
-            console.print(f"  Fastest:           [cyan]{tp.get('fastest_model', '—')}[/cyan]")
-            console.print(f"  Most cost-effective:[cyan]{tp.get('most_cost_effective', '—')}[/cyan]")
+            console.print(f"  Most used:          [cyan]{tp.get('most_used_model', '—')}[/cyan]")
+            console.print(f"  Fastest:            [cyan]{tp.get('fastest_model', '—')}[/cyan]")
+            console.print(f"  Most cost-effective: [cyan]{tp.get('most_cost_effective', '—')}[/cyan]")
+
+        highlights = data.get("highlights", [])
+        if highlights:
+            console.print("\n[bold yellow]✨ Highlights:[/bold yellow]")
+            for h in highlights:
+                console.print(f"  • {h if isinstance(h, str) else h.get('message', h)}")
 
         recs = data.get("recommendations", [])
         if recs:
             console.print("\n[bold blue]💡 Recommendations:[/bold blue]")
             for r in recs:
-                console.print(f"  • {r.get('message', r)}")
+                console.print(f"  • {r if isinstance(r, str) else r.get('message', r)}")
 
     except APIError as exc:
         print_error(f"Failed to generate digest: {exc}")

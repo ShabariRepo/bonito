@@ -8,7 +8,7 @@ import { useAuth } from "@/components/auth/auth-context";
 import Script from "next/script";
 import Image from "next/image";
 import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight } from "lucide-react";
-import NeuralNetworkBackground from "@/components/NeuralNetworkBackground";
+import SchematicBackground from "@/components/SchematicBackground";
 
 // ---------- Section Animations ----------
 
@@ -84,9 +84,9 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden scroll-smooth">
-      <NeuralNetworkBackground />
-      {/* Top gradient overlay for contrast */}
-      <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" style={{ height: "40vh" }} />
+      <SchematicBackground />
+      {/* Top gradient overlay for contrast — softened to let schematic show through */}
+      <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a]/80 via-[#0a0a0a]/40 to-transparent" style={{ height: "35vh" }} />
 
       <Script
         id="json-ld-org"
@@ -97,7 +97,7 @@ export default function LandingPage() {
             "@type": "Organization",
             name: "Bonito",
             url: "https://getbonito.com",
-            logo: "https://getbonito.com/icon-512.png",
+            logo: "https://getbonito.com/bonito-logo-400.png",
             description: "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure.",
             contactPoint: {
               "@type": "ContactPoint",
@@ -110,7 +110,10 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 max-w-7xl mx-auto">
-        <Image src="/logo-text-dark.png" alt="Bonito" width={130} height={43} priority />
+        <div className="flex items-center gap-2">
+          <Image src="/bonito-icon.png" alt="Bonito" width={40} height={20} priority className="object-contain" />
+          <span className="text-xl font-semibold text-white">Bonito</span>
+        </div>
         <div className="hidden md:flex items-center gap-6">
           <Link href="/pricing" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Pricing</Link>
           <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>
@@ -167,7 +170,7 @@ export default function LandingPage() {
               Trusted by teams managing AI at scale
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6 opacity-40">
-              {["Acme Corp", "TechFlow", "DataPrime", "NeuralOps", "CloudScale"].map((name) => (
+              {["BidBaby", "BubbleDash", "OkapiDigital", "OddWons", "ApexConsultants"].map((name) => (
                 <div key={name} className="text-xl font-bold tracking-tight text-[#f5f0e8]">
                   {name}
                 </div>

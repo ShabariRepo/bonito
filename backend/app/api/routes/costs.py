@@ -17,7 +17,7 @@ from app.schemas.cost import CostSummary, CostBreakdownResponse, CostForecastRes
 router = APIRouter(prefix="/costs", tags=["costs"])
 
 
-@router.get("/", response_model=CostSummary)
+@router.get("", response_model=CostSummary)
 async def get_costs(
     period: str = Query("monthly", enum=["daily", "weekly", "monthly"]),
     budget: float = Query(40000.0, description="Budget amount for percentage calculation"),

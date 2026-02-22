@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import litellm
-from sqlalchemy import select, func, and_, cast, Date
+from sqlalchemy import select, func, and_, cast, Date, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.vault import vault_client
@@ -27,8 +27,9 @@ from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit
 from app.models.policy import Policy
 from app.models.routing_policy import RoutingPolicy
 from app.models.model import Model
+from app.models.deployment import Deployment
 from app.schemas.gateway import RoutingStrategy
-from app.services.log_service import log_service
+from app.services.log_emitters import emit_gateway_event
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,24 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
             )
             rows = result.all()
             
+            # Pre-fetch active Azure deployments for this org so we can
+            # map catalog models → real deployment names that Azure needs.
+            azure_deployments_by_model: dict[uuid.UUID, Deployment] = {}
+            try:
+                dep_result = await db.execute(
+                    select(Deployment).where(
+                        and_(
+                            Deployment.org_id == org_id,
+                            Deployment.status.in_(["active", "deploying"]),
+                        )
+                    )
+                )
+                for dep in dep_result.scalars().all():
+                    if (dep.config or {}).get("provider_type") == "azure":
+                        azure_deployments_by_model[dep.model_id] = dep
+            except Exception as e:
+                logger.warning(f"Failed to fetch Azure deployments: {e}")
+            
             for model, provider in rows:
                 provider_type = provider.provider_type
                 if provider_type not in creds:
@@ -166,36 +185,62 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         "aws_region_name": c.get("region", "us-east-1"),
                     }
                 elif provider_type == "azure":
+                    # Azure requires explicit deployments. Only include
+                    # models that have an active Deployment record whose
+                    # config contains the real Azure deployment name.
+                    deployment = azure_deployments_by_model.get(model.id)
+                    if not deployment:
+                        continue  # no deployment → skip this model
+                    deployment_name = (deployment.config or {}).get("name")
+                    if not deployment_name:
+                        continue
+                    
                     base_url = c.get("endpoint", "")
                     if not base_url:
                         continue
-                    # Prefer direct API key if available; otherwise use
-                    # Azure AD token from service principal credentials.
-                    api_key = c.get("api_key", "")
-                    azure_ad_token = None
-                    if not api_key:
-                        tenant = c.get("tenant_id", "")
-                        client_id = c.get("client_id", "")
-                        client_secret = c.get("client_secret", "")
-                        if tenant and client_id and client_secret:
-                            try:
-                                azure_ad_token = await _get_azure_ad_token(
-                                    tenant, client_id, client_secret
-                                )
-                            except Exception as e:
-                                logger.warning(f"Azure AD token fetch failed: {e}")
+                    
+                    # Read azure_mode from credentials (default to "openai" for backward compat)
+                    azure_mode = c.get("azure_mode", "openai")
+                    
+                    if azure_mode == "foundry":
+                        # Foundry mode: use azure_ai/ prefix with api_key
+                        api_key = c.get("api_key", "")
+                        if not api_key:
+                            continue  # Foundry requires API key
+                        litellm_params = {
+                            "model": f"azure_ai/{deployment_name}",
+                            "api_base": base_url,
+                            "api_key": api_key,
+                        }
+                    else:  # azure_mode == "openai" 
+                        # OpenAI mode: original logic with azure/ prefix
+                        # Prefer direct API key if available; otherwise use
+                        # Azure AD token from service principal credentials.
+                        api_key = c.get("api_key", "")
+                        azure_ad_token = None
+                        if not api_key:
+                            tenant = c.get("tenant_id", "")
+                            client_id = c.get("client_id", "")
+                            client_secret = c.get("client_secret", "")
+                            if tenant and client_id and client_secret:
+                                try:
+                                    azure_ad_token = await _get_azure_ad_token(
+                                        tenant, client_id, client_secret
+                                    )
+                                except Exception as e:
+                                    logger.warning(f"Azure AD token fetch failed: {e}")
+                                    continue
+                            else:
                                 continue
+                        litellm_params = {
+                            "model": f"azure/{deployment_name}",
+                            "api_base": base_url,
+                            "api_version": "2024-12-01-preview",
+                        }
+                        if azure_ad_token:
+                            litellm_params["azure_ad_token"] = azure_ad_token
                         else:
-                            continue
-                    litellm_params = {
-                        "model": f"azure/{model_id}",
-                        "api_base": base_url,
-                        "api_version": "2024-12-01-preview",
-                    }
-                    if azure_ad_token:
-                        litellm_params["azure_ad_token"] = azure_ad_token
-                    else:
-                        litellm_params["api_key"] = api_key
+                            litellm_params["api_key"] = api_key
                 elif provider_type == "gcp":
                     sa_json = c.get("service_account_json")
                     vertex_credentials = None
@@ -253,33 +298,10 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                 "litellm_params": {"model": f"bedrock/{model}", **common},
             })
 
-    if "azure" in creds:
-        c = creds["azure"]
-        base_url = c.get("endpoint", "")
-        api_key = c.get("api_key", "")
-        azure_ad_token = None
-        if not api_key:
-            tenant = c.get("tenant_id", "")
-            client_id = c.get("client_id", "")
-            client_secret = c.get("client_secret", "")
-            if tenant and client_id and client_secret:
-                try:
-                    import asyncio
-                    azure_ad_token = await _get_azure_ad_token(tenant, client_id, client_secret)
-                except Exception:
-                    pass
-        if base_url and (api_key or azure_ad_token):
-            for model in ["gpt-4o", "gpt-4o-mini"]:
-                params: dict = {
-                    "model": f"azure/{model}",
-                    "api_base": base_url,
-                    "api_version": "2024-12-01-preview",
-                }
-                if azure_ad_token:
-                    params["azure_ad_token"] = azure_ad_token
-                else:
-                    params["api_key"] = api_key
-                model_list.append({"model_name": model, "litellm_params": params})
+    # Azure fallback: skipped — Azure requires explicit deployments tracked
+    # in the Deployment table (queried in the dynamic path above). Without
+    # DB access the fallback cannot resolve deployment names, so Azure
+    # models are only available via the dynamic model list.
 
     if "gcp" in creds:
         c = creds["gcp"]
@@ -446,7 +468,35 @@ async def check_spend_cap(db: AsyncSession, org_id: uuid.UUID) -> None:
     )
     today_cost = float(today_cost_result.scalar())
 
-    if today_cost >= float(max_daily_spend):
+    max_daily = float(max_daily_spend)
+    
+    # Notify at 80% threshold
+    if today_cost >= max_daily * 0.8 and today_cost < max_daily:
+        try:
+            from app.services.notifications import notification_service
+            await notification_service.notify_org_admins(
+                db,
+                org_id,
+                type="cost_alert",
+                title=f"⚠️ Spend alert: ${today_cost:.2f} of ${max_daily:.2f} daily cap ({today_cost/max_daily*100:.0f}%)",
+                body=f"Your organization has used {today_cost/max_daily*100:.0f}% of the daily spend cap. Requests will be blocked at ${max_daily:.2f}.",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send spend alert notification: {e}")
+    
+    if today_cost >= max_daily:
+        try:
+            from app.services.notifications import notification_service
+            await notification_service.notify_org_admins(
+                db,
+                org_id,
+                type="cost_alert",
+                title=f"🚫 Daily spend cap exceeded: ${today_cost:.2f} / ${max_daily:.2f}",
+                body=f"All gateway requests are now blocked. Increase the spend cap in Governance → Policies or wait until tomorrow.",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send spend cap notification: {e}")
+        
         raise PolicyViolation(
             f"Daily spend cap of ${max_daily_spend:.2f} exceeded "
             f"(today's spend: ${today_cost:.2f}). "
@@ -514,6 +564,36 @@ async def chat_completion(
     router = await get_router(db, org_id)
     model = request_data.get("model", "")
     start = time.time()
+    
+    # RAG Enhancement: Check for knowledge base in request
+    kb_context = None
+    kb_name = None
+    retrieval_cost = 0.0
+    retrieval_time_ms = 0
+    
+    # Check for knowledge base in bonito extension field
+    bonito_params = request_data.get("bonito", {})
+    if isinstance(bonito_params, dict):
+        kb_name = bonito_params.get("knowledge_base")
+    
+    if kb_name:
+        try:
+            retrieval_start = time.time()
+            kb_context = await _perform_rag_retrieval(kb_name, request_data.get("messages", []), org_id, db)
+            retrieval_time_ms = int((time.time() - retrieval_start) * 1000)
+            
+            if kb_context:
+                # Inject context into the request
+                request_data = _inject_rag_context(request_data, kb_context)
+                logger.info(f"Injected RAG context from KB '{kb_name}' with {len(kb_context['chunks'])} chunks")
+            
+        except Exception as e:
+            logger.error(f"RAG retrieval failed for KB '{kb_name}': {e}")
+            # Continue without RAG rather than failing the request
+
+    # Strip Bonito extension fields before forwarding to upstream provider
+    # (LiteLLM/Azure/etc. will reject unknown fields)
+    request_data.pop("bonito", None)
 
     log_entry = GatewayRequest(
         org_id=org_id,
@@ -545,21 +625,37 @@ async def chat_completion(
         db.add(log_entry)
         await db.flush()
 
-        # Log to new platform logging system
-        await log_service.emit_gateway_request(
-            org_id=org_id,
-            user_id=None,  # Will need to get user_id from key mapping
-            model=model,
-            provider=log_entry.provider or "unknown",
-            status="success",
-            duration_ms=elapsed_ms,
-            cost=log_entry.cost,
-            input_tokens=log_entry.input_tokens,
-            output_tokens=log_entry.output_tokens,
-            trace_id=uuid.uuid4()  # Generate trace ID for this request
-        )
+        # Add RAG metadata to response
+        response_dict = response.model_dump()
+        if kb_context:
+            response_dict["bonito"] = {
+                "knowledge_base": kb_name,
+                "sources": kb_context["sources"],
+                "retrieval_cost": retrieval_cost,
+                "retrieval_latency_ms": retrieval_time_ms
+            }
 
-        return response.model_dump()
+        # Emit to platform logging system (fire-and-forget)
+        try:
+            await emit_gateway_event(
+                org_id, "request",
+                resource_type="model",
+                message=f"Chat completion: {model}",
+                duration_ms=elapsed_ms,
+                cost=log_entry.cost,
+                metadata={
+                    "model": model,
+                    "model_used": log_entry.model_used,
+                    "input_tokens": log_entry.input_tokens,
+                    "output_tokens": log_entry.output_tokens,
+                    "provider": log_entry.provider,
+                    "kb_name": kb_name,
+                },
+            )
+        except Exception:
+            pass
+
+        return response_dict
 
     except Exception as e:
         elapsed_ms = int((time.time() - start) * 1000)
@@ -573,20 +669,19 @@ async def chat_completion(
                 log_db.add(log_entry)
         except Exception as log_err:
             logger.error(f"Failed to log error request: {log_err}")
-        
-        # Log error to new platform logging system
-        await log_service.emit_gateway_request(
-            org_id=org_id,
-            user_id=None,  # Will need to get user_id from key mapping
-            model=model,
-            provider="unknown",
-            status="error",
-            duration_ms=elapsed_ms,
-            cost=0.0,
-            error_message=str(e)[:1000],
-            trace_id=uuid.uuid4()
-        )
-        
+
+        # Emit error to platform logging system
+        try:
+            await emit_gateway_event(
+                org_id, "error",
+                severity="error",
+                message=f"Chat completion error: {model} — {str(e)[:200]}",
+                duration_ms=elapsed_ms,
+                metadata={"model": model, "error": str(e)[:500]},
+            )
+        except Exception:
+            pass
+
         raise
 
 
@@ -710,17 +805,14 @@ async def check_rate_limit(key_id: uuid.UUID, rate_limit: int) -> bool:
 
 async def resolve_routing_policy_by_key(api_key: str, db: AsyncSession) -> Optional[RoutingPolicy]:
     """Resolve a routing policy by API key prefix."""
-    # Extract potential routing policy prefix from API key (rt-xxxxxxxx)
     if not api_key.startswith('rt-'):
         return None
     
-    # The API key format should be: rt-xxxxxxxx (16 chars total)
-    api_key_prefix = api_key[:16] if len(api_key) >= 16 else api_key
-    
+    # Use the full key as the prefix (rt-xxxxxxxxxxxxxxxx)
     result = await db.execute(
         select(RoutingPolicy).where(
             and_(
-                RoutingPolicy.api_key_prefix == api_key_prefix,
+                RoutingPolicy.api_key_prefix == api_key,
                 RoutingPolicy.is_active == True
             )
         )
@@ -740,7 +832,7 @@ async def apply_routing_policy(
     # Get available models with their display names
     model_ids = [uuid.UUID(model["model_id"]) for model in policy.models]
     result = await db.execute(
-        select(Model.id, Model.display_name, Model.model_id)
+        select(Model)
         .join(CloudProvider, Model.provider_id == CloudProvider.id)
         .where(
             and_(
@@ -899,3 +991,182 @@ async def get_request_logs(
     q = q.order_by(GatewayRequest.created_at.desc()).limit(limit).offset(offset)
     result = await db.execute(q)
     return list(result.scalars().all())
+
+
+# ─── RAG (Retrieval-Augmented Generation) Functions ───
+
+async def _perform_rag_retrieval(kb_name: str, messages: list, org_id: uuid.UUID, db: AsyncSession) -> Optional[dict]:
+    """
+    Perform RAG retrieval for a knowledge base.
+    
+    Uses its own DB session to avoid poisoning the gateway's transaction
+    if a pgvector query fails (e.g., dimension mismatch).
+    
+    Returns context dictionary with chunks and source information, or None if no results.
+    """
+    from app.models.knowledge_base import KnowledgeBase, KBChunk, KBDocument
+    from app.services.kb_ingestion import EmbeddingGenerator
+    
+    # Use a separate session so RAG errors don't poison the gateway transaction
+    async with get_db_session() as rag_db:
+        return await _perform_rag_retrieval_inner(kb_name, messages, org_id, rag_db)
+
+
+async def _perform_rag_retrieval_inner(kb_name: str, messages: list, org_id: uuid.UUID, db: AsyncSession) -> Optional[dict]:
+    """Inner RAG retrieval with its own DB session."""
+    from app.models.knowledge_base import KnowledgeBase, KBChunk, KBDocument
+    from app.services.kb_ingestion import EmbeddingGenerator
+    
+    # Find knowledge base by name
+    kb_result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.org_id == org_id, KnowledgeBase.name == kb_name)
+        )
+    )
+    kb = kb_result.scalar_one_or_none()
+    if not kb:
+        logger.warning(f"Knowledge base '{kb_name}' not found for org {org_id}")
+        return None
+    
+    if kb.status != "ready":
+        logger.warning(f"Knowledge base '{kb_name}' is not ready (status: {kb.status})")
+        return None
+    
+    # Extract user query from messages
+    user_query = _extract_user_query(messages)
+    if not user_query:
+        logger.warning("No user query found in messages")
+        return None
+    
+    # Generate embedding for the query
+    embedding_gen = EmbeddingGenerator(org_id)
+    try:
+        query_embeddings = await embedding_gen.generate_embeddings([user_query])
+        if not query_embeddings:
+            logger.error("Failed to generate query embedding")
+            return None
+        
+        query_embedding = query_embeddings[0]
+    except Exception as e:
+        logger.error(f"Failed to generate query embedding: {e}")
+        return None
+    
+    # Vector similarity search using pgvector cosine distance
+    top_k = 5
+    embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+    
+    try:
+        search_result = await db.execute(
+            sa_text("""
+                SELECT c.id, c.content, c.token_count, c.chunk_index,
+                       c.source_file, c.source_page, c.source_section,
+                       1 - (c.embedding <=> CAST(:query_vec AS vector)) AS relevance_score
+                FROM kb_chunks c
+                WHERE c.knowledge_base_id = :kb_id
+                  AND c.org_id = :org_id
+                  AND c.embedding IS NOT NULL
+                ORDER BY c.embedding <=> CAST(:query_vec AS vector)
+                LIMIT :top_k
+            """),
+            {
+                "query_vec": embedding_str,
+                "kb_id": str(kb.id),
+                "org_id": str(org_id),
+                "top_k": top_k,
+            },
+        )
+        rows = search_result.fetchall()
+    except Exception as e:
+        logger.error(f"pgvector search failed: {e}")
+        return None
+    
+    if not rows:
+        logger.info(f"No matching chunks found in KB '{kb_name}' for query")
+        return None
+    
+    chunks = []
+    sources = []
+    for row in rows:
+        chunk = {
+            "content": row.content,
+            "source_file": row.source_file,
+            "source_page": row.source_page,
+            "source_section": row.source_section,
+            "relevance_score": round(float(row.relevance_score), 4) if row.relevance_score else 0,
+        }
+        chunks.append(chunk)
+        sources.append({
+            "document": row.source_file or "unknown",
+            "page": row.source_page,
+            "section": row.source_section,
+            "relevance_score": chunk["relevance_score"],
+            "chunk_preview": row.content[:150] + "…" if len(row.content) > 150 else row.content,
+        })
+    
+    logger.info(f"RAG retrieval: {len(chunks)} chunks for query '{user_query[:80]}…' in KB {kb.id}")
+    
+    return {
+        "chunks": chunks,
+        "sources": sources,
+        "query": user_query,
+        "knowledge_base_id": str(kb.id),
+    }
+
+
+def _extract_user_query(messages: list) -> str:
+    """Extract the most recent user message as the search query."""
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "user":
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+    return ""
+
+
+def _inject_rag_context(request_data: dict, kb_context: dict) -> dict:
+    """
+    Inject RAG context into the chat completion request.
+    
+    Adds retrieved chunks as system context before the user messages.
+    """
+    messages = request_data.get("messages", [])
+    if not messages or not kb_context.get("chunks"):
+        return request_data
+    
+    # Build context from chunks
+    context_parts = ["Use the following context to answer the user's question. Cite sources when possible. If the context doesn't contain the answer, say so."]
+    context_parts.append("")  # Empty line
+    context_parts.append("Context:")
+    
+    for i, chunk in enumerate(kb_context["chunks"], 1):
+        source_info = ""
+        if chunk.get("source_file"):
+            source_info = f" (source: {chunk['source_file']}"
+            if chunk.get("source_page"):
+                source_info += f", p.{chunk['source_page']}"
+            source_info += ")"
+        
+        context_parts.append(f"[{i}] {chunk['content']}{source_info}")
+    
+    context_parts.append("")  # Empty line before user query
+    
+    context_message = {
+        "role": "system",
+        "content": "\n".join(context_parts)
+    }
+    
+    # Create new request with injected context
+    new_request = request_data.copy()
+    new_request["messages"] = [context_message] + messages
+    
+    return new_request
+
+
+async def detect_knowledge_base_from_policy(policy_id: uuid.UUID, db: AsyncSession) -> Optional[str]:
+    """
+    Check if a routing policy has an attached knowledge base.
+    
+    TODO: Implement when routing policy KB attachment is added.
+    """
+    # Placeholder - will be implemented when routing policy page is updated
+    return None

@@ -25,6 +25,7 @@ class ActivationResult:
     status: str  # "enabled", "pending", "deployed", "failed"
     message: str
     requires_approval: bool = False  # True if model needs manual AWS approval
+    endpoint_url: str = ""  # Resource endpoint (Azure)
 
 
 async def activate_aws_model(
@@ -136,6 +137,38 @@ async def activate_aws_model(
         )
 
 
+async def _resolve_azure_account_name(
+    subscription_id: str, resource_group: str, endpoint: str, arm_token: str
+) -> str:
+    """Resolve the Azure OpenAI account name from the endpoint or resource group.
+    
+    Tries to extract from custom subdomain first (e.g. bonito-ai-eastus2 from
+    bonito-ai-eastus2.openai.azure.com), then falls back to listing accounts
+    in the resource group via ARM.
+    """
+    # Try custom subdomain: https://NAME.openai.azure.com/
+    host = endpoint.rstrip("/").split("//")[-1].split("/")[0]
+    if ".openai.azure.com" in host:
+        return host.replace(".openai.azure.com", "")
+    if ".cognitiveservices.azure.com" in host:
+        return host.replace(".cognitiveservices.azure.com", "")
+    
+    # Regional endpoint — discover account by listing resources in the group
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"https://management.azure.com/subscriptions/{subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.CognitiveServices/accounts?api-version=2024-10-01",
+            headers={"Authorization": f"Bearer {arm_token}"},
+        )
+        if resp.status_code == 200:
+            for acct in resp.json().get("value", []):
+                if acct.get("kind") in ("OpenAI", "AIServices"):
+                    return acct["name"]
+    
+    raise RuntimeError(f"Could not resolve Azure OpenAI account name from endpoint: {endpoint}")
+
+
 async def activate_azure_model(
     model_id: str,
     tenant_id: str,
@@ -144,21 +177,22 @@ async def activate_azure_model(
     subscription_id: str,
     resource_group: str,
     endpoint: str,
+    api_key: str = "",
 ) -> ActivationResult:
-    """Deploy a model on Azure OpenAI.
+    """Deploy a model on Azure OpenAI using the ARM management API.
     
-    Creates a deployment with the model name as the deployment ID,
-    using standard tier with auto-scaling.
+    Uses the Azure Resource Manager API for reliable deployment creation
+    (works with both custom subdomain and regional endpoints).
     """
-    # Get OAuth token
     try:
         async with httpx.AsyncClient() as client:
+            # Get ARM token (management plane)
             token_resp = await client.post(
                 f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
                 data={
                     "client_id": client_id,
                     "client_secret": client_secret,
-                    "scope": "https://cognitiveservices.azure.com/.default",
+                    "scope": "https://management.azure.com/.default",
                     "grant_type": "client_credentials",
                 },
             )
@@ -166,19 +200,37 @@ async def activate_azure_model(
                 return ActivationResult(
                     success=False,
                     status="failed",
-                    message=f"Azure auth failed: {token_resp.text[:200]}"
+                    message=f"Azure ARM auth failed: {token_resp.text[:200]}"
                 )
-            cog_token = token_resp.json()["access_token"]
+            arm_token = token_resp.json()["access_token"]
+            
+            # Resolve account name from endpoint
+            try:
+                account_name = await _resolve_azure_account_name(
+                    subscription_id, resource_group, endpoint, arm_token
+                )
+            except RuntimeError as e:
+                return ActivationResult(
+                    success=False, status="failed", message=str(e)
+                )
+            
+            arm_base = (
+                f"https://management.azure.com/subscriptions/{subscription_id}"
+                f"/resourceGroups/{resource_group}"
+                f"/providers/Microsoft.CognitiveServices/accounts/{account_name}"
+                f"/deployments/{model_id}?api-version=2024-10-01"
+            )
+            arm_headers = {
+                "Authorization": f"Bearer {arm_token}",
+                "Content-Type": "application/json",
+            }
             
             # Check if deployment already exists
-            base = endpoint.rstrip("/")
-            check_resp = await client.get(
-                f"{base}/openai/deployments/{model_id}?api-version=2024-06-01",
-                headers={"Authorization": f"Bearer {cog_token}"},
-            )
+            check_resp = await client.get(arm_base, headers=arm_headers)
             if check_resp.status_code == 200:
-                status = check_resp.json().get("status", "succeeded")
-                if status == "succeeded":
+                props = check_resp.json().get("properties", {})
+                prov_state = props.get("provisioningState", "")
+                if prov_state == "Succeeded":
                     return ActivationResult(
                         success=True,
                         status="deployed",
@@ -188,25 +240,24 @@ async def activate_azure_model(
                     return ActivationResult(
                         success=True,
                         status="pending",
-                        message=f"Deployment {model_id} exists (status: {status})."
+                        message=f"Deployment {model_id} exists (state: {prov_state})."
                     )
             
-            # Create deployment with standard settings
+            # Create deployment via ARM API
             deploy_resp = await client.put(
-                f"{base}/openai/deployments/{model_id}?api-version=2024-06-01",
-                headers={
-                    "Authorization": f"Bearer {cog_token}",
-                    "Content-Type": "application/json",
-                },
+                arm_base,
+                headers=arm_headers,
                 json={
-                    "model": {
-                        "format": "OpenAI",
-                        "name": model_id,
-                        "version": "latest",  # Use latest available version
-                    },
                     "sku": {
                         "name": "Standard",
                         "capacity": 10,  # 10K TPM — sensible starting point
+                    },
+                    "properties": {
+                        "model": {
+                            "format": "OpenAI",
+                            "name": model_id,
+                            "version": "latest",
+                        }
                     },
                 },
                 timeout=30,
@@ -216,7 +267,8 @@ async def activate_azure_model(
                 return ActivationResult(
                     success=True,
                     status="deployed",
-                    message=f"Model {model_id} deployed successfully! It may take a minute to become fully available."
+                    message=f"Model {model_id} deployed successfully! It may take a minute to become fully available.",
+                    endpoint_url=endpoint,
                 )
             elif deploy_resp.status_code == 409:
                 return ActivationResult(
@@ -226,12 +278,11 @@ async def activate_azure_model(
                 )
             else:
                 error_detail = deploy_resp.text[:300]
-                # Common issues
                 if deploy_resp.status_code == 403:
                     return ActivationResult(
                         success=False,
                         status="failed",
-                        message=f"Permission denied. Your service principal needs 'Cognitive Services Contributor' role (currently has 'User'). Update the role in Azure Portal → IAM."
+                        message=f"Permission denied. Your service principal needs 'Cognitive Services Contributor' role. Update the role in Azure Portal → IAM."
                     )
                 elif "QuotaExceeded" in error_detail or "InsufficientQuota" in error_detail:
                     return ActivationResult(

@@ -6,7 +6,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
+<<<<<<< HEAD
 from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, subscriptions, logging
+=======
+from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, agent_groups, rbac, logging as logging_routes, subscriptions
+>>>>>>> main
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -30,33 +34,22 @@ async def lifespan(app: FastAPI):
     from app.core.redis import init_redis
     await init_redis()
     
-    # Run Alembic migrations automatically on startup (safe — idempotent)
-    try:
-        import logging
-        import os
-        _log = logging.getLogger("bonito.startup")
-        _log.info("Running database migrations...")
-        from alembic.config import Config as AlembicConfig
-        from alembic import command as alembic_command
-        
-        # Resolve paths relative to the backend directory
-        backend_dir = os.path.join(os.path.dirname(__file__), "..")
-        alembic_cfg = AlembicConfig(os.path.join(backend_dir, "alembic.ini"))
-        alembic_cfg.set_main_option("script_location", os.path.join(backend_dir, "alembic"))
-        
-        # Use sync URL for Alembic (strip asyncpg)
-        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-        alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
-        
-        alembic_command.upgrade(alembic_cfg, "head")
-        _log.info("Database migrations complete.")
-    except Exception as e:
-        import logging
-        logging.getLogger("bonito.startup").warning(f"Migration failed (non-fatal): {e}")
+    # Start the log service background flush loop
+    from app.services.log_service import log_service
+    await log_service.start()
+    
+    # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
+    # Don't run them again here — with multiple workers they'd race each other.
     
     yield
     
-    # Shutdown: Clean up connections
+    # Shutdown: Stop log service, clean up connections
+    from app.services.log_service import log_service as _log_service
+    try:
+        await _log_service.stop()
+    except Exception:
+        pass
+
     from app.core.database import database
     from app.core.redis import close_redis
     
@@ -72,13 +65,14 @@ async def lifespan(app: FastAPI):
         pass
 
 
-app = FastAPI(
+fastapi_app = FastAPI(
     title="Bonito API",
     description="Enterprise AI Platform API",
     version="0.1.0",
     lifespan=lifespan,
-    redirect_slashes=False,  # Avoid 307 redirects that break HTTPS behind proxies
+    redirect_slashes=False,  # Must be False — Vercel strips trailing slashes (308), conflicting with FastAPI 307 redirects
 )
+app = fastapi_app  # alias; reassigned to TrailingSlashMiddleware wrapper at bottom of file
 
 # Add global exception handlers
 app.add_exception_handler(HTTPException, handle_http_exception)
@@ -108,6 +102,7 @@ app.add_middleware(RequestIDMiddleware)
 # GZip compression (very outer layer)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
+
 # Routes
 app.include_router(health.router, prefix="/api")
 app.include_router(providers.router, prefix="/api")
@@ -127,8 +122,51 @@ app.include_router(onboarding.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(notifications.alert_router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
+<<<<<<< HEAD
 app.include_router(subscriptions.router, prefix="/api")
 app.include_router(logging.router, prefix="/api")
+=======
+app.include_router(knowledge_base.router, prefix="/api")
+
+app.include_router(sso.router, prefix="/api")
+app.include_router(sso_admin.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+
+# Logging & observability routes
+app.include_router(logging_routes.router, prefix="/api")
+app.include_router(logging_routes.integration_router, prefix="/api")
+
+# Bonobot routes
+app.include_router(bonobot_projects.router, prefix="/api")
+app.include_router(bonobot_agents.router, prefix="/api")
+app.include_router(agent_groups.router, prefix="/api")
+app.include_router(rbac.router, prefix="/api")
+app.include_router(subscriptions.router, prefix="/api")
+
+# Contact form
+from app.api.routes import contact
+app.include_router(contact.router, prefix="/api")
+>>>>>>> main
 
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
+
+
+# ─── Trailing Slash Normalization (MUST be after all routers) ───
+# Wraps the ASGI app to strip trailing slashes before routing.
+# Required because: redirect_slashes=False (Vercel 308 conflicts with FastAPI 307),
+# but some frontend calls still include trailing slashes.
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+class TrailingSlashMiddleware:
+    """Strip trailing slashes from request paths (except root /)."""
+    def __init__(self, inner: ASGIApp):
+        self.inner = inner
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http" and scope["path"] != "/" and scope["path"].endswith("/"):
+            scope["path"] = scope["path"].rstrip("/")
+            if scope.get("raw_path"):
+                scope["raw_path"] = scope["raw_path"].rstrip(b"/")
+        await self.inner(scope, receive, send)
+
+app = TrailingSlashMiddleware(app)  # type: ignore[assignment]

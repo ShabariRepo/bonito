@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { Bell, DollarSign, Shield, AlertTriangle, BookOpen } from "lucide-react";
+import { Bell, DollarSign, Shield, AlertTriangle, BookOpen, Rocket, Zap } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { getAccessToken } from "@/lib/auth";
 
@@ -11,6 +11,8 @@ const TYPE_ICONS: Record<string, any> = {
   cost_alert: DollarSign,
   compliance_alert: Shield,
   model_deprecation: AlertTriangle,
+  deployment_alert: Rocket,
+  gateway_alert: Zap,
   digest: BookOpen,
 };
 

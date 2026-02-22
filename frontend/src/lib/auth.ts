@@ -113,15 +113,23 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
 }
 
 export async function register(email: string, password: string, name: string) {
-  let res: Response;
-  try {
-    res = await fetch(`${API_URL}/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, name }),
-    });
-  } catch {
-    throw new Error("Unable to reach the server. Please check your connection and try again.");
+  let res!: Response;
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      res = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name }),
+      });
+      break;
+    } catch {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      throw new Error("Unable to reach the server. Please check your connection and try again.");
+    }
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -136,15 +144,23 @@ export async function register(email: string, password: string, name: string) {
 }
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-  } catch {
-    throw new Error("Unable to reach the server. Please check your connection and try again.");
+  let res!: Response;
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      res = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      break; // success — got a response
+    } catch {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1))); // 1s, 2s backoff
+        continue;
+      }
+      throw new Error("Unable to reach the server. Please check your connection and try again.");
+    }
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

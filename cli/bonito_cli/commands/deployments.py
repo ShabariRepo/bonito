@@ -71,10 +71,12 @@ def list_deployments(
             est = cfg.get("cost_estimate", {})
             cost = f"${est['monthly']:.0f}/mo" if est.get("monthly", 0) > 0 else "Pay-per-use"
             status_style = "green" if d["status"] == "active" else "yellow" if d["status"] == "deploying" else "red"
+            # Model name: try model_display_name, cloud_model_id, or name
+            model_name = cfg.get("model_display_name") or cfg.get("cloud_model_id") or "—"
 
             table.add_row(
                 cfg.get("name", "—"),
-                cfg.get("model_display_name", "—"),
+                model_name,
                 f"{emoji}{ptype.upper()}",
                 f"[{status_style}]{d['status']}[/{status_style}]",
                 cost,

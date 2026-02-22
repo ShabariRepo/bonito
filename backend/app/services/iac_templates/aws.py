@@ -88,6 +88,26 @@ variable "cloudtrail_s3_bucket_name" {
   type        = string
   default     = "bonito-cloudtrail-logs"
 }
+
+# ── Knowledge Base (Optional) ───────────────────────────────────────
+
+variable "enable_knowledge_base" {
+  description = "Enable Bonito Knowledge Base (S3 read access)"
+  type        = bool
+  default     = false
+}
+
+variable "kb_s3_bucket" {
+  description = "S3 bucket containing documents for Knowledge Base"
+  type        = string
+  default     = ""
+}
+
+variable "kb_s3_prefix" {
+  description = "S3 prefix (folder) to scope document access"
+  type        = string
+  default     = ""
+}
 '''
 
 _TF_MAIN = r'''################################################################################
@@ -175,6 +195,55 @@ resource "aws_iam_policy" "bonito" {
       },
     ]
   })
+}
+
+# ── Knowledge Base: S3 Read Access (Optional) ────────────────────────
+
+resource "aws_iam_policy" "bonito_kb_s3_read" {
+  count = var.enable_knowledge_base ? 1 : 0
+  name  = "${var.project_name}-kb-s3-read"
+  description = "Allow Bonito to read documents from S3 for Knowledge Base indexing"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "BonitoKBListBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation"
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:s3:::${var.kb_s3_bucket}"
+        Condition = var.kb_s3_prefix != "" ? {
+          StringLike = {
+            "s3:prefix" = ["${var.kb_s3_prefix}*"]
+          }
+        } : {}
+      },
+      {
+        Sid    = "BonitoKBReadObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion"
+        ]
+        Resource = "arn:${data.aws_partition.current.partition}:s3:::${var.kb_s3_bucket}/${var.kb_s3_prefix}*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_user_policy_attachment" "bonito_kb" {
+  count      = var.enable_knowledge_base ? 1 : 0
+  user       = aws_iam_user.bonito.name
+  policy_arn = aws_iam_policy.bonito_kb_s3_read[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "bonito_kb" {
+  count      = var.enable_knowledge_base ? 1 : 0
+  role       = aws_iam_role.bonito.name
+  policy_arn = aws_iam_policy.bonito_kb_s3_read[0].arn
 }
 
 ################################################################################

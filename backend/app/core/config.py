@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     def get_async_database_url(self) -> str:
         """Convert standard postgresql:// URL to asyncpg format."""
         url = self.database_url
-        if url.startswith("postgresql://"):
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgresql://"):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
     redis_url: str = "redis://localhost:6379/0"
@@ -30,10 +32,19 @@ class Settings(BaseSettings):
     notion_page_id: Optional[str] = None
     notion_changelog_id: Optional[str] = None
     
+    # Platform admin emails (comma-separated)
+    admin_emails: str = ""
+
     # Database connection pool settings
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_pool_timeout: int = 30
+
+    # Redis connection pool
+    redis_max_connections: int = 20
+
+    # Platform admin emails (comma-separated, checked for /api/admin/* access)
+    admin_emails: str = ""
 
     class Config:
         env_file = ".env"
@@ -46,11 +57,13 @@ class Settings(BaseSettings):
         If neither source provides required secrets, raises an error.
         """
         vault_ok = False
+        # Use retries in production (Vault may be starting up alongside us)
+        _retries = 5 if self.production_mode else 0
         try:
-            # Try Vault first
-            app_secrets = await vault_client.get_secrets("app")
-            api_secrets = await vault_client.get_secrets("api")
-            notion_secrets = await vault_client.get_secrets("notion")
+            # Try Vault first (with retries to survive simultaneous deploys)
+            app_secrets = await vault_client.get_secrets("app", retries=_retries)
+            api_secrets = await vault_client.get_secrets("api", retries=_retries)
+            notion_secrets = await vault_client.get_secrets("notion", retries=_retries)
             
             self.secret_key = app_secrets.get("secret_key") or self.secret_key
             self.encryption_key = app_secrets.get("encryption_key") or self.encryption_key
@@ -58,6 +71,7 @@ class Settings(BaseSettings):
             self.notion_api_key = notion_secrets.get("api_key") or self.notion_api_key
             self.notion_page_id = notion_secrets.get("page_id") or self.notion_page_id
             self.notion_changelog_id = notion_secrets.get("changelog_id") or self.notion_changelog_id
+            self.admin_emails = app_secrets.get("admin_emails") or self.admin_emails
             vault_ok = True
                     
         except Exception as e:
@@ -70,6 +84,7 @@ class Settings(BaseSettings):
         self.notion_api_key = self.notion_api_key or os.getenv("NOTION_API_KEY")
         self.notion_page_id = self.notion_page_id or os.getenv("NOTION_PAGE_ID")
         self.notion_changelog_id = self.notion_changelog_id or os.getenv("NOTION_CHANGELOG_ID")
+        self.admin_emails = self.admin_emails or os.getenv("ADMIN_EMAILS", "")
 
         if self.production_mode:
             # In production, required secrets must exist from either source

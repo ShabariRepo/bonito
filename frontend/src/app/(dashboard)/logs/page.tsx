@@ -1,392 +1,406 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Filter, Download, Clock, AlertCircle, Info, AlertTriangle, XCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { LoadingDots } from "@/components/ui/loading-dots";
+import {
+  ScrollText,
+  Download,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Search,
+  X,
+  BarChart3,
+  AlertTriangle,
+  Info,
+  Bug,
+  AlertCircle,
+  Flame,
+  RefreshCw,
+} from "lucide-react";
+import { apiRequest } from "@/lib/auth";
 
-interface LogEntry {
-  id: string;
-  created_at: string;
-  log_type: string;
-  event_type: string;
-  severity: string;
-  user_id: string | null;
-  resource_type: string | null;
-  action: string | null;
-  message: string | null;
-  duration_ms: number | null;
-  cost: number | null;
-  metadata: Record<string, any> | null;
+// ── Severity Config ──
+
+const SEVERITY_STYLES: Record<string, { color: string; bg: string; icon: any }> = {
+  debug: { color: "text-gray-400", bg: "bg-gray-500/15", icon: Bug },
+  info: { color: "text-blue-400", bg: "bg-blue-500/15", icon: Info },
+  warn: { color: "text-amber-400", bg: "bg-amber-500/15", icon: AlertTriangle },
+  error: { color: "text-red-400", bg: "bg-red-500/15", icon: AlertCircle },
+  critical: { color: "text-purple-400", bg: "bg-purple-500/15", icon: Flame },
+};
+
+const LOG_TYPE_LABELS: Record<string, string> = {
+  gateway: "Gateway",
+  auth: "Auth",
+  agent: "Agents",
+  kb: "Knowledge Base",
+  admin: "Admin",
+  deployment: "Deployments",
+  billing: "Billing",
+  compliance: "Compliance",
+};
+
+function SeverityBadge({ severity }: { severity: string }) {
+  const style = SEVERITY_STYLES[severity] || SEVERITY_STYLES.info;
+  const Icon = style.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${style.color} ${style.bg}`}>
+      <Icon className="h-3 w-3" />
+      {severity}
+    </span>
+  );
 }
 
-interface LogFilters {
-  log_types: string[];
-  event_types: string[];
-  severities: string[];
-  start_date?: string;
-  end_date?: string;
-  search?: string;
+function LogTypeBadge({ logType }: { logType: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-violet-400 bg-violet-500/15">
+      {LOG_TYPE_LABELS[logType] || logType}
+    </span>
+  );
 }
 
-const LogTypeColors = {
-  gateway: 'bg-blue-500',
-  agent: 'bg-purple-500',
-  auth: 'bg-green-500',
-  admin: 'bg-orange-500',
-  kb: 'bg-teal-500',
-  deployment: 'bg-indigo-500',
-  billing: 'bg-yellow-500'
-};
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = (now.getTime() - d.getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
-const SeverityIcons = {
-  debug: Info,
-  info: Info,
-  warn: AlertTriangle,
-  error: AlertCircle,
-  critical: XCircle
-};
+// ── Stats Bar ──
 
-const SeverityColors = {
-  debug: 'text-gray-500',
-  info: 'text-blue-500',
-  warn: 'text-yellow-500',
-  error: 'text-red-500',
-  critical: 'text-red-700'
-};
+function StatsBar({ stats }: { stats: any }) {
+  if (!stats) return null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Total Logs</p>
+          <p className="text-2xl font-bold">{stats.total_logs?.toLocaleString() || 0}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">Errors</p>
+          <p className="text-2xl font-bold text-red-400">{stats.total_errors?.toLocaleString() || 0}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">By Type</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {stats.by_type && Object.entries(stats.by_type).slice(0, 3).map(([k, v]) => (
+              <span key={k} className="text-xs text-muted-foreground">
+                {LOG_TYPE_LABELS[k] || k}: <span className="font-medium text-foreground">{(v as number).toLocaleString()}</span>
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="p-4">
+          <p className="text-xs text-muted-foreground">By Severity</p>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {stats.by_severity && Object.entries(stats.by_severity).map(([k, v]) => (
+              <span key={k} className={`text-xs ${SEVERITY_STYLES[k]?.color || "text-muted-foreground"}`}>
+                {k}: {(v as number).toLocaleString()}
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ── Main Component ──
 
 export default function LogsPage() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
-  const [filters, setFilters] = useState<LogFilters>({
-    log_types: [],
-    event_types: [],
-    severities: []
-  });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [limit, setLimit] = useState(100);
-  const [offset, setOffset] = useState(0);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [stats, setStats] = useState<any>(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    setError(null);
+  // Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterLogType, setFilterLogType] = useState("");
+  const [filterSeverity, setFilterSeverity] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterEventType, setFilterEventType] = useState("");
 
+  const fetchLogs = useCallback(async (p: number, append: boolean = false) => {
+    if (p === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const queryFilters = {
-        ...filters,
-        search: searchTerm || undefined,
-        start_date: filters.start_date || undefined,
-        end_date: filters.end_date || undefined
-      };
-
-      const response = await fetch('/api/logs/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filters: queryFilters,
-          limit,
-          offset,
-          sort_by: 'created_at',
-          sort_order: 'desc'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch logs');
+      const params = new URLSearchParams({ page: String(p), page_size: "50" });
+      if (filterLogType) params.set("log_type", filterLogType);
+      if (filterSeverity) params.set("severity", filterSeverity);
+      if (filterSearch) params.set("search", filterSearch);
+      if (filterEventType) params.set("event_type", filterEventType);
+      const res = await apiRequest(`/api/logs?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(prev => append ? [...prev, ...data.items] : data.items);
+        setTotal(data.total);
       }
-
-      const data = await response.json();
-      setLogs(data.logs);
-      setTotalCount(data.total_count);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch logs');
-    } finally {
+    } catch {} finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [filterLogType, filterSeverity, filterSearch, filterEventType]);
 
-  useEffect(() => {
-    fetchLogs();
-  }, [filters, limit, offset]);
-
-  const handleSearch = () => {
-    setOffset(0);
-    fetchLogs();
-  };
-
-  const handleFilterChange = (key: keyof LogFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    setOffset(0);
-  };
-
-  const exportLogs = async (format: 'csv' | 'json') => {
+  const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/logs/export', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filters,
-          export_format: format,
-          include_metadata: true,
-          email_when_complete: false
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to start export');
+      const res = await apiRequest("/api/logs/stats?range=7");
+      if (res.ok) {
+        setStats(await res.json());
       }
+    } catch {}
+  }, []);
 
-      const data = await response.json();
-      alert(`Export job started (ID: ${data.id}). You can check the status in the exports section.`);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to start export');
-    }
+  useEffect(() => { setPage(1); fetchLogs(1); }, [fetchLogs]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  const loadMore = () => {
+    const next = page + 1;
+    setPage(next);
+    fetchLogs(next, true);
   };
 
-  const formatDuration = (ms: number | null) => {
-    if (!ms) return '-';
-    if (ms < 1000) return `${ms}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams({ format: "csv" });
+      if (filterLogType) params.set("log_type", filterLogType);
+      if (filterSeverity) params.set("severity", filterSeverity);
+      const res = await apiRequest(`/api/logs/export?${params}`);
+      if (res.ok) {
+        const job = await res.json();
+        alert(`Export started (job ${job.id}). Status: ${job.status}`);
+      }
+    } catch {}
   };
 
-  const formatCost = (cost: number | null) => {
-    if (!cost) return '-';
-    return `$${cost.toFixed(4)}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
+  if (loading) return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Platform Logs</h1>
-          <p className="text-gray-600">Monitor and analyze platform activity</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => exportLogs('csv')}>
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => exportLogs('json')}>
-            <Download className="w-4 h-4 mr-2" />
-            Export JSON
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Platform Logs"
+        description="Unified logging across all platform features"
+        actions={
+          <div className="flex gap-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setPage(1); fetchLogs(1); fetchStats(); }}
+              className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                showFilters ? "border-violet-500 text-violet-400" : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleExport}
+              className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </motion.button>
+          </div>
+        }
+      />
+
+      {/* Stats */}
+      <StatsBar stats={stats} />
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="w-5 h-5 mr-2" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Search</label>
-              <div className="flex">
-                <Input
-                  placeholder="Search logs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <Button variant="outline" className="ml-2" onClick={handleSearch}>
-                  <Search className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <Card>
+              <CardContent className="flex flex-wrap items-center gap-4 p-4">
+                {/* Log Type Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Type:</span>
+                  <div className="flex gap-1 flex-wrap">
+                    {["", "gateway", "auth", "agent", "kb", "admin", "deployment"].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setFilterLogType(t)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                          filterLogType === t ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground bg-accent"
+                        }`}
+                      >
+                        {t ? (LOG_TYPE_LABELS[t] || t) : "All"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Log Type</label>
-              <Select
-                value={filters.log_types[0] || 'all'}
-                onValueChange={(value) => handleFilterChange('log_types', value === 'all' ? [] : [value])}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="gateway">Gateway</SelectItem>
-                  <SelectItem value="agent">Agent</SelectItem>
-                  <SelectItem value="auth">Authentication</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="kb">Knowledge Base</SelectItem>
-                  <SelectItem value="deployment">Deployment</SelectItem>
-                  <SelectItem value="billing">Billing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Severity Filter */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Severity:</span>
+                  <div className="flex gap-1">
+                    {["", "debug", "info", "warn", "error", "critical"].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setFilterSeverity(s)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                          filterSeverity === s ? "bg-violet-600 text-white" : "text-muted-foreground hover:text-foreground bg-accent"
+                        }`}
+                      >
+                        {s || "All"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Severity</label>
-              <Select
-                value={filters.severities[0] || 'all'}
-                onValueChange={(value) => handleFilterChange('severities', value === 'all' ? [] : [value])}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All severities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="debug">Debug</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                  <SelectItem value="warn">Warning</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* Search */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Search:</span>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                      placeholder="Search messages..."
+                      className="rounded-md border border-border bg-background pl-7 pr-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 w-48"
+                    />
+                    {filterSearch && (
+                      <button onClick={() => setFilterSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2">
+                        <X className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Date Range</label>
-              <Input
-                type="date"
-                value={filters.start_date || ''}
-                onChange={(e) => handleFilterChange('start_date', e.target.value)}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                <span className="text-xs text-muted-foreground">{total} entries</span>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Results Summary */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center text-sm text-gray-600">
-          <Clock className="w-4 h-4 mr-1" />
-          {loading ? 'Loading...' : `${totalCount} logs found`}
-        </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Show:</span>
-          <Select value={limit.toString()} onValueChange={(value) => setLimit(parseInt(value))}>
-            <SelectTrigger className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="50">50</SelectItem>
-              <SelectItem value="100">100</SelectItem>
-              <SelectItem value="200">200</SelectItem>
-              <SelectItem value="500">500</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* Log entries */}
+      <div className="space-y-2">
+        {logs.length === 0 && (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <ScrollText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium">No logs found</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Logs will appear here as platform events occur.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {logs.map((log, i) => (
+          <motion.div
+            key={log.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i * 0.02, 0.4) }}
+          >
+            <Card
+              className="hover:border-violet-500/15 transition-colors cursor-pointer"
+              onClick={() => setExpanded(expanded === log.id ? null : log.id)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <motion.div animate={{ rotate: expanded === log.id ? 90 : 0 }} className="text-muted-foreground shrink-0">
+                      <ChevronRight className="h-4 w-4" />
+                    </motion.div>
+                    <SeverityBadge severity={log.severity} />
+                    <LogTypeBadge logType={log.log_type} />
+                    <span className="text-xs font-mono text-muted-foreground">{log.event_type}</span>
+                    <span className="text-sm truncate text-muted-foreground">{log.message || "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                    {log.duration_ms != null && (
+                      <span className="font-mono">{log.duration_ms}ms</span>
+                    )}
+                    {log.cost != null && log.cost > 0 && (
+                      <span className="font-mono">${log.cost.toFixed(4)}</span>
+                    )}
+                    <span>{formatTime(log.created_at)}</span>
+                  </div>
+                </div>
+
+                <AnimatePresence>
+                  {expanded === log.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 ml-7 rounded-md bg-accent/50 p-3 space-y-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                          {log.user_id && <div><span className="text-muted-foreground">User:</span> <span className="font-mono">{log.user_id.substring(0, 8)}...</span></div>}
+                          {log.resource_type && <div><span className="text-muted-foreground">Resource:</span> {log.resource_type}</div>}
+                          {log.resource_id && <div><span className="text-muted-foreground">Resource ID:</span> <span className="font-mono">{log.resource_id.substring(0, 8)}...</span></div>}
+                          {log.action && <div><span className="text-muted-foreground">Action:</span> {log.action}</div>}
+                          {log.trace_id && <div><span className="text-muted-foreground">Trace:</span> <span className="font-mono">{log.trace_id.substring(0, 8)}...</span></div>}
+                        </div>
+                        {log.metadata && Object.keys(log.metadata).length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">Metadata</p>
+                            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-background/50 rounded p-2">
+                              {JSON.stringify(log.metadata, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Logs Table */}
-      <Card>
-        <CardContent className="p-0">
-          {error ? (
-            <div className="p-6 text-center text-red-500">
-              <AlertCircle className="w-8 h-8 mx-auto mb-2" />
-              {error}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Cost</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.map((log) => {
-                  const SeverityIcon = SeverityIcons[log.severity as keyof typeof SeverityIcons] || Info;
-                  
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-xs">
-                        {formatDate(log.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="secondary" 
-                          className={`${LogTypeColors[log.log_type as keyof typeof LogTypeColors] || 'bg-gray-500'} text-white`}
-                        >
-                          {log.log_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{log.event_type}</span>
-                        {log.action && (
-                          <span className="ml-2 text-xs text-gray-500">({log.action})</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <SeverityIcon className={`w-4 h-4 mr-1 ${SeverityColors[log.severity as keyof typeof SeverityColors]}`} />
-                          <span className="capitalize">{log.severity}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {log.message || '-'}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatDuration(log.duration_ms)}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {formatCost(log.cost)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-
-          {!loading && logs.length === 0 && (
-            <div className="p-6 text-center text-gray-500">
-              No logs found matching your criteria
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pagination */}
-      {totalCount > limit && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Showing {offset + 1} to {Math.min(offset + limit, totalCount)} of {totalCount} logs
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              disabled={offset === 0}
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={offset + limit >= totalCount}
-              onClick={() => setOffset(offset + limit)}
-            >
-              Next
-            </Button>
-          </div>
+      {/* Load more */}
+      {logs.length < total && (
+        <div className="flex justify-center pt-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {loadingMore ? <LoadingDots size="sm" /> : <>Load More <ChevronDown className="h-4 w-4" /></>}
+          </motion.button>
         </div>
       )}
     </div>

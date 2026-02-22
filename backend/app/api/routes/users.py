@@ -13,7 +13,7 @@ from app.schemas.user import UserCreate, UserUpdate, UserResponse
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("", response_model=List[UserResponse])
 async def list_users(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -24,7 +24,7 @@ async def list_users(
     return result.scalars().all()
 
 
-@router.post("/", response_model=UserResponse, status_code=201)
+@router.post("", response_model=UserResponse, status_code=201)
 async def create_user(
     data: UserCreate,
     db: AsyncSession = Depends(get_db),

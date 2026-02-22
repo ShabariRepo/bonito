@@ -13,6 +13,7 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 | Cloud provider connections | 1 |
 | Gateway requests | 10,000/month |
 | Team seats | 1 |
+| Knowledge Base (AI Context) | 1 KB, 100 documents, 10K chunks, manual sync |
 | Support | Community (GitHub Issues) |
 | Analytics | Basic (7-day retention) |
 | Governance | — |
@@ -20,37 +21,39 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 
 ---
 
-### Pro — $149/month + usage
+### Pro — $499/month
 
-For teams adopting AI across multiple providers who need visibility and basic governance.
+For teams adopting AI across multiple providers who need visibility, routing, and governance.
 
 | Feature | Included |
 |---|---|
 | Cloud provider connections | 3 |
-| Gateway requests | 100,000/month included |
-| Overage | $0.001/request beyond 100K |
-| Team seats | 5 included ($20/seat/mo additional) |
+| Gateway requests | 250,000/month included |
+| Overage | $0.001/request beyond 250K |
+| Team seats | 10 included ($25/seat/mo additional) |
+| Knowledge Base (AI Context) | 5 KBs, unlimited documents, 500K chunks, scheduled sync |
 | Support | Email (business hours) |
 | Analytics | Full (90-day retention) |
-| Governance | Basic policies |
-| API gateway | ✅ with routing |
+| Governance | Basic policies + cost alerts |
+| API gateway | ✅ with smart routing |
 
 ---
 
-### Enterprise — $2,000/month (annual contract)
+### Enterprise — $2,000–$5,000/month (annual contract)
 
-For organizations that need advanced governance, compliance, and unlimited scale.
+For organizations that need advanced governance, compliance, and unlimited scale. Priced based on usage volume and support level.
 
 | Feature | Included |
 |---|---|
 | Cloud provider connections | Unlimited |
 | Gateway requests | Unlimited (usage-based overage pricing) |
 | Team seats | Unlimited |
+| Knowledge Base (AI Context) | Unlimited KBs, unlimited everything, webhook sync, custom embedding models |
 | SSO/SAML | ✅ (when available) |
 | Support | Priority + SLA |
 | Analytics | Full (unlimited retention) |
 | Governance | Advanced compliance & policy engine |
-| Routing | Custom routing policies |
+| Routing | Custom routing policies + failover |
 | Audit | Audit log export |
 | Onboarding | Dedicated onboarding session |
 
@@ -82,7 +85,7 @@ Any API call routed through the Bonito gateway proxy (the OpenAI-compatible endp
 Yes. Upgrade anytime; downgrades take effect at the next billing cycle. No long-term commitment on Free or Pro.
 
 ### Do you offer annual discounts?
-Enterprise is annual by default. For Pro, annual billing is available at $1,490/year (2 months free). Contact us for details.
+Enterprise is annual by default. For Pro, annual billing is available at $4,990/year (2 months free). Contact us for details.
 
 ### What happens if I exceed my gateway request limit?
 On Free, requests are throttled. On Pro, overage is billed at $0.001/request. On Enterprise, usage-based pricing is agreed during contracting.

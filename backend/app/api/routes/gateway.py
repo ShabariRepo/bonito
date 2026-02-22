@@ -131,6 +131,7 @@ async def chat_completions(
 
     key, policy = auth_context
     
+<<<<<<< HEAD
     # Track usage (check limits before processing request)
     org_id = key.org_id if key else (policy.org_id if policy else None)
     if org_id:
@@ -141,11 +142,19 @@ async def chat_completions(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=str(e)
             )
+=======
+    # Detect knowledge base from header
+    kb_header = raw_request.headers.get("X-Bonito-Knowledge-Base")
+>>>>>>> main
     
     # Handle routing policy requests
     if policy:
         try:
             data = request.model_dump(exclude_none=True)
+            
+            # Inject knowledge base if specified in header
+            if kb_header:
+                data.setdefault("bonito", {})["knowledge_base"] = kb_header
             
             # Apply routing policy to select model
             selected_model = await gateway_service.apply_routing_policy(policy, data, db)
@@ -154,9 +163,9 @@ async def chat_completions(
             # Log which policy was used
             logger.info(f"Applied routing policy {policy.name} (id: {policy.id}) for request")
             
-            # Use the policy's org_id and create a dummy key_id for logging
+            # Use the policy's org_id; key_id must be None (FK to gateway_keys)
             org_id = policy.org_id
-            key_id = policy.id  # Use policy ID as key_id for logging
+            key_id = None  # Routing policy requests don't have a gateway key
             
             # Streaming path
             if request.stream:
@@ -182,6 +191,10 @@ async def chat_completions(
 
         try:
             data = request.model_dump(exclude_none=True)
+            
+            # Inject knowledge base if specified in header
+            if kb_header:
+                data.setdefault("bonito", {})["knowledge_base"] = kb_header
 
             # Streaming path
             if request.stream:
@@ -461,7 +474,7 @@ async def _handle_streaming_completion_policy(
                 async with get_db_session() as log_db:
                     log_entry = GatewayRequest(
                         org_id=org_id,
-                        key_id=policy_id,
+                        key_id=None,  # Routing policy requests don't have a gateway key
                         model_requested=model,
                         model_used=model_used,
                         status="error" if error_occurred else "success",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +21,18 @@ import {
   Settings,
   BarChart3,
   ArrowRight,
+  Network,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { API_URL } from "@/lib/utils";
+import { useAPI } from "@/lib/swr";
+import dynamic from "next/dynamic";
+
+const NetworkTopology = dynamic(
+  () => import("@/components/gateway/network-topology").then((m) => m.NetworkTopology),
+  { ssr: false, loading: () => <div className="h-[600px] flex items-center justify-center"><LoadingDots /></div> }
+);
 
 /* ─── Types ─── */
 
@@ -153,42 +161,24 @@ console.log(response.choices[0].message.content);`,
 /* ─── Main Page ─── */
 
 export default function GatewayPage() {
-  const [usage, setUsage] = useState<UsageStats | null>(null);
-  const [keys, setKeys] = useState<GatewayKey[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: usage, isLoading: usageLoading, error: usageError, mutate: mutateUsage } = useAPI<UsageStats>("/api/gateway/usage");
+  const { data: keysData, isLoading: keysLoading, mutate: mutateKeys } = useAPI<GatewayKey[]>("/api/gateway/keys");
+  const { data: logsData, isLoading: logsLoading, mutate: mutateLogs } = useAPI<LogEntry[]>("/api/gateway/logs?limit=20");
+  const keys = keysData || [];
+  const logs = logsData || [];
+  const loading = usageLoading || keysLoading || logsLoading;
+  const error = usageError ? "Failed to load gateway data. Please check your connection and try again." : null;
+
+  const [networkView, setNetworkView] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const baseUrl = API_URL;
+  const isProduction = typeof window !== "undefined" && window.location.hostname !== "localhost";
+  const baseUrl = isProduction ? `https://${window.location.hostname}` : API_URL;
   const gatewayUrl = `${baseUrl}/v1/chat/completions`;
 
-  const fetchData = useCallback(async () => {
-    setError(null);
-    try {
-      const [usageRes, keysRes, logsRes] = await Promise.all([
-        apiRequest("/api/gateway/usage"),
-        apiRequest("/api/gateway/keys"),
-        apiRequest("/api/gateway/logs?limit=20"),
-      ]);
-      if (usageRes.ok) setUsage(await usageRes.json());
-      if (keysRes.ok) setKeys(await keysRes.json());
-      if (logsRes.ok) setLogs(await logsRes.json());
-      // If all requests failed, show error
-      if (!usageRes.ok && !keysRes.ok && !logsRes.ok) {
-        throw new Error("All gateway requests failed");
-      }
-    } catch (e) {
-      console.error("Failed to fetch gateway data:", e);
-      setError("Failed to load gateway data. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchData = useCallback(() => { mutateUsage(); mutateKeys(); mutateLogs(); }, [mutateUsage, mutateKeys, mutateLogs]);
 
   const createKey = async () => {
     if (!newKeyName.trim()) return;
@@ -229,9 +219,42 @@ export default function GatewayPage() {
       <PageHeader
         title="API Gateway"
         description="Route AI requests through a unified OpenAI-compatible endpoint with automatic failover, cost tracking, and rate limiting."
+        actions={
+          <button
+            onClick={() => setNetworkView((v) => !v)}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+              networkView
+                ? "bg-violet-600 text-white shadow-lg shadow-violet-600/25 hover:bg-violet-500"
+                : "border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <Network className="h-4 w-4" />
+            Network View
+          </button>
+        }
       />
 
-      {error && <ErrorBanner message={error} onRetry={fetchData} />}
+      {error && !networkView && <ErrorBanner message={error} onRetry={fetchData} />}
+
+      {/* ─── Network Topology View ─── */}
+      <AnimatePresence mode="wait">
+        {networkView && (
+          <motion.div
+            key="network"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.25 }}
+            className="rounded-xl border border-zinc-800 overflow-hidden"
+            style={{ height: "calc(100vh - 220px)", minHeight: 500 }}
+          >
+            <NetworkTopology />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Standard Gateway View ─── */}
+      {!networkView && <>
 
       {/* Quick Navigation */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -478,6 +501,8 @@ export default function GatewayPage() {
           )}
         </CardContent>
       </Card>
+
+      </>}
     </div>
   );
 }

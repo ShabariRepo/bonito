@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { useAPI } from "@/lib/swr";
 
 /* ─── Animated counter ─── */
 function AnimatedCounter({ value, prefix = "", suffix = "", decimals = 0 }: {
@@ -104,39 +105,16 @@ const PROVIDER_COLORS: Record<string, string> = {
 };
 
 export default function AnalyticsPage() {
-  const [overview, setOverview] = useState<any>(null);
-  const [usage, setUsage] = useState<any>(null);
-  const [costs, setCosts] = useState<any>(null);
-  const [trends, setTrends] = useState<any>(null);
   const [period, setPeriod] = useState("day");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadAnalytics = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [o, u, c, t] = await Promise.all([
-        apiRequest("/api/analytics/overview").then(r => { if (!r.ok) throw new Error("overview"); return r.json(); }),
-        apiRequest(`/api/analytics/usage?period=${period}`).then(r => { if (!r.ok) throw new Error("usage"); return r.json(); }),
-        apiRequest("/api/analytics/costs").then(r => { if (!r.ok) throw new Error("costs"); return r.json(); }),
-        apiRequest("/api/analytics/trends").then(r => { if (!r.ok) throw new Error("trends"); return r.json(); }),
-      ]);
-      setOverview(o);
-      setUsage(u);
-      setCosts(c);
-      setTrends(t);
-    } catch (e) {
-      console.error("Failed to load analytics", e);
-      setError("Failed to load analytics data. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: overview, isLoading: oLoad, error: oErr, mutate: mutateOverview } = useAPI<any>("/api/analytics/overview");
+  const { data: usage, isLoading: uLoad, mutate: mutateUsage } = useAPI<any>(`/api/analytics/usage?period=${period}`);
+  const { data: costs, isLoading: cLoad } = useAPI<any>("/api/analytics/costs");
+  const { data: trends, isLoading: tLoad } = useAPI<any>("/api/analytics/trends");
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [period]);
+  const loading = oLoad || uLoad || cLoad || tLoad;
+  const error = oErr ? "Failed to load analytics data. Please check your connection and try again." : null;
+  const loadAnalytics = () => { mutateOverview(); mutateUsage(); };
 
   if (loading) {
     return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;

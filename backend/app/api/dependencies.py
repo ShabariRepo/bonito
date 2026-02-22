@@ -33,6 +33,14 @@ async def get_current_user(
     return user
 
 
+async def require_superadmin(user: User = Depends(get_current_user)) -> User:
+    from app.core.config import settings
+    admin_emails = [e.strip() for e in settings.admin_emails.split(",") if e.strip()]
+    if user.email not in admin_emails:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Platform admin access required")
+    return user
+
+
 async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")

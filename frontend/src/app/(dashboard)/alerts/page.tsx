@@ -13,6 +13,7 @@ import {
   DollarSign,
   Shield,
   AlertTriangle,
+  Rocket,
   Mail,
   Globe,
   Smartphone,
@@ -22,6 +23,8 @@ import { apiRequest } from "@/lib/auth";
 
 const TYPE_OPTIONS = [
   { value: "budget_threshold", label: "Budget Threshold", icon: DollarSign, description: "Alert when spending exceeds a percentage of budget" },
+  { value: "deployment_status", label: "Deployment Status", icon: Rocket, description: "Alert when deployments are created, updated, or fail" },
+  { value: "gateway_error", label: "Gateway Errors", icon: AlertTriangle, description: "Alert on gateway errors or high error rates" },
   { value: "compliance_violation", label: "Compliance Violation", icon: Shield, description: "Alert on policy violations" },
   { value: "model_deprecation", label: "Model Deprecation", icon: AlertTriangle, description: "Alert when a model is being deprecated" },
 ];

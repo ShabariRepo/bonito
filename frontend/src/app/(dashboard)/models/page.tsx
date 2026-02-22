@@ -9,6 +9,7 @@ import { LoadingDots } from "@/components/ui/loading-dots";
 import { PageHeader } from "@/components/ui/page-header";
 import { Box, Sparkles, MessageSquare, Image, Code, Search, RefreshCw, AlertTriangle, Lock, Filter } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { useAPI } from "@/lib/swr";
 
 interface Model {
   id: string;
@@ -59,9 +60,11 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 export default function ModelsPage() {
-  const [models, setModels] = useState<Model[]>([]);
-  const [connectedProviders, setConnectedProviders] = useState<ConnectedProvider[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: modelsData, isLoading: modLoading, mutate: mutateModels } = useAPI<Model[]>("/api/models/");
+  const { data: providersData, isLoading: provLoading } = useAPI<ConnectedProvider[]>("/api/providers/");
+  const models = modelsData || [];
+  const connectedProviders = (providersData || []).filter(p => p.status === "active");
+  const loading = modLoading || provLoading;
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<Record<string, number> | null>(null);
   const [search, setSearch] = useState("");
@@ -73,46 +76,21 @@ export default function ModelsPage() {
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const [bulkActivating, setBulkActivating] = useState(false);
 
-  const fetchModels = useCallback(async (autoSync = false) => {
-    try {
-      // Fetch connected providers and models in parallel
-      const [provRes, modRes] = await Promise.all([
-        apiRequest("/api/providers/"),
-        apiRequest("/api/models/"),
-      ]);
-
-      if (provRes.ok) {
-        const provData = await provRes.json();
-        const active = (Array.isArray(provData) ? provData : []).filter(
-          (p: ConnectedProvider) => p.status === "active"
-        );
-        setConnectedProviders(active);
-      }
-
-      if (modRes.ok) {
-        let data = await modRes.json();
-        if (data.length === 0 && autoSync) {
-          // Auto-sync from providers on first load
-          const syncRes = await apiRequest("/api/models/sync", { method: "POST" });
-          if (syncRes.ok) {
-            const syncData = await syncRes.json();
-            setSyncResult(syncData.details || null);
-          }
-          const retry = await apiRequest("/api/models/");
-          if (retry.ok) data = await retry.json();
-        }
-        setModels(data);
-      }
-    } catch (e) {
-      console.error("Failed to fetch models", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Auto-sync if no models on first load
+  const [autoSynced, setAutoSynced] = useState(false);
   useEffect(() => {
-    fetchModels(true);
-  }, [fetchModels]);
+    if (!modLoading && models.length === 0 && !autoSynced) {
+      setAutoSynced(true);
+      (async () => {
+        const syncRes = await apiRequest("/api/models/sync", { method: "POST" });
+        if (syncRes.ok) {
+          const syncData = await syncRes.json();
+          setSyncResult(syncData.details || null);
+        }
+        mutateModels();
+      })();
+    }
+  }, [modLoading, models.length, autoSynced, mutateModels]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -123,11 +101,7 @@ export default function ModelsPage() {
         const data = await res.json();
         setSyncResult(data.details || null);
       }
-      // Re-fetch models after sync
-      const modRes = await apiRequest("/api/models/");
-      if (modRes.ok) {
-        setModels(await modRes.json());
-      }
+      mutateModels();
     } catch (e) {
       console.error("Sync failed", e);
     } finally {
@@ -152,7 +126,7 @@ export default function ModelsPage() {
       });
       if (data.success && (data.status === "enabled" || data.status === "deployed")) {
         // Refresh models to pick up new status
-        setTimeout(() => fetchModels(false), 1000);
+        setTimeout(() => mutateModels(), 1000);
       }
     } catch (e) {
       setActivateResult({
@@ -186,7 +160,7 @@ export default function ModelsPage() {
         status: succeeded > 0 ? "enabled" : "failed",
       });
       setBulkSelected(new Set());
-      setTimeout(() => fetchModels(false), 1000);
+      setTimeout(() => mutateModels(), 1000);
     } catch (e) {
       setActivateResult({
         id: "bulk",

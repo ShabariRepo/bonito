@@ -30,46 +30,79 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/models", tags=["models"])
 
 
-async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> int:
-    """Fetch models from cloud API and upsert into DB. Returns count synced."""
+async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dict:
+    """Fetch models from cloud API and upsert into DB. Returns sync result dict.
+    
+    Uses upsert strategy: existing models with deployments are updated in-place,
+    models without deployments are deleted and re-created, new models are inserted.
+    """
+    from app.models.deployment import Deployment
     try:
         cloud_models = await get_models_for_provider(provider.provider_type, str(provider.id))
-    except Exception as e:
-        logger.error(f"Failed to fetch models for {provider.provider_type}: {e}")
-        return 0
 
-    if not cloud_models:
-        return 0
+        if not cloud_models:
+            return {"count": 0, "error": None}
 
-    # Delete existing models for this provider, then re-insert
-    await db.execute(delete(Model).where(Model.provider_id == provider.id))
-
-    count = 0
-    for m in cloud_models:
-        model_id = getattr(m, "provider_model_id", None) or getattr(m, "model_id", None) or getattr(m, "id", str(count))
-        display_name = getattr(m, "name", None) or getattr(m, "model_name", None) or model_id
-        capabilities_raw = getattr(m, "capabilities", [])
-        capabilities = capabilities_raw if isinstance(capabilities_raw, dict) else {"types": capabilities_raw}
-        pricing = {}
-        for field in ("input_price_per_1k", "output_price_per_1k", "pricing_tier", "context_window"):
-            val = getattr(m, field, None)
-            if val is not None:
-                pricing[field] = val
-        status = getattr(m, "status", "available")
-        pricing["status"] = status
-
-        db_model = Model(
-            provider_id=provider.id,
-            model_id=str(model_id),
-            display_name=str(display_name),
-            capabilities=capabilities,
-            pricing_info=pricing,
+        # Get model IDs that have deployments (protected — can't delete these)
+        deployed_result = await db.execute(
+            select(Model.id, Model.model_id).where(
+                Model.provider_id == provider.id,
+                Model.id.in_(select(Deployment.model_id))
+            )
         )
-        db.add(db_model)
-        count += 1
+        deployed_models = {row.model_id: row.id for row in deployed_result.all()}
 
-    await db.flush()
-    return count
+        # Delete only non-deployed models for this provider
+        if deployed_models:
+            await db.execute(
+                delete(Model).where(
+                    Model.provider_id == provider.id,
+                    ~Model.id.in_(list(deployed_models.values()))
+                )
+            )
+        else:
+            await db.execute(delete(Model).where(Model.provider_id == provider.id))
+
+        count = 0
+        for m in cloud_models:
+            model_id = getattr(m, "provider_model_id", None) or getattr(m, "model_id", None) or getattr(m, "id", str(count))
+            display_name = getattr(m, "name", None) or getattr(m, "model_name", None) or model_id
+            capabilities_raw = getattr(m, "capabilities", [])
+            capabilities = capabilities_raw if isinstance(capabilities_raw, dict) else {"types": capabilities_raw}
+            pricing = {}
+            for field in ("input_price_per_1k", "output_price_per_1k", "pricing_tier", "context_window"):
+                val = getattr(m, field, None)
+                if val is not None:
+                    pricing[field] = val
+            status_val = getattr(m, "status", "available")
+            pricing["status"] = status_val
+
+            # If this model has a deployment, update it in-place instead of inserting
+            if str(model_id) in deployed_models:
+                existing_id = deployed_models[str(model_id)]
+                existing = await db.get(Model, existing_id)
+                if existing:
+                    existing.display_name = str(display_name)
+                    existing.capabilities = capabilities
+                    existing.pricing_info = pricing
+                    count += 1
+                    continue
+
+            db_model = Model(
+                provider_id=provider.id,
+                model_id=str(model_id),
+                display_name=str(display_name),
+                capabilities=capabilities,
+                pricing_info=pricing,
+            )
+            db.add(db_model)
+            count += 1
+
+        await db.flush()
+        return {"count": count, "error": None}
+    except Exception as e:
+        logger.error(f"Failed to sync models for {provider.provider_type}: {e}", exc_info=True)
+        return {"count": 0, "error": str(e)}
 
 
 @router.post("/sync")
@@ -79,11 +112,24 @@ async def sync_all_models(db: AsyncSession = Depends(get_db), user: User = Depen
     providers = result.scalars().all()
     total = 0
     details = {}
+    errors = {}
     for p in providers:
-        count = await sync_provider_models(p, db)
-        total += count
-        details[p.provider_type] = count
-    return {"synced": total, "details": details}
+        # Use a savepoint per provider so one failure doesn't poison the whole transaction
+        try:
+            async with db.begin_nested():
+                sync_result = await sync_provider_models(p, db)
+                total += sync_result["count"]
+                details[p.provider_type] = sync_result["count"]
+                if sync_result["error"]:
+                    errors[p.provider_type] = sync_result["error"]
+        except Exception as e:
+            logger.error(f"Sync savepoint failed for {p.provider_type}: {e}")
+            details[p.provider_type] = 0
+            errors[p.provider_type] = str(e)
+    response = {"synced": total, "details": details}
+    if errors:
+        response["errors"] = errors
+    return response
 
 
 @router.post("/sync/{provider_id}")
@@ -93,21 +139,39 @@ async def sync_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), u
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(404, "Provider not found")
-    count = await sync_provider_models(provider, db)
-    return {"synced": count, "provider": provider.provider_type}
+    sync_result = await sync_provider_models(provider, db)
+    response = {"synced": sync_result["count"], "provider": provider.provider_type}
+    if sync_result["error"]:
+        response["error"] = sync_result["error"]
+    return response
 
 
-@router.get("/", response_model=List[ModelResponse])
-async def list_models(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    result = await db.execute(
-        select(Model, CloudProvider.provider_type).join(CloudProvider, Model.provider_id == CloudProvider.id).where(CloudProvider.org_id == user.org_id)
+@router.get("", response_model=List[ModelResponse])
+async def list_models(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    provider_type: str = Query(None, description="Filter by provider type (aws, azure, gcp, openai, anthropic)"),
+    status: str = Query(None, description="Filter by model status (available, deployed, etc.)"),
+    search: str = Query(None, description="Search by model name or ID"),
+):
+    query = (
+        select(Model, CloudProvider.provider_type)
+        .join(CloudProvider, Model.provider_id == CloudProvider.id)
+        .where(CloudProvider.org_id == user.org_id)
     )
+    if provider_type:
+        query = query.where(CloudProvider.provider_type == provider_type)
+    result = await db.execute(query)
     models = []
-    for model, provider_type in result.all():
-        model.provider_type = provider_type
+    for model, pt in result.all():
+        model.provider_type = pt
         # Extract access status from pricing_info — default to "unknown" (not "available")
         # so models without explicit status aren't falsely shown as enabled
         model.status = (model.pricing_info or {}).get("status", "unknown")
+        if status and model.status != status:
+            continue
+        if search and search.lower() not in (model.display_name or "").lower() and search.lower() not in (model.model_id or "").lower():
+            continue
         models.append(model)
     return models
 
@@ -123,7 +187,7 @@ async def get_model(model_id: UUID, db: AsyncSession = Depends(get_db), user: Us
     return model
 
 
-@router.post("/", response_model=ModelResponse, status_code=201)
+@router.post("", response_model=ModelResponse, status_code=201)
 async def create_model(data: ModelCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     model = Model(
         provider_id=data.provider_id,
@@ -667,6 +731,7 @@ async def activate_model(
             subscription_id=secrets.get("subscription_id", ""),
             resource_group=secrets.get("resource_group", ""),
             endpoint=secrets.get("endpoint", ""),
+            api_key=secrets.get("api_key", ""),
         )
     elif provider.provider_type == "gcp":
         activation = await activate_gcp_model(
@@ -688,6 +753,63 @@ async def activate_model(
         from sqlalchemy.orm.attributes import flag_modified
         flag_modified(model, "pricing_info")
         await db.flush()
+        
+        # Azure: auto-create a Deployment record so the gateway can route
+        # to the real Azure deployment name (azure/{deployment_name}).
+        if provider.provider_type == "azure":
+            try:
+                from app.services.deployment_service import deploy_azure as deploy_azure_arm
+                from app.models.deployment import Deployment as DeploymentRecord
+                
+                dep_name = model.model_id.replace(".", "-").replace("/", "-")[:64]
+                deploy_config = {"name": dep_name, "tpm": 1, "tier": "Standard"}
+                
+                deploy_result = await deploy_azure_arm(
+                    model_id=model.model_id,
+                    config=deploy_config,
+                    tenant_id=secrets.get("tenant_id", ""),
+                    client_id=secrets.get("client_id", ""),
+                    client_secret=secrets.get("client_secret", ""),
+                    endpoint=secrets.get("endpoint", ""),
+                    subscription_id=secrets.get("subscription_id", ""),
+                    resource_group=secrets.get("resource_group", ""),
+                )
+                
+                if deploy_result.success:
+                    # Avoid duplicate Deployment records
+                    existing_dep = await db.execute(
+                        select(DeploymentRecord).where(
+                            and_(
+                                DeploymentRecord.org_id == user.org_id,
+                                DeploymentRecord.model_id == model.id,
+                            )
+                        )
+                    )
+                    if not existing_dep.scalar_one_or_none():
+                        new_dep = DeploymentRecord(
+                            org_id=user.org_id,
+                            model_id=model.id,
+                            provider_id=provider.id,
+                            config={
+                                "name": dep_name,
+                                "cloud_model_id": model.model_id,
+                                "provider_type": "azure",
+                                "endpoint_url": deploy_result.endpoint_url,
+                                "cloud_resource_id": deploy_result.cloud_resource_id,
+                                "tpm": 1,
+                                "tier": "Standard",
+                            },
+                            status=deploy_result.status if deploy_result.status in ("active", "deploying") else "active",
+                        )
+                        db.add(new_dep)
+                        await db.flush()
+                        logger.info(f"Auto-created Azure deployment '{dep_name}' for model {model.model_id}")
+                else:
+                    logger.warning(
+                        f"Azure auto-deploy failed for {model.model_id}: {deploy_result.message}"
+                    )
+            except Exception as e:
+                logger.warning(f"Azure auto-deploy failed for {model.model_id}: {e}")
         
         # Invalidate gateway router cache so new model is available
         from app.services.gateway import reset_router

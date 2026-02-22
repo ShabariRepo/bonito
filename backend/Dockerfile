@@ -3,7 +3,7 @@ FROM python:3.12-slim AS dev
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev pkg-config libxmlsec1-dev libxmlsec1-openssl && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -19,14 +19,23 @@ FROM python:3.12-slim AS production
 
 WORKDIR /app
 
+# libpq5: postgres driver runtime
+# libxmlsec1-openssl: xmlsec runtime (python3-saml / SAML SSO)
+# gcc, libpq-dev, pkg-config, libxmlsec1-dev: build-time deps for pip install
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
-    rm -rf /var/lib/apt/lists/* && \
+    apt-get install -y --no-install-recommends \
+        gcc libpq-dev pkg-config \
+        libxmlsec1-dev libxmlsec1-openssl \
+    && rm -rf /var/lib/apt/lists/* && \
     addgroup --system app && adduser --system --group app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip cache purge 2>/dev/null || true
+
+# Remove build-only deps to keep image slim
+RUN apt-get update && apt-get remove -y gcc libpq-dev pkg-config libxmlsec1-dev && \
+    apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
