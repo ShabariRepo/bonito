@@ -1,6 +1,6 @@
 # Bonito Roadmap
 
-_Last updated: 2026-02-18_
+_Last updated: 2026-02-22_
 
 ## Current Status
 - All 18 core phases complete ✅
@@ -1258,6 +1258,37 @@ module "bonito_gateway" {
 - [ ] Multi-model agent pipelines (chain cheap→expensive for RAG patterns)
 
 ---
+
+## Near-Term (Next Up)
+
+### 💳 Stripe Integration
+- [ ] Stripe Checkout for Pro tier ($499/mo)
+- [ ] Webhook handler for subscription lifecycle (created, updated, cancelled)
+- [ ] Automatic tier upgrade/downgrade on payment status change
+- [ ] Usage-based billing metering (gateway calls, tokens)
+- [ ] Customer portal for billing management
+- [ ] Free → Pro upgrade flow in dashboard + CLI
+
+### 🏗️ VPC Gateway (Enterprise)
+- [ ] Self-hosted gateway binary deployed into customer's VPC
+- [ ] Control plane stays hosted by Bonito (management, analytics, policies)
+- [ ] Gateway ↔ control plane secure tunnel (mTLS)
+- [ ] Customer data never leaves their network
+- [ ] Kong/Istio-inspired architecture
+- [ ] Terraform module for one-click VPC deployment
+
+### 🔗 Agent-to-Agent Connections (Bonobot)
+- [ ] E2E test invoke_agent delegation via CLI
+- [ ] Connection creation/management in CLI (`bonito agents connect`)
+- [ ] Visual connection editing in React Flow canvas
+- [ ] Cross-project agent invocation (Enterprise only)
+
+### 🔧 Production Polish
+- [ ] Vault client cache TTL (currently no expiry — stale reads possible)
+- [ ] GCP model aliasing (friendly names for Vertex AI models)
+- [ ] CLI `plan show` endpoint (subscription info via API)
+- [ ] CLI merge `feature/bonito-cli` branch → `main`
+- [ ] Azure deployment auto-creation on provider connect (skip manual step)
 
 ## Long-Term (3-6 months)
 
