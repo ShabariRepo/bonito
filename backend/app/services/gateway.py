@@ -613,14 +613,25 @@ async def chat_completion(
         log_entry.latency_ms = elapsed_ms
         log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
 
-        # Determine provider from model used
+        # Determine provider from DB lookup, fallback to heuristic
         model_used = log_entry.model_used or ""
-        if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
-            log_entry.provider = "aws"
-        elif "azure" in model_used:
-            log_entry.provider = "azure"
-        elif "vertex" in model_used or "gemini" in model_used:
-            log_entry.provider = "gcp"
+        try:
+            result = await db.execute(
+                select(CloudProvider.provider_type)
+                .join(Model, Model.provider_id == CloudProvider.id)
+                .where(and_(CloudProvider.org_id == org_id, Model.model_id == model_used))
+                .limit(1)
+            )
+            log_entry.provider = result.scalar_one_or_none()
+        except Exception:
+            log_entry.provider = None
+        if not log_entry.provider:
+            if any(k in model_used for k in ("bedrock", "anthropic", "amazon", "nova", "titan")):
+                log_entry.provider = "aws"
+            elif any(k in model_used for k in ("azure", "gpt-", "o1-", "o3-", "o4-", "dall-e")):
+                log_entry.provider = "azure"
+            elif any(k in model_used for k in ("vertex", "gemini", "palm")):
+                log_entry.provider = "gcp"
 
         db.add(log_entry)
         await db.flush()

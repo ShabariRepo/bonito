@@ -38,8 +38,40 @@ from app.schemas.gateway import (
 from app.core.database import get_db_session
 from app.services import gateway as gateway_service
 from app.services.gateway import PolicyViolation
+from app.models.cloud_provider import CloudProvider
+from app.models.model import Model
 
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_provider(model_name: str, org_id, db: AsyncSession) -> Optional[str]:
+    """Look up the cloud provider type for a model from the DB."""
+    try:
+        async with db.begin_nested():
+            result = await db.execute(
+                select(CloudProvider.provider_type)
+                .join(Model, Model.provider_id == CloudProvider.id)
+                .where(
+                    and_(
+                        CloudProvider.org_id == org_id,
+                        Model.model_id == model_name,
+                    )
+                )
+                .limit(1)
+            )
+            row = result.scalar_one_or_none()
+            if row:
+                return row
+    except Exception:
+        pass
+    # Fallback: heuristic from model name
+    if any(k in model_name for k in ("bedrock", "anthropic", "amazon", "nova", "titan")):
+        return "aws"
+    elif any(k in model_name for k in ("azure", "gpt-", "o1-", "o3-", "o4-", "dall-e")):
+        return "azure"
+    elif any(k in model_name for k in ("vertex", "gemini", "palm")):
+        return "gcp"
+    return None
 
 router = APIRouter(tags=["gateway"])
 
@@ -319,16 +351,9 @@ async def _handle_streaming_completion(
             except Exception:
                 pass
 
-            provider = None
-            if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
-                provider = "aws"
-            elif "azure" in model_used:
-                provider = "azure"
-            elif "vertex" in model_used or "gemini" in model_used:
-                provider = "gcp"
-
             try:
                 async with get_db_session() as log_db:
+                    provider = await _resolve_provider(model_used or model, org_id, log_db)
                     log_entry = GatewayRequest(
                         org_id=org_id,
                         key_id=key_id,
@@ -455,16 +480,9 @@ async def _handle_streaming_completion_policy(
             except Exception:
                 pass
 
-            provider = None
-            if "bedrock" in model_used or "anthropic" in model_used or "amazon" in model_used:
-                provider = "aws"
-            elif "azure" in model_used:
-                provider = "azure"
-            elif "vertex" in model_used or "gemini" in model_used:
-                provider = "gcp"
-
             try:
                 async with get_db_session() as log_db:
+                    provider = await _resolve_provider(model_used or model, org_id, log_db)
                     log_entry = GatewayRequest(
                         org_id=org_id,
                         key_id=None,  # Routing policy requests don't have a gateway key

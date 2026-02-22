@@ -37,8 +37,10 @@ class SubscriptionStatus(str, Enum):
 
 class BonobotPlan(str, Enum):
     NONE = "none"
-    HOSTED = "hosted"
-    VPC = "vpc"
+    PRO = "pro"
+    ENTERPRISE = "enterprise"
+    HOSTED = "hosted"  # legacy alias
+    VPC = "vpc"  # legacy alias
 
 
 class FeatureAccessException(HTTPException):
