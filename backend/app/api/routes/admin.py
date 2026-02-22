@@ -312,6 +312,45 @@ async def update_user(
     }
 
 
+@router.post("/users/{user_id}/verify", response_model=dict)
+async def verify_user_email(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Admin: force-verify a user's email."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.email_verified = True
+    await db.flush()
+
+    return {"id": str(user.id), "email": user.email, "email_verified": True}
+
+
+@router.post("/users/verify-by-email", response_model=dict)
+async def verify_user_by_email(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Admin: force-verify a user by email address."""
+    email = body.get("email")
+    if not email:
+        raise HTTPException(status_code=422, detail="email required")
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.email_verified = True
+    await db.flush()
+
+    return {"id": str(user.id), "email": user.email, "email_verified": True}
+
+
 @router.delete("/users/{user_id}", status_code=204)
 async def delete_user(
     user_id: uuid.UUID,
