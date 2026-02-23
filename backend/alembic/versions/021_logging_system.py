@@ -14,7 +14,18 @@ branch_labels = None
 depends_on = None
 
 
+def _table_exists(table):
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name=:t"
+    ), {"t": table})
+    return result.fetchone() is not None
+
 def upgrade():
+    # Skip if tables already exist (from parallel bonobot branch)
+    if _table_exists("log_integrations"):
+        return
+
     # Create log integrations table for external destinations
     op.create_table(
         "log_integrations",

@@ -17,17 +17,38 @@ branch_labels = None
 depends_on = None
 
 
+def _col_exists(table, column):
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.columns WHERE table_name=:t AND column_name=:c"
+    ), {"t": table, "c": column})
+    return result.fetchone() is not None
+
+def _table_exists(table):
+    conn = op.get_bind()
+    result = conn.execute(sa.text(
+        "SELECT 1 FROM information_schema.tables WHERE table_name=:t"
+    ), {"t": table})
+    return result.fetchone() is not None
+
 def upgrade() -> None:
-    # Add subscription tier fields to organizations table
-    op.add_column("organizations", sa.Column("subscription_tier", sa.String(50), nullable=False, server_default="free"))
-    op.add_column("organizations", sa.Column("subscription_status", sa.String(50), nullable=False, server_default="active"))
-    op.add_column("organizations", sa.Column("subscription_updated_at", sa.DateTime(timezone=True), nullable=True))
+    # Add subscription tier fields to organizations table (idempotent)
+    if not _col_exists("organizations", "subscription_tier"):
+        op.add_column("organizations", sa.Column("subscription_tier", sa.String(50), nullable=False, server_default="free"))
+    if not _col_exists("organizations", "subscription_status"):
+        op.add_column("organizations", sa.Column("subscription_status", sa.String(50), nullable=False, server_default="active"))
+    if not _col_exists("organizations", "subscription_updated_at"):
+        op.add_column("organizations", sa.Column("subscription_updated_at", sa.DateTime(timezone=True), nullable=True))
     
     # Add Bonobot fields to organizations table
-    op.add_column("organizations", sa.Column("bonobot_plan", sa.String(50), nullable=False, server_default="none"))
-    op.add_column("organizations", sa.Column("bonobot_agent_limit", sa.Integer(), nullable=False, server_default="0"))
+    if not _col_exists("organizations", "bonobot_plan"):
+        op.add_column("organizations", sa.Column("bonobot_plan", sa.String(50), nullable=False, server_default="none"))
+    if not _col_exists("organizations", "bonobot_agent_limit"):
+        op.add_column("organizations", sa.Column("bonobot_agent_limit", sa.Integer(), nullable=False, server_default="0"))
 
-    # Create subscription_history table
+    # Create subscription_history table (idempotent)
+    if _table_exists("subscription_history"):
+        return
     op.create_table(
         "subscription_history",
         sa.Column("id", sa.Uuid(), nullable=False, default=sa.text("gen_random_uuid()")),
