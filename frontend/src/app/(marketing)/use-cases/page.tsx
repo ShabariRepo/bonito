@@ -29,6 +29,11 @@ import {
   Database,
   Globe,
   BookOpen,
+  ChevronDown,
+  Clock,
+  Briefcase,
+  Puzzle,
+  Rocket,
 } from "lucide-react";
 
 /* ─── Use Case Data ───────────────────────────────────────────────── */
@@ -36,6 +41,7 @@ import {
 interface UseCase {
   id: string;
   tab: string;
+  type: "case-study" | "comparison";
   title: string;
   subtitle: string;
   company: {
@@ -57,12 +63,225 @@ interface UseCase {
     savingsSummary: { vs: string; saved: string; pct: string; detail?: string }[];
     footnote: string;
   };
+  // Comparison-specific fields
+  comparison?: {
+    scenario: string;
+    approaches: {
+      name: string;
+      icon: any;
+      color: string;
+      borderColor: string;
+      bgColor: string;
+      timeline: string;
+      year1Cost: string;
+      ongoing: string;
+      tokenUsage: string;
+      typicalModels: string;
+      monthlyAiSpend: string;
+      totalYear1: string;
+      details: string[];
+      risks: string[];
+    }[];
+    table: {
+      label: string;
+      consulting: string;
+      patchwork: string;
+      bonito: string;
+    }[];
+    riskCards: {
+      approach: string;
+      color: string;
+      borderColor: string;
+      bgColor: string;
+      icon: any;
+      risks: string[];
+    }[];
+  };
 }
 
 const useCases: UseCase[] = [
+  /* ── NEW: Comparison Article ─────────────────────────────────────── */
+  {
+    id: "enterprise-ai-rollout",
+    tab: "Enterprise AI Rollout",
+    type: "comparison",
+    title: "Three Ways to Roll Out Enterprise AI",
+    subtitle:
+      "Same scenario, three radically different approaches. A 500-employee company wants to deploy AI across Engineering, Customer Support, and Finance using AWS + Azure + GCP. Here's what each path actually costs — in time, money, and risk.",
+    company: {
+      industry: "Enterprise (cross-industry)",
+      scale: "500 employees, 3 departments (Engineering, Customer Support, Finance)",
+      cloud: "AWS + Azure + GCP (all three)",
+      teams: "Engineering, Customer Support, Finance",
+      data: "Internal documentation, customer interactions, financial records, code repositories",
+      goal: "Deploy AI across all 3 departments with multi-cloud support, governance, and cost control",
+    },
+    painPoints: [],
+    aiUseCases: [],
+    results: [],
+    costAnalysis: {
+      headline: "",
+      description: "",
+      models: [],
+      scenarios: [],
+      savingsSummary: [],
+      footnote: "",
+    },
+    comparison: {
+      scenario:
+        "A 500-employee company wants to deploy AI across 3 departments — Engineering, Customer Support, and Finance — using AWS + Azure + GCP.",
+      approaches: [
+        {
+          name: "The Consulting Route",
+          icon: Briefcase,
+          color: "text-red-400",
+          borderColor: "border-red-500/30",
+          bgColor: "bg-red-500/5",
+          timeline: "6–12 months",
+          year1Cost: "$500K–$2M",
+          ongoing: "$100K–$200K/yr maintaining custom integrations",
+          tokenUsage: "~2M tokens/month once live (single-vendor, unoptimized)",
+          typicalModels: "GPT-4o for everything (Azure-only, vendor lock-in from consultant's recommendation)",
+          monthlyAiSpend: "~$30/month at 2M tokens… but they don't get here for 6–12 months",
+          totalYear1: "$500K–$2M+ with AI not live until month 8–12",
+          details: [
+            "e.g., Deloitte, Accenture",
+            "Consulting engagement + internal resources",
+            "Consultant picks one model, one cloud — strategy is stale by delivery",
+            "Models change quarterly; their recommendation is a point-in-time snapshot",
+            "Compliance recommendations delivered as PDFs, not automation",
+          ],
+          risks: [
+            "Model obsolescence — GPT-4o today might not be optimal in 6 months",
+            "Vendor lock-in from consultant's single-cloud recommendation",
+            "No operational layer — consultant delivers a strategy deck, not infrastructure",
+            "Consultant leaves and institutional knowledge walks out the door",
+            "Compliance is a snapshot, not continuous monitoring",
+            "No routing optimization, no agent governance",
+          ],
+        },
+        {
+          name: "The Patchwork Route",
+          icon: Puzzle,
+          color: "text-yellow-400",
+          borderColor: "border-yellow-500/30",
+          bgColor: "bg-yellow-500/5",
+          timeline: "4–6 months",
+          year1Cost: "$200K–$400K",
+          ongoing: "$8K–$15K/yr tooling + 2–3 platform engineers at $150K+ each",
+          tokenUsage: "~10M tokens/month (multi-cloud, no cost-optimized routing)",
+          typicalModels: "GPT-4o (60%), Claude 3.5 Sonnet (25%), Gemini Flash (15%) — no intelligent per-task routing",
+          monthlyAiSpend: "$200–$400/month at 10M tokens on premium models",
+          totalYear1: "$250K–$450K with 2–3 FTE tied up in platform maintenance",
+          details: [
+            "DIY with point solutions: Portkey ($499/mo routing) + Helicone ($150/mo observability)",
+            "Custom compliance scripts + LangChain/CrewAI for agents",
+            "Separate RAG pipeline per cloud provider",
+            "Every new department = new integration project",
+            "Team spends more time maintaining the stack than building features",
+          ],
+          risks: [
+            "Integration fragility — one vendor update breaks the chain",
+            "Security gaps between tools — no unified audit trail",
+            "Agent sprawl without governance (no default-deny, no budget caps)",
+            "Engineering team becomes 'AI platform team' instead of building product",
+            "Compliance is manual scripts that break on updates",
+            "5+ vendors to maintain and coordinate",
+          ],
+        },
+        {
+          name: "Bonito",
+          icon: Rocket,
+          color: "text-green-400",
+          borderColor: "border-green-500/30",
+          bgColor: "bg-green-500/5",
+          timeline: "Same day → 1 week",
+          year1Cost: "~$17K",
+          ongoing: "$499/mo Pro + 3 agents at $349/mo each",
+          tokenUsage: "~10M tokens/month (same workload, smart routing)",
+          typicalModels: "Nova Lite (60%), GPT-4o Mini (20%), Gemini 2.5 Flash (15%), GPT-4o (5%) — auto-routed per task",
+          monthlyAiSpend: "$60–$80/month at 10M tokens with smart routing",
+          totalYear1: "~$18K all-in",
+          details: [
+            "Same-day connection to all 3 clouds, 1 week to all departments live",
+            "Smart routing sends each task to the optimal model automatically",
+            "60% of requests go to Nova Lite for classification and drafts",
+            "Only 5% of requests need GPT-4o — complex analysis only",
+            "Built-in governance, compliance, and cost attribution from day one",
+          ],
+          risks: [
+            "Newer product — mitigated by open standards (OpenAI-compatible API)",
+            "Smaller provider catalog (3 clouds vs Portkey's 60+)",
+            "Single vendor dependency — mitigated by standard IaC and portable API format",
+            "No SOC-2 Type II yet",
+          ],
+        },
+      ],
+      table: [
+        { label: "Time to first AI in production", consulting: "6–12 months", patchwork: "4–6 months", bonito: "Same day" },
+        { label: "Year 1 all-in cost", consulting: "$500K–$2M", patchwork: "$250K–$450K", bonito: "~$18K" },
+        { label: "Monthly AI inference spend", consulting: "~$30 (single model)", patchwork: "$200–$400 (unoptimized)", bonito: "$60–$80 (smart routing)" },
+        { label: "Monthly token volume", consulting: "~2M (single use case)", patchwork: "~10M (multi-team)", bonito: "~10M (multi-team)" },
+        { label: "Models in use", consulting: "1 (consultant's pick)", patchwork: "3–4 (manual selection)", bonito: "4–6 (auto-routed per task)" },
+        { label: "Unified governance", consulting: "❌ PDF recommendations", patchwork: "❌ Manual scripts", bonito: "✅ Built-in real-time" },
+        { label: "Agent governance", consulting: "❌", patchwork: "❌ DIY", bonito: "✅ Default-deny, budget caps" },
+        { label: "Compliance automation", consulting: "❌ One-time audit", patchwork: "⚠️ Custom scripts", bonito: "✅ SOC-2/HIPAA/GDPR checks" },
+        { label: "Cost attribution", consulting: "❌", patchwork: "⚠️ Partial (per-tool)", bonito: "✅ Per-key, per-team, per-request" },
+        { label: "New department rollout", consulting: "New engagement ($$$)", patchwork: "New integration (weeks)", bonito: "Add an agent (minutes)" },
+        { label: "Vendor count", consulting: "1 expensive one", patchwork: "5+", bonito: "1" },
+        { label: "Engineers required", consulting: "0 (outsourced) then 2–3", patchwork: "2–3 FTE", bonito: "0 (self-serve)" },
+      ],
+      riskCards: [
+        {
+          approach: "The Consulting Route",
+          color: "text-red-400",
+          borderColor: "border-red-500/30",
+          bgColor: "bg-red-500/5",
+          icon: Briefcase,
+          risks: [
+            "Model obsolescence — GPT-4o today might not be optimal in 6 months, but the consultant's strategy is locked in",
+            "Vendor lock-in — consultant picked one cloud, one model vendor. Switching costs are enormous.",
+            "No operational layer — you get a strategy deck and architecture diagrams, not running infrastructure",
+            "Knowledge walkout — when the consultant engagement ends, institutional knowledge leaves with them",
+            "Compliance is a snapshot — one-time audit recommendations in a PDF, not continuous automated checks",
+          ],
+        },
+        {
+          approach: "The Patchwork Route",
+          color: "text-yellow-400",
+          borderColor: "border-yellow-500/30",
+          bgColor: "bg-yellow-500/5",
+          icon: Puzzle,
+          risks: [
+            "Integration fragility — one vendor pushes an update and breaks the chain. You're now debugging 5 vendor APIs.",
+            "Security gaps between tools — Portkey handles routing, Helicone handles logging, but neither handles the gaps between them",
+            "No unified audit trail — compliance has to stitch together logs from 5+ tools to answer 'who accessed what, when'",
+            "Agent sprawl without governance — LangChain/CrewAI agents run without default-deny or budget caps",
+            "Engineering team becomes the 'AI platform team' — they spend more time maintaining integrations than building product features",
+          ],
+        },
+        {
+          approach: "Bonito",
+          color: "text-green-400",
+          borderColor: "border-green-500/30",
+          bgColor: "bg-green-500/5",
+          icon: Rocket,
+          risks: [
+            "Newer product — less battle-tested than established consulting firms or Portkey's 3+ year track record",
+            "Smaller provider catalog — 3 cloud providers (AWS, Azure, GCP) vs Portkey's 60+. If you need a niche provider, it may not be supported yet.",
+            "Single vendor dependency — mitigated by OpenAI-compatible API format (portable) and standard IaC (Terraform) for infrastructure definitions",
+            "No SOC-2 Type II yet — in progress, but not complete. May be a blocker for some enterprise procurement processes.",
+          ],
+        },
+      ],
+    },
+  },
+
+  /* ── Existing Case Studies ───────────────────────────────────────── */
   {
     id: "cx-platform",
     tab: "Customer Experience SaaS",
+    type: "case-study",
     title: "How a Mid-Market CX Platform Cut AI Costs by 89% Across Three Clouds",
     subtitle:
       "A real-world cost analysis: a B2B customer experience platform processing 50,000 AI requests per day across AWS, GCP, and Azure. From $51K/year to $5.8K/year — with better model selection per task.",
@@ -204,6 +423,7 @@ const useCases: UseCase[] = [
   {
     id: "product-marketplace",
     tab: "Product Marketplace",
+    type: "case-study",
     title: "How a Product Marketplace Unified Their AI Across AWS and GCP",
     subtitle:
       "A real-world walkthrough: a multi-cloud enterprise with 500+ merchants, first-party advertising data, and five AI use cases across two cloud providers. From zero visibility to full governance in under an hour.",
@@ -352,6 +572,7 @@ const useCases: UseCase[] = [
   {
     id: "enterprise-ai-ops",
     tab: "Enterprise AI Ops",
+    type: "case-study",
     title: "How a Fintech Saved $2.25M/Year by Centralizing AI Across Three Clouds",
     subtitle:
       "Validated end-to-end on production infrastructure: 381 models cataloged, 12 active deployments, 10/10 RAG queries, 8/8 gateway tests across AWS, Azure, and GCP. Real numbers, real savings.",
@@ -493,6 +714,7 @@ const useCases: UseCase[] = [
   {
     id: "ai-agent-workflows",
     tab: "AI Agent Workflows",
+    type: "case-study",
     title: "How NovaMart Deployed 8 Autonomous AI Agents with Full Budget Controls",
     subtitle:
       "A real-world walkthrough: a product marketplace with 200K+ sellers and 5M+ monthly buyers deploys Bonobot AI agents for ad operations and seller support — cutting report cycles from 2 days to 12 minutes and deflecting 78% of support tickets.",
@@ -641,6 +863,7 @@ const useCases: UseCase[] = [
   {
     id: "ad-tech-programmatic",
     tab: "Ad-Tech / Programmatic",
+    type: "case-study",
     title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
     subtitle:
       "A real-world cost analysis: a programmatic advertising platform managing $150M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting $600K/year in AI costs by 30% and automating 5 FTE hours of daily campaign operations.",
@@ -798,6 +1021,7 @@ const useCases: UseCase[] = [
   {
     id: "healthcare-clinical-ai",
     tab: "Healthcare / Clinical AI",
+    type: "case-study",
     title: "How 10 HIPAA-Compliant AI Agents Achieved 12.7:1 ROI in Clinical Decision Support",
     subtitle:
       "A real-world deployment: a clinical decision support platform serving 23 hospital networks deploys 10 Bonobot agents across Clinical Ops, Revenue Cycle, and Quality & Safety — projecting $606K in annual value against $47.8K platform cost.",
@@ -1024,16 +1248,517 @@ const onboardingSteps = [
   },
 ];
 
+/* ─── Comparison Article Component ────────────────────────────────── */
+
+function ComparisonArticle({ uc }: { uc: UseCase }) {
+  const comp = uc.comparison!;
+
+  return (
+    <div>
+      {/* Hero */}
+      <section className="pt-8 pb-12">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">{uc.title}</h1>
+        <p className="mt-4 text-lg text-[#888] max-w-3xl">{uc.subtitle}</p>
+      </section>
+
+      {/* Scenario */}
+      <section className="pb-12">
+        <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-6 md:p-8">
+          <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+            <Target className="w-5 h-5 text-[#7c3aed]" />
+            The Scenario
+          </h2>
+          <p className="text-[#ccc] text-base leading-relaxed">{comp.scenario}</p>
+        </div>
+      </section>
+
+      {/* Three Approaches — 3-column on desktop, stacked on mobile */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-8">Three Approaches, One Goal</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {comp.approaches.map((a, i) => (
+            <motion.div
+              key={a.name}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className={`${a.bgColor} border ${a.borderColor} rounded-xl p-6 flex flex-col`}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-10 h-10 rounded-lg ${a.bgColor} border ${a.borderColor} flex items-center justify-center`}>
+                  <a.icon className={`w-5 h-5 ${a.color}`} />
+                </div>
+                <h3 className="text-lg font-bold">{a.name}</h3>
+              </div>
+
+              <div className="space-y-3 text-sm flex-1">
+                <div>
+                  <span className="text-[#888]">Timeline:</span>{" "}
+                  <span className={a.color}>{a.timeline}</span>
+                </div>
+                <div>
+                  <span className="text-[#888]">Year 1 cost:</span>{" "}
+                  <span className="font-semibold">{a.year1Cost}</span>
+                </div>
+                <div>
+                  <span className="text-[#888]">Ongoing:</span>{" "}
+                  <span className="text-[#ccc]">{a.ongoing}</span>
+                </div>
+                <div>
+                  <span className="text-[#888]">Token usage:</span>{" "}
+                  <span className="text-[#ccc]">{a.tokenUsage}</span>
+                </div>
+                <div>
+                  <span className="text-[#888]">Models:</span>{" "}
+                  <span className="text-[#ccc]">{a.typicalModels}</span>
+                </div>
+                <div>
+                  <span className="text-[#888]">Monthly AI spend:</span>{" "}
+                  <span className="text-[#ccc]">{a.monthlyAiSpend}</span>
+                </div>
+
+                <div className="pt-3 border-t border-[#1a1a1a]">
+                  <span className="text-[#888]">Total Year 1:</span>{" "}
+                  <span className={`font-bold ${a.color}`}>{a.totalYear1}</span>
+                </div>
+
+                <ul className="space-y-1.5 pt-2">
+                  {a.details.map((d, j) => (
+                    <li key={j} className="text-xs text-[#888] flex items-start gap-1.5">
+                      <span className="mt-1 w-1 h-1 rounded-full bg-[#444] shrink-0" />
+                      {d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Comparison Table */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-8">Side-by-Side Comparison</h2>
+        <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1a1a1a]">
+                  <th className="text-left px-4 md:px-6 py-4 font-medium text-[#888] w-[28%]"></th>
+                  <th className="text-center px-4 md:px-6 py-4 font-semibold text-red-400 w-[24%]">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Briefcase className="w-4 h-4" /> Consulting
+                    </div>
+                  </th>
+                  <th className="text-center px-4 md:px-6 py-4 font-semibold text-yellow-400 w-[24%]">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Puzzle className="w-4 h-4" /> Patchwork
+                    </div>
+                  </th>
+                  <th className="text-center px-4 md:px-6 py-4 font-semibold text-green-400 w-[24%]">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Rocket className="w-4 h-4" /> Bonito
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {comp.table.map((row, i) => (
+                  <tr
+                    key={row.label}
+                    className={`border-b border-[#1a1a1a]/50 ${i % 2 === 0 ? "bg-[#0d0d0d]" : ""}`}
+                  >
+                    <td className="px-4 md:px-6 py-3.5 font-medium text-[#ccc]">{row.label}</td>
+                    <td className="px-4 md:px-6 py-3.5 text-center text-[#999]">{row.consulting}</td>
+                    <td className="px-4 md:px-6 py-3.5 text-center text-[#999]">{row.patchwork}</td>
+                    <td className="px-4 md:px-6 py-3.5 text-center text-green-400 font-medium">{row.bonito}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Risk Deep-Dive */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-3">Risk Deep-Dive</h2>
+        <p className="text-[#888] mb-8">Every approach has trade-offs. Here&apos;s an honest look at the risks.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {comp.riskCards.map((card, i) => (
+            <motion.div
+              key={card.approach}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className={`${card.bgColor} border ${card.borderColor} rounded-xl p-6`}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <card.icon className={`w-5 h-5 ${card.color}`} />
+                <h3 className={`font-bold ${card.color}`}>{card.approach}</h3>
+              </div>
+              <ul className="space-y-3">
+                {card.risks.map((risk, j) => (
+                  <li key={j} className="flex items-start gap-2 text-sm text-[#ccc]">
+                    <AlertTriangle className={`w-3.5 h-3.5 ${card.color} shrink-0 mt-0.5`} />
+                    <span>{risk}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom Line */}
+      <section className="pb-16">
+        <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 md:p-8">
+          <h2 className="text-2xl font-bold mb-4">The Bottom Line</h2>
+          <div className="grid sm:grid-cols-3 gap-6 text-center">
+            <div>
+              <div className="text-3xl font-bold text-red-400 mb-1">$500K–$2M</div>
+              <div className="text-sm text-[#888]">Consulting Route</div>
+              <div className="text-xs text-[#666] mt-1">6–12 months to first AI in production</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-yellow-400 mb-1">$250K–$450K</div>
+              <div className="text-sm text-[#888]">Patchwork Route</div>
+              <div className="text-xs text-[#666] mt-1">4–6 months, 2–3 FTE dedicated</div>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-green-400 mb-1">~$18K</div>
+              <div className="text-sm text-[#888]">Bonito</div>
+              <div className="text-xs text-[#666] mt-1">Same day to connected, 1 week to all departments</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ─── Case Study Article Component ────────────────────────────────── */
+
+function CaseStudyArticle({ uc }: { uc: UseCase }) {
+  return (
+    <div>
+      {/* Hero */}
+      <section className="pt-8 pb-12">
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">{uc.title}</h1>
+        <p className="mt-4 text-lg text-[#888] max-w-3xl">{uc.subtitle}</p>
+      </section>
+
+      {/* Company Profile */}
+      <section className="pb-12">
+        <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-6 md:p-8">
+          <h2 className="text-xl font-bold mb-4">The Company</h2>
+          <div className="grid sm:grid-cols-2 gap-6 text-sm text-[#ccc]">
+            <div className="space-y-3">
+              <div>
+                <span className="text-[#888]">Industry:</span> {uc.company.industry}
+              </div>
+              <div>
+                <span className="text-[#888]">Scale:</span> {uc.company.scale}
+              </div>
+              <div>
+                <span className="text-[#888]">Cloud:</span> {uc.company.cloud}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <span className="text-[#888]">Teams using AI:</span> {uc.company.teams}
+              </div>
+              <div>
+                <span className="text-[#888]">Data:</span> {uc.company.data}
+              </div>
+              <div>
+                <span className="text-[#888]">Goal:</span> {uc.company.goal}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* The Problem */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-8">The Problem</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          {uc.painPoints.map((point, i) => (
+            <motion.div
+              key={point.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                  <point.icon className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">{point.title}</h3>
+                  <p className="text-sm text-[#888] leading-relaxed">{point.description}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* AI Use Cases */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-3">What They Want to Build</h2>
+        <p className="text-[#888] mb-8">
+          Multiple AI-powered features, each with different requirements for cost, latency, and
+          model quality.
+        </p>
+        <div className="space-y-4">
+          {uc.aiUseCases.map((item, i) => (
+            <motion.div
+              key={item.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 hover:border-[#7c3aed]/20 transition"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-[#7c3aed]" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <h3 className="font-semibold">{item.title}</h3>
+                    <span className="text-xs text-[#7c3aed] bg-[#7c3aed]/10 px-2 py-1 rounded shrink-0">
+                      {item.strategy}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[#888] mb-2">{item.description}</p>
+                  <p className="text-xs text-[#666]">
+                    <span className="text-[#888]">Model:</span> {item.model}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* How Bonito Solves It */}
+      <section className="pb-16">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
+            <Zap className="w-5 h-5 text-[#7c3aed]" />
+          </div>
+          <h2 className="text-3xl font-bold">How Bonito Solves This</h2>
+        </div>
+        <p className="text-[#888] mb-8 max-w-3xl">
+          Instead of each team building their own AI integration, managing their own credentials,
+          and tracking their own costs, the platform team sets up Bonito once. Every team gets a
+          single API endpoint, governed routing, and full visibility.
+        </p>
+
+        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
+            <Cloud className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Connect once</h3>
+            <p className="text-sm text-[#888]">
+              Plug in your cloud service accounts. Bonito handles the rest.
+            </p>
+          </div>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
+            <Route className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Route intelligently</h3>
+            <p className="text-sm text-[#888]">
+              Each use case gets the right model at the right price with automatic failover.
+            </p>
+          </div>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
+            <Shield className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
+            <h3 className="font-semibold mb-1">Govern everything</h3>
+            <p className="text-sm text-[#888]">
+              Costs, compliance, audit trails, and access controls from one dashboard.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Onboarding Steps */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-3">Step-by-Step Onboarding</h2>
+        <p className="text-[#888] mb-8">
+          From &quot;we have credentials&quot; to &quot;all teams are using AI through one
+          gateway&quot; in under an hour.
+        </p>
+        <div className="space-y-4">
+          {onboardingSteps.map((step, i) => (
+            <motion.div
+              key={step.step}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.03 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 hover:border-[#7c3aed]/20 transition"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-[#7c3aed] flex items-center justify-center shrink-0 text-white font-bold text-sm">
+                  {step.step}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-4 mb-1">
+                    <h3 className="font-semibold">{step.title}</h3>
+                    <span className="text-xs text-[#888] bg-[#1a1a1a] px-2 py-1 rounded shrink-0">
+                      {step.time}
+                    </span>
+                  </div>
+                  <p className="text-sm text-[#888] leading-relaxed">{step.description}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Results */}
+      <section className="pb-16">
+        <h2 className="text-3xl font-bold mb-8">The Results</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {uc.results.map((r, i) => (
+            <motion.div
+              key={r.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.05 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center"
+            >
+              <div className="text-3xl font-bold text-[#7c3aed] mb-1">{r.metric}</div>
+              <div className="text-sm font-medium mb-2">{r.label}</div>
+              <p className="text-xs text-[#666]">{r.detail}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Cost Analysis */}
+      <section className="pb-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-[#7c3aed]" />
+            </div>
+            <h2 className="text-3xl font-bold">{uc.costAnalysis.headline}</h2>
+          </div>
+          <p className="text-[#888] mb-8 max-w-3xl">{uc.costAnalysis.description}</p>
+
+          {/* Model Costs Table */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-[#1a1a1a]">
+              <h3 className="font-semibold">
+                {uc.id === "cx-platform"
+                  ? "Cost per Model at 50K Requests/Day (18.25M/year)"
+                  : "Model Pricing per 1M Tokens"}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[#888] border-b border-[#1a1a1a]">
+                    <th className="text-left px-6 py-3 font-medium">Model</th>
+                    <th className="text-right px-6 py-3 font-medium">
+                      {uc.id === "cx-platform" ? "Cost" : "Input / Output"}
+                    </th>
+                    <th className="text-right px-6 py-3 font-medium">
+                      {uc.id === "cx-platform" ? "Annual (all traffic)" : "Tier"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uc.costAnalysis.models.map((m) => (
+                    <tr
+                      key={m.model}
+                      className="border-b border-[#1a1a1a]/50 hover:bg-[#1a1a1a]/30"
+                    >
+                      <td className="px-6 py-3 font-medium">{m.model}</td>
+                      <td className="px-6 py-3 text-right font-mono">{m.cost}</td>
+                      <td className={`px-6 py-3 text-right font-mono ${m.color}`}>
+                        {m.annual}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Scenarios */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-[#1a1a1a]">
+              <h3 className="font-semibold">Scenario Comparison</h3>
+            </div>
+            <div className="divide-y divide-[#1a1a1a]/50">
+              {uc.costAnalysis.scenarios.map((s) => (
+                <div
+                  key={s.label}
+                  className={`px-6 py-5 ${s.highlight ? "bg-[#7c3aed]/5 border-l-2 border-[#7c3aed]" : ""}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">{s.label}</span>
+                    <span
+                      className={`text-lg font-bold ${s.highlight ? "text-green-400" : "text-[#ccc]"}`}
+                    >
+                      {s.cost}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#888]">{s.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Savings Summary */}
+          {uc.costAnalysis.savingsSummary.length > 0 && (
+            <div className="grid sm:grid-cols-2 gap-4 mb-6">
+              {uc.costAnalysis.savingsSummary.map((s) => (
+                <div
+                  key={s.vs}
+                  className="bg-green-500/5 border border-green-500/20 rounded-xl p-5 text-center"
+                >
+                  <div className="text-2xl font-bold text-green-400 mb-1">{s.saved}</div>
+                  <div className="text-sm text-[#888] mb-1">{s.vs}</div>
+                  {s.detail && (
+                    <div className="text-xs text-[#666] font-mono">{s.detail}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-xs text-[#666] italic">{uc.costAnalysis.footnote}</p>
+        </motion.div>
+      </section>
+    </div>
+  );
+}
+
 /* ─── Page Component ──────────────────────────────────────────────── */
 
 export default function UseCasesPage() {
   const [activeCase, setActiveCase] = useState(0);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const uc = useCases[activeCase];
 
   return (
-    <div className="max-w-5xl mx-auto px-6 md:px-12">
-      {/* Tab Navigation */}
-      <section className="pt-20 pb-2 sticky top-0 z-20 bg-[#09090b]/95 backdrop-blur-sm">
+    <div className="max-w-7xl mx-auto px-6 md:px-12">
+      {/* Header */}
+      <section className="pt-20 pb-6">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-8 h-8 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
             <Building2 className="w-4 h-4 text-[#7c3aed]" />
@@ -1042,364 +1767,123 @@ export default function UseCasesPage() {
             Use Cases
           </span>
         </div>
-        <div className="flex gap-2 border-b border-[#1a1a1a] pb-0">
-          {useCases.map((c, i) => (
-            <button
-              key={c.id}
-              onClick={() => setActiveCase(i)}
-              className={`px-4 py-3 text-sm font-medium transition-all relative ${
-                activeCase === i
-                  ? "text-white"
-                  : "text-[#666] hover:text-[#999]"
-              }`}
-            >
-              {c.tab}
-              {activeCase === i && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#7c3aed]"
-                />
-              )}
-            </button>
-          ))}
-        </div>
       </section>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={uc.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
+      {/* Mobile Dropdown */}
+      <div className="lg:hidden mb-6">
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#111] border border-[#1a1a1a] rounded-xl text-sm font-medium"
         >
-          {/* Hero */}
-          <section className="pt-8 pb-12">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">{uc.title}</h1>
-            <p className="mt-4 text-lg text-[#888] max-w-3xl">{uc.subtitle}</p>
-          </section>
-
-          {/* Company Profile */}
-          <section className="pb-12">
-            <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-6 md:p-8">
-              <h2 className="text-xl font-bold mb-4">The Company</h2>
-              <div className="grid sm:grid-cols-2 gap-6 text-sm text-[#ccc]">
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-[#888]">Industry:</span> {uc.company.industry}
-                  </div>
-                  <div>
-                    <span className="text-[#888]">Scale:</span> {uc.company.scale}
-                  </div>
-                  <div>
-                    <span className="text-[#888]">Cloud:</span> {uc.company.cloud}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <span className="text-[#888]">Teams using AI:</span> {uc.company.teams}
-                  </div>
-                  <div>
-                    <span className="text-[#888]">Data:</span> {uc.company.data}
-                  </div>
-                  <div>
-                    <span className="text-[#888]">Goal:</span> {uc.company.goal}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* The Problem */}
-          <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-8">The Problem</h2>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {uc.painPoints.map((point, i) => (
-                <motion.div
-                  key={point.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                      <point.icon className="w-4 h-4 text-red-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">{point.title}</h3>
-                      <p className="text-sm text-[#888] leading-relaxed">{point.description}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* AI Use Cases */}
-          <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-3">What They Want to Build</h2>
-            <p className="text-[#888] mb-8">
-              Multiple AI-powered features, each with different requirements for cost, latency, and
-              model quality.
-            </p>
-            <div className="space-y-4">
-              {uc.aiUseCases.map((item, i) => (
-                <motion.div
-                  key={item.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 hover:border-[#7c3aed]/20 transition"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center shrink-0">
-                      <item.icon className="w-5 h-5 text-[#7c3aed]" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-4 mb-2">
-                        <h3 className="font-semibold">{item.title}</h3>
-                        <span className="text-xs text-[#7c3aed] bg-[#7c3aed]/10 px-2 py-1 rounded shrink-0">
-                          {item.strategy}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#888] mb-2">{item.description}</p>
-                      <p className="text-xs text-[#666]">
-                        <span className="text-[#888]">Model:</span> {item.model}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* How Bonito Solves It */}
-          <section className="pb-16">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-[#7c3aed]" />
-              </div>
-              <h2 className="text-3xl font-bold">How Bonito Solves This</h2>
-            </div>
-            <p className="text-[#888] mb-8 max-w-3xl">
-              Instead of each team building their own AI integration, managing their own credentials,
-              and tracking their own costs, the platform team sets up Bonito once. Every team gets a
-              single API endpoint, governed routing, and full visibility.
-            </p>
-
-            <div className="grid sm:grid-cols-3 gap-4 mb-8">
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
-                <Cloud className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Connect once</h3>
-                <p className="text-sm text-[#888]">
-                  Plug in your cloud service accounts. Bonito handles the rest.
-                </p>
-              </div>
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
-                <Route className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Route intelligently</h3>
-                <p className="text-sm text-[#888]">
-                  Each use case gets the right model at the right price with automatic failover.
-                </p>
-              </div>
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center">
-                <Shield className="w-8 h-8 text-[#7c3aed] mx-auto mb-3" />
-                <h3 className="font-semibold mb-1">Govern everything</h3>
-                <p className="text-sm text-[#888]">
-                  Costs, compliance, audit trails, and access controls from one dashboard.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Onboarding Steps */}
-          <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-3">Step-by-Step Onboarding</h2>
-            <p className="text-[#888] mb-8">
-              From &quot;we have credentials&quot; to &quot;all teams are using AI through one
-              gateway&quot; in under an hour.
-            </p>
-            <div className="space-y-4">
-              {onboardingSteps.map((step, i) => (
-                <motion.div
-                  key={step.step}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.03 }}
-                  className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 hover:border-[#7c3aed]/20 transition"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full bg-[#7c3aed] flex items-center justify-center shrink-0 text-white font-bold text-sm">
-                      {step.step}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-4 mb-1">
-                        <h3 className="font-semibold">{step.title}</h3>
-                        <span className="text-xs text-[#888] bg-[#1a1a1a] px-2 py-1 rounded shrink-0">
-                          {step.time}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#888] leading-relaxed">{step.description}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* Results */}
-          <section className="pb-16">
-            <h2 className="text-3xl font-bold mb-8">The Results</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {uc.results.map((r, i) => (
-                <motion.div
-                  key={r.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 text-center"
-                >
-                  <div className="text-3xl font-bold text-[#7c3aed] mb-1">{r.metric}</div>
-                  <div className="text-sm font-medium mb-2">{r.label}</div>
-                  <p className="text-xs text-[#666]">{r.detail}</p>
-                </motion.div>
-              ))}
-            </div>
-          </section>
-
-          {/* Cost Analysis */}
-          <section className="pb-16">
+          <span className="truncate">{uc.tab}</span>
+          <ChevronDown className={`w-4 h-4 text-[#888] transition-transform ${mobileOpen ? "rotate-180" : ""}`} />
+        </button>
+        <AnimatePresence>
+          {mobileOpen && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-[#7c3aed]" />
-                </div>
-                <h2 className="text-3xl font-bold">{uc.costAnalysis.headline}</h2>
+              <div className="mt-1 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+                {useCases.map((c, i) => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setActiveCase(i);
+                      setMobileOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm transition-colors ${
+                      activeCase === i
+                        ? "text-white bg-[#7c3aed]/10 border-l-2 border-[#7c3aed]"
+                        : "text-[#666] hover:text-[#999] hover:bg-[#1a1a1a]/50"
+                    }`}
+                  >
+                    {c.tab}
+                    {c.type === "comparison" && (
+                      <span className="ml-2 text-xs text-[#7c3aed] bg-[#7c3aed]/10 px-1.5 py-0.5 rounded">NEW</span>
+                    )}
+                  </button>
+                ))}
               </div>
-              <p className="text-[#888] mb-8 max-w-3xl">{uc.costAnalysis.description}</p>
-
-              {/* Model Costs Table */}
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-[#1a1a1a]">
-                  <h3 className="font-semibold">
-                    {uc.id === "cx-platform"
-                      ? "Cost per Model at 50K Requests/Day (18.25M/year)"
-                      : "Model Pricing per 1M Tokens"}
-                  </h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-[#888] border-b border-[#1a1a1a]">
-                        <th className="text-left px-6 py-3 font-medium">Model</th>
-                        <th className="text-right px-6 py-3 font-medium">
-                          {uc.id === "cx-platform" ? "Cost" : "Input / Output"}
-                        </th>
-                        <th className="text-right px-6 py-3 font-medium">
-                          {uc.id === "cx-platform" ? "Annual (all traffic)" : "Tier"}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {uc.costAnalysis.models.map((m) => (
-                        <tr
-                          key={m.model}
-                          className="border-b border-[#1a1a1a]/50 hover:bg-[#1a1a1a]/30"
-                        >
-                          <td className="px-6 py-3 font-medium">{m.model}</td>
-                          <td className="px-6 py-3 text-right font-mono">{m.cost}</td>
-                          <td className={`px-6 py-3 text-right font-mono ${m.color}`}>
-                            {m.annual}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Scenarios */}
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden mb-6">
-                <div className="px-6 py-4 border-b border-[#1a1a1a]">
-                  <h3 className="font-semibold">Scenario Comparison</h3>
-                </div>
-                <div className="divide-y divide-[#1a1a1a]/50">
-                  {uc.costAnalysis.scenarios.map((s) => (
-                    <div
-                      key={s.label}
-                      className={`px-6 py-5 ${s.highlight ? "bg-[#7c3aed]/5 border-l-2 border-[#7c3aed]" : ""}`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">{s.label}</span>
-                        <span
-                          className={`text-lg font-bold ${s.highlight ? "text-green-400" : "text-[#ccc]"}`}
-                        >
-                          {s.cost}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#888]">{s.detail}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Savings Summary */}
-              {uc.costAnalysis.savingsSummary.length > 0 && (
-                <div className="grid sm:grid-cols-2 gap-4 mb-6">
-                  {uc.costAnalysis.savingsSummary.map((s) => (
-                    <div
-                      key={s.vs}
-                      className="bg-green-500/5 border border-green-500/20 rounded-xl p-5 text-center"
-                    >
-                      <div className="text-2xl font-bold text-green-400 mb-1">{s.saved}</div>
-                      <div className="text-sm text-[#888] mb-1">{s.vs}</div>
-                      {s.detail && (
-                        <div className="text-xs text-[#666] font-mono">{s.detail}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <p className="text-xs text-[#666] italic">{uc.costAnalysis.footnote}</p>
             </motion.div>
-          </section>
-        </motion.div>
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* CTA */}
-      <section className="pb-24">
-        <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-8 md:p-12 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-3">Sound like your team?</h2>
-          <p className="text-[#888] mb-6 max-w-xl mx-auto">
-            If you&apos;re running AI workloads across multiple cloud providers and want unified
-            control without the infrastructure overhead, Bonito was built for you.
-          </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link
-              href="/register"
-              className="px-6 py-3 rounded-lg bg-[#7c3aed] text-white font-semibold hover:bg-[#6d28d9] transition"
+      {/* Desktop: Sidebar + Content */}
+      <div className="flex gap-8">
+        {/* Left Sidebar — desktop only */}
+        <aside className="hidden lg:block w-64 shrink-0">
+          <nav className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="space-y-1">
+              {useCases.map((c, i) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveCase(i)}
+                  className={`w-full text-left px-4 py-3 rounded-lg text-sm transition-all ${
+                    activeCase === i
+                      ? "text-white bg-[#7c3aed]/10 border-l-2 border-[#7c3aed]"
+                      : "text-[#666] hover:text-[#999] hover:bg-[#1a1a1a]/50 border-l-2 border-transparent"
+                  }`}
+                >
+                  <span className="block leading-snug">{c.tab}</span>
+                  {c.type === "comparison" && (
+                    <span className="inline-block mt-1 text-xs text-[#7c3aed] bg-[#7c3aed]/10 px-1.5 py-0.5 rounded">
+                      Comparison
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={uc.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
             >
-              Get Started Free
-            </Link>
-            <Link
-              href="/contact"
-              className="px-6 py-3 rounded-lg border border-[#333] font-medium text-[#ccc] hover:border-[#7c3aed] transition"
-            >
-              Talk to Us
-            </Link>
-          </div>
-        </div>
-      </section>
+              {uc.type === "comparison" ? (
+                <ComparisonArticle uc={uc} />
+              ) : (
+                <CaseStudyArticle uc={uc} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* CTA */}
+          <section className="pb-24">
+            <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-8 md:p-12 text-center">
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">Sound like your team?</h2>
+              <p className="text-[#888] mb-6 max-w-xl mx-auto">
+                If you&apos;re running AI workloads across multiple cloud providers and want unified
+                control without the infrastructure overhead, Bonito was built for you.
+              </p>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <Link
+                  href="/register"
+                  className="px-6 py-3 rounded-lg bg-[#7c3aed] text-white font-semibold hover:bg-[#6d28d9] transition"
+                >
+                  Get Started Free
+                </Link>
+                <Link
+                  href="/contact"
+                  className="px-6 py-3 rounded-lg border border-[#333] font-medium text-[#ccc] hover:border-[#7c3aed] transition"
+                >
+                  Talk to Us
+                </Link>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
