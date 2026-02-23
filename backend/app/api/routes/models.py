@@ -153,6 +153,7 @@ async def list_models(
     provider_type: str = Query(None, description="Filter by provider type (aws, azure, gcp, openai, anthropic)"),
     status: str = Query(None, description="Filter by model status (available, deployed, etc.)"),
     search: str = Query(None, description="Search by model name or ID"),
+    chat_only: bool = Query(False, description="Filter to only chat-compatible models (excludes embeddings, image, video, etc.)"),
 ):
     query = (
         select(Model, CloudProvider.provider_type)
@@ -172,6 +173,16 @@ async def list_models(
             continue
         if search and search.lower() not in (model.display_name or "").lower() and search.lower() not in (model.model_id or "").lower():
             continue
+        if chat_only:
+            mid = (model.model_id or "").lower()
+            dname = (model.display_name or "").lower()
+            non_chat_patterns = [
+                "embed", "babbage", "rerank", "bert", "bart", "moderation",
+                "tts-", "whisper", "dall-e", "sora", "image", "stable-diffusion",
+                "sdxl", "titan-image", "titan-video", "runway", "pika",
+            ]
+            if any(p in mid or p in dname for p in non_chat_patterns):
+                continue
         models.append(model)
     return models
 
@@ -365,14 +376,20 @@ async def playground_execute(
     
     model, provider = row
     
-    # Reject non-chat models (embeddings, rerankers, etc.)
+    # Reject non-chat models (embeddings, rerankers, image/video generators, etc.)
     caps = (model.capabilities or {}).get("types", [])
-    non_chat = {"embeddings", "embedding", "rerank", "classification", "segmentation", "detection"}
+    non_chat = {"embeddings", "embedding", "rerank", "classification", "segmentation", "detection", "image", "video"}
     model_id_lower = (model.model_id or "").lower()
+    display_lower = (model.display_name or "").lower()
     is_embedding = (caps and all(c.lower() in non_chat for c in caps))
-    is_known_non_chat = any(p in model_id_lower for p in ["embed", "babbage", "rerank", "bert", "bart", "moderation", "tts-", "whisper", "dall-e"])
+    non_chat_patterns = [
+        "embed", "babbage", "rerank", "bert", "bart", "moderation",
+        "tts-", "whisper", "dall-e", "sora", "image", "stable-diffusion",
+        "sdxl", "titan-image", "titan-video", "runway", "pika",
+    ]
+    is_known_non_chat = any(p in model_id_lower or p in display_lower for p in non_chat_patterns)
     if is_embedding or is_known_non_chat:
-        raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' does not support chat completions (it's an embedding/utility model). Select a text generation model instead.")
+        raise HTTPException(status_code=400, detail=f"Model '{model.display_name}' does not support chat completions. Select a text generation model instead.")
     
     # Reject models that aren't enabled/available in the customer's cloud account
     model_status = (model.pricing_info or {}).get("status", "unknown").lower()
@@ -405,7 +422,19 @@ async def playground_execute(
         # Build litellm model string + auth params based on provider type
         litellm_params: dict = {}
         if provider.provider_type == "aws":
-            gateway_request["model"] = f"bedrock/{model.model_id}"
+            bedrock_model_id = model.model_id
+            # Newer Anthropic/Meta/Mistral models on Bedrock require cross-region
+            # inference profiles — prefix with "us." to use the US inference profile
+            inference_profile_prefixes = [
+                "anthropic.claude-sonnet-4", "anthropic.claude-opus-4",
+                "anthropic.claude-haiku-4", "anthropic.claude-3-7",
+                "meta.llama4", "meta.llama3-3", "meta.llama3-2",
+                "mistral.mistral-large-2",
+            ]
+            needs_profile = any(bedrock_model_id.startswith(p) for p in inference_profile_prefixes)
+            if needs_profile and not bedrock_model_id.startswith("us."):
+                bedrock_model_id = f"us.{bedrock_model_id}"
+            gateway_request["model"] = f"bedrock/{bedrock_model_id}"
             litellm_params["aws_access_key_id"] = secrets.get("access_key_id", "")
             litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
             litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")

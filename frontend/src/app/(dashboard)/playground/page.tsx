@@ -133,7 +133,7 @@ export default function PlaygroundPage() {
   useEffect(() => {
     async function fetchModels() {
       try {
-        const res = await apiRequest("/api/models/");
+        const res = await apiRequest("/api/models/?chat_only=true");
         if (res.ok) {
           const data = await res.json();
           setModels(data);
