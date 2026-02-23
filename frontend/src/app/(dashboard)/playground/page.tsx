@@ -114,6 +114,7 @@ export default function PlaygroundPage() {
   const [lastResponse, setLastResponse] = useState<PlaygroundResponse | null>(null);
   const [compareResults, setCompareResults] = useState<CompareResult[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Scroll to bottom of messages — use scrollTo on the container for reliability
   const scrollToBottom = () => {
@@ -273,6 +274,7 @@ export default function PlaygroundPage() {
       }]);
     } finally {
       setIsLoading(false);
+      setTimeout(() => textareaRef.current?.focus(), 0);
     }
   };
 
@@ -658,12 +660,14 @@ export default function PlaygroundPage() {
             <CardContent className="p-3">
               <div className="flex gap-2">
                 <textarea
+                  ref={textareaRef}
                   value={currentInput}
                   onChange={(e) => setCurrentInput(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder="Type your message..."
                   className="flex-1 min-h-[48px] max-h-32 p-3 border rounded-lg resize-none bg-background"
                   disabled={isLoading}
+                  autoFocus
                 />
                 <button
                   onClick={handleSendMessage}
