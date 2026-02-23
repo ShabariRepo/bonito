@@ -83,20 +83,23 @@ function SelectContent({ className, children, ...props }: React.HTMLAttributes<H
   );
 }
 
-function SelectItem({ className, children, value, ...props }: React.HTMLAttributes<HTMLDivElement> & { value: string }) {
+function SelectItem({ className, children, value, disabled, ...props }: React.HTMLAttributes<HTMLDivElement> & { value: string; disabled?: boolean }) {
   const { value: selectedValue, onValueChange, setOpen } = React.useContext(SelectContext);
 
   return (
     <div
       onClick={() => {
+        if (disabled) return;
         onValueChange?.(value);
         setOpen(false);
       }}
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
         selectedValue === value && "bg-accent/50",
+        disabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-current",
         className
       )}
+      aria-disabled={disabled}
       {...props}
     >
       {children}
