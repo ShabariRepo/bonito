@@ -115,9 +115,10 @@ export default function LandingPage() {
           <span className="text-xl font-semibold text-white">Bonito</span>
         </div>
         <div className="hidden md:flex items-center gap-6">
+          <Link href="/use-cases" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Use Cases</Link>
           <Link href="/pricing" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Pricing</Link>
-          <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>
           <Link href="/blog" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Blog</Link>
+          <Link href="/docs" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">Docs</Link>
           <Link href="/about" className="text-sm text-[#999] hover:text-[#f5f0e8] transition">About</Link>
         </div>
         <div className="flex items-center gap-4">
