@@ -9,12 +9,6 @@ from app.models.audit import AuditLog
 from app.models.onboarding import OnboardingProgress
 from app.models.gateway import GatewayRequest, GatewayKey, GatewayRateLimit, GatewayConfig
 from app.models.notifications import Notification, AlertRule, NotificationPreference
-<<<<<<< HEAD
-from app.models.subscription_history import SubscriptionHistory
-from app.models.logging import PlatformLog, LogIntegration, LogExportJob, LogAggregation
-
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SubscriptionHistory", "PlatformLog", "LogIntegration", "LogExportJob", "LogAggregation"]
-=======
 from app.models.sso_config import SSOConfig
 
 # Bonobot models
@@ -36,4 +30,3 @@ from app.models.subscription_history import SubscriptionHistory
 from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAggregation
 
 __all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation"]
->>>>>>> main

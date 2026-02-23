@@ -641,7 +641,7 @@ const useCases: UseCase[] = [
   {
     id: "ad-tech-programmatic",
     tab: "Ad-Tech / Programmatic",
-    title: "How an Ad-Tech Platform Cut Cloud AI Costs by 30% with Multi-Cloud Routing",
+    title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
     subtitle:
       "A real-world cost analysis: a programmatic advertising platform managing $40M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting AI costs by 30% and automating 3 FTE hours of daily campaign operations.",
     company: {
@@ -683,7 +683,7 @@ const useCases: UseCase[] = [
         icon: Bot,
         title: "Creative Director Agent",
         description:
-          "Generates ad creative briefs, headlines, and copy variations for DTC brands across Meta, Google, and TikTok formats. Produces 3 variations per request: safe, bold, and experimental. Handles character limits and platform-specific best practices automatically.",
+          "Generates platform-specific ad creative across Meta, Google, and TikTok. Example: 'Generate 5 Meta headlines for a DTC skincare brand launching a $38 Vitamin C serum — target women 25-40, include emotional hooks.' Produces 3 variations (safe, bold, experimental) for each. Writes TikTok scripts with hooks in the first 2 seconds. Evaluates Google Search headlines by scoring clarity, urgency, and click-worthiness against target CPA.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Cost-optimized — high volume creative generation",
       },
@@ -691,7 +691,7 @@ const useCases: UseCase[] = [
         icon: BarChart3,
         title: "Bid Optimizer Agent",
         description:
-          "Analyzes campaign metrics (CPM, CPC, CPA, ROAS, frequency) and recommends bid adjustments, budget reallocations, and audience changes. Flags anomalies like frequency spikes and CPM inflation with data-driven reasoning.",
+          "Analyzes live campaign metrics and recommends specific bid adjustments. Example: a Meta campaign spending $4,200/week — frequency spiked from 2.1x to 3.8x, ROAS holding at 4.2x but about to degrade. Agent recommends audience refresh before performance drops. Compares 3 Google ad groups and reallocates a $500/day budget: shift $200 from Competitor keywords (CPA $109) to Brand (CPA $14.63). Diagnoses whether CPM spikes are seasonal, competitive, or audience fatigue.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Balanced — analytical reasoning required",
       },
@@ -699,7 +699,7 @@ const useCases: UseCase[] = [
         icon: Users,
         title: "Audience Analyst Agent",
         description:
-          "Segments customer cohorts by demographics, channel, and LTV. Designs lookalike audience strategies and diagnoses retargeting fatigue. Recommends seed audiences and testing sequences for Meta Custom Audiences and Google Customer Match.",
+          "Segments 12,400-customer cohorts by age, AOV, repeat rate, and channel — identifies that the 35-44 segment ($61 AOV, 35% repeat rate) is the highest-LTV target. Designs lookalike strategies for Meta: seed with 890 repeat buyers (3+ orders) at 1%, test broadening to 3% and 5%. Diagnoses retargeting fatigue when frequency hits 8.2x and ROAS drops from 6.1x to 3.4x — recommends restructuring into a 3-tier engagement funnel.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Balanced — complex segmentation logic",
       },
@@ -707,7 +707,7 @@ const useCases: UseCase[] = [
         icon: FileText,
         title: "Performance Reporter Agent",
         description:
-          "Generates client-facing weekly performance reports with executive summaries, WoW/MoM trends, channel breakdowns, and recommended next steps. Handles escalation reports when ROAS drops with honest analysis and recovery plans.",
+          "Generates client-ready weekly reports with precise numbers. Example for GlowUp Skincare: Meta ROAS 4.79x ($3,800 spend, 612 purchases, CPA $6.21), Google 3.52x, TikTok 2.33x — overall ROAS down from 4.1x to 3.99x WoW. When a client escalates (PeakFit Supplements ROAS dropped from 5.2x to 2.8x over 3 weeks), writes an honest root cause analysis tied to the new creative launched in Week 2 and delivers a concrete recovery plan.",
         model: "GPT-4o Mini (Azure OpenAI)",
         strategy: "Cost-optimized — structured report generation",
       },
@@ -715,7 +715,7 @@ const useCases: UseCase[] = [
         icon: Globe,
         title: "Market Research Agent",
         description:
-          "Analyzes competitive landscapes, market trends, and industry benchmarks for DTC verticals. Provides actionable insights on CAC trends, channel dynamics, and positioning strategies for client campaigns.",
+          "Produces competitive intelligence with actionable numbers. Analyzes the DTC beauty market: Meta CPMs up 22% YoY, TikTok Shop launched beauty category with 40% commission reduction, average CAC now $28 (up from $21 in 2024). For a client like FreshRoast Coffee ($15/bag, $8K/month ad spend, ROAS 3.1x), maps positioning against VC-backed Trade Coffee and mass-market Starbucks Reserve with specific channel allocation recommendations.",
         model: "GPT-4o Mini (Azure OpenAI)",
         strategy: "Cost-optimized — research synthesis",
       },
@@ -723,7 +723,7 @@ const useCases: UseCase[] = [
         icon: Search,
         title: "Contract Analyzer Agent",
         description:
-          "Reviews media plans, insertion orders, and client agreements. Calculates effective rates, verifies budget allocations against campaign objectives, and flags unusual terms or performance bonus structures.",
+          "Reviews media plans and flags risks. Example: UrbanGear Apparel Q2 plan — $120K budget (Meta 45%, Google 30%, TikTok 15%, CTV 10%), ROAS 3.5x target, CPA under $25. Agent calculates expected revenue from the 15% management fee ($18K), flags the 15-day cancellation clause as a risk against the 3-month commitment, and models whether the 10% performance bonus (if ROAS exceeds 5x) is realistically achievable based on historical data.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Balanced — contract reasoning",
       },
@@ -731,7 +731,7 @@ const useCases: UseCase[] = [
         icon: MessageSquare,
         title: "Sentiment Monitor Agent",
         description:
-          "Analyzes social media mentions and reviews for brand clients. Classifies sentiment, detects urgency, and recommends whether to pause ad campaigns when brand safety risks emerge.",
+          "Classifies social mentions and flags brand safety risks before they impact ad performance. Example for EcoBottle: analyzes 5 social posts — identifies a product defect cluster (lid leaking + metallic taste) as the top risk, classifies the customer service complaint as urgent, and recommends pausing ad spend until the lid issue is publicly addressed. One unresolved product defect thread can tank ad engagement overnight.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Cost-optimized — high volume classification",
       },
@@ -797,7 +797,7 @@ const useCases: UseCase[] = [
   {
     id: "healthcare-clinical-ai",
     tab: "Healthcare / Clinical AI",
-    title: "How a Healthcare IT Company Achieved 12.7:1 ROI with HIPAA-Compliant AI Agents",
+    title: "How 10 HIPAA-Compliant AI Agents Achieved 12.7:1 ROI in Clinical Decision Support",
     subtitle:
       "A real-world deployment: a clinical decision support platform serving 23 hospital networks deploys 10 Bonobot agents across Clinical Ops, Revenue Cycle, and Quality & Safety — projecting $606K in annual value against $47.8K platform cost.",
     company: {
@@ -839,7 +839,7 @@ const useCases: UseCase[] = [
         icon: Zap,
         title: "Triage Coordinator Agent",
         description:
-          "Classifies incoming patient cases by ESI (Emergency Severity Index) levels 1-5 based on chief complaint, vitals, and history. Routes to appropriate department. Considers red flags and comorbidities — always errs on the side of caution.",
+          "Classifies incoming patients by ESI levels 1-5 and routes to the right department. Example: 67M, chest pain radiating to left arm, started 45 min ago, BP 158/94, HR 112, SpO2 94%, previous MI in 2022 → ESI Level 1, immediate routing to cardiac cath lab. Considers red flags and comorbidities: a 34F with thunderclap headache and neck stiffness gets escalated for emergent CT angiography despite stable vitals. Always errs on the side of caution — the agent does not diagnose, it prioritizes and routes.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Quality-first — clinical safety critical",
       },
@@ -847,7 +847,7 @@ const useCases: UseCase[] = [
         icon: FileText,
         title: "Clinical Documentation Specialist",
         description:
-          "Transforms unstructured physician dictations into structured SOAP notes, discharge summaries, and consultation reports following HL7 FHIR standards. Flags missing critical information. Never fabricates clinical findings.",
+          "Transforms unstructured physician dictations into structured clinical documents following HL7 FHIR standards. Example: converts 'Saw Mr. Johnson, 55yo male, crushing chest pain while mowing lawn, substernal 8/10, radiating to left jaw, diaphoretic, EKG shows ST elevation leads II III aVF' into a properly formatted SOAP note with subjective, objective, assessment, and plan sections. Generates discharge summaries with specific return-to-ED criteria. Flags missing information — never fabricates findings.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Cost-optimized — high volume documentation",
       },
@@ -855,7 +855,7 @@ const useCases: UseCase[] = [
         icon: Shield,
         title: "Drug Interaction Checker",
         description:
-          "Analyzes medication lists for drug-drug interactions, contraindications, and dosing errors. Classifies by severity (Critical/Major/Moderate/Minor). Considers patient-specific factors including renal function, age, and pregnancy status.",
+          "Analyzes medication lists for interactions, contraindications, and dosing errors with patient-specific context. Example: 74M with CrCl 38 mL/min on 10 medications — flags Critical: warfarin + amiodarone (amiodarone inhibits CYP2C9, increasing bleeding risk 3-5x). Major: fluoxetine further inhibits warfarin metabolism. Moderate: metformin requires dose adjustment for renal function. Creates perioperative medication plans for surgical patients — what to hold, when, bridging protocols, restart timing.",
         model: "GPT-4o Mini (Azure OpenAI)",
         strategy: "Quality-first — patient safety",
       },
@@ -863,7 +863,7 @@ const useCases: UseCase[] = [
         icon: BookOpen,
         title: "Care Pathway Recommender",
         description:
-          "Analyzes patient cases against AHA/ACC, NCCN, ADA, and GOLD clinical guidelines. Identifies deviations from evidence-based care pathways and suggests interventions with NNT/NNH data. Cites specific guideline versions.",
+          "Validates treatment plans against evidence-based guidelines and flags deviations. Example: 58M newly diagnosed T2DM, A1c 8.4%, BMI 34, ASCVD risk 18.2% — started on metformin alone. Agent flags that ADA 2026 guidelines recommend adding a GLP-1 receptor agonist for cardiovascular risk reduction (NNT 43 for MACE). Also catches a STEMI case with door-to-balloon time of 142 minutes (ACC target <90 min) and recommends specific quality improvement steps.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Balanced — guideline reasoning",
       },
@@ -871,7 +871,7 @@ const useCases: UseCase[] = [
         icon: BarChart3,
         title: "Medical Coder Agent",
         description:
-          "Assigns ICD-10-CM diagnosis codes and CPT procedure codes from clinical documentation. Follows CMS sequencing rules, considers laterality and severity specificity. Generates CDI queries when documentation gaps prevent optimal coding.",
+          "Assigns ICD-10-CM and CPT codes from clinical documentation with DRG impact analysis. Example: perforated appendicitis with laparoscopic-to-open conversion → ICD-10 K35.20 (acute appendicitis with peritonitis), K65.0 (peritoneal abscess), CPT 44960 (open appendectomy with abscess drainage). Generates CDI queries when documentation is vague: 'Physician documented pneumonia — post-op day 3 from CABG, intubated 48hrs, Pseudomonas on sputum culture. Specifying VAP vs HAP changes DRG and increases reimbursement by $8,000-$12,000.'",
         model: "GPT-4o Mini (Azure OpenAI)",
         strategy: "Quality-first — structured output",
       },
@@ -879,7 +879,7 @@ const useCases: UseCase[] = [
         icon: MessageSquare,
         title: "Denial Manager Agent",
         description:
-          "Analyzes insurance claim denials, assesses appeal viability, and drafts appeal letters with supporting clinical evidence. References InterQual and Milliman criteria for medical necessity arguments. Tracks denial patterns for root cause analysis.",
+          "Analyzes claim denials and drafts evidence-based appeal letters. Example: UnitedHealthcare denied a 3-day inpatient stay (CO-50, 'not medically necessary') for a 78F admitted for syncope with head strike. Agent builds the appeal: continuous telemetry showed 2 episodes of non-sustained VT, echo revealed new EF of 40% (prior 55%), cardiology recommended EP study — citing InterQual criteria for inpatient cardiac monitoring. Also detects denial patterns: 23 denials for CPT 99223 in 30 days, 18 downgraded to 99222 due to missing time documentation — drafts provider education memo.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Balanced — legal/clinical reasoning",
       },
@@ -887,7 +887,7 @@ const useCases: UseCase[] = [
         icon: Target,
         title: "Revenue Forecaster Agent",
         description:
-          "Analyzes billing data, reimbursement trends, payer mix, and AR aging to forecast quarterly revenue. Factors in CMS fee schedule updates, seasonal patterns, and denial rate trends. Flags optimization opportunities with dollar impact.",
+          "Forecasts quarterly revenue from billing data with specific dollar projections. Example for a 250-bed hospital: Q1 revenue $42.3M, payer mix Medicare 45%/Commercial 35%/Medicaid 15%/Self-pay 5%. Factors in CMS 2.9% Medicare fee schedule increase effective April 1, declining commercial volume (-2% QoQ), and a denial rate of 8.2% (above the 6-8% industry average). Flags that AR >90 days is $3.8M against a $2M target — recommends focused collections effort on commercial claims.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Cost-optimized — data analysis",
       },
@@ -895,7 +895,7 @@ const useCases: UseCase[] = [
         icon: Search,
         title: "Adverse Event Detector",
         description:
-          "Monitors clinical data for medication errors, falls, hospital-acquired infections, and unexpected deterioration. Classifies by severity and preventability. Generates structured incident reports per Joint Commission requirements.",
+          "Catches safety signals that humans might miss in the data noise. Example: 3 patients on Unit 4B developed C. difficile infections in 10 days — baseline rate is 0.5 cases/month. Agent identifies the cluster (observed rate 9x expected), finds the common thread (all 3 on fluoroquinolone antibiotics + PPI), and drafts a preliminary report for the Infection Control Committee with specific intervention recommendations. Also catches a post-op AKI caused by ketorolac + contrast CT + dehydration — classifies as 'moderate harm, likely preventable.'",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
         strategy: "Quality-first — safety critical",
       },
@@ -903,7 +903,7 @@ const useCases: UseCase[] = [
         icon: Users,
         title: "Readmission Risk Analyzer",
         description:
-          "Calculates LACE and HOSPITAL scores for discharge patients. Identifies high-risk patients based on comorbidity burden, medication complexity, and social determinants. Recommends targeted interventions to reduce 30-day readmission risk.",
+          "Calculates LACE and HOSPITAL scores at discharge and recommends targeted interventions. Example: 71M being discharged after 6-day stay for CHF exacerbation — 3rd admission in 12 months, 11 medications (2 new), lives alone, nearest family 2 hours away, no car, PCP appointment not for 3 weeks. LACE score: 16 (high risk). Agent recommends: arrange home health within 24hrs, schedule telehealth cardiology follow-up within 48hrs, enroll in pharmacy medication reconciliation program, arrange medical transportation for PCP visit.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Balanced — risk stratification",
       },
@@ -911,7 +911,7 @@ const useCases: UseCase[] = [
         icon: Headphones,
         title: "Quality Metrics Dashboard Narrator",
         description:
-          "Interprets CMS Star ratings, HCAHPS scores, PSI/HAC rates, and core measures. Generates executive-level quality summaries comparing against national benchmarks and peer hospitals. Identifies top 3 improvement priorities with action plans.",
+          "Translates complex quality data into executive-level narratives with specific action items. Example: CMS Star Rating 3 (target 4), HCAHPS responsiveness at 61% (national avg 67%), CAUTI SIR 1.34 (target <1.0), readmission rate 16.8% (national 15.4%). Agent identifies top 3 priorities: (1) Responsiveness — implement hourly nurse rounding pilot on 3 units, (2) CAUTI — launch catheter removal protocol with daily necessity review, (3) Readmissions — expand discharge planning to include 48hr follow-up calls for high-risk patients.",
         model: "Amazon Nova Lite (AWS Bedrock)",
         strategy: "Cost-optimized — narrative generation",
       },

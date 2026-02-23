@@ -36,15 +36,15 @@ export const blogTags = [
 export const blogPosts: BlogPost[] = [
   {
     slug: "how-ad-tech-platform-cut-cloud-ai-costs-30-percent-multi-cloud-routing",
-    title: "How an Ad-Tech Platform Cut Cloud AI Costs by 30% with Multi-Cloud Routing",
+    title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
     date: "Feb 22, 2026",
     dateISO: "2026-02-22",
     author: "Shabari, Founder",
-    readTime: "7 min read",
-    tags: ["Multi-Cloud", "Cost Optimization", "AI Agents", "Case Study"],
-    metaDescription: "How a programmatic advertising platform managing $40M+ in ad spend unified three cloud AI stacks with Bonito, cut inference costs by 30%, and deployed 7 Bonobot agents for campaign automation — validated with real production data.",
+    readTime: "9 min read",
+    tags: ["Multi-Cloud", "Cost Optimization", "AI Agents", "Case Study", "AI Orchestration", "API Gateway"],
+    metaDescription: "A programmatic ad-tech platform unified 3 cloud AI stacks, deployed 7 Bonobot agents for campaign automation, and cut AI inference costs 30%. 3.5:1 ROI.",
     excerpt: "A 48-person ad-tech company was running GPT-4o for everything — bulk ad copy, sentiment analysis, bid recommendations. Three clouds, three billing dashboards, $8,200/month in AI spend with zero visibility. Here's how they fixed it.",
-    content: `Axiom Media Group manages $40 million in annual ad spend for 85+ DTC brands across Meta, Google, TikTok, and CTV. Their platform automates creative generation, audience segmentation, bid optimization, and campaign reporting. AI isn't a nice-to-have for them — it's the core of the product.
+    content: `Axiom Media Group manages $40 million in annual ad spend for 85+ DTC brands across Meta, Google, TikTok, and CTV. Their programmatic advertising platform automates creative generation, audience segmentation, bid optimization, and campaign reporting. Ad-tech AI isn't a nice-to-have for them — it's the core of the product.
 
 And their AI infrastructure was a mess.
 
@@ -80,23 +80,49 @@ $28,800/yr|saved just by matching models to tasks
 
 Axiom connected all three providers — AWS, GCP, and Azure — through Bonito's gateway in a single afternoon. The platform cataloged 379 models across all three clouds. For the first time, anyone on the team could see every available model, its pricing, and its capabilities from one dashboard.
 
-The routing configuration took about ten minutes. A cost-optimized policy routes creative generation and classification to the cheapest capable model (Nova Lite for high-volume classification, Gemini Flash for creative drafts). A quality-first policy keeps strategic analysis on GPT-4o Mini or Gemini Flash for reasoning depth. Failover chains ensure that if any provider goes down, traffic automatically reroutes.
+The cloud AI routing configuration took about ten minutes. A cost-optimized model routing policy sends creative generation and classification to the cheapest capable model (Nova Lite for high-volume classification, Gemini Flash for creative drafts). A quality-first policy keeps strategic analysis on GPT-4o Mini or Gemini Flash for reasoning depth. Failover chains ensure that if any provider goes down, traffic automatically reroutes — the kind of AI cost optimization that pays for itself immediately.
 
 But cost savings from routing was only half the story. The real transformation came from Bonobot agents.
 
-## 7 Agents That Replaced 3 Hours of Daily Manual Work
+## What the Creative Director Agent Actually Does
 
-Axiom deployed 7 Bonobot agents across two projects: Campaign Operations (4 agents) and Client Intelligence (3 agents).
+Axiom deployed 7 Bonobot agents across two projects. Let me walk through what these agents actually handle, because "campaign automation" is vague and vague doesn't close deals.
 
-The **Campaign Operations** agents handle the repetitive analytical work that consumed the team's mornings. The Creative Director agent generates ad creative briefs with platform-specific formatting — it knows Meta's character limits, TikTok's hook requirements, and Google's quality score factors. The Bid Optimizer agent analyzes campaign metrics and produces specific recommendations: "Frequency hit 3.8x on your Meta lookalike audience, ROAS is declining — here's a restructured budget allocation." The Audience Analyst segments customer cohorts and designs lookalike strategies. The Performance Reporter generates client-facing weekly reports with WoW trends, channel breakdowns, and recommended next steps.
+The **Creative Director** agent generates platform-specific ad creative on demand. A typical request looks like this: *"Generate 5 Meta ad headlines for a DTC skincare brand launching a $38 Vitamin C serum. Target: women 25-40, urban, health-conscious. Key differentiator: dermatologist-developed, clean ingredients. Include emotional hooks."*
 
-The **Client Intelligence** agents handle market research, contract analysis, and brand sentiment monitoring. The Market Research agent produces competitive landscape analyses with specific CAC benchmarks and channel dynamics. The Contract Analyzer reviews media plans and calculates effective rates. The Sentiment Monitor classifies social mentions and flags brand safety risks that should trigger ad pauses.
+The agent comes back with three tiers — safe, bold, and experimental — for each variation. It knows Meta's character limits, Google's quality score factors, and TikTok's unique format requirements. When someone needs a TikTok script, the agent understands that you need a hook in the first two seconds or the viewer is gone: *"Write TikTok ad scripts (15-sec and 30-sec) for a protein bar brand targeting gym-goers 18-30. Tone: energetic, slightly irreverent. Must include hook in first 2 seconds. Product: 20g protein, no artificial sweeteners, $2.49/bar."*
+
+It also evaluates existing creative. Feed it three Google Search headlines for a running shoes campaign with a $35 target CPA, and it scores each on clarity, urgency, relevance, and click-worthiness — with reasoning for every score. This is work that a mid-level copywriter spends 2-3 hours on per client per week. The agent does it in 30 seconds.
+
+## How the Bid Optimizer Catches Problems Before They Cost Money
+
+The **Bid Optimizer** is where the real operational leverage comes from. It analyzes live campaign metrics and produces specific, actionable recommendations with dollar amounts attached.
+
+Here's a real example from testing: *"Analyze this Meta campaign: Spend $4,200/week, Impressions 890K, Clicks 12,400, CTR 1.39%, CPC $0.34, Conversions 445, CPA $9.44, ROAS 4.2x. Frequency 3.8 (up from 2.1 last week). Audience: Lookalike 1% US women 25-44."*
+
+The agent spots what a junior analyst might miss: that frequency spike from 2.1x to 3.8x means the audience is getting saturated. ROAS is still at 4.2x — it looks fine right now — but historical patterns show that once frequency exceeds 4x, ROAS typically degrades within 5-7 days. The agent recommends refreshing the audience or broadening the lookalike percentage *before* performance drops, not after.
+
+It also handles cross-channel budget allocation: *"Compare 3 Google ad groups: Brand (CPC $1.20, Conv rate 8.2%, CPA $14.63), Competitor (CPC $3.40, Conv rate 3.1%, CPA $109.68), Generic (CPC $0.89, Conv rate 1.8%, CPA $49.44). Total daily budget $500."* The agent recommends shifting $200 from the Competitor group (CPA 7.5x the Brand group) to Brand, and testing a reduced Generic budget with tighter keyword matching.
+
+When CPMs spike 84% in five days ($6.20 to $11.40 on Meta), the agent differentiates between seasonal pressure, competitive bidding, and audience fatigue — and recommends different responses for each scenario.
 
 :::insight
-Seven agents across two projects — Campaign Operations and Client Intelligence — automating the routine analytical work that consumed 3 FTE hours every day. Not replacing the team. Giving them back their mornings for strategic work.
+The Bid Optimizer doesn't just report numbers — it catches problems before they cost money. A frequency spike from 2.1x to 3.8x looks fine today but predicts ROAS degradation within a week. The agent recommends action before the client's next report shows a downturn.
 :::
 
-Each agent operates within Bonobot's default-deny security model. The Creative Director can access campaign briefs but not financial data. The Bid Optimizer can read performance metrics but can't modify actual bids. Every agent has a $500/month budget cap enforced in real-time, and every interaction generates a complete audit trail.
+## Audience Analysis and Client Intelligence
+
+The **Audience Analyst** works with real cohort data. Feed it a 12,400-customer dataset broken down by age, AOV, repeat rate, and acquisition channel, and it identifies that the 35-44 segment ($61 AOV, 35% repeat rate) is the highest-LTV target worth concentrating spend on — even though the 25-34 segment is larger by volume.
+
+For a luxury candle brand launching on Meta, it designs a specific lookalike testing sequence: seed with 890 repeat buyers (3+ orders) at 1% lookalike first (highest intent), then broaden to 3% and 5% based on performance. When a retargeting audience hits 8.2x frequency and ROAS drops from 6.1x to 3.4x, the agent diagnoses audience exhaustion and recommends restructuring into a 3-tier engagement funnel with different messaging at each stage.
+
+The **Performance Reporter** generates client-facing weekly reports with real numbers and honest commentary. For GlowUp Skincare: Meta ROAS 4.79x ($3,800 spend, 612 purchases, CPA $6.21), Google 3.52x, TikTok 2.33x — overall ROAS dipped from 4.1x to 3.99x WoW. When a client escalates because ROAS dropped from 5.2x to 2.8x over three weeks, the agent doesn't sugarcoat it — it identifies that new creative launched in Week 2 coincides with the decline and drafts a recovery plan.
+
+The **Market Research** agent produces competitive intelligence with specific numbers. For the DTC beauty vertical: Meta CPMs up 22% YoY, TikTok Shop launched a beauty category with a 40% commission reduction that's pulling spend, average CAC now $28 (up from $21 in 2024). For a coffee subscription client spending $8K/month at 3.1x ROAS, it maps competitive positioning against VC-backed Trade Coffee ($50M raised) and mass-market Starbucks Reserve with channel-specific recommendations.
+
+The **Contract Analyzer** reviews media plans and flags risks that account managers might miss. A $120K Q2 plan for UrbanGear Apparel: the agent calculates expected revenue from the 15% management fee ($18K), flags the 15-day cancellation clause as a risk against the 3-month commitment, and models whether the 10% performance bonus (if ROAS exceeds 5x) is realistically achievable based on the category's historical data.
+
+The **Sentiment Monitor** classifies social mentions and flags brand safety risks before they crater ad performance. For a reusable water bottle brand, five social posts come in — the agent identifies a product defect cluster (two separate mentions of lid leaking, one metallic taste complaint) and a customer service failure (ghosted for 2 weeks on a warranty claim). It classifies the defect cluster as the top risk and recommends pausing ad spend until the lid issue is publicly addressed. One unresolved product defect thread going viral can tank ad engagement overnight.
 
 ## The Production Numbers
 
@@ -104,9 +130,15 @@ We validated the entire architecture with end-to-end testing on Bonito's product
 
 **Gateway performance:** 74 requests across all three clouds. AWS Nova Lite: 36 requests (34 successful, 2.6s average latency). GCP Gemini Flash: 21 requests (100% success, 5.2s average latency). Azure GPT-4o Mini: 17 requests queued pending deployment provisioning. Total tokens processed: 36,952. Total cost: $0.032.
 
-**Agent execution:** All 7 agents created and tested with domain-specific prompts. The Creative Director generated multi-platform ad variations. The Bid Optimizer analyzed real campaign metrics and produced actionable recommendations. The Audience Analyst designed lookalike audience strategies. Every agent session was logged with full audit trails.
+**Agent execution:** All 7 agents created and tested with domain-specific prompts — the exact examples described above. Creative Director generated multi-platform ad variations with proper format compliance. Bid Optimizer analyzed real campaign metrics and produced actionable recommendations. Audience Analyst designed lookalike strategies with specific seed audiences and testing sequences. Every agent session was logged with full audit trails.
 
 **Concurrency:** Axiom's tests ran simultaneously with three other organizations on the same Bonito backend. Zero cross-org data leakage. Zero 500 errors. Gateway correctly tagged and isolated each organization's requests.
+
+:::stats
+74|gateway requests across AWS + GCP + Azure
+36,952|tokens processed in production testing
+$0.032|total inference cost for full test suite
+:::
 
 ## The ROI Math
 
@@ -116,14 +148,14 @@ Here's the full cost breakdown, annualized:
 
 **With Bonito:** $5,800/month in AI spend (30% reduction via smart routing) plus $2,942/month platform cost ($499 Pro subscription + 7 agents at $349 each). Total: $8,742/month ($104,904/year).
 
-The total annual cost is slightly higher than before. But here's what you get for that difference: 7 autonomous agents that automate 3 FTE hours of daily analytical work. At $75K/year per analyst, that's $94,000 in labor savings. Plus $28,800 in AI cost reduction from routing optimization.
+The total annual cost is slightly higher than before. But here's what you get for that difference: 7 autonomous agents that automate 3 FTE hours of daily analytical work — the specific workflows described above. At $75K/year per analyst, that's $94,000 in labor savings. Plus $28,800 in AI cost reduction from routing optimization.
 
 **Total annual savings: $122,800. Platform cost: $35,304. ROI: 3.5:1.**
 
 :::stats
 $122,800|total annual savings (labor + AI cost reduction)
 $35,304|annual platform cost (Pro + 7 agents)
-3.5:1|return on investment
+3.5:1|return on investment — payback in under 4 months
 :::
 
 The payback period is under four months. And the ROI improves as Axiom's volume grows, because routing savings scale linearly with request volume while the platform cost stays fixed.
@@ -132,28 +164,29 @@ The payback period is under four months. And the ROI improves as Axiom's volume 
 
 Axiom's story illustrates three things that apply to any team running AI at scale across multiple clouds:
 
-**Routing is the lowest-hanging fruit.** If you're using a premium model for every request, you're almost certainly overpaying by 30-50%. Most AI workloads are a mix of simple tasks (classification, templated generation) and complex tasks (reasoning, analysis). Match the model to the task.
+**Model routing is the lowest-hanging fruit for AI cost optimization.** If you're using a premium model for every request, you're almost certainly overpaying by 30-50%. Most ad-tech AI workloads are a mix of simple tasks (classification, templated generation) and complex tasks (reasoning, analysis). Match the model to the task.
 
-**Agents compound the value of routing.** Routing saves money on the requests you're already making. Agents generate new value by automating work that humans are currently doing. The combination — cheaper requests plus fewer manual hours — is where the real ROI comes from.
+**Agents compound the value of cloud AI routing.** Routing saves money on the requests you're already making. Agents generate new value by automating work that humans are currently doing — bid analysis, audience segmentation, client reporting, competitive intelligence, contract review, sentiment monitoring. The combination — cheaper requests plus fewer manual hours — is where the real ROI comes from.
 
 **Visibility is a prerequisite for optimization.** You can't optimize what you can't measure. Before Bonito, Axiom couldn't even tell you their total AI spend with confidence. After Bonito, they can break it down by provider, by model, by agent, by project. That visibility is what makes every subsequent optimization possible.
 
-If your ad-tech platform is running AI across multiple clouds without unified routing and governance, you're paying the wrong-model tax on every request. [Start with a free Bonito account](/register) and connect your first provider. The routing savings alone will make the case for everything else.`,
+If your programmatic advertising platform is running AI across multiple clouds without unified routing and governance, you're paying the wrong-model tax on every request. [Start with a free Bonito account](/register) and connect your first provider. The routing savings alone will make the case for everything else.`,
     images: [
       { section: "Three Clouds, One Giant Bill Nobody Could Explain", src: "", alt: "Multi-cloud AI sprawl in ad-tech", position: "right" },
-      { section: "7 Agents That Replaced 3 Hours of Daily Manual Work", src: "", alt: "Bonobot agent architecture for campaign operations", position: "left" },
-      { section: "The ROI Math", src: "", alt: "Ad-tech ROI breakdown: 3.5:1 return on investment", position: "right" },
+      { section: "What the Creative Director Agent Actually Does", src: "", alt: "Bonobot Creative Director and Bid Optimizer agent workflows", position: "left" },
+      { section: "Audience Analysis and Client Intelligence", src: "", alt: "Bonobot agent architecture for campaign operations and client intelligence", position: "right" },
+      { section: "The ROI Math", src: "", alt: "Ad-tech ROI breakdown: 3.5:1 return on investment", position: "left" },
     ],
   },
   {
     slug: "building-hipaa-compliant-ai-agents-clinical-decision-support",
-    title: "Building HIPAA-Compliant AI Agents for Clinical Decision Support",
+    title: "How 10 HIPAA-Compliant AI Agents Achieved 12.7:1 ROI in Clinical Decision Support",
     date: "Feb 22, 2026",
     dateISO: "2026-02-22",
     author: "Shabari, Founder",
-    readTime: "8 min read",
-    tags: ["AI Agents", "Enterprise AI", "AI Governance", "Case Study", "AI Security"],
-    metaDescription: "How a healthcare IT company deployed 10 governed AI agents for clinical triage, medical coding, and patient safety — with full HIPAA audit trails, budget controls, and credential isolation. 12.7:1 ROI validated on production infrastructure.",
+    readTime: "11 min read",
+    tags: ["AI Agents", "Enterprise AI", "AI Governance", "Case Study", "AI Security", "AI Orchestration"],
+    metaDescription: "10 governed AI agents for clinical triage, medical coding, and patient safety with HIPAA audit trails and budget controls. $606K annual value, 12.7:1 ROI.",
     excerpt: "Healthcare can't afford ungoverned AI. A clinical decision support company serving 23 hospital networks deployed 10 Bonobot agents with default-deny security, per-agent budget caps, and complete audit trails — projecting $606K in annual value.",
     content: `Healthcare AI has a governance problem that most other industries can afford to ignore. In ad-tech, a misconfigured AI agent wastes ad spend. In healthcare, a misconfigured AI agent could surface the wrong drug interaction, miss a critical triage signal, or expose protected health information across departments. The stakes aren't comparable.
 
@@ -171,22 +204,97 @@ Total monthly AI spend: $24,000. Three separate billing dashboards. Three separa
 
 > Three cloud AI stacks, $24K/month, 40+ hours per compliance audit just to compile evidence across environments. Healthcare AI governance was broken before it started.
 
-On top of the infrastructure costs, Sentinel had 2.5 FTE worth of staff time consumed by manual workflows that AI agents could handle: coding reviews, denial appeal drafting, clinical documentation formatting, and quality metrics reporting. The board was asking for ROI data on AI spend versus clinical outcomes — and nobody could produce it because there was no unified view of costs, usage, or impact.
+On top of the infrastructure costs, Sentinel had 2.5 FTE worth of staff time consumed by manual workflows that clinical AI agents could handle: medical coding automation, denial appeal drafting, clinical documentation formatting, and quality metrics reporting. The board was asking for ROI data on AI spend versus clinical outcomes — and nobody could produce it because there was no unified view of costs, usage, or impact.
 
-## The 10-Agent Architecture
+## What 10 Clinical AI Agents Actually Do
 
-Sentinel deployed 10 Bonobot agents organized into three projects that map to distinct hospital workflow domains. This isn't a monolithic AI system. It's a network of specialized agents, each with scoped access, specific model routing, and independent budget controls.
+Sentinel deployed 10 Bonobot agents organized into three projects. I'm going to walk through what each agent handles in detail, because "clinical decision support" is abstract and abstract doesn't help anyone evaluate whether this applies to their hospital network.
 
-**Clinical Operations (4 agents):** The Triage Coordinator classifies incoming patients by ESI levels 1-5 using chief complaint, vitals, and medical history — always erring on the side of caution, escalating uncertain cases rather than underclassifying. The Clinical Documentation Specialist transforms physician dictations into structured SOAP notes and discharge summaries following HL7 FHIR standards. The Drug Interaction Checker analyzes medication lists for interactions, contraindications, and dosing errors — classifying by severity and considering patient-specific factors like renal function and pregnancy. The Care Pathway Recommender validates treatment plans against AHA, NCCN, ADA, and GOLD clinical guidelines, flagging deviations with evidence citations.
+### Clinical Operations: The Front Line
 
-**Revenue Cycle Management (3 agents):** The Medical Coder assigns ICD-10 and CPT codes from clinical documentation with proper sequencing and specificity. The Denial Manager analyzes claim denials, assesses appeal viability, and drafts appeal letters citing InterQual and Milliman medical necessity criteria. The Revenue Forecaster projects quarterly revenue factoring in payer mix, denial rates, AR aging, and CMS fee schedule updates.
+The **Triage Coordinator** is the first agent in the clinical workflow. It classifies incoming patients by ESI (Emergency Severity Index) levels 1-5 and routes them to the appropriate department. Here's what that looks like in practice.
 
-**Quality & Patient Safety (3 agents):** The Adverse Event Detector monitors for medication errors, hospital-acquired infections, and unexpected clinical deterioration, generating structured incident reports per Joint Commission requirements. The Readmission Risk Analyzer calculates LACE and HOSPITAL scores at discharge, identifying high-risk patients and recommending targeted interventions. The Quality Metrics Dashboard Narrator interprets CMS Star ratings, HCAHPS scores, and HAI rates, producing executive-level quality summaries with actionable improvement plans.
+A 67-year-old male presents with chest pain radiating to his left arm, started 45 minutes ago. Vitals: BP 158/94, HR 112, SpO2 94%. History: hypertension, type 2 diabetes, previous MI in 2022. Current medications: metoprolol 50mg, lisinopril 20mg, metformin 1000mg, aspirin 81mg. The agent classifies this as **ESI Level 1** — immediate life-threatening — and routes directly to the cardiac cath lab. The reasoning is documented: acute coronary syndrome presentation with ST-elevation risk factors, prior MI history, hemodynamic instability (tachycardia, hypoxia).
+
+But the non-obvious cases are where the agent adds the most value. A 34-year-old female presents with "severe headache, worst of my life, sudden onset 2 hours ago." Vitals are relatively stable: BP 142/88, HR 78, SpO2 99%. A less experienced triage nurse might classify this as ESI 3 (urgent but not emergent) based on the stable vitals. The agent catches what matters: this is a thunderclap headache with neck stiffness in a patient on oral contraceptives. That presentation demands emergent CT angiography to rule out subarachnoid hemorrhage. **ESI Level 2**, immediate neurological evaluation.
+
+The agent does not diagnose. It prioritizes and routes. But it considers comorbidities, medication interactions, and red flag presentations that might be missed under time pressure in a busy ED.
+
+:::insight
+The Triage Coordinator doesn't diagnose — it prioritizes and routes. But it catches non-obvious presentations: a thunderclap headache with neck stiffness in a patient on oral contraceptives gets escalated for emergent CT angiography, not triaged as a routine migraine.
+:::
+
+The **Clinical Documentation Specialist** handles the mechanical work of converting physician dictations into structured clinical documents. Here's a real example from testing. An ED physician dictates:
+
+*"Saw Mr. Johnson, 55 year old male, came in with crushing chest pain started about an hour ago while mowing lawn. Pain is substernal, 8 out of 10, radiating to left jaw. Some diaphoresis. Denied SOB. History of high cholesterol, takes atorvastatin. Dad had MI at 58. Exam shows diaphoretic male in moderate distress. Heart regular rate rhythm, no murmurs. Lungs clear. EKG shows ST elevation in leads II III aVF. Troponin pending. Started heparin drip, aspirin 325, nitro drip, called cardiology for emergent cath. Working diagnosis STEMI."*
+
+The agent converts this into a structured SOAP note with proper sections — Subjective (chief complaint, HPI, PMH, family history, medications), Objective (vitals, physical exam, EKG findings), Assessment (STEMI, inferior wall, with risk stratification), and Plan (anticoagulation protocol, interventional cardiology consult, cath lab activation). It follows HL7 FHIR standards. It flags that troponin results are pending and should be documented when available. It never fabricates findings that weren't in the dictation.
+
+For discharge summaries, it's equally specific. A 72-year-old female admitted for CHF exacerbation gets a structured discharge summary that includes: admission weight vs. discharge weight (174 lbs → 168 lbs, target 162), BNP trend (1,840 → 620), medication changes (furosemide increased from 40mg to 60mg, spironolactone 25mg added), and specific return-to-ED criteria (weight gain >3 lbs in 1 day or 5 lbs in 1 week, increasing shortness of breath, chest pain, dizziness). Physicians spend 15-30 minutes per discharge summary. The agent produces a complete draft in under a minute.
+
+The **Drug Interaction Checker** is the patient safety backstop. Here's one of the test cases that demonstrates why this matters:
+
+*Patient: 74-year-old male, CrCl 38 mL/min, on 10 medications for AFib, CHF, type 2 diabetes, COPD, and depression. Medication list: warfarin 5mg, amiodarone 200mg, metformin 1000mg BID, fluoxetine 40mg, tiotropium 18mcg inhaled, lisinopril 10mg, furosemide 40mg, KCl 20mEq, acetaminophen 500mg PRN, omeprazole 20mg.*
+
+The agent flags interactions ranked by severity:
+
+- **Critical:** Warfarin + amiodarone — amiodarone inhibits CYP2C9 and CYP3A4, increasing warfarin's anticoagulant effect 3-5x. Risk of serious bleeding. Requires INR monitoring every 2-3 days and likely warfarin dose reduction by 30-50%.
+- **Major:** Fluoxetine + warfarin — fluoxetine further inhibits CYP2C9 and independently increases bleeding risk through platelet inhibition. Combined with amiodarone, this is a triple threat on the coagulation pathway.
+- **Major:** Metformin with CrCl 38 mL/min — below the threshold for safe use (CrCl <30 is contraindicated, 30-45 requires dose reduction). Agent recommends reducing to 500mg BID or switching to a DPP-4 inhibitor.
+- **Moderate:** QTc prolongation risk from amiodarone + fluoxetine combination — recommends baseline and follow-up ECG monitoring.
+
+The agent also handles perioperative medication management: for a patient on apixaban and clopidogrel facing knee replacement in 5 days, it creates a specific timeline — hold apixaban 48 hours pre-op, hold clopidogrel 5-7 days pre-op, no bridging needed for apixaban, restart both 24-48 hours post-op if adequate hemostasis, continue statin and beta-blocker perioperatively.
+
+The **Care Pathway Recommender** validates treatment plans against current evidence-based guidelines. Example: a 58-year-old male newly diagnosed with type 2 diabetes, A1c 8.4%, BMI 34, eGFR 72, high ASCVD risk (10-year risk 18.2%). Currently started on metformin 500mg BID only. The agent reviews against ADA 2026 Standards of Care and flags that guidelines now recommend early addition of a GLP-1 receptor agonist for patients with established ASCVD risk — the NNT for major cardiovascular events is 43. The agent also flags that SGLT2 inhibitors should be considered for kidney protection given the borderline eGFR. Metformin alone is an undertreated plan for this patient's risk profile.
+
+It also catches quality deviations after the fact. A STEMI patient had a door-to-balloon time of 142 minutes against the ACC target of <90 minutes. The agent analyzes the statistical implications — each 30-minute delay beyond 90 minutes is associated with a 7.5% increase in mortality risk — and recommends specific QI steps: cath lab activation protocol review, pre-hospital notification system audit, and mock activation drills.
 
 :::stats
 10|specialized agents across 3 clinical domains
 4.2M|patient encounters per year covered
 23|hospital networks served
+:::
+
+### Revenue Cycle: Where AI Pays for Itself
+
+The **Medical Coder** assigns ICD-10-CM and CPT codes with DRG impact analysis. Here's a real test case:
+
+*ED visit: 45-year-old male, acute appendicitis with peritonitis. CT confirms perforated appendix with localized abscess. Taken to OR for laparoscopic appendectomy converted to open due to extensive adhesions. Peritoneal lavage performed. Intra-abdominal drain placed. General anesthesia, 2.5 hours.*
+
+The agent assigns: ICD-10-CM K35.20 (acute appendicitis with generalized peritonitis), K65.0 (peritoneal abscess), CPT 44960 (open appendectomy with abscess drainage — note: the conversion from laparoscopic to open changes the CPT code and reimbursement). It calculates the DRG impact and flags that proper documentation of the conversion reason (extensive adhesions) is critical for supporting the higher-complexity code.
+
+But the most valuable thing the Medical Coder does is generate CDI (Clinical Documentation Improvement) queries. Example: a physician documents "pneumonia" in a discharge summary. The patient had a positive sputum culture for Pseudomonas aeruginosa, was on IV piperacillin-tazobactam for 8 days, was intubated for 48 hours post-CABG. The agent drafts a query asking the physician to specify: is this community-acquired pneumonia, hospital-acquired pneumonia, or ventilator-associated pneumonia? Is the Pseudomonas the causative organism? Was it present on admission? The coding impact is significant: specifying VAP with Pseudomonas changes the DRG and increases reimbursement by $8,000-$12,000.
+
+The **Denial Manager** drafts evidence-based appeal letters. Here's the case that demonstrates the pattern:
+
+*UnitedHealthcare denied a 3-day inpatient stay, reason code CO-50 ("not medically necessary, should have been outpatient/observation"). Patient: 78-year-old female admitted for syncope with head strike.*
+
+The agent builds the appeal by marshaling the clinical evidence: continuous telemetry monitoring for 48 hours revealed 2 episodes of non-sustained ventricular tachycardia. CT head was negative, but echocardiogram showed a new ejection fraction of 40% (prior was 55%) — indicating new-onset systolic heart failure. Cardiology consult recommended electrophysiology study. The agent cites InterQual criteria for inpatient cardiac monitoring: documented arrhythmia requiring continuous monitoring, new cardiomyopathy requiring workup, and fall risk from recurrent syncope all independently meet inpatient admission criteria.
+
+The agent also detects denial patterns. Over 30 days, 23 denials for CPT 99223 (high-level initial hospital visit) were identified across multiple payers — 18 downgraded to 99222. The common thread: documentation supported the medical decision-making complexity, but time documentation was inconsistent. Only 4 of 23 charts had explicit total time documented. The agent drafts a provider education memo explaining the 2026 E/M coding requirements and an appeal template for the 18 pending cases.
+
+The **Revenue Forecaster** projects quarterly revenue with specific dollar amounts. For a 250-bed hospital with Q1 revenue of $42.3M: Medicare 45% (average reimbursement $8,200/encounter), Commercial 35% ($11,400), Medicaid 15% ($4,800), Self-pay 5% ($1,200). It factors in the CMS 2.9% Medicare fee schedule increase effective April 1, accounts for declining commercial volume (-2% QoQ), and flags that AR over 90 days is $3.8M against a $2M target — recommending a focused collections effort on aging commercial claims as the highest-impact revenue recovery action.
+
+### Quality & Patient Safety: Catching What Gets Missed
+
+The **Adverse Event Detector** catches safety signals that might get lost in the noise of a busy hospital. The most compelling test case:
+
+*Three patients on Unit 4B developed C. difficile infections in the past 10 days. Baseline rate for the unit: 0.5 cases per month.*
+
+The agent immediately flags this as a cluster — observed rate is 9x expected. It identifies the common thread: Patient 1 (72F, post-hip fracture) was on ceftriaxone for 7 days. Patient 2 (68M, CHF exacerbation) was on levofloxacin for 5 days. Patient 3 (81F, UTI) was on ciprofloxacin for 3 days. All three were on proton pump inhibitors. The agent identifies the pattern — fluoroquinolone antibiotics combined with PPI use — and drafts a preliminary report for the Infection Control Committee with specific recommendations: enhanced environmental cleaning on 4B, antibiotic stewardship review focusing on fluoroquinolone prescribing patterns, PPI necessity review for all Unit 4B patients, and contact precautions for the affected patients.
+
+It also catches individual cases. A 69-year-old male admitted for elective hip replacement develops acute kidney injury on post-op day 1 (creatinine 2.8, baseline 1.1). The agent traces contributing factors: ketorolac 30mg IV every 6 hours (4 doses — an NSAID in a post-surgical patient with dehydration), contrast CT for suspected PE (contrast nephropathy risk), and metformin not held despite contrast administration (protocol violation). Intake was 800mL against output of 2,100mL — clear dehydration. Classification: moderate harm, likely preventable. The structured incident report includes each contributing factor, the preventability assessment, and recommendations for protocol changes.
+
+The **Readmission Risk Analyzer** calculates risk scores and recommends specific interventions. The test case that illustrates why systematic risk scoring matters:
+
+*71-year-old male being discharged after a 6-day stay for CHF exacerbation. This is his 3rd admission in 12 months for CHF. Comorbidities: type 2 diabetes, CKD stage 3b, COPD, depression. Discharge medications: 11 total, including 2 new ones (spironolactone and sacubitril/valsartan, replacing lisinopril). Lives alone. Nearest family is 2 hours away. No car, limited bus access. Primary care appointment scheduled in 3 weeks (earliest available). Home health not yet arranged.*
+
+The agent calculates a LACE score of 16 (high risk — Length of stay 6 days, Acuity of admission, Comorbidity burden, ED visits in prior 6 months). This patient has almost every risk factor for 30-day readmission. The agent recommends four specific interventions: (1) arrange home health services within 24 hours of discharge, not "at some point," (2) schedule a telehealth cardiology follow-up within 48 hours since the PCP appointment is 3 weeks out, (3) enroll in a pharmacy medication reconciliation program because switching from lisinopril to sacubitril/valsartan with a new spironolactone is a complex medication change in a patient on 11 drugs, (4) arrange medical transportation for the PCP visit since transportation barriers are a leading cause of missed follow-ups.
+
+The **Quality Metrics Dashboard Narrator** translates raw quality data into executive-level narratives. The agent takes: CMS Star Rating 3 (target 4), HCAHPS overall 68% (national average 72%), nurse communication 78% (national 73%), responsiveness 61% (national 67%), CAUTI SIR 1.34 (target <1.0), CDI SIR 1.15 (target <1.0), readmission rate 16.8% (national 15.4%). It identifies the top 3 priorities with specific action plans: (1) Responsiveness at 61% is the biggest gap — implement hourly nurse rounding pilot on 3 units. (2) CAUTI SIR 1.34 exceeds benchmark — launch catheter removal protocol with daily necessity review and nurse-driven removal criteria. (3) Readmission rate 16.8% — expand discharge planning to include 48-hour follow-up calls for all patients with LACE scores above 10.
+
+:::insight
+Each agent handles specific, detailed clinical workflows — not generic "AI assistance." The Drug Interaction Checker flags that warfarin + amiodarone + fluoxetine creates a triple threat on the coagulation pathway. The Adverse Event Detector catches a C. diff cluster at 9x baseline rate and traces it to a fluoroquinolone prescribing pattern. The Medical Coder identifies that specifying VAP vs. HAP changes reimbursement by $8,000-$12,000 per case.
 :::
 
 ## How Default-Deny Maps to HIPAA
@@ -203,30 +311,18 @@ Bonobot's default-deny architecture addresses the HIPAA threat model at a fundam
 
 **Budget Controls as Safety Mechanisms.** Per-agent budget caps aren't just financial governance — in a clinical context, they're a safety mechanism. A runaway agent loop triggered by a prompt injection attack is constrained by its budget cap before it can generate enough expensive inference calls to cause operational disruption. Each agent has a configurable monthly ceiling enforced in the request path, not after the fact.
 
-:::insight
-Default-deny isn't just a security feature — it's a HIPAA compliance architecture. Minimum necessary access, complete audit trails, credential isolation, and budget enforcement map directly to the Security Rule's requirements for administrative, physical, and technical safeguards.
-:::
-
-## Smart Routing for Clinical Workloads
-
-Not every clinical AI task requires the same model. Sentinel's routing policies reflect this:
-
-Documentation summarization and narrative generation route to cost-efficient models like Amazon Nova Lite — high volume, structured text, well-defined format requirements. Clinical reasoning tasks (triage classification, care pathway analysis, drug interaction checking) route to capable models like Gemini 2.0 Flash that can handle multi-step reasoning. Medical coding routes to GPT-4o Mini for its strength in structured output — ICD-10 code assignment requires precise formatting that cheaper models handle inconsistently.
-
-The routing reduced Sentinel's monthly AI spend from $24,000 to $16,800 — a 30% reduction. But the bigger savings came from what the agents automated.
-
 ## The Value Stack
 
 Sentinel's ROI calculation has four components, and it's important to be transparent about which numbers come from production testing and which are projected from industry benchmarks.
 
-**Validated on production infrastructure:** 40 gateway requests, 18,618 tokens processed across AWS and GCP. All requests logged with complete audit trails. 10 agents created and tested with complex clinical prompts — ESI triage classifications, SOAP note generation, drug interaction analysis, ICD-10 code assignment, appeal letter drafting, quality narrative generation. All producing clinically relevant output.
+**Validated on production infrastructure:** 40 gateway requests, 18,618 tokens processed across AWS and GCP. All requests logged with complete audit trails. 10 agents created and tested with the exact clinical scenarios described above — ESI triage classifications, SOAP note generation from physician dictations, multi-drug interaction analysis, ICD-10 coding with CDI queries, denial appeal drafting with InterQual citations, C. diff cluster detection, readmission risk scoring with LACE calculations. All producing clinically relevant, detailed output.
 
 **Projected from test data and industry benchmarks:**
 
-- **AI cost reduction:** $86,400/year from routing bulk documentation to cheaper models
+- **AI cost reduction:** $86,400/year from routing bulk documentation to cheaper models (discharge summaries and quality narratives → Nova Lite instead of GPT-4o)
 - **Labor automation:** $180,000/year — 2.5 FTE equivalent of manual coding reviews, denial appeals, documentation formatting, and quality reporting
-- **Readmission penalty reduction:** $100,000/year — conservative 20% reduction in excess readmissions through systematic risk scoring and targeted interventions at discharge
-- **Revenue recovery:** $240,000/year — improved coding accuracy (fewer under-coded encounters) plus better denial management (higher appeal success rate)
+- **Readmission penalty reduction:** $100,000/year — conservative 20% reduction in excess readmissions through systematic LACE scoring and targeted interventions like the 71-year-old CHF patient example above
+- **Revenue recovery:** $240,000/year — improved coding accuracy (CDI queries like the VAP/HAP distinction recover $8,000-$12,000 per case) plus better denial management (evidence-based appeals like the syncope case)
 
 **Total projected annual value: $606,400. Total platform cost: $47,868/year ($499/mo Pro + 10 agents × $349/mo). ROI: 12.7:1.**
 
@@ -236,7 +332,7 @@ $47.9K|annual platform cost (Pro + 10 agents)
 12.7:1|return on investment
 :::
 
-The readmission and revenue recovery numbers are projections, not guarantees. They're based on published AHIMA data on AI-assisted coding accuracy improvements and CMS readmission penalty data for hospitals in Sentinel's size range. The actual impact will depend on each facility's baseline performance, payer mix, and implementation fidelity. We're being transparent about that because healthcare doesn't need more vendors making unqualified claims about AI outcomes.
+The readmission and revenue recovery numbers are projections, not guarantees. They're based on published AHIMA data on AI-assisted coding accuracy improvements and CMS readmission penalty data for hospitals in Sentinel's size range. We're being transparent about that because healthcare doesn't need more vendors making unqualified claims about AI outcomes.
 
 ## What Healthcare IT Teams Should Know
 
@@ -244,17 +340,18 @@ If you're building or deploying AI in a HIPAA-regulated environment, the governa
 
 **Audit trails are structural, not configurable.** If your AI platform lets you turn off logging, it's not HIPAA-ready. Every inference, every data access, every agent action must be recorded. Bonobot makes this non-negotiable by design.
 
-**Agent scoping maps to Minimum Necessary.** Broad model access violates HIPAA's minimum necessary standard. Each agent should access exactly the data it needs and nothing more. Default-deny architecture makes this the starting point rather than something you have to lock down.
+**Agent scoping maps to Minimum Necessary.** Broad model access violates HIPAA's minimum necessary standard. Each agent should access exactly the data it needs and nothing more. Default-deny architecture makes this the starting point rather than something you have to lock down. The Drug Interaction Checker can see medication lists and lab values but not billing records. The Medical Coder can see clinical documentation but not raw patient demographics. That's not a limitation — it's a compliance requirement implemented as architecture.
 
-**Multi-cloud redundancy is a clinical requirement.** If your clinical AI runs on a single cloud provider and that provider has an outage during a night shift, patient care is impacted. Sentinel's routing policies include cross-cloud failover: if GCP goes down, clinical workloads reroute to AWS automatically. The clinical team never notices.
+**Multi-cloud redundancy is a clinical requirement.** If your clinical AI runs on a single cloud provider and that provider has an outage during a night shift, patient care is impacted. Sentinel's routing policies include cross-cloud failover: if GCP goes down, clinical workloads reroute to AWS automatically. The Triage Coordinator doesn't stop classifying patients because Vertex AI is having a bad day.
 
 Healthcare AI will be transformative for clinical operations, revenue cycle management, and patient safety. But only if it's deployed with the governance architecture the domain requires. That's what Bonobot was built for.
 
 If you're exploring HIPAA-compliant AI agents for clinical workflows, [start with a free Bonito account](/register) and see the governance architecture from the inside. Or [reach out directly](/contact) — we'll walk through how the default-deny model maps to your specific compliance requirements.`,
     images: [
-      { section: "The 10-Agent Architecture", src: "", alt: "Clinical AI agent architecture across three hospital domains", position: "right" },
+      { section: "What 10 Clinical AI Agents Actually Do", src: "", alt: "Clinical AI agent architecture across three hospital domains", position: "right" },
+      { section: "Revenue Cycle: Where AI Pays for Itself", src: "", alt: "Medical coding and denial management agent workflows", position: "left" },
+      { section: "Quality & Patient Safety: Catching What Gets Missed", src: "", alt: "Adverse event detection and readmission risk scoring", position: "right" },
       { section: "How Default-Deny Maps to HIPAA", src: "", alt: "Bonobot default-deny security mapping to HIPAA safeguards", position: "left" },
-      { section: "The Value Stack", src: "", alt: "Healthcare AI ROI breakdown: 12.7:1 return on investment", position: "right" },
     ],
   },
   {

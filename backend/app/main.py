@@ -6,11 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
-<<<<<<< HEAD
-from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, subscriptions, logging
-=======
 from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, agent_groups, rbac, logging as logging_routes, subscriptions
->>>>>>> main
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -122,10 +118,6 @@ app.include_router(onboarding.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")
 app.include_router(notifications.alert_router, prefix="/api")
 app.include_router(analytics.router, prefix="/api")
-<<<<<<< HEAD
-app.include_router(subscriptions.router, prefix="/api")
-app.include_router(logging.router, prefix="/api")
-=======
 app.include_router(knowledge_base.router, prefix="/api")
 
 app.include_router(sso.router, prefix="/api")
@@ -146,7 +138,6 @@ app.include_router(subscriptions.router, prefix="/api")
 # Contact form
 from app.api.routes import contact
 app.include_router(contact.router, prefix="/api")
->>>>>>> main
 
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
