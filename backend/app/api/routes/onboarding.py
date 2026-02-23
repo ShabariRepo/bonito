@@ -32,8 +32,14 @@ from app.schemas.onboarding import (
     ValidateCredentialsResponse,
 )
 from app.services.iac_templates import generate_iac
+from app.services.feature_gate import feature_gate
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
+
+
+async def _require_iac_templates(db: AsyncSession, user: User):
+    """Check that the organization has access to the iac_templates feature."""
+    await feature_gate.require_feature(db, str(user.org_id), "iac_templates")
 
 TOTAL_STEPS = 5
 
@@ -145,8 +151,11 @@ async def update_progress(
 @router.post("/generate-iac", response_model=GenerateIaCResponse)
 async def generate_iac_code(
     body: GenerateIaCRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Generate IaC code for a provider+tool combination."""
+    await _require_iac_templates(db, user)
     valid_tools = VALID_COMBOS.get(body.provider, set())
     if body.iac_tool not in valid_tools:
         raise HTTPException(
@@ -240,12 +249,14 @@ async def download_iac_zip(
 async def validate_credentials(
     body: ValidateCredentialsRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Validate pasted credentials by calling the provider's validation endpoint.
 
     Delegates to the existing provider validation services.
     Returns health status on successful validation.
     """
+    await _require_iac_templates(db, user)
     provider = body.provider
     creds = body.credentials
 

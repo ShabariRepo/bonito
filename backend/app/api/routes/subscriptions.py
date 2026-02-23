@@ -64,12 +64,13 @@ async def get_usage_details(
 
 @router.get("/tiers", response_model=TierComparisonResponse)
 async def get_tier_comparison(
+    db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Get comparison of all subscription tiers"""
     subscription = await feature_gate.get_organization_subscription(
-        None, str(user.org_id)
-    )  # This should be updated to not require db for static data
+        db, str(user.org_id)
+    )
     
     tiers = await feature_gate.get_tier_comparison(subscription["tier"])
     

@@ -10,8 +10,14 @@ from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.models.audit import AuditLog
 from app.schemas.audit import AuditLogListResponse
+from app.services.feature_gate import feature_gate
 
 router = APIRouter(prefix="/audit", tags=["audit"])
+
+
+async def _require_audit(db: AsyncSession, user: User):
+    """Check that the organization has access to the audit feature."""
+    await feature_gate.require_feature(db, str(user.org_id), "audit")
 
 
 @router.get("", response_model=AuditLogListResponse)
@@ -26,6 +32,7 @@ async def list_audit_logs(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await _require_audit(db, user)
     # Base query scoped to the user's org
     base = select(AuditLog).where(AuditLog.org_id == user.org_id)
 

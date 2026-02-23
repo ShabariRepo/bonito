@@ -19,8 +19,14 @@ from app.schemas.routing import (
 from app.api.dependencies import get_current_user, require_feature
 from app.models.user import User
 from app.services.routing_service import simulate_routing, simulate_routing_real, route_and_invoke, get_routing_analytics
+from app.services.feature_gate import feature_gate
 
 router = APIRouter(prefix="/routing", tags=["routing"])
+
+
+async def _require_routing(db: AsyncSession, user: User):
+    """Check that the organization has access to the routing feature."""
+    await feature_gate.require_feature(db, str(user.org_id), "routing")
 
 
 @router.get("/rules", response_model=List[RoutingRuleResponse])
@@ -36,6 +42,7 @@ async def list_rules(
 
 @router.post("/rules", response_model=RoutingRuleResponse, status_code=201)
 async def create_rule(data: RoutingRuleCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await _require_routing(db, user)
     rule = RoutingRule(
         org_id=user.org_id,
         name=data.name,
@@ -52,6 +59,7 @@ async def create_rule(data: RoutingRuleCreate, db: AsyncSession = Depends(get_db
 
 @router.patch("/rules/{rule_id}", response_model=RoutingRuleResponse)
 async def update_rule(rule_id: UUID, data: RoutingRuleUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await _require_routing(db, user)
     result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id, RoutingRule.org_id == user.org_id))
     rule = result.scalar_one_or_none()
     if not rule:
@@ -65,6 +73,7 @@ async def update_rule(rule_id: UUID, data: RoutingRuleUpdate, db: AsyncSession =
 
 @router.delete("/rules/{rule_id}", status_code=204)
 async def delete_rule(rule_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await _require_routing(db, user)
     result = await db.execute(select(RoutingRule).where(RoutingRule.id == rule_id, RoutingRule.org_id == user.org_id))
     rule = result.scalar_one_or_none()
     if not rule:
@@ -75,6 +84,7 @@ async def delete_rule(rule_id: UUID, db: AsyncSession = Depends(get_db), user: U
 @router.post("/simulate", response_model=SimulationResult)
 async def simulate(req: SimulationRequest, strategy: str = "balanced", db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Simulate routing using real connected providers."""
+    await _require_routing(db, user)
     return await simulate_routing_real(req, strategy, db)
 
 
@@ -89,6 +99,7 @@ async def invoke_routed(
     user: User = Depends(get_current_user),
 ):
     """Route a prompt to the best provider and invoke the model."""
+    await _require_routing(db, user)
     try:
         return await route_and_invoke(prompt, strategy, db, model_type, max_tokens, temperature)
     except RuntimeError as e:
@@ -96,5 +107,6 @@ async def invoke_routed(
 
 
 @router.get("/analytics", response_model=RoutingAnalytics)
-async def analytics(user: User = Depends(get_current_user)):
+async def analytics(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await _require_routing(db, user)
     return get_routing_analytics()

@@ -29,8 +29,14 @@ from app.schemas.bonobot import (
     UserPermissionResponse,
     ScopeType as ScopeTypeSchema
 )
+from app.services.feature_gate import feature_gate
 
 router = APIRouter()
+
+
+async def _require_rbac(db: AsyncSession, user: User):
+    """Check that the organization has access to the RBAC feature (Enterprise only)."""
+    await feature_gate.require_feature(db, str(user.org_id), "rbac")
 
 
 # ─── Role Management ───
@@ -42,6 +48,7 @@ async def create_role(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a custom role. Only org_admin can create roles."""
+    await _require_rbac(db, current_user)
     # TODO: Check permission - require org_admin role
     
     # Check if role name already exists in org
@@ -82,6 +89,7 @@ async def list_roles(
     db: AsyncSession = Depends(get_db)
 ):
     """List all roles in the organization."""
+    await _require_rbac(db, current_user)
     # TODO: Check permission - require appropriate access
     
     stmt = select(Role).where(Role.org_id == current_user.org_id).order_by(Role.is_managed.desc(), Role.name)
@@ -98,6 +106,7 @@ async def get_role(
     db: AsyncSession = Depends(get_db)
 ):
     """Get role details."""
+    await _require_rbac(db, current_user)
     stmt = select(Role).where(
         and_(
             Role.id == role_id,
@@ -126,6 +135,7 @@ async def update_role(
     db: AsyncSession = Depends(get_db)
 ):
     """Update a custom role. Managed roles cannot be updated."""
+    await _require_rbac(db, current_user)
     stmt = select(Role).where(
         and_(
             Role.id == role_id,
@@ -184,6 +194,7 @@ async def delete_role(
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a custom role. Managed roles cannot be deleted."""
+    await _require_rbac(db, current_user)
     stmt = select(Role).where(
         and_(
             Role.id == role_id,
@@ -231,6 +242,7 @@ async def create_role_assignment(
     db: AsyncSession = Depends(get_db)
 ):
     """Assign a role to a user with specific scope."""
+    await _require_rbac(db, current_user)
     # Verify user exists and is in same org
     stmt = select(User).where(
         and_(
@@ -373,6 +385,7 @@ async def list_role_assignments(
     db: AsyncSession = Depends(get_db)
 ):
     """List role assignments with optional filters."""
+    await _require_rbac(db, current_user)
     # TODO: Filter by user's permissions - only show assignments they can manage
     
     # Build query with joins
@@ -426,6 +439,7 @@ async def delete_role_assignment(
     db: AsyncSession = Depends(get_db)
 ):
     """Remove a role assignment."""
+    await _require_rbac(db, current_user)
     stmt = select(RoleAssignment).where(
         and_(
             RoleAssignment.id == assignment_id,
@@ -456,6 +470,7 @@ async def get_user_roles(
     db: AsyncSession = Depends(get_db)
 ):
     """Get all role assignments for a specific user."""
+    await _require_rbac(db, current_user)
     # Verify user exists and is in same org (or is current user)
     if user_id != current_user.id:
         stmt = select(User).where(
@@ -520,6 +535,7 @@ async def get_user_permissions(
     db: AsyncSession = Depends(get_db)
 ):
     """Get effective permissions for a user based on their role assignments."""
+    await _require_rbac(db, current_user)
     # Verify user exists and is in same org (or is current user)
     if user_id != current_user.id:
         stmt = select(User).where(

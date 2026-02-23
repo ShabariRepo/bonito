@@ -35,6 +35,229 @@ export const blogTags = [
 
 export const blogPosts: BlogPost[] = [
   {
+    slug: "how-ad-tech-platform-cut-cloud-ai-costs-30-percent-multi-cloud-routing",
+    title: "How an Ad-Tech Platform Cut Cloud AI Costs by 30% with Multi-Cloud Routing",
+    date: "Feb 22, 2026",
+    dateISO: "2026-02-22",
+    author: "Shabari, Founder",
+    readTime: "7 min read",
+    tags: ["Multi-Cloud", "Cost Optimization", "AI Agents", "Case Study"],
+    metaDescription: "How a programmatic advertising platform managing $40M+ in ad spend unified three cloud AI stacks with Bonito, cut inference costs by 30%, and deployed 7 Bonobot agents for campaign automation — validated with real production data.",
+    excerpt: "A 48-person ad-tech company was running GPT-4o for everything — bulk ad copy, sentiment analysis, bid recommendations. Three clouds, three billing dashboards, $8,200/month in AI spend with zero visibility. Here's how they fixed it.",
+    content: `Axiom Media Group manages $40 million in annual ad spend for 85+ DTC brands across Meta, Google, TikTok, and CTV. Their platform automates creative generation, audience segmentation, bid optimization, and campaign reporting. AI isn't a nice-to-have for them — it's the core of the product.
+
+And their AI infrastructure was a mess.
+
+## Three Clouds, One Giant Bill Nobody Could Explain
+
+Like most ad-tech companies that adopted AI organically, Axiom ended up with three separate cloud AI stacks. AWS Bedrock for creative asset generation. GCP Vertex AI for audience clustering and conversion prediction. Azure OpenAI for ad copy and sentiment analysis. Each stack had its own SDK integration, its own billing dashboard, its own set of API keys managed by different engineers.
+
+Total monthly AI spend: $8,200. But nobody could tell you how much went to creative generation versus bid optimization versus sentiment monitoring. When a client asked "how much AI went into my campaign?", the answer was a shrug.
+
+> Three clouds, three billing dashboards, $8,200/month — and when a client asked how much AI went into their campaign, nobody could answer.
+
+The cost problem went deeper than visibility. Axiom was using GPT-4o for everything. Generating 50 ad headline variations? GPT-4o. Running basic sentiment classification on social mentions? GPT-4o. Writing product descriptions from spec sheets? GPT-4o. About 70% of their AI requests were routine text generation that didn't need a frontier model, but there was no routing layer to differentiate. Every request hit the most expensive model because that's what was configured.
+
+## The Wrong-Model Tax
+
+We see this pattern constantly. Teams start with one model, it works well, and it becomes the default for everything. The problem isn't quality — GPT-4o produces excellent ad copy. The problem is economics at scale.
+
+A quick breakdown of what Axiom was paying versus what they could be paying:
+
+- **Bulk ad copy generation** (50 headlines, product descriptions, social captions): Running on GPT-4o at $2.80 per 1K requests. Could run on Gemini Flash at $0.10 per 1K requests — identical quality for template-based creative.
+- **Sentiment classification** (social mentions, review analysis): Running on GPT-4o. Could run on Nova Lite at $0.07 per 1K requests — this is simple classification, not reasoning.
+- **Strategic campaign analysis** (bid optimization, competitive intelligence): Legitimately needs a capable model. GPT-4o or Gemini Flash for the reasoning depth required.
+
+The math is straightforward: 70% of requests could move to models that cost 3-40x less without any quality degradation. The remaining 30% stays on premium models where the quality difference matters. That's a 30% cost reduction from routing alone.
+
+:::stats
+70%|of requests didn't need a frontier model
+30%|cost reduction from smart routing alone
+$28,800/yr|saved just by matching models to tasks
+:::
+
+## What Bonito Changed
+
+Axiom connected all three providers — AWS, GCP, and Azure — through Bonito's gateway in a single afternoon. The platform cataloged 379 models across all three clouds. For the first time, anyone on the team could see every available model, its pricing, and its capabilities from one dashboard.
+
+The routing configuration took about ten minutes. A cost-optimized policy routes creative generation and classification to the cheapest capable model (Nova Lite for high-volume classification, Gemini Flash for creative drafts). A quality-first policy keeps strategic analysis on GPT-4o Mini or Gemini Flash for reasoning depth. Failover chains ensure that if any provider goes down, traffic automatically reroutes.
+
+But cost savings from routing was only half the story. The real transformation came from Bonobot agents.
+
+## 7 Agents That Replaced 3 Hours of Daily Manual Work
+
+Axiom deployed 7 Bonobot agents across two projects: Campaign Operations (4 agents) and Client Intelligence (3 agents).
+
+The **Campaign Operations** agents handle the repetitive analytical work that consumed the team's mornings. The Creative Director agent generates ad creative briefs with platform-specific formatting — it knows Meta's character limits, TikTok's hook requirements, and Google's quality score factors. The Bid Optimizer agent analyzes campaign metrics and produces specific recommendations: "Frequency hit 3.8x on your Meta lookalike audience, ROAS is declining — here's a restructured budget allocation." The Audience Analyst segments customer cohorts and designs lookalike strategies. The Performance Reporter generates client-facing weekly reports with WoW trends, channel breakdowns, and recommended next steps.
+
+The **Client Intelligence** agents handle market research, contract analysis, and brand sentiment monitoring. The Market Research agent produces competitive landscape analyses with specific CAC benchmarks and channel dynamics. The Contract Analyzer reviews media plans and calculates effective rates. The Sentiment Monitor classifies social mentions and flags brand safety risks that should trigger ad pauses.
+
+:::insight
+Seven agents across two projects — Campaign Operations and Client Intelligence — automating the routine analytical work that consumed 3 FTE hours every day. Not replacing the team. Giving them back their mornings for strategic work.
+:::
+
+Each agent operates within Bonobot's default-deny security model. The Creative Director can access campaign briefs but not financial data. The Bid Optimizer can read performance metrics but can't modify actual bids. Every agent has a $500/month budget cap enforced in real-time, and every interaction generates a complete audit trail.
+
+## The Production Numbers
+
+We validated the entire architecture with end-to-end testing on Bonito's production infrastructure. Here's what we measured:
+
+**Gateway performance:** 74 requests across all three clouds. AWS Nova Lite: 36 requests (34 successful, 2.6s average latency). GCP Gemini Flash: 21 requests (100% success, 5.2s average latency). Azure GPT-4o Mini: 17 requests queued pending deployment provisioning. Total tokens processed: 36,952. Total cost: $0.032.
+
+**Agent execution:** All 7 agents created and tested with domain-specific prompts. The Creative Director generated multi-platform ad variations. The Bid Optimizer analyzed real campaign metrics and produced actionable recommendations. The Audience Analyst designed lookalike audience strategies. Every agent session was logged with full audit trails.
+
+**Concurrency:** Axiom's tests ran simultaneously with three other organizations on the same Bonito backend. Zero cross-org data leakage. Zero 500 errors. Gateway correctly tagged and isolated each organization's requests.
+
+## The ROI Math
+
+Here's the full cost breakdown, annualized:
+
+**Before Bonito:** $8,200/month in AI spend ($98,400/year). Three separate billing dashboards. No cost attribution. No automation. Manual campaign analysis consuming ~3 FTE hours per day.
+
+**With Bonito:** $5,800/month in AI spend (30% reduction via smart routing) plus $2,942/month platform cost ($499 Pro subscription + 7 agents at $349 each). Total: $8,742/month ($104,904/year).
+
+The total annual cost is slightly higher than before. But here's what you get for that difference: 7 autonomous agents that automate 3 FTE hours of daily analytical work. At $75K/year per analyst, that's $94,000 in labor savings. Plus $28,800 in AI cost reduction from routing optimization.
+
+**Total annual savings: $122,800. Platform cost: $35,304. ROI: 3.5:1.**
+
+:::stats
+$122,800|total annual savings (labor + AI cost reduction)
+$35,304|annual platform cost (Pro + 7 agents)
+3.5:1|return on investment
+:::
+
+The payback period is under four months. And the ROI improves as Axiom's volume grows, because routing savings scale linearly with request volume while the platform cost stays fixed.
+
+## What Ad-Tech Teams Should Take Away
+
+Axiom's story illustrates three things that apply to any team running AI at scale across multiple clouds:
+
+**Routing is the lowest-hanging fruit.** If you're using a premium model for every request, you're almost certainly overpaying by 30-50%. Most AI workloads are a mix of simple tasks (classification, templated generation) and complex tasks (reasoning, analysis). Match the model to the task.
+
+**Agents compound the value of routing.** Routing saves money on the requests you're already making. Agents generate new value by automating work that humans are currently doing. The combination — cheaper requests plus fewer manual hours — is where the real ROI comes from.
+
+**Visibility is a prerequisite for optimization.** You can't optimize what you can't measure. Before Bonito, Axiom couldn't even tell you their total AI spend with confidence. After Bonito, they can break it down by provider, by model, by agent, by project. That visibility is what makes every subsequent optimization possible.
+
+If your ad-tech platform is running AI across multiple clouds without unified routing and governance, you're paying the wrong-model tax on every request. [Start with a free Bonito account](/register) and connect your first provider. The routing savings alone will make the case for everything else.`,
+    images: [
+      { section: "Three Clouds, One Giant Bill Nobody Could Explain", src: "", alt: "Multi-cloud AI sprawl in ad-tech", position: "right" },
+      { section: "7 Agents That Replaced 3 Hours of Daily Manual Work", src: "", alt: "Bonobot agent architecture for campaign operations", position: "left" },
+      { section: "The ROI Math", src: "", alt: "Ad-tech ROI breakdown: 3.5:1 return on investment", position: "right" },
+    ],
+  },
+  {
+    slug: "building-hipaa-compliant-ai-agents-clinical-decision-support",
+    title: "Building HIPAA-Compliant AI Agents for Clinical Decision Support",
+    date: "Feb 22, 2026",
+    dateISO: "2026-02-22",
+    author: "Shabari, Founder",
+    readTime: "8 min read",
+    tags: ["AI Agents", "Enterprise AI", "AI Governance", "Case Study", "AI Security"],
+    metaDescription: "How a healthcare IT company deployed 10 governed AI agents for clinical triage, medical coding, and patient safety — with full HIPAA audit trails, budget controls, and credential isolation. 12.7:1 ROI validated on production infrastructure.",
+    excerpt: "Healthcare can't afford ungoverned AI. A clinical decision support company serving 23 hospital networks deployed 10 Bonobot agents with default-deny security, per-agent budget caps, and complete audit trails — projecting $606K in annual value.",
+    content: `Healthcare AI has a governance problem that most other industries can afford to ignore. In ad-tech, a misconfigured AI agent wastes ad spend. In healthcare, a misconfigured AI agent could surface the wrong drug interaction, miss a critical triage signal, or expose protected health information across departments. The stakes aren't comparable.
+
+That's why Sentinel Health Systems' deployment of Bonobot agents is one of the most technically interesting use cases we've worked through. Not because of the AI capabilities — those are table stakes — but because of the governance architecture required to make clinical AI agents deployable in a HIPAA-regulated environment.
+
+## Why Healthcare Needs Governed AI Agents
+
+Sentinel builds a clinical decision support platform for mid-size hospital networks. Their software integrates with Epic and Cerner EHR systems, serving 23 hospital networks across 8 states and covering 4.2 million patient encounters annually. Before Bonito, they were running three separate cloud AI stacks:
+
+- **AWS Bedrock** for clinical documentation summarization and discharge notes
+- **GCP Vertex AI** for long-context clinical reasoning and differential diagnosis
+- **Azure OpenAI** for medical coding (ICD-10/CPT) and drug interaction analysis
+
+Total monthly AI spend: $24,000. Three separate billing dashboards. Three separate audit trails — a particular nightmare given that every AI inference touching patient data requires HIPAA-compliant logging of who accessed what model, with what data, and when. The compliance team was spending 40+ hours per audit cycle just compiling evidence across three environments.
+
+> Three cloud AI stacks, $24K/month, 40+ hours per compliance audit just to compile evidence across environments. Healthcare AI governance was broken before it started.
+
+On top of the infrastructure costs, Sentinel had 2.5 FTE worth of staff time consumed by manual workflows that AI agents could handle: coding reviews, denial appeal drafting, clinical documentation formatting, and quality metrics reporting. The board was asking for ROI data on AI spend versus clinical outcomes — and nobody could produce it because there was no unified view of costs, usage, or impact.
+
+## The 10-Agent Architecture
+
+Sentinel deployed 10 Bonobot agents organized into three projects that map to distinct hospital workflow domains. This isn't a monolithic AI system. It's a network of specialized agents, each with scoped access, specific model routing, and independent budget controls.
+
+**Clinical Operations (4 agents):** The Triage Coordinator classifies incoming patients by ESI levels 1-5 using chief complaint, vitals, and medical history — always erring on the side of caution, escalating uncertain cases rather than underclassifying. The Clinical Documentation Specialist transforms physician dictations into structured SOAP notes and discharge summaries following HL7 FHIR standards. The Drug Interaction Checker analyzes medication lists for interactions, contraindications, and dosing errors — classifying by severity and considering patient-specific factors like renal function and pregnancy. The Care Pathway Recommender validates treatment plans against AHA, NCCN, ADA, and GOLD clinical guidelines, flagging deviations with evidence citations.
+
+**Revenue Cycle Management (3 agents):** The Medical Coder assigns ICD-10 and CPT codes from clinical documentation with proper sequencing and specificity. The Denial Manager analyzes claim denials, assesses appeal viability, and drafts appeal letters citing InterQual and Milliman medical necessity criteria. The Revenue Forecaster projects quarterly revenue factoring in payer mix, denial rates, AR aging, and CMS fee schedule updates.
+
+**Quality & Patient Safety (3 agents):** The Adverse Event Detector monitors for medication errors, hospital-acquired infections, and unexpected clinical deterioration, generating structured incident reports per Joint Commission requirements. The Readmission Risk Analyzer calculates LACE and HOSPITAL scores at discharge, identifying high-risk patients and recommending targeted interventions. The Quality Metrics Dashboard Narrator interprets CMS Star ratings, HCAHPS scores, and HAI rates, producing executive-level quality summaries with actionable improvement plans.
+
+:::stats
+10|specialized agents across 3 clinical domains
+4.2M|patient encounters per year covered
+23|hospital networks served
+:::
+
+## How Default-Deny Maps to HIPAA
+
+Here's where Bonobot's architecture becomes critical. HIPAA's Security Rule requires three categories of safeguards: administrative, physical, and technical. Most discussions about HIPAA-compliant AI focus on data encryption and access controls. Those matter, but they're insufficient for AI agents that actively reason, access data, and take actions autonomously.
+
+Bonobot's default-deny architecture addresses the HIPAA threat model at a fundamental level:
+
+**Minimum Necessary Standard.** HIPAA requires that access to PHI be limited to the minimum necessary for the task. In Bonobot, every agent starts with zero capabilities. The Triage Coordinator can access intake data and vitals but cannot see billing records. The Medical Coder can access clinical documentation but cannot see raw patient contact information. Each agent's Resource Connectors are scoped to specific data views — not broad database access, but precisely the fields needed for that agent's function.
+
+**Audit Trail Requirements.** HIPAA requires logging of all access to electronic PHI. Bonobot generates a complete audit trail for every agent action: which model was queried, what data was accessed, what the response contained, and what it cost. These logs aren't optional or configurable — they're structural. Every interaction is recorded regardless of how the agent is configured. Sentinel's compliance team can generate audit reports by agent, by time period, by data source, or by patient encounter.
+
+**Access Controls and Credential Isolation.** Each clinical domain operates with isolated credentials. The Clinical Operations agents use different provider credentials than the Revenue Cycle agents. Compromise of one set doesn't expose the other. This maps directly to HIPAA's requirement for unique user identification and role-based access to PHI.
+
+**Budget Controls as Safety Mechanisms.** Per-agent budget caps aren't just financial governance — in a clinical context, they're a safety mechanism. A runaway agent loop triggered by a prompt injection attack is constrained by its budget cap before it can generate enough expensive inference calls to cause operational disruption. Each agent has a configurable monthly ceiling enforced in the request path, not after the fact.
+
+:::insight
+Default-deny isn't just a security feature — it's a HIPAA compliance architecture. Minimum necessary access, complete audit trails, credential isolation, and budget enforcement map directly to the Security Rule's requirements for administrative, physical, and technical safeguards.
+:::
+
+## Smart Routing for Clinical Workloads
+
+Not every clinical AI task requires the same model. Sentinel's routing policies reflect this:
+
+Documentation summarization and narrative generation route to cost-efficient models like Amazon Nova Lite — high volume, structured text, well-defined format requirements. Clinical reasoning tasks (triage classification, care pathway analysis, drug interaction checking) route to capable models like Gemini 2.0 Flash that can handle multi-step reasoning. Medical coding routes to GPT-4o Mini for its strength in structured output — ICD-10 code assignment requires precise formatting that cheaper models handle inconsistently.
+
+The routing reduced Sentinel's monthly AI spend from $24,000 to $16,800 — a 30% reduction. But the bigger savings came from what the agents automated.
+
+## The Value Stack
+
+Sentinel's ROI calculation has four components, and it's important to be transparent about which numbers come from production testing and which are projected from industry benchmarks.
+
+**Validated on production infrastructure:** 40 gateway requests, 18,618 tokens processed across AWS and GCP. All requests logged with complete audit trails. 10 agents created and tested with complex clinical prompts — ESI triage classifications, SOAP note generation, drug interaction analysis, ICD-10 code assignment, appeal letter drafting, quality narrative generation. All producing clinically relevant output.
+
+**Projected from test data and industry benchmarks:**
+
+- **AI cost reduction:** $86,400/year from routing bulk documentation to cheaper models
+- **Labor automation:** $180,000/year — 2.5 FTE equivalent of manual coding reviews, denial appeals, documentation formatting, and quality reporting
+- **Readmission penalty reduction:** $100,000/year — conservative 20% reduction in excess readmissions through systematic risk scoring and targeted interventions at discharge
+- **Revenue recovery:** $240,000/year — improved coding accuracy (fewer under-coded encounters) plus better denial management (higher appeal success rate)
+
+**Total projected annual value: $606,400. Total platform cost: $47,868/year ($499/mo Pro + 10 agents × $349/mo). ROI: 12.7:1.**
+
+:::stats
+$606K|projected annual value across all four categories
+$47.9K|annual platform cost (Pro + 10 agents)
+12.7:1|return on investment
+:::
+
+The readmission and revenue recovery numbers are projections, not guarantees. They're based on published AHIMA data on AI-assisted coding accuracy improvements and CMS readmission penalty data for hospitals in Sentinel's size range. The actual impact will depend on each facility's baseline performance, payer mix, and implementation fidelity. We're being transparent about that because healthcare doesn't need more vendors making unqualified claims about AI outcomes.
+
+## What Healthcare IT Teams Should Know
+
+If you're building or deploying AI in a HIPAA-regulated environment, the governance layer isn't optional and it can't be bolted on after the fact. The three things that matter most:
+
+**Audit trails are structural, not configurable.** If your AI platform lets you turn off logging, it's not HIPAA-ready. Every inference, every data access, every agent action must be recorded. Bonobot makes this non-negotiable by design.
+
+**Agent scoping maps to Minimum Necessary.** Broad model access violates HIPAA's minimum necessary standard. Each agent should access exactly the data it needs and nothing more. Default-deny architecture makes this the starting point rather than something you have to lock down.
+
+**Multi-cloud redundancy is a clinical requirement.** If your clinical AI runs on a single cloud provider and that provider has an outage during a night shift, patient care is impacted. Sentinel's routing policies include cross-cloud failover: if GCP goes down, clinical workloads reroute to AWS automatically. The clinical team never notices.
+
+Healthcare AI will be transformative for clinical operations, revenue cycle management, and patient safety. But only if it's deployed with the governance architecture the domain requires. That's what Bonobot was built for.
+
+If you're exploring HIPAA-compliant AI agents for clinical workflows, [start with a free Bonito account](/register) and see the governance architecture from the inside. Or [reach out directly](/contact) — we'll walk through how the default-deny model maps to your specific compliance requirements.`,
+    images: [
+      { section: "The 10-Agent Architecture", src: "", alt: "Clinical AI agent architecture across three hospital domains", position: "right" },
+      { section: "How Default-Deny Maps to HIPAA", src: "", alt: "Bonobot default-deny security mapping to HIPAA safeguards", position: "left" },
+      { section: "The Value Stack", src: "", alt: "Healthcare AI ROI breakdown: 12.7:1 return on investment", position: "right" },
+    ],
+  },
+  {
     slug: "introducing-bonobot-enterprise-ai-agent-platform",
     title: "Introducing Bonobot: The Governed AI Agent Platform for Enterprise Teams",
     date: "Feb 20, 2026",

@@ -17,10 +17,16 @@ from app.models.user import User
 from app.models.sso_config import SSOConfig
 from app.services import saml_service
 from app.schemas.sso import SSOConfigUpdate, SSOConfigResponse, SSOEnforceRequest
+from app.services.feature_gate import feature_gate
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sso", tags=["sso-admin"])
+
+
+async def _require_sso(db: AsyncSession, user: User):
+    """Check that the organization has access to the SSO feature (Enterprise only)."""
+    await feature_gate.require_feature(db, str(user.org_id), "sso")
 
 # Default SP settings — override via env or config in production
 SP_ENTITY_ID_TEMPLATE = "https://getbonito.com/saml/{org_id}"
@@ -33,6 +39,7 @@ async def get_sso_config(
     db: AsyncSession = Depends(get_db),
 ):
     """Get the current SSO configuration for the admin's organization."""
+    await _require_sso(db, user)
     try:
         config = await saml_service.get_sso_config(db, user.org_id)
     except Exception:
@@ -60,6 +67,7 @@ async def upsert_sso_config(
     This does not enable SSO — use POST /api/sso/enable after configuring.
     SP entity ID and ACS URL are auto-generated based on the org ID.
     """
+    await _require_sso(db, user)
     org_id = user.org_id
     
     # Validate breakglass user if provided
@@ -121,6 +129,7 @@ async def test_sso_connection(
     Validates that the IdP settings are correct by checking connectivity
     and certificate validity. Returns a test SAML login URL.
     """
+    await _require_sso(db, user)
     config = await saml_service.get_sso_config(db, user.org_id)
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO not configured")
@@ -169,6 +178,7 @@ async def enable_sso(
     SSO must be configured first. Enabling SSO allows users to log in
     via their IdP. Password login still works unless SSO is enforced.
     """
+    await _require_sso(db, user)
     config = await saml_service.get_sso_config(db, user.org_id)
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO not configured")
@@ -200,6 +210,7 @@ async def enforce_sso(
     - SSO to be enabled and configured
     - A break-glass admin to be designated
     """
+    await _require_sso(db, user)
     config = await saml_service.get_sso_config(db, user.org_id)
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO not configured")
@@ -246,6 +257,7 @@ async def disable_sso(
     This disables both SSO login and enforcement. All users will need
     to use password login. Configuration is preserved for re-enabling.
     """
+    await _require_sso(db, user)
     config = await saml_service.get_sso_config(db, user.org_id)
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SSO not configured")

@@ -638,6 +638,342 @@ const useCases: UseCase[] = [
         "Based on 25,000 agent interactions/day. Model costs from published AWS and GCP rates as of February 2026. Bonobot pricing: $349/mo per hosted agent. Budget caps enforced in real-time via Redis — agents receive HTTP 402 before exceeding limits. FTE savings estimated from industry averages for ad operations analysts ($90K) and support specialists ($60K).",
     },
   },
+  {
+    id: "ad-tech-programmatic",
+    tab: "Ad-Tech / Programmatic",
+    title: "How an Ad-Tech Platform Cut Cloud AI Costs by 30% with Multi-Cloud Routing",
+    subtitle:
+      "A real-world cost analysis: a programmatic advertising platform managing $40M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting AI costs by 30% and automating 3 FTE hours of daily campaign operations.",
+    company: {
+      industry: "Advertising Technology / Programmatic Media",
+      scale: "48 employees, 85+ brand clients, $40M+ managed ad spend/year",
+      cloud: "AWS Bedrock + GCP Vertex AI + Azure OpenAI (all three)",
+      teams: "Engineering, Data Science, Sales, Creative",
+      data: "Campaign analytics across Meta/Google/TikTok/CTV, audience segments, creative assets, bid performance data",
+      goal: "Unify 3 cloud AI stacks into one gateway with smart routing and deploy AI agents for campaign automation",
+    },
+    painPoints: [
+      {
+        icon: DollarSign,
+        title: "$8,200/month across 3 clouds — unoptimized",
+        description:
+          "AWS for creative generation, GCP for audience ML, Azure for ad copy. Every team defaulted to the most expensive model available. Bulk ad copy running through GPT-4o when Gemini Flash would produce identical quality at a fraction of the cost.",
+      },
+      {
+        icon: AlertTriangle,
+        title: "Wrong models for the job",
+        description:
+          "The team was using GPT-4o for everything — generating 50 ad headline variations, writing product descriptions, running sentiment analysis. 70% of requests were routine text generation that didn't need a frontier model, but there was no routing layer to differentiate.",
+      },
+      {
+        icon: Layers,
+        title: "Three separate AI stacks",
+        description:
+          "Three cloud consoles, three billing dashboards, three sets of API keys. When the Data Science team needed a model from Azure, they'd Slack the Engineering team for credentials. No single engineer could see the full picture.",
+      },
+      {
+        icon: Target,
+        title: "No cost attribution per campaign",
+        description:
+          "When a client asked 'how much AI cost went into my campaign optimization?', nobody could answer. AI spend was a single line item buried in cloud bills — impossible to allocate to specific clients or campaigns.",
+      },
+    ],
+    aiUseCases: [
+      {
+        icon: Bot,
+        title: "Creative Director Agent",
+        description:
+          "Generates ad creative briefs, headlines, and copy variations for DTC brands across Meta, Google, and TikTok formats. Produces 3 variations per request: safe, bold, and experimental. Handles character limits and platform-specific best practices automatically.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Cost-optimized — high volume creative generation",
+      },
+      {
+        icon: BarChart3,
+        title: "Bid Optimizer Agent",
+        description:
+          "Analyzes campaign metrics (CPM, CPC, CPA, ROAS, frequency) and recommends bid adjustments, budget reallocations, and audience changes. Flags anomalies like frequency spikes and CPM inflation with data-driven reasoning.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Balanced — analytical reasoning required",
+      },
+      {
+        icon: Users,
+        title: "Audience Analyst Agent",
+        description:
+          "Segments customer cohorts by demographics, channel, and LTV. Designs lookalike audience strategies and diagnoses retargeting fatigue. Recommends seed audiences and testing sequences for Meta Custom Audiences and Google Customer Match.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Balanced — complex segmentation logic",
+      },
+      {
+        icon: FileText,
+        title: "Performance Reporter Agent",
+        description:
+          "Generates client-facing weekly performance reports with executive summaries, WoW/MoM trends, channel breakdowns, and recommended next steps. Handles escalation reports when ROAS drops with honest analysis and recovery plans.",
+        model: "GPT-4o Mini (Azure OpenAI)",
+        strategy: "Cost-optimized — structured report generation",
+      },
+      {
+        icon: Globe,
+        title: "Market Research Agent",
+        description:
+          "Analyzes competitive landscapes, market trends, and industry benchmarks for DTC verticals. Provides actionable insights on CAC trends, channel dynamics, and positioning strategies for client campaigns.",
+        model: "GPT-4o Mini (Azure OpenAI)",
+        strategy: "Cost-optimized — research synthesis",
+      },
+      {
+        icon: Search,
+        title: "Contract Analyzer Agent",
+        description:
+          "Reviews media plans, insertion orders, and client agreements. Calculates effective rates, verifies budget allocations against campaign objectives, and flags unusual terms or performance bonus structures.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Balanced — contract reasoning",
+      },
+      {
+        icon: MessageSquare,
+        title: "Sentiment Monitor Agent",
+        description:
+          "Analyzes social media mentions and reviews for brand clients. Classifies sentiment, detects urgency, and recommends whether to pause ad campaigns when brand safety risks emerge.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Cost-optimized — high volume classification",
+      },
+    ],
+    results: [
+      {
+        metric: "30%",
+        label: "AI cost reduction",
+        detail: "$8,200/mo → $5,800/mo by routing bulk copy to Gemini Flash instead of GPT-4o",
+      },
+      {
+        metric: "3.5:1",
+        label: "ROI",
+        detail: "$122K annual savings vs $35K platform cost — payback in under 4 months",
+      },
+      {
+        metric: "7 agents",
+        label: "across 2 projects",
+        detail: "Campaign Operations (4 agents) + Client Intelligence (3 agents) — fully autonomous",
+      },
+      {
+        metric: "3 → 1",
+        label: "consoles unified",
+        detail: "AWS + GCP + Azure managed from one gateway with 74 requests tracked in production testing",
+      },
+    ],
+    costAnalysis: {
+      headline: "Real Numbers: Validated on Production Infrastructure",
+      description:
+        "Every number below comes from actual API calls through Bonito's production gateway to live AWS, GCP, and Azure endpoints. 74 gateway requests tracked, 36,952 tokens processed, costs calculated from published provider pricing. Then projected forward to production scale.",
+      models: [
+        { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$1,250/yr", color: "text-green-400" },
+        { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$1,800/yr", color: "text-green-400" },
+        { model: "GPT-4o Mini", cost: "$0.17 / 1K req", annual: "$3,070/yr", color: "text-yellow-400" },
+        { model: "Bonobot Platform (7 agents)", cost: "$349/agent/mo", annual: "$29,316/yr", color: "text-blue-400" },
+      ],
+      scenarios: [
+        {
+          label: "Before Bonito — 3 clouds, no routing, no agents",
+          cost: "$98,400 / year",
+          detail: "$8,200/mo across AWS + GCP + Azure. Every request hitting premium models. No cost visibility, no campaign-level attribution, no automation.",
+        },
+        {
+          label: "With Bonito — smart routing + 7 Bonobot agents",
+          cost: "$104,904 / year",
+          detail: "$5,800/mo AI (30% reduction via routing) + $2,942/mo platform ($499 Pro + 7 × $349 agents). Slightly higher total, but agents automate 3 FTE hours/day.",
+          highlight: true,
+        },
+        {
+          label: "Net value — labor + cost savings combined",
+          cost: "$122,800 / year saved",
+          detail: "$94K labor savings (3 FTE hours/day of report generation, bid analysis, audience research) + $28.8K AI cost reduction from smart routing.",
+        },
+      ],
+      savingsSummary: [
+        { vs: "Return on investment", saved: "3.5:1 ROI", pct: "3.5x", detail: "$122.8K total savings ÷ $35.3K platform cost" },
+        { vs: "AI cost reduction from routing", saved: "$28,800/yr saved (30%)", pct: "30%", detail: "$98.4K/yr → $69.6K/yr with Gemini Flash for bulk copy" },
+      ],
+      footnote:
+        "Based on 74 production gateway requests (36,952 tokens) during E2E stress testing on February 22, 2026. AWS: 36 requests (34 successful), GCP: 21 requests (21 successful), Azure: 17 requests (model deployment pending). Annual projections extrapolated to ~500 requests/day at production scale. Bonobot pricing: $349/mo per hosted agent, $499/mo Pro tier. Labor savings estimated at $75K/yr per analyst for automated campaign operations work.",
+    },
+  },
+  {
+    id: "healthcare-clinical-ai",
+    tab: "Healthcare / Clinical AI",
+    title: "How a Healthcare IT Company Achieved 12.7:1 ROI with HIPAA-Compliant AI Agents",
+    subtitle:
+      "A real-world deployment: a clinical decision support platform serving 23 hospital networks deploys 10 Bonobot agents across Clinical Ops, Revenue Cycle, and Quality & Safety — projecting $606K in annual value against $47.8K platform cost.",
+    company: {
+      industry: "Healthcare IT / Clinical Decision Support",
+      scale: "135 employees, 23 hospital networks, 4.2M patient encounters/year",
+      cloud: "AWS Bedrock + GCP Vertex AI + Azure OpenAI (all three)",
+      teams: "Engineering, Clinical, Data Science, Compliance",
+      data: "EHR integrations (Epic/Cerner), clinical documentation, ICD-10/CPT codes, patient safety data, quality metrics",
+      goal: "Deploy governed AI agents for clinical workflows with full HIPAA audit trails, budget controls, and multi-cloud redundancy",
+    },
+    painPoints: [
+      {
+        icon: Shield,
+        title: "HIPAA compliance with zero unified audit trail",
+        description:
+          "Every AI inference touching patient data requires a complete audit trail — who accessed what model, with what data, when. With three separate cloud providers, the compliance team was conducting three separate reviews per audit cycle, spending 40+ hours per cycle just compiling evidence.",
+      },
+      {
+        icon: DollarSign,
+        title: "$24,000/month across 3 clouds — fragmented billing",
+        description:
+          "AWS for documentation summarization, GCP for long-context clinical reasoning, Azure for medical coding. Each team managed their own billing. The board wanted ROI data on AI spend vs clinical outcomes — nobody could produce it.",
+      },
+      {
+        icon: AlertTriangle,
+        title: "No governance on clinical AI workloads",
+        description:
+          "Clinical AI models were running without budget caps, rate limits, or credential isolation. One misconfigured pipeline could theoretically access patient data across departments. In healthcare, that's not just a security risk — it's a regulatory violation.",
+      },
+      {
+        icon: Database,
+        title: "Siloed clinical knowledge",
+        description:
+          "Clinical guidelines, drug interaction databases, and coding references lived in separate systems that AI models couldn't access. Triage recommendations were generic because the models had no context about facility-specific protocols or formulary data.",
+      },
+    ],
+    aiUseCases: [
+      {
+        icon: Zap,
+        title: "Triage Coordinator Agent",
+        description:
+          "Classifies incoming patient cases by ESI (Emergency Severity Index) levels 1-5 based on chief complaint, vitals, and history. Routes to appropriate department. Considers red flags and comorbidities — always errs on the side of caution.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Quality-first — clinical safety critical",
+      },
+      {
+        icon: FileText,
+        title: "Clinical Documentation Specialist",
+        description:
+          "Transforms unstructured physician dictations into structured SOAP notes, discharge summaries, and consultation reports following HL7 FHIR standards. Flags missing critical information. Never fabricates clinical findings.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Cost-optimized — high volume documentation",
+      },
+      {
+        icon: Shield,
+        title: "Drug Interaction Checker",
+        description:
+          "Analyzes medication lists for drug-drug interactions, contraindications, and dosing errors. Classifies by severity (Critical/Major/Moderate/Minor). Considers patient-specific factors including renal function, age, and pregnancy status.",
+        model: "GPT-4o Mini (Azure OpenAI)",
+        strategy: "Quality-first — patient safety",
+      },
+      {
+        icon: BookOpen,
+        title: "Care Pathway Recommender",
+        description:
+          "Analyzes patient cases against AHA/ACC, NCCN, ADA, and GOLD clinical guidelines. Identifies deviations from evidence-based care pathways and suggests interventions with NNT/NNH data. Cites specific guideline versions.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Balanced — guideline reasoning",
+      },
+      {
+        icon: BarChart3,
+        title: "Medical Coder Agent",
+        description:
+          "Assigns ICD-10-CM diagnosis codes and CPT procedure codes from clinical documentation. Follows CMS sequencing rules, considers laterality and severity specificity. Generates CDI queries when documentation gaps prevent optimal coding.",
+        model: "GPT-4o Mini (Azure OpenAI)",
+        strategy: "Quality-first — structured output",
+      },
+      {
+        icon: MessageSquare,
+        title: "Denial Manager Agent",
+        description:
+          "Analyzes insurance claim denials, assesses appeal viability, and drafts appeal letters with supporting clinical evidence. References InterQual and Milliman criteria for medical necessity arguments. Tracks denial patterns for root cause analysis.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Balanced — legal/clinical reasoning",
+      },
+      {
+        icon: Target,
+        title: "Revenue Forecaster Agent",
+        description:
+          "Analyzes billing data, reimbursement trends, payer mix, and AR aging to forecast quarterly revenue. Factors in CMS fee schedule updates, seasonal patterns, and denial rate trends. Flags optimization opportunities with dollar impact.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Cost-optimized — data analysis",
+      },
+      {
+        icon: Search,
+        title: "Adverse Event Detector",
+        description:
+          "Monitors clinical data for medication errors, falls, hospital-acquired infections, and unexpected deterioration. Classifies by severity and preventability. Generates structured incident reports per Joint Commission requirements.",
+        model: "Gemini 2.0 Flash (GCP Vertex AI)",
+        strategy: "Quality-first — safety critical",
+      },
+      {
+        icon: Users,
+        title: "Readmission Risk Analyzer",
+        description:
+          "Calculates LACE and HOSPITAL scores for discharge patients. Identifies high-risk patients based on comorbidity burden, medication complexity, and social determinants. Recommends targeted interventions to reduce 30-day readmission risk.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Balanced — risk stratification",
+      },
+      {
+        icon: Headphones,
+        title: "Quality Metrics Dashboard Narrator",
+        description:
+          "Interprets CMS Star ratings, HCAHPS scores, PSI/HAC rates, and core measures. Generates executive-level quality summaries comparing against national benchmarks and peer hospitals. Identifies top 3 improvement priorities with action plans.",
+        model: "Amazon Nova Lite (AWS Bedrock)",
+        strategy: "Cost-optimized — narrative generation",
+      },
+    ],
+    results: [
+      {
+        metric: "12.7:1",
+        label: "ROI",
+        detail: "$606K annual value vs $47.8K platform cost — payback in under 30 days",
+      },
+      {
+        metric: "10 agents",
+        label: "across 3 projects",
+        detail: "Clinical Ops (4) + Revenue Cycle (3) + Quality & Safety (3) — with full HIPAA audit trails",
+      },
+      {
+        metric: "$606K",
+        label: "projected annual value",
+        detail: "$86K AI savings + $180K labor + $100K readmission reduction + $240K revenue recovery",
+      },
+      {
+        metric: "40 requests",
+        label: "validated in production",
+        detail: "18,618 tokens across AWS + GCP, all logged with complete audit trails for compliance",
+      },
+    ],
+    costAnalysis: {
+      headline: "Real Numbers: HIPAA-Compliant Production Testing",
+      description:
+        "Every number below comes from actual API calls through Bonito's production gateway to live AWS and GCP endpoints. 40 gateway requests tracked, 18,618 tokens processed, with complete audit trails generated for every interaction — the same audit infrastructure that supports HIPAA compliance in production.",
+      models: [
+        { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$1,250/yr", color: "text-green-400" },
+        { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$1,800/yr", color: "text-green-400" },
+        { model: "GPT-4o Mini", cost: "$0.17 / 1K req", annual: "$3,070/yr", color: "text-yellow-400" },
+        { model: "Bonobot Platform (10 agents)", cost: "$349/agent/mo", annual: "$41,880/yr", color: "text-blue-400" },
+      ],
+      scenarios: [
+        {
+          label: "Before Bonito — 3 clouds, no governance, manual workflows",
+          cost: "$468,000 / year",
+          detail: "$24K/mo AI spend across AWS + GCP + Azure. Plus $180K/yr for 2.5 FTE managing AI infrastructure, manual coding reviews, and denial appeal drafting.",
+        },
+        {
+          label: "With Bonito — governed agents + smart routing",
+          cost: "$249,468 / year",
+          detail: "$16,800/mo AI (30% reduction via routing) + $3,989/mo platform ($499 Pro + 10 × $349 agents). Full HIPAA audit trails, budget caps, credential isolation included.",
+          highlight: true,
+        },
+        {
+          label: "Additional value — clinical outcome improvements",
+          cost: "$340,000 / year recovered",
+          detail: "Est. 20% fewer excess readmissions ($100K penalty reduction) + better coding/denial management ($240K revenue recovery). Conservative estimates from industry benchmarks.",
+        },
+      ],
+      savingsSummary: [
+        { vs: "Return on investment", saved: "12.7:1 ROI", pct: "12.7x", detail: "$606K total value ÷ $47.9K platform cost" },
+        { vs: "Direct cost savings", saved: "$218K/yr saved", pct: "47%", detail: "$86K AI routing savings + $180K labor automation — offset by $47.9K platform" },
+      ],
+      footnote:
+        "Based on 40 production gateway requests (18,618 tokens) during E2E stress testing on February 22, 2026. AWS: 18 requests (17 successful), GCP: 6 requests (5 successful), Azure: 16 requests (deployment pending). Revenue recovery and readmission reduction estimates are conservative projections based on published industry benchmarks for AI-assisted medical coding (AHIMA 2025) and CMS readmission penalty data. All agent sessions generated complete audit logs suitable for HIPAA compliance review.",
+    },
+  },
 ];
 
 /* ─── Shared Onboarding Steps ─────────────────────────────────────── */

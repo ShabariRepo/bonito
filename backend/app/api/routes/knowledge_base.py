@@ -34,10 +34,16 @@ from app.schemas.knowledge_base import (
     KBUploadResponse,
     KBStats,
 )
+from app.services.feature_gate import feature_gate
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["knowledge-base"], prefix="/knowledge-bases")
+
+
+async def _require_ai_context(db: AsyncSession, user: User):
+    """Check that the organization has access to the ai_context (knowledge base) feature."""
+    await feature_gate.require_feature(db, str(user.org_id), "ai_context")
 
 
 # ─── Knowledge Base CRUD ───
@@ -49,6 +55,7 @@ async def create_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new knowledge base."""
+    await _require_ai_context(db, user)
     # Check for duplicate name within the organization
     result = await db.execute(
         select(KnowledgeBase).where(
@@ -108,6 +115,7 @@ async def list_knowledge_bases(
     db: AsyncSession = Depends(get_db),
 ):
     """List all knowledge bases for the organization."""
+    await _require_ai_context(db, user)
     result = await db.execute(
         select(KnowledgeBase)
         .where(KnowledgeBase.org_id == user.org_id)
@@ -123,6 +131,7 @@ async def get_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific knowledge base by ID."""
+    await _require_ai_context(db, user)
     result = await db.execute(
         select(KnowledgeBase).where(
             and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
@@ -143,6 +152,7 @@ async def update_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Update a knowledge base."""
+    await _require_ai_context(db, user)
     result = await db.execute(
         select(KnowledgeBase).where(
             and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
@@ -190,6 +200,7 @@ async def delete_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a knowledge base and all its documents and chunks."""
+    await _require_ai_context(db, user)
     result = await db.execute(
         select(KnowledgeBase).where(
             and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
@@ -215,6 +226,7 @@ async def list_documents(
     db: AsyncSession = Depends(get_db),
 ):
     """List all documents in a knowledge base."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     kb_result = await db.execute(
         select(KnowledgeBase).where(
@@ -241,6 +253,7 @@ async def get_document(
     db: AsyncSession = Depends(get_db),
 ):
     """Get a specific document by ID."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     kb_result = await db.execute(
         select(KnowledgeBase).where(
@@ -272,6 +285,7 @@ async def upload_document(
     db: AsyncSession = Depends(get_db),
 ):
     """Upload a document to a knowledge base."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     kb_result = await db.execute(
         select(KnowledgeBase).where(
@@ -368,6 +382,7 @@ async def delete_document(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a document and all its chunks."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     kb_result = await db.execute(
         select(KnowledgeBase).where(
@@ -412,6 +427,7 @@ async def sync_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger sync from cloud storage."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     result = await db.execute(
         select(KnowledgeBase).where(
@@ -460,6 +476,7 @@ async def get_sync_status(
     db: AsyncSession = Depends(get_db),
 ):
     """Get current sync status for a knowledge base."""
+    await _require_ai_context(db, user)
     result = await db.execute(
         select(KnowledgeBase).where(
             and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
@@ -491,6 +508,7 @@ async def search_knowledge_base(
     db: AsyncSession = Depends(get_db),
 ):
     """Search for relevant chunks in a knowledge base."""
+    await _require_ai_context(db, user)
     import time
     start_time = time.time()
 
@@ -606,6 +624,7 @@ async def get_knowledge_base_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Get statistics for a knowledge base."""
+    await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     result = await db.execute(
         select(KnowledgeBase).where(
