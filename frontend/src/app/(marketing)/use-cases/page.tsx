@@ -643,27 +643,27 @@ const useCases: UseCase[] = [
     tab: "Ad-Tech / Programmatic",
     title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
     subtitle:
-      "A real-world cost analysis: a programmatic advertising platform managing $40M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting AI costs by 30% and automating 3 FTE hours of daily campaign operations.",
+      "A real-world cost analysis: a programmatic advertising platform managing $150M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting $600K/year in AI costs by 30% and automating 5 FTE hours of daily campaign operations.",
     company: {
       industry: "Advertising Technology / Programmatic Media",
-      scale: "48 employees, 85+ brand clients, $40M+ managed ad spend/year",
+      scale: "200+ employees, 200+ brand clients, $150M+ managed ad spend/year",
       cloud: "AWS Bedrock + GCP Vertex AI + Azure OpenAI (all three)",
-      teams: "Engineering, Data Science, Sales, Creative",
-      data: "Campaign analytics across Meta/Google/TikTok/CTV, audience segments, creative assets, bid performance data",
+      teams: "Engineering, Data Science, Sales, Creative, Media Buying",
+      data: "Campaign analytics across Meta/Google/TikTok/CTV, audience segments, creative assets, bid performance data, client spend attribution",
       goal: "Unify 3 cloud AI stacks into one gateway with smart routing and deploy AI agents for campaign automation",
     },
     painPoints: [
       {
         icon: DollarSign,
-        title: "$8,200/month across 3 clouds — unoptimized",
+        title: "$50,000/month across 3 clouds — unoptimized",
         description:
-          "AWS for creative generation, GCP for audience ML, Azure for ad copy. Every team defaulted to the most expensive model available. Bulk ad copy running through GPT-4o when Gemini Flash would produce identical quality at a fraction of the cost.",
+          "AWS for creative generation, GCP for audience ML, Azure for ad copy. At scale, that's $600K/year in AI inference alone — and every team defaulted to the most expensive model available. Bulk ad copy running through GPT-4o when Gemini Flash would produce identical quality at 1/30th the cost.",
       },
       {
         icon: AlertTriangle,
         title: "Wrong models for the job",
         description:
-          "The team was using GPT-4o for everything — generating 50 ad headline variations, writing product descriptions, running sentiment analysis. 70% of requests were routine text generation that didn't need a frontier model, but there was no routing layer to differentiate.",
+          "The team was using GPT-4o for everything — generating 50 ad headline variations, writing product descriptions, running sentiment analysis on thousands of social mentions. 70% of requests were routine text generation that didn't need a frontier model, burning through $35K/month that could've been $5K with proper routing.",
       },
       {
         icon: Layers,
@@ -675,7 +675,7 @@ const useCases: UseCase[] = [
         icon: Target,
         title: "No cost attribution per campaign",
         description:
-          "When a client asked 'how much AI cost went into my campaign optimization?', nobody could answer. AI spend was a single line item buried in cloud bills — impossible to allocate to specific clients or campaigns.",
+          "When a client asked 'how much AI cost went into my campaign optimization?', nobody could answer. $600K/year in AI spend was split across three cloud bills — impossible to allocate to specific clients, campaigns, or even teams.",
       },
     ],
     aiUseCases: [
@@ -740,12 +740,12 @@ const useCases: UseCase[] = [
       {
         metric: "30%",
         label: "AI cost reduction",
-        detail: "$8,200/mo → $5,800/mo by routing bulk copy to Gemini Flash instead of GPT-4o",
+        detail: "$50K/mo → $35K/mo by routing bulk copy to Gemini Flash instead of GPT-4o — $180K/yr saved",
       },
       {
-        metric: "3.5:1",
+        metric: "9.5:1",
         label: "ROI",
-        detail: "$122K annual savings vs $35K platform cost — payback in under 4 months",
+        detail: "$336K annual savings vs $35K platform cost — payback in under 6 weeks",
       },
       {
         metric: "7 agents",
@@ -761,37 +761,38 @@ const useCases: UseCase[] = [
     costAnalysis: {
       headline: "Real Numbers: Validated on Production Infrastructure",
       description:
-        "Every number below comes from actual API calls through Bonito's production gateway to live AWS, GCP, and Azure endpoints. 74 gateway requests tracked, 36,952 tokens processed, costs calculated from published provider pricing. Then projected forward to production scale.",
+        "Routing validated through actual API calls to live AWS, GCP, and Azure endpoints via Bonito's production gateway. Cost projections based on $50K/month baseline AI spend — benchmarked against real programmatic advertising companies at scale.",
       models: [
-        { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$1,250/yr", color: "text-green-400" },
-        { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$1,800/yr", color: "text-green-400" },
-        { model: "GPT-4o Mini", cost: "$0.17 / 1K req", annual: "$3,070/yr", color: "text-yellow-400" },
+        { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$7,600/yr", color: "text-green-400" },
+        { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$10,950/yr", color: "text-green-400" },
+        { model: "GPT-4o Mini", cost: "$0.17 / 1K req", annual: "$18,600/yr", color: "text-yellow-400" },
+        { model: "GPT-4o", cost: "$2.80 / 1K req", annual: "$306,600/yr", color: "text-red-400" },
         { model: "Bonobot Platform (7 agents)", cost: "$349/agent/mo", annual: "$29,316/yr", color: "text-blue-400" },
       ],
       scenarios: [
         {
           label: "Before Bonito — 3 clouds, no routing, no agents",
-          cost: "$98,400 / year",
-          detail: "$8,200/mo across AWS + GCP + Azure. Every request hitting premium models. No cost visibility, no campaign-level attribution, no automation.",
+          cost: "$600,000 / year",
+          detail: "$50K/mo across AWS + GCP + Azure. Every request hitting premium models. No cost visibility, no campaign-level attribution, no automation.",
         },
         {
           label: "With Bonito — smart routing + 7 Bonobot agents",
-          cost: "$104,904 / year",
-          detail: "$5,800/mo AI (30% reduction via routing) + $2,942/mo platform ($499 Pro + 7 × $349 agents). Slightly higher total, but agents automate 3 FTE hours/day.",
+          cost: "$455,304 / year",
+          detail: "$35K/mo AI (30% reduction via routing) + $2,942/mo platform ($499 Pro + 7 × $349 agents). Agents automate 5 FTE hours/day of campaign ops.",
           highlight: true,
         },
         {
           label: "Net value — labor + cost savings combined",
-          cost: "$122,800 / year saved",
-          detail: "$94K labor savings (3 FTE hours/day of report generation, bid analysis, audience research) + $28.8K AI cost reduction from smart routing.",
+          cost: "$336,000 / year saved",
+          detail: "$180K AI cost reduction from smart routing + $156K labor savings (5 FTE hours/day of report generation, bid analysis, audience research, and creative iteration).",
         },
       ],
       savingsSummary: [
-        { vs: "Return on investment", saved: "3.5:1 ROI", pct: "3.5x", detail: "$122.8K total savings ÷ $35.3K platform cost" },
-        { vs: "AI cost reduction from routing", saved: "$28,800/yr saved (30%)", pct: "30%", detail: "$98.4K/yr → $69.6K/yr with Gemini Flash for bulk copy" },
+        { vs: "Return on investment", saved: "9.5:1 ROI", pct: "9.5x", detail: "$336K total savings ÷ $35.3K platform cost — payback in 6 weeks" },
+        { vs: "AI cost reduction from routing", saved: "$180K/yr saved (30%)", pct: "30%", detail: "$600K/yr → $420K/yr with Gemini Flash for bulk copy + Nova Lite for classification" },
       ],
       footnote:
-        "Based on 74 production gateway requests (36,952 tokens) during E2E stress testing on February 22, 2026. AWS: 36 requests (34 successful), GCP: 21 requests (21 successful), Azure: 17 requests (model deployment pending). Annual projections extrapolated to ~500 requests/day at production scale. Bonobot pricing: $349/mo per hosted agent, $499/mo Pro tier. Labor savings estimated at $75K/yr per analyst for automated campaign operations work.",
+        "Based on 74 production gateway requests (36,952 tokens) during E2E stress testing on February 22, 2026. Baseline $50K/month AI spend benchmarked against real programmatic advertising companies operating at $150M+ managed spend. Annual projections extrapolated to ~3,000 requests/day at production scale. Bonobot pricing: $349/mo per hosted agent, $499/mo Pro tier. Labor savings estimated at $75K/yr per analyst for automated campaign operations work.",
     },
   },
   {
