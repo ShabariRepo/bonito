@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import Script from "next/script";
 import Image from "next/image";
-import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight } from "lucide-react";
+import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight, Building2, ShoppingCart, Headphones, Bot, MonitorPlay, HeartPulse, Briefcase } from "lucide-react";
 import SchematicBackground from "@/components/SchematicBackground";
 
 // ---------- Section Animations ----------
@@ -163,6 +163,48 @@ export default function LandingPage() {
         </FadeInSection>
       </section>
 
+      {/* Use Cases */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-20 md:py-28">
+        <FadeInSection className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold">Built for real workloads</h2>
+          <p className="mt-4 text-[#888] text-lg max-w-2xl mx-auto">
+            See how teams across industries use Bonito to manage AI at scale.
+          </p>
+        </FadeInSection>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {[
+            { icon: Briefcase, label: "Enterprise AI Rollout", href: "/use-cases#enterprise-ai-rollout" },
+            { icon: Headphones, label: "Customer Experience", href: "/use-cases#cx-platform" },
+            { icon: ShoppingCart, label: "Product Marketplace", href: "/use-cases#product-marketplace" },
+            { icon: Building2, label: "Enterprise AI Ops", href: "/use-cases#enterprise-ai-ops" },
+            { icon: Bot, label: "AI Agent Workflows", href: "/use-cases#ai-agent-workflows" },
+            { icon: MonitorPlay, label: "Ad-Tech / Programmatic", href: "/use-cases#ad-tech-programmatic" },
+            { icon: HeartPulse, label: "Healthcare / Clinical AI", href: "/use-cases#healthcare-clinical-ai" },
+          ].map((uc, i) => (
+            <FadeInSection key={uc.label} delay={i * 0.05}>
+              <Link
+                href={uc.href}
+                className="group flex flex-col items-center gap-3 p-6 bg-[#111] border border-[#1a1a1a] rounded-xl hover:border-[#7c3aed]/40 transition text-center"
+              >
+                <div className="w-10 h-10 rounded-lg bg-[#7c3aed]/10 flex items-center justify-center group-hover:bg-[#7c3aed]/20 transition">
+                  <uc.icon className="w-5 h-5 text-[#7c3aed]" />
+                </div>
+                <span className="text-sm font-medium text-[#ccc] group-hover:text-[#f5f0e8] transition">{uc.label}</span>
+              </Link>
+            </FadeInSection>
+          ))}
+          <FadeInSection delay={0.35}>
+            <Link
+              href="/use-cases"
+              className="group flex flex-col items-center justify-center gap-3 p-6 border border-dashed border-[#333] rounded-xl hover:border-[#7c3aed]/40 transition text-center"
+            >
+              <ArrowRight className="w-5 h-5 text-[#666] group-hover:text-[#7c3aed] transition" />
+              <span className="text-sm font-medium text-[#666] group-hover:text-[#f5f0e8] transition">View all use cases</span>
+            </Link>
+          </FadeInSection>
+        </div>
+      </section>
+
       {/* Social Proof */}
       <section className="relative z-10 border-y border-[#1a1a1a] py-16 bg-[#0a0a0a]/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 md:px-12">
@@ -271,7 +313,8 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-[#1a1a1a] py-12">
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</div>
-          <div className="flex items-center gap-6 text-sm text-[#666]">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-[#666]">
+            <Link href="/use-cases" className="hover:text-[#999] transition">Use Cases</Link>
             <Link href="/pricing" className="hover:text-[#999] transition">Pricing</Link>
             <Link href="/about" className="hover:text-[#999] transition">About</Link>
             <Link href="/blog" className="hover:text-[#999] transition">Blog</Link>
