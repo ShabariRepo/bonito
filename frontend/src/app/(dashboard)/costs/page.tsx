@@ -58,16 +58,16 @@ function SparkLine({ data, color = "#8b5cf6", height = 60 }: { data: number[]; c
   const min = Math.min(...data);
   const range = max - min || 1;
   const w = 100;
-  const pad = 4;
+  const pad = 8; // enough room for strokeWidth + linecaps
   const points = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
+    const x = pad + (i / Math.max(data.length - 1, 1)) * (w - pad * 2);
     const y = pad + (1 - (v - min) / range) * (height - pad * 2);
     return `${x},${y}`;
   }).join(" ");
-  const areaPoints = `0,${height} ${points} ${w},${height}`;
+  const areaPoints = `${pad},${height - pad} ${points} ${w - pad},${height - pad}`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none" overflow="hidden">
       <defs>
         <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
