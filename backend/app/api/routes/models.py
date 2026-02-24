@@ -181,6 +181,7 @@ async def list_models(
                 "embed", "babbage", "rerank", "bert", "bart", "moderation",
                 "tts-", "whisper", "dall-e", "sora", "image", "stable-diffusion",
                 "sdxl", "titan-image", "titan-video", "runway", "pika",
+                "audio", "realtime", "transcription",
             ]
             if any(p in mid or p in dname for p in non_chat_patterns):
                 continue
@@ -414,6 +415,7 @@ async def playground_execute(
         "embed", "babbage", "rerank", "bert", "bart", "moderation",
         "tts-", "whisper", "dall-e", "sora", "image", "stable-diffusion",
         "sdxl", "titan-image", "titan-video", "runway", "pika",
+        "audio", "realtime", "transcription",
     ]
     is_known_non_chat = any(p in model_id_lower or p in display_lower for p in non_chat_patterns)
     if is_embedding or is_known_non_chat:
@@ -467,10 +469,25 @@ async def playground_execute(
             litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
             litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")
         elif provider.provider_type == "azure":
-            gateway_request["model"] = f"azure/{model.model_id}"
+            # Resolve the actual Azure deployment name:
+            # 1. Check for a Deployment record with the real name
+            # 2. Fall back to model_id (which may include date suffixes)
+            from app.models.deployment import Deployment as DeploymentRecord
+            azure_deploy_name = model.model_id
+            dep_result = await db.execute(
+                select(DeploymentRecord).where(
+                    DeploymentRecord.model_id == model.id,
+                    DeploymentRecord.org_id == user.org_id,
+                    DeploymentRecord.status.in_(["active", "deploying"]),
+                )
+            )
+            dep_record = dep_result.scalar_one_or_none()
+            if dep_record and dep_record.config and dep_record.config.get("name"):
+                azure_deploy_name = dep_record.config["name"]
+            gateway_request["model"] = f"azure/{azure_deploy_name}"
             litellm_params["api_base"] = secrets.get("endpoint", "")
             litellm_params["api_key"] = secrets.get("api_key") or secrets.get("client_secret", "")
-            litellm_params["api_version"] = "2024-02-01"
+            litellm_params["api_version"] = "2024-12-01-preview"
         elif provider.provider_type == "gcp":
             gateway_request["model"] = f"vertex_ai/{model.model_id}"
             litellm_params["vertex_project"] = secrets.get("project_id", "")
@@ -626,10 +643,23 @@ async def compare_models(
                 litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
                 litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")
             elif provider.provider_type == "azure":
-                gateway_request["model"] = f"azure/{model.model_id}"
+                # Resolve actual Azure deployment name from Deployment record
+                from app.models.deployment import Deployment as DeploymentRecord
+                azure_deploy_name = model.model_id
+                dep_result = await db.execute(
+                    select(DeploymentRecord).where(
+                        DeploymentRecord.model_id == model.id,
+                        DeploymentRecord.org_id == user.org_id,
+                        DeploymentRecord.status.in_(["active", "deploying"]),
+                    )
+                )
+                dep_record = dep_result.scalar_one_or_none()
+                if dep_record and dep_record.config and dep_record.config.get("name"):
+                    azure_deploy_name = dep_record.config["name"]
+                gateway_request["model"] = f"azure/{azure_deploy_name}"
                 litellm_params["api_base"] = secrets.get("endpoint", "")
                 litellm_params["api_key"] = secrets.get("api_key") or secrets.get("client_secret", "")
-                litellm_params["api_version"] = "2024-02-01"
+                litellm_params["api_version"] = "2024-12-01-preview"
             elif provider.provider_type == "gcp":
                 gateway_request["model"] = f"vertex_ai/{model.model_id}"
                 litellm_params["vertex_project"] = secrets.get("project_id", "")
