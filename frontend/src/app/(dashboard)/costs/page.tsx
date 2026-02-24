@@ -67,7 +67,7 @@ function SparkLine({ data, color = "#8b5cf6", height = 60 }: { data: number[]; c
   const areaPoints = `${pad},${height - pad} ${points} ${w - pad},${height - pad}`;
 
   return (
-    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none" overflow="hidden">
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full h-full" preserveAspectRatio="none" style={{ overflow: "hidden", maxHeight: height }}>
       <defs>
         <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -447,7 +447,7 @@ export default function CostsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-32">
+            <div className="h-32 overflow-hidden">
               <SparkLine
                 data={forecast?.forecast?.map((f: any) => f.projected) || []}
                 color="#3b82f6"
