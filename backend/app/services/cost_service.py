@@ -38,7 +38,7 @@ COST_CACHE_TTL = 3600  # 1 hour
 
 
 async def get_cost_summary_real(
-    period: str, db: AsyncSession, budget: float = 40000.0
+    period: str, db: AsyncSession, budget: float = 40000.0, org_id=None
 ) -> CostSummary:
     """Get unified cost summary across all connected providers."""
     import asyncio
@@ -57,7 +57,7 @@ async def get_cost_summary_real(
         pass
 
     result = await db.execute(
-        select(CloudProvider).where(CloudProvider.status == "active")
+        select(CloudProvider).where(CloudProvider.status == "active", *([CloudProvider.org_id == org_id] if org_id else []))
     )
     providers = result.scalars().all()
 
@@ -115,7 +115,7 @@ async def get_cost_summary_real(
     return summary
 
 
-async def get_cost_breakdown_real(db: AsyncSession) -> CostBreakdownResponse:
+async def get_cost_breakdown_real(db: AsyncSession, org_id=None) -> CostBreakdownResponse:
     """Get cost breakdown by provider, model, and department."""
     end = date.today()
     start = end - timedelta(days=30)
@@ -129,7 +129,7 @@ async def get_cost_breakdown_real(db: AsyncSession) -> CostBreakdownResponse:
         pass
 
     result = await db.execute(
-        select(CloudProvider).where(CloudProvider.status == "active")
+        select(CloudProvider).where(CloudProvider.status == "active", *([CloudProvider.org_id == org_id] if org_id else []))
     )
     providers = result.scalars().all()
 
@@ -194,13 +194,13 @@ async def get_cost_breakdown_real(db: AsyncSession) -> CostBreakdownResponse:
     return breakdown
 
 
-async def get_cost_forecast_real(db: AsyncSession) -> CostForecastResponse:
+async def get_cost_forecast_real(db: AsyncSession, org_id=None) -> CostForecastResponse:
     """Forecast costs based on real historical data."""
     end = date.today()
     start = end - timedelta(days=30)
 
     result = await db.execute(
-        select(CloudProvider).where(CloudProvider.status == "active")
+        select(CloudProvider).where(CloudProvider.status == "active", *([CloudProvider.org_id == org_id] if org_id else []))
     )
     providers = result.scalars().all()
 
@@ -268,10 +268,10 @@ async def get_cost_forecast_real(db: AsyncSession) -> CostForecastResponse:
     )
 
 
-async def get_optimization_recommendations(db: AsyncSession) -> list[dict]:
+async def get_optimization_recommendations(db: AsyncSession, org_id=None) -> list[dict]:
     """Generate cost optimization recommendations based on real usage."""
     result = await db.execute(
-        select(CloudProvider).where(CloudProvider.status == "active")
+        select(CloudProvider).where(CloudProvider.status == "active", *([CloudProvider.org_id == org_id] if org_id else []))
     )
     providers = result.scalars().all()
 

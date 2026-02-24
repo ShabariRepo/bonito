@@ -199,6 +199,7 @@ async def generate_iac_code(
 async def download_iac_zip(
     provider: str = Query(..., pattern="^(aws|azure|gcp)$"),
     tool: str = Query(default="terraform", pattern="^(terraform|pulumi|cloudformation|bicep|manual)$"),
+    user: User = Depends(get_current_user),
 ):
     """Download IaC template files as a ZIP archive.
 

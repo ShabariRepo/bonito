@@ -32,25 +32,25 @@ async def get_costs(
 ):
     """Get unified cost summary across all connected providers."""
     await _require_budget_alerts(db, user)
-    return await get_cost_summary_real(period, db, budget)
+    return await get_cost_summary_real(period, db, budget, org_id=user.org_id)
 
 
 @router.get("/breakdown", response_model=CostBreakdownResponse)
 async def costs_breakdown(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get cost breakdown by provider, model/service, and department."""
     await _require_budget_alerts(db, user)
-    return await get_cost_breakdown_real(db)
+    return await get_cost_breakdown_real(db, org_id=user.org_id)
 
 
 @router.get("/forecast", response_model=CostForecastResponse)
 async def costs_forecast(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get cost forecast based on real historical trends."""
     await _require_budget_alerts(db, user)
-    return await get_cost_forecast_real(db)
+    return await get_cost_forecast_real(db, org_id=user.org_id)
 
 
 @router.get("/recommendations")
 async def cost_recommendations(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Get cost optimization recommendations."""
     await _require_budget_alerts(db, user)
-    return await get_optimization_recommendations(db)
+    return await get_optimization_recommendations(db, org_id=user.org_id)
