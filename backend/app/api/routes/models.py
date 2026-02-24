@@ -187,30 +187,43 @@ async def list_models(
                 continue
         if playground:
             mid = (model.model_id or "").lower()
-            # Curated list of confirmed working models per provider
-            playground_models = {
+            # Curated list of confirmed working models per provider.
+            # Uses exact-match for Azure (prevents date-suffix duplicates),
+            # prefix-match with separator check for AWS/GCP.
+            playground_exact = {
+                "azure": {
+                    "gpt-4o-mini", "gpt-4o", "o3-mini", "o4-mini",
+                },
+            }
+            playground_prefix = {
                 "aws": [
-                    "amazon.nova-lite",
-                    "amazon.nova-pro",
-                    "amazon.nova-micro",
+                    "amazon.nova-lite-v1",
+                    "amazon.nova-pro-v1",
+                    "amazon.nova-micro-v1",
                     "anthropic.claude-haiku-4-5",
                 ],
-                "azure": [
-                    "gpt-4o-mini",
-                    "gpt-4o",
-                    "o3-mini",
-                    "o4-mini",
-                ],
                 "gcp": [
-                    "gemini-2.0-flash",
-                    "gemini-2.5-flash",
-                    "gemini-2.5-pro",
+                    "gemini-2.0-flash-001",
                     "gemini-2.0-flash-lite",
                     "gemini-2.5-flash-lite",
+                    "gemini-2.5-flash",
+                    "gemini-2.5-pro",
                 ],
             }
-            allowed = playground_models.get(pt, [])
-            if not any(mid.startswith(prefix) for prefix in allowed):
+            if pt in playground_exact:
+                if mid not in playground_exact[pt]:
+                    continue
+            else:
+                allowed = playground_prefix.get(pt, [])
+                if not allowed or not any(mid.startswith(p) for p in allowed):
+                    continue
+            # Exclude context-window variants (e.g. :24k, :300k) and image models
+            if ":" in mid and any(c.isdigit() for c in mid.split(":")[-1]):
+                # Allow base versions like :0 but skip :24k, :128k, :300k
+                suffix = mid.split(":")[-1]
+                if suffix not in ("0",):
+                    continue
+            if "-image" in mid:
                 continue
         models.append(model)
     return models
