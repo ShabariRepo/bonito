@@ -269,8 +269,8 @@ export function Sidebar() {
           );
         })}
 
-        {/* Admin / Platform section — only visible to org admins */}
-        {user?.role === "admin" && (<>
+        {/* Admin / Platform section — only visible to platform superadmins */}
+        {user?.is_platform_admin && (<>
         <div className="border-b border-border my-2" />
         <AnimatePresence>
           {(!isCollapsed || isMobile) && (

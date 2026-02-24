@@ -345,6 +345,11 @@ async def me(
     except Exception:
         pass
 
+    # Check if user is a platform superadmin
+    from app.core.config import settings
+    admin_emails = [e.strip() for e in settings.admin_emails.split(",") if e.strip()]
+    is_platform_admin = user.email in admin_emails
+
     return {
         "id": str(user.id),
         "org_id": str(user.org_id),
@@ -353,6 +358,7 @@ async def me(
         "role": user.role,
         "avatar_url": user.avatar_url,
         "email_verified": user.email_verified,
+        "is_platform_admin": is_platform_admin,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "org": {"name": org_name} if org_name else None,
     }
