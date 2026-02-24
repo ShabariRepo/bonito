@@ -29,6 +29,7 @@ import {
   PartyPopper,
   Database,
   BookOpen,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
