@@ -58,9 +58,10 @@ function SparkLine({ data, color = "#8b5cf6", height = 60 }: { data: number[]; c
   const min = Math.min(...data);
   const range = max - min || 1;
   const w = 100;
+  const pad = 4;
   const points = data.map((v, i) => {
     const x = (i / (data.length - 1)) * w;
-    const y = height - ((v - min) / range) * (height - 10) - 5;
+    const y = pad + (1 - (v - min) / range) * (height - pad * 2);
     return `${x},${y}`;
   }).join(" ");
   const areaPoints = `0,${height} ${points} ${w},${height}`;
@@ -295,7 +296,7 @@ export default function CostsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-40">
+              <div className="h-40 overflow-hidden">
                 <SparkLine
                   data={summary?.daily_costs?.map((d: any) => d.amount) || []}
                   color="#8b5cf6"
