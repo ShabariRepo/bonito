@@ -154,6 +154,7 @@ async def list_models(
     status: str = Query(None, description="Filter by model status (available, deployed, etc.)"),
     search: str = Query(None, description="Search by model name or ID"),
     chat_only: bool = Query(False, description="Filter to only chat-compatible models (excludes embeddings, image, video, etc.)"),
+    playground: bool = Query(False, description="Filter to only playground-ready models (curated, confirmed working)"),
 ):
     query = (
         select(Model, CloudProvider.provider_type)
@@ -182,6 +183,33 @@ async def list_models(
                 "sdxl", "titan-image", "titan-video", "runway", "pika",
             ]
             if any(p in mid or p in dname for p in non_chat_patterns):
+                continue
+        if playground:
+            mid = (model.model_id or "").lower()
+            # Curated list of confirmed working models per provider
+            playground_models = {
+                "aws": [
+                    "amazon.nova-lite",
+                    "amazon.nova-pro",
+                    "amazon.nova-micro",
+                    "anthropic.claude-haiku-4-5",
+                ],
+                "azure": [
+                    "gpt-4o-mini",
+                    "gpt-4o",
+                    "o3-mini",
+                    "o4-mini",
+                ],
+                "gcp": [
+                    "gemini-2.0-flash",
+                    "gemini-2.5-flash",
+                    "gemini-2.5-pro",
+                    "gemini-2.0-flash-lite",
+                    "gemini-2.5-flash-lite",
+                ],
+            }
+            allowed = playground_models.get(pt, [])
+            if not any(mid.startswith(prefix) for prefix in allowed):
                 continue
         models.append(model)
     return models
