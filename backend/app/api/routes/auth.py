@@ -1,3 +1,4 @@
+import os
 import re
 import uuid
 import secrets
@@ -113,6 +114,10 @@ class MessageResponse(BaseModel):
 
 @router.post("/register", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    # Kill switch: block all new registrations when REGISTRATION_DISABLED=true
+    if os.environ.get("REGISTRATION_DISABLED", "").lower() in ("true", "1", "yes"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration is currently closed")
+
     _validate_password(body.password)
 
     existing = await auth_service.get_user_by_email(db, body.email)
