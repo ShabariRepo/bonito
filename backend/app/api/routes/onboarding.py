@@ -154,8 +154,11 @@ async def generate_iac_code(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Generate IaC code for a provider+tool combination."""
-    await _require_iac_templates(db, user)
+    """Generate IaC code for a provider+tool combination.
+
+    NOTE: No feature gate here — onboarding wizard must work for all tiers.
+    IaC templates are gated separately outside the onboarding flow.
+    """
     valid_tools = VALID_COMBOS.get(body.provider, set())
     if body.iac_tool not in valid_tools:
         raise HTTPException(
@@ -255,8 +258,9 @@ async def validate_credentials(
 
     Delegates to the existing provider validation services.
     Returns health status on successful validation.
+
+    NOTE: No feature gate — onboarding validation must work for all tiers.
     """
-    await _require_iac_templates(db, user)
     provider = body.provider
     creds = body.credentials
 

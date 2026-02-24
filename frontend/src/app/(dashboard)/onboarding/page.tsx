@@ -219,6 +219,7 @@ export default function OnboardingPage() {
   const [iacTool, setIacTool] = useState<IaCTool | null>(null);
   const [iacResults, setIacResults] = useState<Record<Provider, IaCResult | null>>({} as any);
   const [iacLoading, setIacLoading] = useState(false);
+  const [iacError, setIacError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -375,6 +376,7 @@ export default function OnboardingPage() {
     if (!iacTool) return;
     setActiveProvider(provider);
     setIacLoading(true);
+    setIacError(null);
     try {
       const kbPayload: Record<string, unknown> = {};
       if (kbEnabled && kbProvider) {
@@ -396,12 +398,15 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, iac_tool: iacTool, ...kbPayload }),
       });
-      if (!res.ok) throw new Error("Failed to generate");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail?.message || errData?.detail || "Failed to generate code");
+      }
       const result = await res.json();
       setIacResults((prev) => ({ ...prev, [provider]: result }));
       if (result.files?.length) setActiveFile(result.files[0].filename);
-    } catch {
-      // Silent
+    } catch (e: any) {
+      setIacError(e.message || "Failed to generate code. Please try again.");
     } finally {
       setIacLoading(false);
     }
@@ -1203,6 +1208,17 @@ export default function OnboardingPage() {
                   ) : activeProvider && iacLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+                    </div>
+                  ) : iacError ? (
+                    <div className="text-center py-12 space-y-3">
+                      <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
+                      <p className="text-sm text-muted-foreground">{iacError}</p>
+                      <button
+                        onClick={() => activeProvider && handleGenerateIaC(activeProvider)}
+                        className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium transition-colors"
+                      >
+                        Try Again
+                      </button>
                     </div>
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
