@@ -125,6 +125,58 @@ def upgrade() -> None:
                         )
 
 
+    # 6. Fix AWS on-demand deployments showing provisioned throughput cost estimates
+    #    If config_applied.type == "on-demand", cost should be $0
+    import json as _json2
+    aws_deps = conn.execute(
+        sa.text("""
+            SELECT id, config FROM deployments
+            WHERE config::text LIKE '%"provider_type": "aws"%'
+        """)
+    ).fetchall()
+    for dep_id, config in aws_deps:
+        if not config:
+            continue
+        config_applied = config.get("config_applied", {})
+        cost_est = config.get("cost_estimate", {})
+        if config_applied.get("type") == "on-demand" and cost_est.get("monthly", 0) > 0:
+            config["cost_estimate"] = {
+                "hourly": 0,
+                "daily": 0,
+                "monthly": 0,
+                "unit": "Pay-per-request (no fixed cost)",
+                "notes": "On-demand access — you pay per token used, no reserved capacity.",
+            }
+            conn.execute(
+                sa.text("UPDATE deployments SET config = :config WHERE id = :id"),
+                {"config": _json2.dumps(config), "id": dep_id},
+            )
+
+    # 7. Remove duplicate Azure deployment records (keep the one with tier set)
+    azure_deps = conn.execute(
+        sa.text("""
+            SELECT id, config, org_id FROM deployments
+            WHERE config::text LIKE '%"provider_type": "azure"%'
+            ORDER BY created_at ASC
+        """)
+    ).fetchall()
+
+    seen_azure = {}  # (org_id, deployment_name) -> first deployment id
+    for dep_id, config, org_id in azure_deps:
+        if not config:
+            continue
+        dep_name = config.get("name", "")
+        key = (str(org_id), dep_name)
+        if key in seen_azure:
+            # Duplicate — delete this one
+            conn.execute(
+                sa.text("DELETE FROM deployments WHERE id = :id"),
+                {"id": dep_id},
+            )
+        else:
+            seen_azure[key] = dep_id
+
+
 def downgrade() -> None:
     # Data-only migration — downgrade is a no-op.
     # Models will be re-synced on next provider sync.

@@ -79,8 +79,19 @@ class DeploymentResult:
 def estimate_cost(provider_type: str, model_id: str, config: dict) -> CostEstimate:
     """Estimate deployment cost BEFORE provisioning."""
     if provider_type == "aws":
-        model_units = config.get("model_units", 1)
-        # Find pricing — match on prefix
+        model_units = config.get("model_units", 0)  # 0 = on-demand (default)
+        
+        # On-demand mode: no fixed cost, pay per request
+        if model_units == 0:
+            return CostEstimate(
+                hourly=0,
+                daily=0,
+                monthly=0,
+                unit="Pay-per-request (no fixed cost)",
+                notes="On-demand access — you pay per token used, no reserved capacity.",
+            )
+        
+        # Provisioned Throughput mode: fixed hourly cost
         hourly_per_unit = AWS_PT_PRICING.get("default", 20.0)
         for key, price in AWS_PT_PRICING.items():
             if key != "default" and model_id.startswith(key):
