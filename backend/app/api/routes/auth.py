@@ -307,6 +307,8 @@ async def refresh(
     user = await auth_service.get_user_by_id(db, uuid.UUID(user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.email_verified:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
 
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_tok = auth_service.create_refresh_token(str(user.id))
