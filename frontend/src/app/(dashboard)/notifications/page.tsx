@@ -30,6 +30,7 @@ export default function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [filter, setFilter] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [featureGated, setFeatureGated] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -38,6 +39,10 @@ export default function NotificationsPage() {
         ? `/api/notifications/?type=${filter}`
         : `/api/notifications/`;
       const res = await apiRequest(url);
+      if (res.status === 403) {
+        setFeatureGated(true);
+        return;
+      }
       const data = await res.json();
       setNotifications(data.items);
       setTotal(data.total);
@@ -70,6 +75,32 @@ export default function NotificationsPage() {
     { value: "model_deprecation", label: "Model Updates" },
     { value: "digest", label: "Digests" },
   ];
+
+  if (featureGated) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Notifications"
+          description="Stay informed about cost alerts, compliance changes, and model updates"
+        />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="p-4 rounded-full bg-violet-500/10 mb-4">
+            <Bell className="h-8 w-8 text-violet-500" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Notifications require a Pro plan</h3>
+          <p className="text-sm text-muted-foreground max-w-md mb-6">
+            Get real-time cost alerts, compliance notifications, model deprecation warnings, and usage digests with a Pro or Enterprise plan.
+          </p>
+          <a
+            href="/pricing"
+            className="px-6 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+          >
+            View Plans
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;

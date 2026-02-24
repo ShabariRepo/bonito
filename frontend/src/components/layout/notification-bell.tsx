@@ -20,18 +20,32 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
+  const [featureGated, setFeatureGated] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const gatedRef = useRef(false);
 
   useEffect(() => {
     async function load() {
-      // Don't poll if not authenticated — avoids 403 spam on the backend
-      if (!getAccessToken()) return;
+      // Don't poll if not authenticated or feature is gated
+      if (!getAccessToken() || gatedRef.current) return;
       try {
-        const [countRes, listRes] = await Promise.all([
-          apiRequest("/api/notifications/unread-count"),
-          apiRequest("/api/notifications/"),
-        ]);
-        if (!countRes.ok || !listRes.ok) return;
+        const countRes = await apiRequest("/api/notifications/unread-count");
+        // Stop polling entirely if feature-gated (403)
+        if (countRes.status === 403) {
+          gatedRef.current = true;
+          setFeatureGated(true);
+          return;
+        }
+        if (!countRes.ok) return;
+
+        const listRes = await apiRequest("/api/notifications/");
+        if (listRes.status === 403) {
+          gatedRef.current = true;
+          setFeatureGated(true);
+          return;
+        }
+        if (!listRes.ok) return;
+
         const countData = await countRes.json();
         const listData = await listRes.json();
         setUnreadCount(countData.count);
@@ -50,6 +64,9 @@ export function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Don't render the bell at all if the feature is gated
+  if (featureGated) return null;
 
   return (
     <div className="relative" ref={ref}>
