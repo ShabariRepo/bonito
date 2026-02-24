@@ -175,3 +175,28 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 4. At query time: embed user query → cosine similarity search → top 5 chunks
 5. Inject context as system message before user's prompt
 6. Route to any model (GPT-4o, Gemini, Claude) — model never touches storage directly
+
+### 14. AWS Bedrock inference profiles — newer models fail with 403
+**Date**: 2026-02-23
+**Symptom**: Anthropic Claude Sonnet 4, Opus 4, Haiku 4.5, and Meta Llama 3.2+ models return `not authorized to perform: bedrock:InvokeModel on resource: arn:aws:bedrock:*:*:inference-profile/*`.
+**Cause**: AWS changed how newer foundation models are invoked. Instead of calling the model ID directly, they require **cross-region inference profiles** with a `us.` prefix (e.g., `us.anthropic.claude-sonnet-4-20250514-v1:0`). These profiles have a different ARN pattern (`inference-profile/*`) that wasn't in the IAM policy.
+**Fix**:
+1. Backend now auto-prefixes newer Bedrock models with `us.` for inference profiles (commit `0706b08`)
+2. IAM policy updated to include `arn:aws:bedrock:*:ACCOUNT_ID:inference-profile/*` resource
+3. All IaC onboarding templates (Terraform, Pulumi, CloudFormation, Manual) updated with inference profile ARN
+**Impact**: All newer Anthropic and Meta models on Bedrock were unusable. Older models (Nova Lite, Nova Pro) unaffected.
+**Lesson**: AWS Bedrock's invocation model changed for newer models. Always include `inference-profile/*` in IAM policies alongside `foundation-model/*`. IaC templates must stay current with provider changes.
+
+### 15. Non-chat models appearing in playground
+**Date**: 2026-02-23
+**Symptom**: Image/video models (Sora, DALL-E, Titan Image, Stable Diffusion) and embedding models appear in the playground model selector.
+**Cause**: Model list endpoint returned all synced models without filtering by capability.
+**Fix**: Added `?chat_only=true` param to model list API; backend filters out non-chat patterns (embed, sora, dall-e, image, video, tts, whisper, etc.). Playground frontend uses this param. Backend execution endpoint also rejects non-chat models with a clear error.
+**Impact**: UX issue only — selecting a non-chat model would fail with a 500.
+
+### 16. Alembic multiple migration heads — deploy fails
+**Date**: 2026-02-23
+**Symptom**: Railway deploy fails with `Multiple head revisions are present for given argument 'head'` followed by `DuplicateColumn: column "subscription_tier" of relation "organizations" already exists`.
+**Cause**: Two feature branches (logging system + bonobot/subscription) both forked from migration `019_add_sso_config` and added overlapping columns/tables.
+**Fix**: Created alembic merge migration + made duplicate migrations idempotent (check column/table existence before CREATE).
+**Impact**: Backend started but with `Migration FAILED` warning. DB was functional (columns existed from other branch).

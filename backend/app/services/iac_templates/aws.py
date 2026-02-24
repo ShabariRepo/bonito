@@ -146,8 +146,11 @@ resource "aws_iam_policy" "bonito" {
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream",
         ]
-        # Scoped to foundation models in the target region
-        Resource = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}::foundation-model/*"
+        # Scoped to foundation models + inference profiles (required for newer models)
+        Resource = [
+          "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*",
+          "arn:${data.aws_partition.current.partition}:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+        ]
       },
       {
         # Model activation: request access to foundation models
@@ -463,7 +466,7 @@ policy = aws.iam.Policy("{project_name}-policy",
                 "Sid": "BedrockInvokeModels",
                 "Effect": "Allow",
                 "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-                "Resource": f"arn:aws:bedrock:{region}::foundation-model/*"
+                "Resource": ["arn:aws:bedrock:*::foundation-model/*", "arn:aws:bedrock:*:*:inference-profile/*"]
             }},
             {{
                 "Sid": "BedrockModelAccess",
@@ -589,7 +592,9 @@ Resources:
             Action:
               - bedrock:InvokeModel
               - bedrock:InvokeModelWithResponseStream
-            Resource: !Sub "arn:${{AWS::Partition}}:bedrock:{region}::foundation-model/*"
+            Resource:
+              - !Sub "arn:${{AWS::Partition}}:bedrock:*::foundation-model/*"
+              - !Sub "arn:${{AWS::Partition}}:bedrock:*:${{AWS::AccountId}}:inference-profile/*"
           - Sid: BedrockModelAccess
             Effect: Allow
             Action:
@@ -709,7 +714,7 @@ def _manual(
       "Sid": "BedrockInvokeModels",
       "Effect": "Allow",
       "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
-      "Resource": "arn:aws:bedrock:{region}::foundation-model/*"
+      "Resource": ["arn:aws:bedrock:*::foundation-model/*", "arn:aws:bedrock:*:YOUR_ACCOUNT_ID:inference-profile/*"]
     }},
     {{
       "Sid": "BedrockModelAccess",
