@@ -88,7 +88,7 @@ function AnimatedBar({ percentage, color, delay = 0 }: { percentage: number; col
 /* ─── Trend arrow ─── */
 function TrendIndicator({ direction, percentage }: { direction: string; percentage: number }) {
   const Icon = direction === "increasing" ? TrendingUp : direction === "decreasing" ? TrendingDown : Minus;
-  const color = direction === "increasing" ? "text-red-400" : direction === "decreasing" ? "text-emerald-500" : "text-muted-foreground";
+  const color = direction === "increasing" ? "text-emerald-500" : direction === "decreasing" ? "text-red-400" : "text-muted-foreground";
   return (
     <span className={`flex items-center gap-1 text-sm font-medium ${color}`}>
       <Icon className="h-4 w-4" />
