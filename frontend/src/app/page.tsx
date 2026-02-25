@@ -49,7 +49,7 @@ export default function LandingPage() {
   }
 
   const features = [
-    { icon: Cloud, title: "Multi-Cloud AI", desc: "Connect OpenAI, Anthropic, AWS Bedrock, Google Vertex — all from one control plane." },
+    { icon: Cloud, title: "Multi-Cloud AI", desc: "Connect OpenAI, Anthropic, AWS Bedrock, Google Vertex, all from one control plane." },
     { icon: Zap, title: "API Gateway", desc: "Intelligent routing, load balancing, and failover across all your AI providers." },
     { icon: DollarSign, title: "Cost Intelligence", desc: "Real-time spend tracking, budget alerts, and optimization recommendations." },
     { icon: Sparkles, title: "AI Copilot", desc: "Built-in assistant that helps you manage infrastructure with natural language." },
@@ -74,7 +74,7 @@ export default function LandingPage() {
     },
     {
       name: "Enterprise",
-      price: "$2K–5K",
+      price: "$2K-5K",
       period: "/mo",
       features: ["Everything in Pro", "Dedicated support", "Custom SLAs", "SSO & SAML", "Compliance (SOC2, HIPAA)", "On-premise option"],
       cta: "Contact Sales",
@@ -85,7 +85,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#f5f0e8] overflow-x-hidden scroll-smooth">
       <SchematicBackground />
-      {/* Top gradient overlay for contrast — softened to let schematic show through */}
+      {/* Top gradient overlay for contrast, softened to let schematic show through */}
       <div className="fixed inset-0 pointer-events-none z-[1] bg-gradient-to-b from-[#0a0a0a]/80 via-[#0a0a0a]/40 to-transparent" style={{ height: "35vh" }} />
 
       <Script

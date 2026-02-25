@@ -107,7 +107,7 @@ const useCases: UseCase[] = [
     type: "comparison",
     title: "Three Ways to Roll Out Enterprise AI",
     subtitle:
-      "Same scenario, three radically different approaches. A 500-employee company wants to deploy AI across Engineering, Customer Support, and Finance using AWS + Azure + GCP. Here's what each path actually costs — in time, money, and risk.",
+      "Same scenario, three radically different approaches. A 500-employee company wants to deploy AI across Engineering, Customer Support, and Finance using AWS + Azure + GCP. Here's what each path actually costs. In time, money, and risk.",
     company: {
       industry: "Enterprise (cross-industry)",
       scale: "500 employees, 3 departments (Engineering, Customer Support, Finance)",
@@ -129,7 +129,7 @@ const useCases: UseCase[] = [
     },
     comparison: {
       scenario:
-        "A 500-employee company wants to deploy AI across 3 departments — Engineering, Customer Support, and Finance — using AWS + Azure + GCP.",
+        "A 500-employee company wants to deploy AI across 3 departments. Engineering, Customer Support, and Finance, using AWS + Azure + GCP.",
       approaches: [
         {
           name: "The Consulting Route",
@@ -137,24 +137,24 @@ const useCases: UseCase[] = [
           color: "text-red-400",
           borderColor: "border-red-500/30",
           bgColor: "bg-red-500/5",
-          timeline: "6–12 months",
-          year1Cost: "$500K–$2M",
-          ongoing: "$100K–$200K/yr maintaining custom integrations",
+          timeline: "6-12 months",
+          year1Cost: "$500K-$2M",
+          ongoing: "$100K-$200K/yr maintaining custom integrations",
           tokenUsage: "~2M tokens/month once live (single-vendor, unoptimized)",
           typicalModels: "GPT-4o for everything (Azure-only, vendor lock-in from consultant's recommendation)",
-          monthlyAiSpend: "~$30/month at 2M tokens… but they don't get here for 6–12 months",
-          totalYear1: "$500K–$2M+ with AI not live until month 8–12",
+          monthlyAiSpend: "~$30/month at 2M tokens… but they don't get here for 6-12 months",
+          totalYear1: "$500K-$2M+ with AI not live until month 8-12",
           details: [
             "e.g., Deloitte, Accenture",
             "Consulting engagement + internal resources",
-            "Consultant picks one model, one cloud — strategy is stale by delivery",
+            "Consultant picks one model, one cloud. Strategy is stale by delivery",
             "Models change quarterly; their recommendation is a point-in-time snapshot",
             "Compliance recommendations delivered as PDFs, not automation",
           ],
           risks: [
-            "Model obsolescence — GPT-4o today might not be optimal in 6 months",
+            "Model obsolescence. GPT-4o today might not be optimal in 6 months",
             "Vendor lock-in from consultant's single-cloud recommendation",
-            "No operational layer — consultant delivers a strategy deck, not infrastructure",
+            "No operational layer. The consultant delivers a strategy deck, not infrastructure",
             "Consultant leaves and institutional knowledge walks out the door",
             "Compliance is a snapshot, not continuous monitoring",
             "No routing optimization, no agent governance",
@@ -166,13 +166,13 @@ const useCases: UseCase[] = [
           color: "text-yellow-400",
           borderColor: "border-yellow-500/30",
           bgColor: "bg-yellow-500/5",
-          timeline: "4–6 months",
-          year1Cost: "$200K–$400K",
-          ongoing: "$8K–$15K/yr tooling + 2–3 platform engineers at $150K+ each",
+          timeline: "4-6 months",
+          year1Cost: "$200K-$400K",
+          ongoing: "$8K-$15K/yr tooling + 2-3 platform engineers at $150K+ each",
           tokenUsage: "~10M tokens/month (multi-cloud, no cost-optimized routing)",
-          typicalModels: "GPT-4o (60%), Claude 3.5 Sonnet (25%), Gemini Flash (15%) — no intelligent per-task routing",
-          monthlyAiSpend: "$200–$400/month at 10M tokens on premium models",
-          totalYear1: "$250K–$450K with 2–3 FTE tied up in platform maintenance",
+          typicalModels: "GPT-4o (60%), Claude 3.5 Sonnet (25%), Gemini Flash (15%). No intelligent per-task routing",
+          monthlyAiSpend: "$200-$400/month at 10M tokens on premium models",
+          totalYear1: "$250K-$450K with 2-3 FTE tied up in platform maintenance",
           details: [
             "DIY with point solutions: Portkey ($499/mo routing) + Helicone ($150/mo observability)",
             "Custom compliance scripts + LangChain/CrewAI for agents",
@@ -181,8 +181,8 @@ const useCases: UseCase[] = [
             "Team spends more time maintaining the stack than building features",
           ],
           risks: [
-            "Integration fragility — one vendor update breaks the chain",
-            "Security gaps between tools — no unified audit trail",
+            "Integration fragility. One vendor update breaks the chain",
+            "Security gaps between tools. No unified audit trail",
             "Agent sprawl without governance (no default-deny, no budget caps)",
             "Engineering team becomes 'AI platform team' instead of building product",
             "Compliance is manual scripts that break on updates",
@@ -199,37 +199,37 @@ const useCases: UseCase[] = [
           year1Cost: "~$17K",
           ongoing: "$499/mo Pro + 3 agents at $349/mo each",
           tokenUsage: "~10M tokens/month (same workload, smart routing)",
-          typicalModels: "Nova Lite (60%), GPT-4o Mini (20%), Gemini 2.5 Flash (15%), GPT-4o (5%) — auto-routed per task",
-          monthlyAiSpend: "$60–$80/month at 10M tokens with smart routing",
+          typicalModels: "Nova Lite (60%), GPT-4o Mini (20%), Gemini 2.5 Flash (15%), GPT-4o (5%), auto-routed per task",
+          monthlyAiSpend: "$60-$80/month at 10M tokens with smart routing",
           totalYear1: "~$18K all-in",
           details: [
             "Same-day connection to all 3 clouds, 1 week to all departments live",
             "Smart routing sends each task to the optimal model automatically",
             "60% of requests go to Nova Lite for classification and drafts",
-            "Only 5% of requests need GPT-4o — complex analysis only",
+            "Only 5% of requests need GPT-4o, complex analysis only",
             "Built-in governance, compliance, and cost attribution from day one",
           ],
           risks: [
-            "Newer product — mitigated by open standards (OpenAI-compatible API)",
+            "Newer product. Mitigated by open standards (OpenAI-compatible API)",
             "Smaller provider catalog (3 clouds vs Portkey's 60+)",
-            "Single vendor dependency — mitigated by standard IaC and portable API format",
+            "Single vendor dependency. Mitigated by standard IaC and portable API format",
             "No SOC-2 Type II yet",
           ],
         },
       ],
       table: [
-        { label: "Time to first AI in production", consulting: "6–12 months", patchwork: "4–6 months", bonito: "Same day" },
-        { label: "Year 1 all-in cost", consulting: "$500K–$2M", patchwork: "$250K–$450K", bonito: "~$18K" },
-        { label: "Monthly AI inference spend", consulting: "~$30 (single model)", patchwork: "$200–$400 (unoptimized)", bonito: "$60–$80 (smart routing)" },
+        { label: "Time to first AI in production", consulting: "6-12 months", patchwork: "4-6 months", bonito: "Same day" },
+        { label: "Year 1 all-in cost", consulting: "$500K-$2M", patchwork: "$250K-$450K", bonito: "~$18K" },
+        { label: "Monthly AI inference spend", consulting: "~$30 (single model)", patchwork: "$200-$400 (unoptimized)", bonito: "$60-$80 (smart routing)" },
         { label: "Monthly token volume", consulting: "~2M (single use case)", patchwork: "~10M (multi-team)", bonito: "~10M (multi-team)" },
-        { label: "Models in use", consulting: "1 (consultant's pick)", patchwork: "3–4 (manual selection)", bonito: "4–6 (auto-routed per task)" },
+        { label: "Models in use", consulting: "1 (consultant's pick)", patchwork: "3-4 (manual selection)", bonito: "4-6 (auto-routed per task)" },
         { label: "Unified governance", consulting: "❌ PDF recommendations", patchwork: "❌ Manual scripts", bonito: "✅ Built-in real-time" },
         { label: "Agent governance", consulting: "❌", patchwork: "❌ DIY", bonito: "✅ Default-deny, budget caps" },
         { label: "Compliance automation", consulting: "❌ One-time audit", patchwork: "⚠️ Custom scripts", bonito: "✅ SOC-2/HIPAA/GDPR checks" },
         { label: "Cost attribution", consulting: "❌", patchwork: "⚠️ Partial (per-tool)", bonito: "✅ Per-key, per-team, per-request" },
         { label: "New department rollout", consulting: "New engagement ($$$)", patchwork: "New integration (weeks)", bonito: "Add an agent (minutes)" },
         { label: "Vendor count", consulting: "1 expensive one", patchwork: "5+", bonito: "1" },
-        { label: "Engineers required", consulting: "0 (outsourced) then 2–3", patchwork: "2–3 FTE", bonito: "0 (self-serve)" },
+        { label: "Engineers required", consulting: "0 (outsourced) then 2-3", patchwork: "2-3 FTE", bonito: "0 (self-serve)" },
       ],
       riskCards: [
         {
@@ -239,11 +239,11 @@ const useCases: UseCase[] = [
           bgColor: "bg-red-500/5",
           icon: Briefcase,
           risks: [
-            "Model obsolescence — GPT-4o today might not be optimal in 6 months, but the consultant's strategy is locked in",
-            "Vendor lock-in — consultant picked one cloud, one model vendor. Switching costs are enormous.",
-            "No operational layer — you get a strategy deck and architecture diagrams, not running infrastructure",
-            "Knowledge walkout — when the consultant engagement ends, institutional knowledge leaves with them",
-            "Compliance is a snapshot — one-time audit recommendations in a PDF, not continuous automated checks",
+            "Model obsolescence. GPT-4o today might not be optimal in 6 months, but the consultant's strategy is locked in",
+            "Vendor lock-in. The consultant picked one cloud, one model vendor. Switching costs are enormous.",
+            "No operational layer. You get a strategy deck and architecture diagrams, not running infrastructure",
+            "Knowledge walkout. When the consultant engagement ends, institutional knowledge leaves with them",
+            "Compliance is a snapshot, one-time audit recommendations in a PDF, not continuous automated checks",
           ],
         },
         {
@@ -253,11 +253,11 @@ const useCases: UseCase[] = [
           bgColor: "bg-yellow-500/5",
           icon: Puzzle,
           risks: [
-            "Integration fragility — one vendor pushes an update and breaks the chain. You're now debugging 5 vendor APIs.",
-            "Security gaps between tools — Portkey handles routing, Helicone handles logging, but neither handles the gaps between them",
-            "No unified audit trail — compliance has to stitch together logs from 5+ tools to answer 'who accessed what, when'",
-            "Agent sprawl without governance — LangChain/CrewAI agents run without default-deny or budget caps",
-            "Engineering team becomes the 'AI platform team' — they spend more time maintaining integrations than building product features",
+            "Integration fragility. One vendor pushes an update and breaks the chain. You're now debugging 5 vendor APIs.",
+            "Security gaps between tools. Portkey handles routing, Helicone handles logging, but neither handles the gaps between them",
+            "No unified audit trail, compliance has to stitch together logs from 5+ tools to answer 'who accessed what, when'",
+            "Agent sprawl without governance. LangChain/CrewAI agents run without default-deny or budget caps",
+            "Engineering team becomes the 'AI platform team'. They spend more time maintaining integrations than building product features",
           ],
         },
         {
@@ -267,10 +267,10 @@ const useCases: UseCase[] = [
           bgColor: "bg-green-500/5",
           icon: Rocket,
           risks: [
-            "Newer product — less battle-tested than established consulting firms or Portkey's 3+ year track record",
-            "Smaller provider catalog — 3 cloud providers (AWS, Azure, GCP) vs Portkey's 60+. If you need a niche provider, it may not be supported yet.",
-            "Single vendor dependency — mitigated by OpenAI-compatible API format (portable) and standard IaC (Terraform) for infrastructure definitions",
-            "No SOC-2 Type II yet — in progress, but not complete. May be a blocker for some enterprise procurement processes.",
+            "Newer product. Less battle-tested than established consulting firms or Portkey's 3+ year track record",
+            "Smaller provider catalog: 3 cloud providers (AWS, Azure, GCP) vs Portkey's 60+. If you need a niche provider, it may not be supported yet.",
+            "Single vendor dependency. Mitigated by OpenAI-compatible API format (portable) and standard IaC (Terraform) for infrastructure definitions",
+            "No SOC-2 Type II yet. In progress, but not complete. May be a blocker for some enterprise procurement processes.",
           ],
         },
       ],
@@ -284,14 +284,14 @@ const useCases: UseCase[] = [
     type: "case-study",
     title: "How a Mid-Market CX Platform Cut AI Costs by 89% Across Three Clouds",
     subtitle:
-      "A real-world cost analysis: a B2B customer experience platform processing 50,000 AI requests per day across AWS, GCP, and Azure. From $51K/year to $5.8K/year — with better model selection per task.",
+      "A real-world cost analysis: a B2B customer experience platform processing 50,000 AI requests per day across AWS, GCP, and Azure. From $51K/year to $5.8K/year, with better model selection per task.",
     company: {
       industry: "B2B Customer Experience Platform (SaaS)",
       scale: "200+ business clients, 50,000+ AI requests/day, 18.25M requests/year",
       cloud: "AWS Bedrock + GCP Vertex AI + Azure OpenAI (all three)",
       teams: "Product Engineering, Data Science, Customer Success, Content",
       data: "Customer interaction data, support tickets, product catalogs, engagement analytics",
-      goal: "Intelligent model routing — use the cheapest model that meets quality requirements for each task",
+      goal: "Intelligent model routing, use the cheapest model that meets quality requirements for each task",
     },
     painPoints: [
       {
@@ -304,7 +304,7 @@ const useCases: UseCase[] = [
         icon: AlertTriangle,
         title: "One model doesn't fit all",
         description:
-          "Simple tasks like sentiment classification and FAQ responses were burning premium tokens. 60% of requests were routine — they didn't need a frontier model, but there was no easy way to route differently.",
+          "Simple tasks like sentiment classification and FAQ responses were burning premium tokens. 60% of requests were routine. They didn't need a frontier model, but there was no easy way to route differently.",
       },
       {
         icon: Shield,
@@ -324,9 +324,9 @@ const useCases: UseCase[] = [
         icon: Headphones,
         title: "Customer support drafts",
         description:
-          "Auto-generate response drafts for support tickets. Agents review and send — cuts average response time from 12 minutes to 3 minutes.",
+          "Auto-generate response drafts for support tickets. Agents review and send, cutting average response time from 12 minutes to 3 minutes.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — high volume, routine text generation",
+        strategy: "Cost-optimized, high volume, routine text generation",
       },
       {
         icon: BarChart3,
@@ -334,7 +334,7 @@ const useCases: UseCase[] = [
         description:
           "Classify incoming tickets by sentiment, urgency, and intent. Routes to the right team automatically. Runs on every single ticket.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — simple classification at massive scale",
+        strategy: "Cost-optimized, simple classification at massive scale",
       },
       {
         icon: Search,
@@ -342,7 +342,7 @@ const useCases: UseCase[] = [
         description:
           "Analyze customer behavior patterns and generate personalized product recommendations. Powers the 'suggested for you' features across client platforms.",
         model: "Gemini 2.5 Flash (GCP Vertex AI)",
-        strategy: "Balanced — needs reasoning quality for good recommendations",
+        strategy: "Balanced, needs reasoning quality for good recommendations",
       },
       {
         icon: FileText,
@@ -350,7 +350,7 @@ const useCases: UseCase[] = [
         description:
           "Generate personalized email subject lines, in-app messages, and notification copy at scale. A/B tests variations automatically.",
         model: "GPT-4o Mini (Azure OpenAI)",
-        strategy: "Cost-optimized — creative text but high volume",
+        strategy: "Cost-optimized, creative text but high volume",
       },
       {
         icon: Bot,
@@ -358,7 +358,7 @@ const useCases: UseCase[] = [
         description:
           "Deep-dive analytics: churn prediction explanations, quarterly insight reports, and strategic recommendations for enterprise clients.",
         model: "GPT-4o (Azure OpenAI)",
-        strategy: "Quality-first — low volume, high-stakes output",
+        strategy: "Quality-first, low volume, high-stakes output",
       },
     ],
     results: [
@@ -380,7 +380,7 @@ const useCases: UseCase[] = [
       {
         metric: "6 models",
         label: "across 3 clouds",
-        detail: "Each task routed to the optimal model — Nova Lite, Gemini Flash, GPT-4o Mini, and GPT-4o",
+        detail: "Each task routed to the optimal model. Nova Lite, Gemini Flash, GPT-4o Mini, and GPT-4o",
       },
     ],
     costAnalysis: {
@@ -398,12 +398,12 @@ const useCases: UseCase[] = [
         {
           label: "All GPT-4o (common enterprise default)",
           cost: "$51,161 / year",
-          detail: "Premium model for everything — great quality, terrible economics at scale",
+          detail: "Premium model for everything, great quality, terrible economics at scale",
         },
         {
           label: "All GPT-4o Mini (cost-cutting approach)",
           cost: "$3,070 / year",
-          detail: "Cheapest Azure option for everything — saves money but sacrifices quality on complex tasks",
+          detail: "Cheapest Azure option for everything, saves money but sacrifices quality on complex tasks",
         },
         {
           label: "Bonito Smart Routing (cost-optimized)",
@@ -458,7 +458,7 @@ const useCases: UseCase[] = [
         icon: Database,
         title: "Siloed product knowledge",
         description:
-          "Product catalogs, merchant policies, return rules, and support docs are scattered across wikis and databases. AI models can't access any of it — support bots give generic answers instead of product-specific ones.",
+          "Product catalogs, merchant policies, return rules, and support docs are scattered across wikis and databases. AI models can't access any of it, support bots give generic answers instead of product-specific ones.",
       },
     ],
     aiUseCases: [
@@ -490,7 +490,7 @@ const useCases: UseCase[] = [
         icon: MessageSquare,
         title: "Merchant support chat",
         description:
-          "AI-powered support bot that answers merchant questions using Bonito's AI Context. Product catalogs, return policies, and platform docs are indexed — so the bot gives accurate, product-specific answers instead of generic responses.",
+          "AI-powered support bot that answers merchant questions using Bonito's AI Context. Product catalogs, return policies, and platform docs are indexed, so the bot gives accurate, product-specific answers instead of generic responses.",
         model: "Claude 3 Haiku → Claude 3.5 Sonnet (failover)",
         strategy: "Failover + AI Context (RAG)",
       },
@@ -498,7 +498,7 @@ const useCases: UseCase[] = [
         icon: Search,
         title: "Product Q&A with AI Context",
         description:
-          "Buyers ask natural-language questions about products. Bonito's AI Context searches indexed product catalogs and specs, then injects relevant context into any model — regardless of cloud. Answers in under 500ms with source citations.",
+          "Buyers ask natural-language questions about products. Bonito's AI Context searches indexed product catalogs and specs, then injects relevant context into any model, regardless of cloud. Answers in under 500ms with source citations.",
         model: "Amazon Nova Lite (AWS Bedrock) + AI Context",
         strategy: "Cost-optimized + RAG",
       },
@@ -513,14 +513,14 @@ const useCases: UseCase[] = [
     ],
     results: [
       {
-        metric: "40–70%",
+        metric: "40-70%",
         label: "lower AI spend",
         detail: "By routing routine requests to cost-efficient models instead of using premium models for everything",
       },
       {
         metric: "<500ms",
         label: "RAG search latency",
-        detail: "AI Context returns relevant product docs with relevance scores >0.63 — fast enough for real-time Q&A",
+        detail: "AI Context returns relevant product docs with relevance scores >0.63, fast enough for real-time Q&A",
       },
       {
         metric: "Every request",
@@ -530,13 +530,13 @@ const useCases: UseCase[] = [
       {
         metric: "1 KB",
         label: "all models can access",
-        detail: "One centralized knowledge base — every AI model on any cloud gets the same product context via AI Context",
+        detail: "One centralized knowledge base, every AI model on any cloud gets the same product context via AI Context",
       },
     ],
     costAnalysis: {
-      headline: "The Math Behind 40–70% Savings",
+      headline: "The Math Behind 40-70% Savings",
       description:
-        "Most enterprises pick a 'good' model and use it for everything. But 60–80% of LLM requests are routine — classification, summarization, template filling, simple Q&A. These tasks don't need a frontier model. The pricing gap between premium and economy models is 10–25x.",
+        "Most enterprises pick a 'good' model and use it for everything. But 60-80% of LLM requests are routine, classification, summarization, template filling, simple Q&A. These tasks don't need a frontier model. The pricing gap between premium and economy models is 10-25x.",
       models: [
         { model: "Claude 3.5 Sonnet", cost: "$3.00 / $15.00", annual: "Premium", color: "text-red-400" },
         { model: "GPT-4o", cost: "$5.00 / $15.00", annual: "Premium", color: "text-red-400" },
@@ -548,17 +548,17 @@ const useCases: UseCase[] = [
         {
           label: "Using GPT-4o for everything",
           cost: "$10.00 → $3.27 per 1K tokens",
-          detail: "Route 70% of routine traffic to GPT-4o Mini, keep 30% on GPT-4o for complex tasks — 67% savings",
+          detail: "Route 70% of routine traffic to GPT-4o Mini, keep 30% on GPT-4o for complex tasks (67% savings)",
         },
         {
           label: "Using Claude 3.5 Sonnet for everything",
           cost: "$9.00 → $3.23 per 1K tokens",
-          detail: "Route 70% to Claude 3 Haiku, keep 30% on Sonnet for nuanced work — 64% savings",
+          detail: "Route 70% to Claude 3 Haiku, keep 30% on Sonnet for nuanced work (64% savings)",
         },
         {
           label: "Cross-provider routing",
           cost: "$9.00 → $2.83 per 1K tokens",
-          detail: "Sonnet for complex tasks, Gemini Flash for simple ones — best price across clouds — 69% savings",
+          detail: "Sonnet for complex tasks, Gemini Flash for simple ones, best price across clouds (69% savings)",
           highlight: true,
         },
       ],
@@ -566,7 +566,7 @@ const useCases: UseCase[] = [
         { vs: "Cross-provider vs single premium model", saved: "up to 69%", pct: "69%" },
       ],
       footnote:
-        "Pricing based on published rates from OpenAI, Anthropic, and Google as of early 2026. Actual savings depend on traffic mix and which models your teams currently use. Savings are highest for teams defaulting to a single premium model for all tasks. AI Context (RAG) adds <500ms latency per query with relevance scores averaging 0.63+ — validated on production infrastructure with real vector search.",
+        "Pricing based on published rates from OpenAI, Anthropic, and Google as of early 2026. Actual savings depend on traffic mix and which models your teams currently use. Savings are highest for teams defaulting to a single premium model for all tasks. AI Context (RAG) adds <500ms latency per query with relevance scores averaging 0.63+, validated on production infrastructure with real vector search.",
     },
   },
   {
@@ -593,7 +593,7 @@ const useCases: UseCase[] = [
       },
       {
         icon: DollarSign,
-        title: "$2.7M annual AI spend — unoptimized",
+        title: "$2.7M annual AI spend, unoptimized",
         description:
           "Every team defaulted to premium models for all tasks. Classification, summarization, and template-filling all running on GPT-4o at $2.80 per 1K requests. Nobody knew which tasks could use a cheaper model.",
       },
@@ -601,7 +601,7 @@ const useCases: UseCase[] = [
         icon: Database,
         title: "Siloed company knowledge",
         description:
-          "Company policies, compliance procedures, product docs, and onboarding materials lived in wikis that AI models couldn't access. Internal copilots gave generic answers. Teams maintained separate RAG pipelines per cloud — tripling infrastructure cost.",
+          "Company policies, compliance procedures, product docs, and onboarding materials lived in wikis that AI models couldn't access. Internal copilots gave generic answers. Teams maintained separate RAG pipelines per cloud, tripling infrastructure cost.",
       },
       {
         icon: Shield,
@@ -615,7 +615,7 @@ const useCases: UseCase[] = [
         icon: Headphones,
         title: "Customer support with AI Context",
         description:
-          "Support agents get AI-drafted responses enriched with company-specific context. Bonito's AI Context indexes all product docs, FAQ, and policies — so every response is accurate to internal documentation, not generic.",
+          "Support agents get AI-drafted responses enriched with company-specific context. Bonito's AI Context indexes all product docs, FAQ, and policies, so every response is accurate to internal documentation, not generic.",
         model: "Amazon Nova Lite (AWS Bedrock) + AI Context",
         strategy: "Cost-optimized + RAG",
       },
@@ -639,7 +639,7 @@ const useCases: UseCase[] = [
         icon: BookOpen,
         title: "Internal AI copilot",
         description:
-          "Company-wide AI assistant that answers questions about internal procedures, benefits, and policies. Powered by AI Context — one knowledge base, accessible to any model on any cloud.",
+          "Company-wide AI assistant that answers questions about internal procedures, benefits, and policies. Powered by AI Context. One knowledge base, accessible to any model on any cloud.",
         model: "Gemini 2.5 Flash (GCP Vertex AI) + AI Context",
         strategy: "Balanced + RAG",
       },
@@ -647,7 +647,7 @@ const useCases: UseCase[] = [
         icon: FileText,
         title: "Report generation",
         description:
-          "Generate quarterly business reports, compliance summaries, and executive briefings. Low volume but high quality requirements — only runs on premium models.",
+          "Generate quarterly business reports, compliance summaries, and executive briefings. Low volume but high quality requirements, only runs on premium models.",
         model: "GPT-4o (Azure OpenAI)",
         strategy: "Quality-first",
       },
@@ -666,12 +666,12 @@ const useCases: UseCase[] = [
       {
         metric: "381",
         label: "models cataloged",
-        detail: "Full catalog from AWS, Azure, and GCP — 12 actively deployed, all managed from one console",
+        detail: "Full catalog from AWS, Azure, and GCP. 12 actively deployed, all managed from one console",
       },
       {
         metric: "37.5:1",
         label: "ROI",
-        detail: "$2.25M annual savings vs $60K Enterprise subscription — payback in under 10 days",
+        detail: "$2.25M annual savings vs $60K Enterprise subscription, payback in under 10 days",
       },
     ],
     costAnalysis: {
@@ -687,12 +687,12 @@ const useCases: UseCase[] = [
       ],
       scenarios: [
         {
-          label: "Before Bonito — premium models for everything",
+          label: "Before Bonito, premium models for everything",
           cost: "$2,700,000 / year",
           detail: "3 separate AI platforms, 3 governance frameworks, 3 sets of credentials, no cost optimization",
         },
         {
-          label: "With Bonito — smart routing across 3 clouds",
+          label: "With Bonito, smart routing across 3 clouds",
           cost: "$450,000 / year",
           detail: "60% → Nova Lite • 20% → GPT-4o Mini • 15% → Gemini Flash • 5% → GPT-4o for complex tasks",
           highlight: true,
@@ -700,7 +700,7 @@ const useCases: UseCase[] = [
         {
           label: "Bonus: Centralized AI Context replaces 3 RAG pipelines",
           cost: "$0 extra infrastructure",
-          detail: "One knowledge base indexed via pgvector — all models on all clouds access the same company docs. No per-cloud RAG infrastructure to maintain.",
+          detail: "One knowledge base indexed via pgvector, all models on all clouds access the same company docs. No per-cloud RAG infrastructure to maintain.",
         },
       ],
       savingsSummary: [
@@ -717,14 +717,14 @@ const useCases: UseCase[] = [
     type: "case-study",
     title: "How NovaMart Deployed 8 Autonomous AI Agents with Full Budget Controls",
     subtitle:
-      "A real-world walkthrough: a product marketplace with 200K+ sellers and 5M+ monthly buyers deploys Bonobot AI agents for ad operations and seller support — cutting report cycles from 2 days to 12 minutes and deflecting 78% of support tickets.",
+      "A real-world walkthrough: a product marketplace with 200K+ sellers and 5M+ monthly buyers deploys Bonobot AI agents for ad operations and seller support, cutting report cycles from 2 days to 12 minutes and deflecting 78% of support tickets.",
     company: {
       industry: "Product Marketplace with Bonobot AI Agents",
       scale: "300 employees, 200K+ sellers, 5M+ monthly buyers, 25K agent interactions/day",
       cloud: "AWS Bedrock + GCP Vertex AI (via Bonito gateway)",
       teams: "Ad Operations, Seller Support, Platform Engineering",
       data: "Campaign analytics across 15+ channels, seller documentation, product catalogs, fee schedules, policy docs",
-      goal: "Deploy governed AI agents that autonomously handle research, reporting, and support — with budget controls and full audit trails",
+      goal: "Deploy governed AI agents that autonomously handle research, reporting, and support, with budget controls and full audit trails",
     },
     painPoints: [
       {
@@ -755,7 +755,7 @@ const useCases: UseCase[] = [
     aiUseCases: [
       {
         icon: Bot,
-        title: "Coordinator Agent — Campaign Analysis",
+        title: "Coordinator Agent. Campaign Analysis",
         description:
           'Receives "Analyze Q4 performance" → delegates to 5 channel-specific analyst agents in parallel using delegate_task → collects all results via collect_results → synthesizes executive summary.',
         model: "Gemini 2.5 Flash (coordinator + synthesis)",
@@ -791,7 +791,7 @@ const useCases: UseCase[] = [
         description:
           "Connected via escalation connection from Frontline agent. Handles complex account-specific issues requiring DB lookups. Only activated for the 20% of tickets Frontline can't resolve.",
         model: "Gemini 2.5 Flash (reasoning required)",
-        strategy: "Balanced — escalation only",
+        strategy: "Balanced, escalation only",
       },
       {
         icon: Search,
@@ -806,7 +806,7 @@ const useCases: UseCase[] = [
       {
         metric: "2 days → 12 min",
         label: "report generation",
-        detail: "Coordinator delegates to 5 parallel analyst agents, collects results, and synthesizes — fully autonomous",
+        detail: "Coordinator delegates to 5 parallel analyst agents, collects results, and synthesizes, fully autonomous",
       },
       {
         metric: "78%",
@@ -836,12 +836,12 @@ const useCases: UseCase[] = [
       ],
       scenarios: [
         {
-          label: "Before Bonobot — manual + uncontrolled AI",
+          label: "Before Bonobot, manual + uncontrolled AI",
           cost: "$540,000 / year",
           detail: "2 FTE analysts ($180K), support overhead ($120K), uncontrolled AI spend ($240K/year projected)",
         },
         {
-          label: "With Bonobot — governed autonomous agents",
+          label: "With Bonobot, governed autonomous agents",
           cost: "$91,124 / year",
           detail: "8 agents: Nova Lite (60%) + Gemini Flash (25%) + GPT-4o (15%) + platform cost. Hard budget caps prevent runaway spend.",
           highlight: true,
@@ -857,7 +857,7 @@ const useCases: UseCase[] = [
         { vs: "Return on investment", saved: "12:1 ROI", pct: "12x", detail: "$449K saved ÷ $37K platform cost" },
       ],
       footnote:
-        "Based on 25,000 agent interactions/day. Model costs from published AWS and GCP rates as of February 2026. Bonobot pricing: $349/mo per hosted agent. Budget caps enforced in real-time via Redis — agents receive HTTP 402 before exceeding limits. FTE savings estimated from industry averages for ad operations analysts ($90K) and support specialists ($60K).",
+        "Based on 25,000 agent interactions/day. Model costs from published AWS and GCP rates as of February 2026. Bonobot pricing: $349/mo per hosted agent. Budget caps enforced in real-time via Redis, agents receive HTTP 402 before exceeding limits. FTE savings estimated from industry averages for ad operations analysts ($90K) and support specialists ($60K).",
     },
   },
   {
@@ -866,7 +866,7 @@ const useCases: UseCase[] = [
     type: "case-study",
     title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
     subtitle:
-      "A real-world cost analysis: a programmatic advertising platform managing $150M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure — cutting $600K/year in AI costs by 30% and automating 5 FTE hours of daily campaign operations.",
+      "A real-world cost analysis: a programmatic advertising platform managing $150M+ in annual ad spend deploys 7 Bonobot agents across AWS, GCP, and Azure, cutting $600K/year in AI costs by 30% and automating 5 FTE hours of daily campaign operations.",
     company: {
       industry: "Advertising Technology / Programmatic Media",
       scale: "200+ employees, 200+ brand clients, $150M+ managed ad spend/year",
@@ -878,15 +878,15 @@ const useCases: UseCase[] = [
     painPoints: [
       {
         icon: DollarSign,
-        title: "$50,000/month across 3 clouds — unoptimized",
+        title: "$50,000/month across 3 clouds, unoptimized",
         description:
-          "AWS for creative generation, GCP for audience ML, Azure for ad copy. At scale, that's $600K/year in AI inference alone — and every team defaulted to the most expensive model available. Bulk ad copy running through GPT-4o when Gemini Flash would produce identical quality at 1/30th the cost.",
+          "AWS for creative generation, GCP for audience ML, Azure for ad copy. At scale, that's $600K/year in AI inference alone, and every team defaulted to the most expensive model available. Bulk ad copy running through GPT-4o when Gemini Flash would produce identical quality at 1/30th the cost.",
       },
       {
         icon: AlertTriangle,
         title: "Wrong models for the job",
         description:
-          "The team was using GPT-4o for everything — generating 50 ad headline variations, writing product descriptions, running sentiment analysis on thousands of social mentions. 70% of requests were routine text generation that didn't need a frontier model, burning through $35K/month that could've been $5K with proper routing.",
+          "The team was using GPT-4o for everything, generating 50 ad headline variations, writing product descriptions, running sentiment analysis on thousands of social mentions. 70% of requests were routine text generation that didn't need a frontier model, burning through $35K/month that could've been $5K with proper routing.",
       },
       {
         icon: Layers,
@@ -898,7 +898,7 @@ const useCases: UseCase[] = [
         icon: Target,
         title: "No cost attribution per campaign",
         description:
-          "When a client asked 'how much AI cost went into my campaign optimization?', nobody could answer. $600K/year in AI spend was split across three cloud bills — impossible to allocate to specific clients, campaigns, or even teams.",
+          "When a client asked 'how much AI cost went into my campaign optimization?', nobody could answer. $600K/year in AI spend was split across three cloud bills, impossible to allocate to specific clients, campaigns, or even teams.",
       },
     ],
     aiUseCases: [
@@ -906,33 +906,33 @@ const useCases: UseCase[] = [
         icon: Bot,
         title: "Creative Director Agent",
         description:
-          "Generates platform-specific ad creative across Meta, Google, and TikTok. Example: 'Generate 5 Meta headlines for a DTC skincare brand launching a $38 Vitamin C serum — target women 25-40, include emotional hooks.' Produces 3 variations (safe, bold, experimental) for each. Writes TikTok scripts with hooks in the first 2 seconds. Evaluates Google Search headlines by scoring clarity, urgency, and click-worthiness against target CPA.",
+          "Generates platform-specific ad creative across Meta, Google, and TikTok. Example: 'Generate 5 Meta headlines for a DTC skincare brand launching a $38 Vitamin C serum, target women 25-40, include emotional hooks.' Produces 3 variations (safe, bold, experimental) for each. Writes TikTok scripts with hooks in the first 2 seconds. Evaluates Google Search headlines by scoring clarity, urgency, and click-worthiness against target CPA.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — high volume creative generation",
+        strategy: "Cost-optimized, high volume creative generation",
       },
       {
         icon: BarChart3,
         title: "Bid Optimizer Agent",
         description:
-          "Analyzes live campaign metrics and recommends specific bid adjustments. Example: a Meta campaign spending $4,200/week — frequency spiked from 2.1x to 3.8x, ROAS holding at 4.2x but about to degrade. Agent recommends audience refresh before performance drops. Compares 3 Google ad groups and reallocates a $500/day budget: shift $200 from Competitor keywords (CPA $109) to Brand (CPA $14.63). Diagnoses whether CPM spikes are seasonal, competitive, or audience fatigue.",
+          "Analyzes live campaign metrics and recommends specific bid adjustments. Example: a Meta campaign spending $4,200/week, frequency spiked from 2.1x to 3.8x, ROAS holding at 4.2x but about to degrade. Agent recommends audience refresh before performance drops. Compares 3 Google ad groups and reallocates a $500/day budget: shift $200 from Competitor keywords (CPA $109) to Brand (CPA $14.63). Diagnoses whether CPM spikes are seasonal, competitive, or audience fatigue.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Balanced — analytical reasoning required",
+        strategy: "Balanced, analytical reasoning required",
       },
       {
         icon: Users,
         title: "Audience Analyst Agent",
         description:
-          "Segments 12,400-customer cohorts by age, AOV, repeat rate, and channel — identifies that the 35-44 segment ($61 AOV, 35% repeat rate) is the highest-LTV target. Designs lookalike strategies for Meta: seed with 890 repeat buyers (3+ orders) at 1%, test broadening to 3% and 5%. Diagnoses retargeting fatigue when frequency hits 8.2x and ROAS drops from 6.1x to 3.4x — recommends restructuring into a 3-tier engagement funnel.",
+          "Segments 12,400-customer cohorts by age, AOV, repeat rate, and channel, identifies that the 35-44 segment ($61 AOV, 35% repeat rate) is the highest-LTV target. Designs lookalike strategies for Meta: seed with 890 repeat buyers (3+ orders) at 1%, test broadening to 3% and 5%. Diagnoses retargeting fatigue when frequency hits 8.2x and ROAS drops from 6.1x to 3.4x, recommends restructuring into a 3-tier engagement funnel.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Balanced — complex segmentation logic",
+        strategy: "Balanced, complex segmentation logic",
       },
       {
         icon: FileText,
         title: "Performance Reporter Agent",
         description:
-          "Generates client-ready weekly reports with precise numbers. Example for GlowUp Skincare: Meta ROAS 4.79x ($3,800 spend, 612 purchases, CPA $6.21), Google 3.52x, TikTok 2.33x — overall ROAS down from 4.1x to 3.99x WoW. When a client escalates (PeakFit Supplements ROAS dropped from 5.2x to 2.8x over 3 weeks), writes an honest root cause analysis tied to the new creative launched in Week 2 and delivers a concrete recovery plan.",
+          "Generates client-ready weekly reports with precise numbers. Example for GlowUp Skincare: Meta ROAS 4.79x ($3,800 spend, 612 purchases, CPA $6.21), Google 3.52x, TikTok 2.33x, overall ROAS down from 4.1x to 3.99x WoW. When a client escalates (PeakFit Supplements ROAS dropped from 5.2x to 2.8x over 3 weeks), writes an honest root cause analysis tied to the new creative launched in Week 2 and delivers a concrete recovery plan.",
         model: "GPT-4o Mini (Azure OpenAI)",
-        strategy: "Cost-optimized — structured report generation",
+        strategy: "Cost-optimized, structured report generation",
       },
       {
         icon: Globe,
@@ -940,40 +940,40 @@ const useCases: UseCase[] = [
         description:
           "Produces competitive intelligence with actionable numbers. Analyzes the DTC beauty market: Meta CPMs up 22% YoY, TikTok Shop launched beauty category with 40% commission reduction, average CAC now $28 (up from $21 in 2024). For a client like FreshRoast Coffee ($15/bag, $8K/month ad spend, ROAS 3.1x), maps positioning against VC-backed Trade Coffee and mass-market Starbucks Reserve with specific channel allocation recommendations.",
         model: "GPT-4o Mini (Azure OpenAI)",
-        strategy: "Cost-optimized — research synthesis",
+        strategy: "Cost-optimized, research synthesis",
       },
       {
         icon: Search,
         title: "Contract Analyzer Agent",
         description:
-          "Reviews media plans and flags risks. Example: UrbanGear Apparel Q2 plan — $120K budget (Meta 45%, Google 30%, TikTok 15%, CTV 10%), ROAS 3.5x target, CPA under $25. Agent calculates expected revenue from the 15% management fee ($18K), flags the 15-day cancellation clause as a risk against the 3-month commitment, and models whether the 10% performance bonus (if ROAS exceeds 5x) is realistically achievable based on historical data.",
+          "Reviews media plans and flags risks. Example: UrbanGear Apparel Q2 plan: $120K budget (Meta 45%, Google 30%, TikTok 15%, CTV 10%), ROAS 3.5x target, CPA under $25. Agent calculates expected revenue from the 15% management fee ($18K), flags the 15-day cancellation clause as a risk against the 3-month commitment, and models whether the 10% performance bonus (if ROAS exceeds 5x) is realistically achievable based on historical data.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Balanced — contract reasoning",
+        strategy: "Balanced, contract reasoning",
       },
       {
         icon: MessageSquare,
         title: "Sentiment Monitor Agent",
         description:
-          "Classifies social mentions and flags brand safety risks before they impact ad performance. Example for EcoBottle: analyzes 5 social posts — identifies a product defect cluster (lid leaking + metallic taste) as the top risk, classifies the customer service complaint as urgent, and recommends pausing ad spend until the lid issue is publicly addressed. One unresolved product defect thread can tank ad engagement overnight.",
+          "Classifies social mentions and flags brand safety risks before they impact ad performance. Example for EcoBottle: analyzes 5 social posts, identifies a product defect cluster (lid leaking + metallic taste) as the top risk, classifies the customer service complaint as urgent, and recommends pausing ad spend until the lid issue is publicly addressed. One unresolved product defect thread can tank ad engagement overnight.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — high volume classification",
+        strategy: "Cost-optimized, high volume classification",
       },
     ],
     results: [
       {
         metric: "30%",
         label: "AI cost reduction",
-        detail: "$50K/mo → $35K/mo by routing bulk copy to Gemini Flash instead of GPT-4o — $180K/yr saved",
+        detail: "$50K/mo → $35K/mo by routing bulk copy to Gemini Flash instead of GPT-4o ($180K/yr saved)",
       },
       {
         metric: "9.5:1",
         label: "ROI",
-        detail: "$336K annual savings vs $35K platform cost — payback in under 6 weeks",
+        detail: "$336K annual savings vs $35K platform cost, payback in under 6 weeks",
       },
       {
         metric: "7 agents",
         label: "across 2 projects",
-        detail: "Campaign Operations (4 agents) + Client Intelligence (3 agents) — fully autonomous",
+        detail: "Campaign Operations (4 agents) + Client Intelligence (3 agents), fully autonomous",
       },
       {
         metric: "3 → 1",
@@ -984,7 +984,7 @@ const useCases: UseCase[] = [
     costAnalysis: {
       headline: "Real Numbers: Validated on Production Infrastructure",
       description:
-        "Routing validated through actual API calls to live AWS, GCP, and Azure endpoints via Bonito's production gateway. Cost projections based on $50K/month baseline AI spend — benchmarked against real programmatic advertising companies at scale.",
+        "Routing validated through actual API calls to live AWS, GCP, and Azure endpoints via Bonito's production gateway. Cost projections based on $50K/month baseline AI spend, benchmarked against real programmatic advertising companies at scale.",
       models: [
         { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$7,600/yr", color: "text-green-400" },
         { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$10,950/yr", color: "text-green-400" },
@@ -994,24 +994,24 @@ const useCases: UseCase[] = [
       ],
       scenarios: [
         {
-          label: "Before Bonito — 3 clouds, no routing, no agents",
+          label: "Before Bonito: 3 clouds, no routing, no agents",
           cost: "$600,000 / year",
           detail: "$50K/mo across AWS + GCP + Azure. Every request hitting premium models. No cost visibility, no campaign-level attribution, no automation.",
         },
         {
-          label: "With Bonito — smart routing + 7 Bonobot agents",
+          label: "With Bonito, smart routing + 7 Bonobot agents",
           cost: "$455,304 / year",
           detail: "$35K/mo AI (30% reduction via routing) + $2,942/mo platform ($499 Pro + 7 × $349 agents). Agents automate 5 FTE hours/day of campaign ops.",
           highlight: true,
         },
         {
-          label: "Net value — labor + cost savings combined",
+          label: "Net value, labor + cost savings combined",
           cost: "$336,000 / year saved",
           detail: "$180K AI cost reduction from smart routing + $156K labor savings (5 FTE hours/day of report generation, bid analysis, audience research, and creative iteration).",
         },
       ],
       savingsSummary: [
-        { vs: "Return on investment", saved: "9.5:1 ROI", pct: "9.5x", detail: "$336K total savings ÷ $35.3K platform cost — payback in 6 weeks" },
+        { vs: "Return on investment", saved: "9.5:1 ROI", pct: "9.5x", detail: "$336K total savings ÷ $35.3K platform cost, payback in 6 weeks" },
         { vs: "AI cost reduction from routing", saved: "$180K/yr saved (30%)", pct: "30%", detail: "$600K/yr → $420K/yr with Gemini Flash for bulk copy + Nova Lite for classification" },
       ],
       footnote:
@@ -1024,7 +1024,7 @@ const useCases: UseCase[] = [
     type: "case-study",
     title: "How 10 HIPAA-Compliant AI Agents Achieved 12.7:1 ROI in Clinical Decision Support",
     subtitle:
-      "A real-world deployment: a clinical decision support platform serving 23 hospital networks deploys 10 Bonobot agents across Clinical Ops, Revenue Cycle, and Quality & Safety — projecting $606K in annual value against $47.8K platform cost.",
+      "A real-world deployment: a clinical decision support platform serving 23 hospital networks deploys 10 Bonobot agents across Clinical Ops, Revenue Cycle, and Quality & Safety, projecting $606K in annual value against $47.8K platform cost.",
     company: {
       industry: "Healthcare IT / Clinical Decision Support",
       scale: "135 employees, 23 hospital networks, 4.2M patient encounters/year",
@@ -1038,19 +1038,19 @@ const useCases: UseCase[] = [
         icon: Shield,
         title: "HIPAA compliance with zero unified audit trail",
         description:
-          "Every AI inference touching patient data requires a complete audit trail — who accessed what model, with what data, when. With three separate cloud providers, the compliance team was conducting three separate reviews per audit cycle, spending 40+ hours per cycle just compiling evidence.",
+          "Every AI inference touching patient data requires a complete audit trail, who accessed what model, with what data, when. With three separate cloud providers, the compliance team was conducting three separate reviews per audit cycle, spending 40+ hours per cycle just compiling evidence.",
       },
       {
         icon: DollarSign,
-        title: "$24,000/month across 3 clouds — fragmented billing",
+        title: "$24,000/month across 3 clouds, fragmented billing",
         description:
-          "AWS for documentation summarization, GCP for long-context clinical reasoning, Azure for medical coding. Each team managed their own billing. The board wanted ROI data on AI spend vs clinical outcomes — nobody could produce it.",
+          "AWS for documentation summarization, GCP for long-context clinical reasoning, Azure for medical coding. Each team managed their own billing. The board wanted ROI data on AI spend vs clinical outcomes, nobody could produce it.",
       },
       {
         icon: AlertTriangle,
         title: "No governance on clinical AI workloads",
         description:
-          "Clinical AI models were running without budget caps, rate limits, or credential isolation. One misconfigured pipeline could theoretically access patient data across departments. In healthcare, that's not just a security risk — it's a regulatory violation.",
+          "Clinical AI models were running without budget caps, rate limits, or credential isolation. One misconfigured pipeline could theoretically access patient data across departments. In healthcare, that's not just a security risk, it's a regulatory violation.",
       },
       {
         icon: Database,
@@ -1064,93 +1064,93 @@ const useCases: UseCase[] = [
         icon: Zap,
         title: "Triage Coordinator Agent",
         description:
-          "Classifies incoming patients by ESI levels 1-5 and routes to the right department. Example: 67M, chest pain radiating to left arm, started 45 min ago, BP 158/94, HR 112, SpO2 94%, previous MI in 2022 → ESI Level 1, immediate routing to cardiac cath lab. Considers red flags and comorbidities: a 34F with thunderclap headache and neck stiffness gets escalated for emergent CT angiography despite stable vitals. Always errs on the side of caution — the agent does not diagnose, it prioritizes and routes.",
+          "Classifies incoming patients by ESI levels 1-5 and routes to the right department. Example: 67M, chest pain radiating to left arm, started 45 min ago, BP 158/94, HR 112, SpO2 94%, previous MI in 2022 → ESI Level 1, immediate routing to cardiac cath lab. Considers red flags and comorbidities: a 34F with thunderclap headache and neck stiffness gets escalated for emergent CT angiography despite stable vitals. Always errs on the side of caution. The agent does not diagnose, it prioritizes and routes.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Quality-first — clinical safety critical",
+        strategy: "Quality-first, clinical safety critical",
       },
       {
         icon: FileText,
         title: "Clinical Documentation Specialist",
         description:
-          "Transforms unstructured physician dictations into structured clinical documents following HL7 FHIR standards. Example: converts 'Saw Mr. Johnson, 55yo male, crushing chest pain while mowing lawn, substernal 8/10, radiating to left jaw, diaphoretic, EKG shows ST elevation leads II III aVF' into a properly formatted SOAP note with subjective, objective, assessment, and plan sections. Generates discharge summaries with specific return-to-ED criteria. Flags missing information — never fabricates findings.",
+          "Transforms unstructured physician dictations into structured clinical documents following HL7 FHIR standards. Example: converts 'Saw Mr. Johnson, 55yo male, crushing chest pain while mowing lawn, substernal 8/10, radiating to left jaw, diaphoretic, EKG shows ST elevation leads II III aVF' into a properly formatted SOAP note with subjective, objective, assessment, and plan sections. Generates discharge summaries with specific return-to-ED criteria. Flags missing information, never fabricates findings.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — high volume documentation",
+        strategy: "Cost-optimized, high volume documentation",
       },
       {
         icon: Shield,
         title: "Drug Interaction Checker",
         description:
-          "Analyzes medication lists for interactions, contraindications, and dosing errors with patient-specific context. Example: 74M with CrCl 38 mL/min on 10 medications — flags Critical: warfarin + amiodarone (amiodarone inhibits CYP2C9, increasing bleeding risk 3-5x). Major: fluoxetine further inhibits warfarin metabolism. Moderate: metformin requires dose adjustment for renal function. Creates perioperative medication plans for surgical patients — what to hold, when, bridging protocols, restart timing.",
+          "Analyzes medication lists for interactions, contraindications, and dosing errors with patient-specific context. Example: 74M with CrCl 38 mL/min on 10 medications, flags Critical: warfarin + amiodarone (amiodarone inhibits CYP2C9, increasing bleeding risk 3-5x). Major: fluoxetine further inhibits warfarin metabolism. Moderate: metformin requires dose adjustment for renal function. Creates perioperative medication plans for surgical patients, what to hold, when, bridging protocols, restart timing.",
         model: "GPT-4o Mini (Azure OpenAI)",
-        strategy: "Quality-first — patient safety",
+        strategy: "Quality-first, patient safety",
       },
       {
         icon: BookOpen,
         title: "Care Pathway Recommender",
         description:
-          "Validates treatment plans against evidence-based guidelines and flags deviations. Example: 58M newly diagnosed T2DM, A1c 8.4%, BMI 34, ASCVD risk 18.2% — started on metformin alone. Agent flags that ADA 2026 guidelines recommend adding a GLP-1 receptor agonist for cardiovascular risk reduction (NNT 43 for MACE). Also catches a STEMI case with door-to-balloon time of 142 minutes (ACC target <90 min) and recommends specific quality improvement steps.",
+          "Validates treatment plans against evidence-based guidelines and flags deviations. Example: 58M newly diagnosed T2DM, A1c 8.4%, BMI 34, ASCVD risk 18.2%, started on metformin alone. Agent flags that ADA 2026 guidelines recommend adding a GLP-1 receptor agonist for cardiovascular risk reduction (NNT 43 for MACE). Also catches a STEMI case with door-to-balloon time of 142 minutes (ACC target <90 min) and recommends specific quality improvement steps.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Balanced — guideline reasoning",
+        strategy: "Balanced, guideline reasoning",
       },
       {
         icon: BarChart3,
         title: "Medical Coder Agent",
         description:
-          "Assigns ICD-10-CM and CPT codes from clinical documentation with DRG impact analysis. Example: perforated appendicitis with laparoscopic-to-open conversion → ICD-10 K35.20 (acute appendicitis with peritonitis), K65.0 (peritoneal abscess), CPT 44960 (open appendectomy with abscess drainage). Generates CDI queries when documentation is vague: 'Physician documented pneumonia — post-op day 3 from CABG, intubated 48hrs, Pseudomonas on sputum culture. Specifying VAP vs HAP changes DRG and increases reimbursement by $8,000-$12,000.'",
+          "Assigns ICD-10-CM and CPT codes from clinical documentation with DRG impact analysis. Example: perforated appendicitis with laparoscopic-to-open conversion → ICD-10 K35.20 (acute appendicitis with peritonitis), K65.0 (peritoneal abscess), CPT 44960 (open appendectomy with abscess drainage). Generates CDI queries when documentation is vague: 'Physician documented pneumonia, post-op day 3 from CABG, intubated 48hrs, Pseudomonas on sputum culture. Specifying VAP vs HAP changes DRG and increases reimbursement by $8,000-$12,000.'",
         model: "GPT-4o Mini (Azure OpenAI)",
-        strategy: "Quality-first — structured output",
+        strategy: "Quality-first, structured output",
       },
       {
         icon: MessageSquare,
         title: "Denial Manager Agent",
         description:
-          "Analyzes claim denials and drafts evidence-based appeal letters. Example: UnitedHealthcare denied a 3-day inpatient stay (CO-50, 'not medically necessary') for a 78F admitted for syncope with head strike. Agent builds the appeal: continuous telemetry showed 2 episodes of non-sustained VT, echo revealed new EF of 40% (prior 55%), cardiology recommended EP study — citing InterQual criteria for inpatient cardiac monitoring. Also detects denial patterns: 23 denials for CPT 99223 in 30 days, 18 downgraded to 99222 due to missing time documentation — drafts provider education memo.",
+          "Analyzes claim denials and drafts evidence-based appeal letters. Example: UnitedHealthcare denied a 3-day inpatient stay (CO-50, 'not medically necessary') for a 78F admitted for syncope with head strike. Agent builds the appeal: continuous telemetry showed 2 episodes of non-sustained VT, echo revealed new EF of 40% (prior 55%), cardiology recommended EP study, citing InterQual criteria for inpatient cardiac monitoring. Also detects denial patterns: 23 denials for CPT 99223 in 30 days, 18 downgraded to 99222 due to missing time documentation, drafts provider education memo.",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Balanced — legal/clinical reasoning",
+        strategy: "Balanced, legal/clinical reasoning",
       },
       {
         icon: Target,
         title: "Revenue Forecaster Agent",
         description:
-          "Forecasts quarterly revenue from billing data with specific dollar projections. Example for a 250-bed hospital: Q1 revenue $42.3M, payer mix Medicare 45%/Commercial 35%/Medicaid 15%/Self-pay 5%. Factors in CMS 2.9% Medicare fee schedule increase effective April 1, declining commercial volume (-2% QoQ), and a denial rate of 8.2% (above the 6-8% industry average). Flags that AR >90 days is $3.8M against a $2M target — recommends focused collections effort on commercial claims.",
+          "Forecasts quarterly revenue from billing data with specific dollar projections. Example for a 250-bed hospital: Q1 revenue $42.3M, payer mix Medicare 45%/Commercial 35%/Medicaid 15%/Self-pay 5%. Factors in CMS 2.9% Medicare fee schedule increase effective April 1, declining commercial volume (-2% QoQ), and a denial rate of 8.2% (above the 6-8% industry average). Flags that AR >90 days is $3.8M against a $2M target, recommends focused collections effort on commercial claims.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — data analysis",
+        strategy: "Cost-optimized, data analysis",
       },
       {
         icon: Search,
         title: "Adverse Event Detector",
         description:
-          "Catches safety signals that humans might miss in the data noise. Example: 3 patients on Unit 4B developed C. difficile infections in 10 days — baseline rate is 0.5 cases/month. Agent identifies the cluster (observed rate 9x expected), finds the common thread (all 3 on fluoroquinolone antibiotics + PPI), and drafts a preliminary report for the Infection Control Committee with specific intervention recommendations. Also catches a post-op AKI caused by ketorolac + contrast CT + dehydration — classifies as 'moderate harm, likely preventable.'",
+          "Catches safety signals that humans might miss in the data noise. Example: 3 patients on Unit 4B developed C. difficile infections in 10 days, baseline rate is 0.5 cases/month. Agent identifies the cluster (observed rate 9x expected), finds the common thread (all 3 on fluoroquinolone antibiotics + PPI), and drafts a preliminary report for the Infection Control Committee with specific intervention recommendations. Also catches a post-op AKI caused by ketorolac + contrast CT + dehydration, classifies as 'moderate harm, likely preventable.'",
         model: "Gemini 2.0 Flash (GCP Vertex AI)",
-        strategy: "Quality-first — safety critical",
+        strategy: "Quality-first, safety critical",
       },
       {
         icon: Users,
         title: "Readmission Risk Analyzer",
         description:
-          "Calculates LACE and HOSPITAL scores at discharge and recommends targeted interventions. Example: 71M being discharged after 6-day stay for CHF exacerbation — 3rd admission in 12 months, 11 medications (2 new), lives alone, nearest family 2 hours away, no car, PCP appointment not for 3 weeks. LACE score: 16 (high risk). Agent recommends: arrange home health within 24hrs, schedule telehealth cardiology follow-up within 48hrs, enroll in pharmacy medication reconciliation program, arrange medical transportation for PCP visit.",
+          "Calculates LACE and HOSPITAL scores at discharge and recommends targeted interventions. Example: 71M being discharged after 6-day stay for CHF exacerbation, 3rd admission in 12 months with 11 medications (2 new), lives alone, nearest family 2 hours away, no car, PCP appointment not for 3 weeks. LACE score: 16 (high risk). Agent recommends: arrange home health within 24hrs, schedule telehealth cardiology follow-up within 48hrs, enroll in pharmacy medication reconciliation program, arrange medical transportation for PCP visit.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Balanced — risk stratification",
+        strategy: "Balanced, risk stratification",
       },
       {
         icon: Headphones,
         title: "Quality Metrics Dashboard Narrator",
         description:
-          "Translates complex quality data into executive-level narratives with specific action items. Example: CMS Star Rating 3 (target 4), HCAHPS responsiveness at 61% (national avg 67%), CAUTI SIR 1.34 (target <1.0), readmission rate 16.8% (national 15.4%). Agent identifies top 3 priorities: (1) Responsiveness — implement hourly nurse rounding pilot on 3 units, (2) CAUTI — launch catheter removal protocol with daily necessity review, (3) Readmissions — expand discharge planning to include 48hr follow-up calls for high-risk patients.",
+          "Translates complex quality data into executive-level narratives with specific action items. Example: CMS Star Rating 3 (target 4), HCAHPS responsiveness at 61% (national avg 67%), CAUTI SIR 1.34 (target <1.0), readmission rate 16.8% (national 15.4%). Agent identifies top 3 priorities: (1) Responsiveness, implement hourly nurse rounding pilot on 3 units, (2) CAUTI, launch catheter removal protocol with daily necessity review, (3) Readmissions, expand discharge planning to include 48hr follow-up calls for high-risk patients.",
         model: "Amazon Nova Lite (AWS Bedrock)",
-        strategy: "Cost-optimized — narrative generation",
+        strategy: "Cost-optimized, narrative generation",
       },
     ],
     results: [
       {
         metric: "12.7:1",
         label: "ROI",
-        detail: "$606K annual value vs $47.8K platform cost — payback in under 30 days",
+        detail: "$606K annual value vs $47.8K platform cost, payback in under 30 days",
       },
       {
         metric: "10 agents",
         label: "across 3 projects",
-        detail: "Clinical Ops (4) + Revenue Cycle (3) + Quality & Safety (3) — with full HIPAA audit trails",
+        detail: "Clinical Ops (4) + Revenue Cycle (3) + Quality & Safety (3), with full HIPAA audit trails",
       },
       {
         metric: "$606K",
@@ -1166,7 +1166,7 @@ const useCases: UseCase[] = [
     costAnalysis: {
       headline: "Real Numbers: HIPAA-Compliant Production Testing",
       description:
-        "Every number below comes from actual API calls through Bonito's production gateway to live AWS and GCP endpoints. 40 gateway requests tracked, 18,618 tokens processed, with complete audit trails generated for every interaction — the same audit infrastructure that supports HIPAA compliance in production.",
+        "Every number below comes from actual API calls through Bonito's production gateway to live AWS and GCP endpoints. 40 gateway requests tracked, 18,618 tokens processed, with complete audit trails generated for every interaction. The same audit infrastructure that supports HIPAA compliance in production.",
       models: [
         { model: "Amazon Nova Lite", cost: "$0.07 / 1K req", annual: "$1,250/yr", color: "text-green-400" },
         { model: "Gemini 2.0 Flash", cost: "$0.10 / 1K req", annual: "$1,800/yr", color: "text-green-400" },
@@ -1175,25 +1175,25 @@ const useCases: UseCase[] = [
       ],
       scenarios: [
         {
-          label: "Before Bonito — 3 clouds, no governance, manual workflows",
+          label: "Before Bonito: 3 clouds, no governance, manual workflows",
           cost: "$468,000 / year",
           detail: "$24K/mo AI spend across AWS + GCP + Azure. Plus $180K/yr for 2.5 FTE managing AI infrastructure, manual coding reviews, and denial appeal drafting.",
         },
         {
-          label: "With Bonito — governed agents + smart routing",
+          label: "With Bonito, governed agents + smart routing",
           cost: "$249,468 / year",
           detail: "$16,800/mo AI (30% reduction via routing) + $3,989/mo platform ($499 Pro + 10 × $349 agents). Full HIPAA audit trails, budget caps, credential isolation included.",
           highlight: true,
         },
         {
-          label: "Additional value — clinical outcome improvements",
+          label: "Additional value, clinical outcome improvements",
           cost: "$340,000 / year recovered",
           detail: "Est. 20% fewer excess readmissions ($100K penalty reduction) + better coding/denial management ($240K revenue recovery). Conservative estimates from industry benchmarks.",
         },
       ],
       savingsSummary: [
         { vs: "Return on investment", saved: "12.7:1 ROI", pct: "12.7x", detail: "$606K total value ÷ $47.9K platform cost" },
-        { vs: "Direct cost savings", saved: "$218K/yr saved", pct: "47%", detail: "$86K AI routing savings + $180K labor automation — offset by $47.9K platform" },
+        { vs: "Direct cost savings", saved: "$218K/yr saved", pct: "47%", detail: "$86K AI routing savings + $180K labor automation, offset by $47.9K platform" },
       ],
       footnote:
         "Based on 40 production gateway requests (18,618 tokens) during E2E stress testing on February 22, 2026. AWS: 18 requests (17 successful), GCP: 6 requests (5 successful), Azure: 16 requests (deployment pending). Revenue recovery and readmission reduction estimates are conservative projections based on published industry benchmarks for AI-assisted medical coding (AHIMA 2025) and CMS readmission penalty data. All agent sessions generated complete audit logs suitable for HIPAA compliance review.",
@@ -1206,33 +1206,33 @@ const useCases: UseCase[] = [
     type: "case-study" as const,
     title: "Building the Bank of the Future with Agentic AI",
     subtitle:
-      "A top-10 global bank with 90,000+ employees created a dedicated AI Group to turn high-potential AI use cases into solutions that bring real value to clients and amplify the impact of their people. They needed infrastructure that could move as fast as their ambition — deploying agentic AI across 6 divisions without compromising governance or trust.",
+      "A top-10 global bank with 90,000+ employees created a dedicated AI Group to turn high-potential AI use cases into solutions that bring real value to clients and amplify the impact of their people. They needed infrastructure that could move as fast as their ambition, deploying agentic AI across 6 divisions without compromising governance or trust.",
     company: {
       industry: "Banking & Financial Services",
       scale: "90,000+ employees, 6 major business divisions",
       cloud: "AWS Bedrock + Azure OpenAI + GCP Vertex AI",
       teams: "Wealth Management, Capital Markets, Personal Banking, Commercial Banking, Insurance, Risk & Compliance",
       data: "Client portfolios, market research, regulatory filings, compliance frameworks, product knowledge, operational playbooks",
-      goal: "Empower every division with AI agents that deliver measurable client value — while maintaining the governance and trust that banking demands",
+      goal: "Empower every division with AI agents that deliver measurable client value, while maintaining the governance and trust that banking demands",
     },
     painPoints: [
       {
         icon: Rocket,
         title: "AI Ambition Outpaced AI Infrastructure",
         description:
-          "The AI Group had a mandate to deploy transformative use cases across every division. But each new AI initiative took 12 weeks to provision — cloud resources, credentials, models, security review. The vision was moving at the speed of strategy, while infrastructure moved at the speed of tickets.",
+          "The AI Group had a mandate to deploy transformative use cases across every division. But each new AI initiative took 12 weeks to provision, cloud resources, credentials, models, security review. The vision was moving at the speed of strategy, while infrastructure moved at the speed of tickets.",
       },
       {
         icon: Users,
         title: "90,000 People Waiting for AI to Amplify Their Work",
         description:
-          "Advisors, analysts, compliance officers, client service teams — all seeing what AI could do, none with a governed way to use it. Shadow AI was emerging: teams spinning up their own experiments with no oversight, no shared knowledge, and no way to scale what worked.",
+          "Advisors, analysts, compliance officers, client service teams, all seeing what AI could do, none with a governed way to use it. Shadow AI was emerging: teams spinning up their own experiments with no oversight, no shared knowledge, and no way to scale what worked.",
       },
       {
         icon: Shield,
         title: "Trust and Governance Can't Be Afterthoughts",
         description:
-          "In financial services, one misconfigured AI agent accessing the wrong data isn't just a bug — it's a regulatory breach. The bank needed division-level isolation, complete audit trails, and credential separation baked into the platform, not bolted on later.",
+          "In financial services, one misconfigured AI agent accessing the wrong data isn't just a bug, it's a regulatory breach. The bank needed division-level isolation, complete audit trails, and credential separation baked into the platform, not bolted on later.",
       },
       {
         icon: Layers,
@@ -1246,7 +1246,7 @@ const useCases: UseCase[] = [
         icon: Headphones,
         title: "Client Service Agents (Personal Banking)",
         description:
-          "AI agents that give every client the experience of having a personal banker. Instant account inquiries, personalized product recommendations, proactive issue resolution — grounded in the bank's actual policies and product knowledge.",
+          "AI agents that give every client the experience of having a personal banker. Instant account inquiries, personalized product recommendations, proactive issue resolution, grounded in the bank's actual policies and product knowledge.",
         model: "GPT-4o (complex) → Gemini Flash (high-volume)",
         strategy: "Route by complexity: relationship-level questions to GPT-4o, routine inquiries to Gemini Flash for instant response",
       },
@@ -1254,7 +1254,7 @@ const useCases: UseCase[] = [
         icon: BarChart3,
         title: "Wealth Management Research Assistants",
         description:
-          "Advisors spend 60% of their time on research, 40% with clients. These agents flip that ratio. An orchestrator delegates to specialist agents — Market Analyst, Portfolio Advisor, Tax Specialist — and compiles unified recommendations so advisors can focus on relationships.",
+          "Advisors spend 60% of their time on research, 40% with clients. These agents flip that ratio. An orchestrator delegates to specialist agents. Market Analyst, Portfolio Advisor, Tax Specialist, and compiles unified recommendations so advisors can focus on relationships.",
         model: "GPT-4o (orchestrator) → Gemini 2.5 Pro (analysis)",
         strategy: "Multi-agent delegation: orchestrator fans out to 3 specialists, collects results, delivers advisor-ready briefs",
       },
@@ -1270,7 +1270,7 @@ const useCases: UseCase[] = [
         icon: Shield,
         title: "Compliance & Risk Monitoring",
         description:
-          "Agents that augment compliance officers — monitoring transactions, flagging patterns, cross-referencing regulatory changes in real-time. The human makes the call, but AI ensures nothing gets missed. Full audit trail on every interaction.",
+          "Agents that augment compliance officers, monitoring transactions, flagging patterns, cross-referencing regulatory changes in real-time. The human makes the call, but AI ensures nothing gets missed. Full audit trail on every interaction.",
         model: "Claude 3.5 Sonnet (reasoning) → Nova Pro (summarization)",
         strategy: "AI as safety net: heavyweight reasoning for risk detection, lightweight models for daily compliance digests",
       },
@@ -1292,17 +1292,17 @@ const useCases: UseCase[] = [
       },
     ],
     results: [
-      { metric: "42", label: "Production AI Agents", detail: "Across 6 divisions — each with scoped knowledge, dedicated models, and governed access. From 8 pilot experiments to 42 production agents." },
+      { metric: "42", label: "Production AI Agents", detail: "Across 6 divisions. Each with scoped knowledge, dedicated models, and governed access. From 8 pilot experiments to 42 production agents." },
       { metric: "2 days", label: "Idea to Production", detail: "New AI use cases go from concept to live in 2 days instead of 12 weeks. The AI Group's velocity matched their ambition." },
       { metric: "100%", label: "Division-Level Isolation", detail: "Every agent, every query, every knowledge doc cryptographically scoped to its division. Regulators see a clean audit trail." },
       { metric: "3.2x", label: "Advisor Productivity Lift", detail: "Wealth Management advisors spend 3.2x more time with clients. AI handles research, prep, and follow-up documentation." },
       { metric: "99.97%", label: "AI Availability", detail: "Multi-cloud resilience: if one provider has an outage, traffic routes automatically. Zero single-vendor dependency." },
-      { metric: "$8.2M", label: "First-Year Enterprise Value", detail: "Client experience improvements, advisor productivity, faster compliance, reduced manual processes — measured and attributed per division." },
+      { metric: "$8.2M", label: "First-Year Enterprise Value", detail: "Client experience improvements, advisor productivity, faster compliance, reduced manual processes, measured and attributed per division." },
     ],
     costAnalysis: {
-      headline: "42 AI Agents, 6 Divisions, 3 Clouds — One Control Plane",
+      headline: "42 AI Agents, 6 Divisions, 3 Clouds. One Control Plane",
       description:
-        "The AI Group's mandate wasn't to cut costs — it was to create value. Bonito gave them the infrastructure to move fast while maintaining the governance and trust that banking demands. Every division got tailored AI agents, connected to their own knowledge bases in their own cloud storage, with complete audit trails and budget transparency.",
+        "The AI Group's mandate wasn't to cut costs. It was to create value. Bonito gave them the infrastructure to move fast while maintaining the governance and trust that banking demands. Every division got tailored AI agents, connected to their own knowledge bases in their own cloud storage, with complete audit trails and budget transparency.",
       models: [
         { model: "GPT-4o", cost: "$5.00/M tokens", annual: "Complex reasoning", color: "bg-emerald-500" },
         { model: "Claude 3.5 Sonnet", cost: "$3.00/M tokens", annual: "Compliance & risk", color: "bg-blue-500" },
@@ -1348,7 +1348,7 @@ const onboardingSteps = [
     step: "3",
     title: "See all your models in one place",
     description:
-      "Bonito automatically syncs every available model from your connected providers. Filter by provider, search by name, and enable models with one click — no need to visit each cloud console.",
+      "Bonito automatically syncs every available model from your connected providers. Filter by provider, search by name, and enable models with one click. No need to visit each cloud console.",
     time: "1 minute",
   },
   {
@@ -1369,7 +1369,7 @@ const onboardingSteps = [
     step: "6",
     title: "Generate API keys and integrate",
     description:
-      "Generate a unique API key for each team or service. Your teams swap their existing SDK endpoint to Bonito's gateway URL — same OpenAI-compatible API format, just a config change.",
+      "Generate a unique API key for each team or service. Your teams swap their existing SDK endpoint to Bonito's gateway URL, same OpenAI-compatible API format, just a config change.",
     time: "5 minutes per service",
   },
 ];
@@ -1398,7 +1398,7 @@ function ComparisonArticle({ uc }: { uc: UseCase }) {
         </div>
       </section>
 
-      {/* Three Approaches — 3-column on desktop, stacked on mobile */}
+      {/* Three Approaches: 3-column on desktop, stacked on mobile */}
       <section className="pb-16">
         <h2 className="text-3xl font-bold mb-8">Three Approaches, One Goal</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1544,14 +1544,14 @@ function ComparisonArticle({ uc }: { uc: UseCase }) {
           <h2 className="text-2xl font-bold mb-4">The Bottom Line</h2>
           <div className="grid sm:grid-cols-3 gap-6 text-center">
             <div>
-              <div className="text-3xl font-bold text-red-400 mb-1">$500K–$2M</div>
+              <div className="text-3xl font-bold text-red-400 mb-1">$500K-$2M</div>
               <div className="text-sm text-[#888]">Consulting Route</div>
-              <div className="text-xs text-[#666] mt-1">6–12 months to first AI in production</div>
+              <div className="text-xs text-[#666] mt-1">6-12 months to first AI in production</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-yellow-400 mb-1">$250K–$450K</div>
+              <div className="text-3xl font-bold text-yellow-400 mb-1">$250K-$450K</div>
               <div className="text-sm text-[#888]">Patchwork Route</div>
-              <div className="text-xs text-[#666] mt-1">4–6 months, 2–3 FTE dedicated</div>
+              <div className="text-xs text-[#666] mt-1">4-6 months, 2-3 FTE dedicated</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-green-400 mb-1">~$18K</div>
@@ -1963,7 +1963,7 @@ export default function UseCasesPage() {
 
       {/* Desktop: Sidebar + Content */}
       <div className="flex gap-8">
-        {/* Left Sidebar — desktop only */}
+        {/* Left Sidebar, desktop only */}
         <aside className="hidden lg:block w-64 shrink-0">
           <nav className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
             <div className="space-y-1">
