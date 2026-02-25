@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-context";
 import Script from "next/script";
 import Image from "next/image";
-import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight, Building2, ShoppingCart, Headphones, Bot, MonitorPlay, HeartPulse, Briefcase } from "lucide-react";
+import { Cloud, Zap, DollarSign, Sparkles, Check, ArrowRight, Building2, ShoppingCart, Headphones, Bot, MonitorPlay, HeartPulse, Briefcase, Landmark } from "lucide-react";
 import SchematicBackground from "@/components/SchematicBackground";
 
 // ---------- Section Animations ----------
@@ -180,6 +180,7 @@ export default function LandingPage() {
             { icon: Bot, label: "AI Agent Workflows", href: "/use-cases#ai-agent-workflows" },
             { icon: MonitorPlay, label: "Ad-Tech / Programmatic", href: "/use-cases#ad-tech-programmatic" },
             { icon: HeartPulse, label: "Healthcare / Clinical AI", href: "/use-cases#healthcare-clinical-ai" },
+            { icon: Landmark, label: "Banking & Financial Services", href: "/use-cases#banking-financial-services" },
           ].map((uc, i) => (
             <FadeInSection key={uc.label} delay={i * 0.05}>
               <Link
