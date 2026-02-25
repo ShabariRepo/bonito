@@ -1,23 +1,8 @@
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
-
-
-async def _init_pgvector_connection(conn):
-    """Register pgvector 'vector' type codec with asyncpg on each new connection.
-    
-    Without this, asyncpg raises 'Unknown PG numeric type: 24578' when reading
-    vector columns because it doesn't know pgvector's custom type.
-    """
-    await conn.set_type_codec(
-        "vector",
-        encoder=str,
-        decoder=lambda v: [float(x) for x in v[1:-1].split(",")] if v else [],
-        schema="public",
-        format="text",
-    )
-
 
 # Create engine with connection pooling configuration
 engine = create_async_engine(
@@ -28,10 +13,29 @@ engine = create_async_engine(
     pool_timeout=settings.db_pool_timeout,
     pool_pre_ping=True,  # Verify connections before use
     pool_recycle=3600,   # Recycle connections after 1 hour
-    connect_args={
-        "init": _init_pgvector_connection,  # Register vector type on every new asyncpg connection
-    },
 )
+
+
+@event.listens_for(engine.sync_engine, "connect")
+def _register_pgvector_type(dbapi_connection, connection_record):
+    """Register pgvector 'vector' type codec with asyncpg on each new connection.
+    
+    Without this, asyncpg raises 'Unknown PG numeric type: 24578' when reading
+    vector columns because it doesn't know pgvector's custom type OID.
+    """
+    # dbapi_connection is SQLAlchemy's AsyncAdapt_asyncpg_connection wrapper
+    # ._connection is the raw asyncpg connection
+    raw_conn = dbapi_connection._connection
+    dbapi_connection.await_(
+        raw_conn.set_type_codec(
+            "vector",
+            encoder=str,
+            decoder=lambda v: [float(x) for x in v[1:-1].split(",")] if v else [],
+            schema="public",
+            format="text",
+        )
+    )
+
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
