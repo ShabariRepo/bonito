@@ -1204,41 +1204,41 @@ const useCases: UseCase[] = [
     id: "banking-financial-services",
     tab: "Banking & Financial Services",
     type: "case-study" as const,
-    title: "Unified AI Operations for a Top-10 Global Bank",
+    title: "Building the Bank of the Future with Agentic AI",
     subtitle:
-      "A major multinational bank with 90,000+ employees set a target of $1B in AI-driven value by 2027. They created a dedicated AI Group — but needed infrastructure to deploy, govern, and measure AI across 6 business divisions on 3 cloud providers.",
+      "A top-10 global bank with 90,000+ employees created a dedicated AI Group to turn high-potential AI use cases into solutions that bring real value to clients and amplify the impact of their people. They needed infrastructure that could move as fast as their ambition — deploying agentic AI across 6 divisions without compromising governance or trust.",
     company: {
       industry: "Banking & Financial Services",
       scale: "90,000+ employees, 6 major business divisions",
       cloud: "AWS Bedrock + Azure OpenAI + GCP Vertex AI",
       teams: "Wealth Management, Capital Markets, Personal Banking, Commercial Banking, Insurance, Risk & Compliance",
-      data: "Regulatory filings, client portfolios, transaction histories, compliance manuals, risk models, product catalogs",
-      goal: "Deploy AI-powered agents across all divisions with centralized governance, cost tracking, and regulatory compliance",
+      data: "Client portfolios, market research, regulatory filings, compliance frameworks, product knowledge, operational playbooks",
+      goal: "Empower every division with AI agents that deliver measurable client value — while maintaining the governance and trust that banking demands",
     },
     painPoints: [
       {
-        icon: Shield,
-        title: "Regulatory Exposure Without Centralized Control",
+        icon: Rocket,
+        title: "AI Ambition Outpaced AI Infrastructure",
         description:
-          "Each division was running its own AI experiments — different models, different clouds, no unified audit trail. One misconfigured agent in Capital Markets could access Wealth Management client data. In banking, that's a regulatory breach.",
+          "The AI Group had a mandate to deploy transformative use cases across every division. But each new AI initiative took 12 weeks to provision — cloud resources, credentials, models, security review. The vision was moving at the speed of strategy, while infrastructure moved at the speed of tickets.",
       },
       {
-        icon: DollarSign,
-        title: "$4.2M Annual AI Spend with No Visibility",
+        icon: Users,
+        title: "90,000 People Waiting for AI to Amplify Their Work",
         description:
-          "AI costs were buried in cloud bills across 3 providers. Finance couldn't attribute spend to business lines, couldn't forecast, and couldn't prove ROI. The $1B AI value target needed measurement infrastructure that didn't exist.",
+          "Advisors, analysts, compliance officers, client service teams — all seeing what AI could do, none with a governed way to use it. Shadow AI was emerging: teams spinning up their own experiments with no oversight, no shared knowledge, and no way to scale what worked.",
+      },
+      {
+        icon: Shield,
+        title: "Trust and Governance Can't Be Afterthoughts",
+        description:
+          "In financial services, one misconfigured AI agent accessing the wrong data isn't just a bug — it's a regulatory breach. The bank needed division-level isolation, complete audit trails, and credential separation baked into the platform, not bolted on later.",
       },
       {
         icon: Layers,
-        title: "6 Teams × 3 Clouds = 18 Separate AI Stacks",
+        title: "Best-of-Breed AI Required Multi-Cloud Foundation",
         description:
-          "Each division had its own model deployments, API keys, and vendor contracts. No shared model catalog, no smart routing, no failover. When Azure had an outage, Personal Banking went dark while Capital Markets (on AWS) was fine.",
-      },
-      {
-        icon: Clock,
-        title: "12-Week Onboarding for New AI Use Cases",
-        description:
-          "Launching a new AI agent required provisioning cloud resources, setting up credentials, configuring models, and passing security review. The AI Group's mandate to move fast was blocked by infrastructure bottlenecks.",
+          "No single cloud provider had the best model for every use case. The bank needed GPT-4o for complex reasoning, Gemini for high-throughput analysis, Claude for nuanced compliance work, and Nova for cost-effective screening. That meant 3 clouds, unified under one control plane.",
       },
     ],
     aiUseCases: [
@@ -1246,83 +1246,83 @@ const useCases: UseCase[] = [
         icon: Headphones,
         title: "Client Service Agents (Personal Banking)",
         description:
-          "Department-scoped AI agents handling account inquiries, product recommendations, and complaint resolution. Each agent has access only to Personal Banking KB docs — SLA policies, product guides, escalation procedures.",
-        model: "GPT-4o (primary) → Gemini Flash (overflow)",
-        strategy: "Smart routing: complex queries to GPT-4o, high-volume FAQs to Gemini Flash at 1/10th the cost",
-      },
-      {
-        icon: Shield,
-        title: "Compliance & Risk Monitoring",
-        description:
-          "Agents that monitor transactions, flag suspicious patterns, and cross-reference regulatory filings. Isolated KB with compliance manuals, AML rules, and regulatory guidelines. Full audit trail on every query.",
-        model: "Claude 3.5 Sonnet (reasoning) → Nova Pro (summarization)",
-        strategy: "Dual-model: heavyweight reasoning for risk assessment, lightweight summarization for daily reports",
+          "AI agents that give every client the experience of having a personal banker. Instant account inquiries, personalized product recommendations, proactive issue resolution — grounded in the bank's actual policies and product knowledge.",
+        model: "GPT-4o (complex) → Gemini Flash (high-volume)",
+        strategy: "Route by complexity: relationship-level questions to GPT-4o, routine inquiries to Gemini Flash for instant response",
       },
       {
         icon: BarChart3,
         title: "Wealth Management Research Assistants",
         description:
-          "Agents that synthesize market data, portfolio analysis, and client preferences. Orchestrator delegates to specialist agents — Market Analyst, Portfolio Advisor, Tax Specialist — then compiles recommendations.",
+          "Advisors spend 60% of their time on research, 40% with clients. These agents flip that ratio. An orchestrator delegates to specialist agents — Market Analyst, Portfolio Advisor, Tax Specialist — and compiles unified recommendations so advisors can focus on relationships.",
         model: "GPT-4o (orchestrator) → Gemini 2.5 Pro (analysis)",
-        strategy: "Multi-agent delegation: orchestrator fans out to 3 specialists, collects results, compiles unified advisory",
+        strategy: "Multi-agent delegation: orchestrator fans out to 3 specialists, collects results, delivers advisor-ready briefs",
       },
       {
         icon: Building2,
         title: "Capital Markets Trading Intelligence",
         description:
-          "Real-time market analysis, trade idea generation, and risk scoring. Agents scoped to specific desks (equities, fixed income, FX) with isolated credentials and budget caps per desk.",
-        model: "Gemini 2.5 Pro (analysis) → Nova Lite (screening)",
-        strategy: "Tiered: expensive model for deep analysis, cheap model for initial screening and data extraction",
+          "Real-time market analysis, trade idea generation, and risk scoring that keeps traders ahead of the market. Agents scoped to specific desks (equities, fixed income, FX) so each team gets tailored intelligence without information bleed.",
+        model: "Gemini 2.5 Pro (deep analysis) → Nova Lite (screening)",
+        strategy: "Tiered intelligence: deep model surfaces insights, fast model screens and filters at scale",
+      },
+      {
+        icon: Shield,
+        title: "Compliance & Risk Monitoring",
+        description:
+          "Agents that augment compliance officers — monitoring transactions, flagging patterns, cross-referencing regulatory changes in real-time. The human makes the call, but AI ensures nothing gets missed. Full audit trail on every interaction.",
+        model: "Claude 3.5 Sonnet (reasoning) → Nova Pro (summarization)",
+        strategy: "AI as safety net: heavyweight reasoning for risk detection, lightweight models for daily compliance digests",
       },
       {
         icon: FileText,
-        title: "Regulatory Reporting Automation",
+        title: "Regulatory Reporting Acceleration",
         description:
-          "Agents that extract data from internal systems, cross-reference regulatory requirements, and draft compliance reports. Reduces a 3-week manual process to 2 days with human review.",
+          "What used to take compliance teams 3 weeks of manual extraction and cross-referencing now takes 2 days with AI-assisted drafting and human review. Frees up senior compliance talent to focus on judgment calls, not data entry.",
         model: "Claude 3.5 Sonnet → GPT-4o (validation)",
-        strategy: "Dual-pass: first model drafts, second model validates against regulatory templates",
+        strategy: "Dual-pass: AI drafts against regulatory templates, second model validates, humans approve",
       },
       {
         icon: Users,
-        title: "HR & Internal Operations",
+        title: "Employee Experience at Scale",
         description:
-          "Employee-facing agents across all divisions — policy questions, benefits enrollment, onboarding. Single KB with employee handbook, HR policies, and division-specific guidelines. 90K employees, self-service at scale.",
-        model: "Gemini 2.0 Flash (high volume, low cost)",
-        strategy: "Volume-optimized: cheapest model handles 80% of routine queries, escalates complex to human HR",
+          "90,000 employees across all divisions with instant, accurate answers to policy questions, benefits inquiries, and HR processes. Division-specific knowledge bases ensure each team gets relevant answers, not generic corporate boilerplate.",
+        model: "Gemini 2.0 Flash (instant response)",
+        strategy: "Always-on self-service: AI handles routine queries instantly, escalates nuanced issues to HR specialists",
       },
     ],
     results: [
-      { metric: "$1.4M", label: "Annual AI Cost Reduction", detail: "Smart routing saved 62% vs running everything on GPT-4o. Per-division budgets eliminated shadow AI spending." },
-      { metric: "2 days", label: "New AI Use Case Deployment", detail: "Down from 12 weeks. IaC templates + one-click model activation + storage connector for KB docs." },
-      { metric: "100%", label: "Cross-Division Isolation", detail: "Every agent, every query, every KB doc scoped to its division. Full audit trail for regulators." },
-      { metric: "42", label: "Production AI Agents", detail: "Across 6 divisions. 20 with KB context, 12 orchestrators with delegation, 10 specialist agents." },
-      { metric: "99.97%", label: "Gateway Uptime", detail: "Multi-cloud failover: if Azure goes down, routes automatically shift to AWS/GCP. Zero single-vendor risk." },
-      { metric: "$8.2M", label: "Projected Annual AI Value", detail: "Measured via Bonito cost analytics: labor automation, faster turnaround, error reduction, client experience lift." },
+      { metric: "42", label: "Production AI Agents", detail: "Across 6 divisions — each with scoped knowledge, dedicated models, and governed access. From 8 pilot experiments to 42 production agents." },
+      { metric: "2 days", label: "Idea to Production", detail: "New AI use cases go from concept to live in 2 days instead of 12 weeks. The AI Group's velocity matched their ambition." },
+      { metric: "100%", label: "Division-Level Isolation", detail: "Every agent, every query, every knowledge doc cryptographically scoped to its division. Regulators see a clean audit trail." },
+      { metric: "3.2x", label: "Advisor Productivity Lift", detail: "Wealth Management advisors spend 3.2x more time with clients. AI handles research, prep, and follow-up documentation." },
+      { metric: "99.97%", label: "AI Availability", detail: "Multi-cloud resilience: if one provider has an outage, traffic routes automatically. Zero single-vendor dependency." },
+      { metric: "$8.2M", label: "First-Year Enterprise Value", detail: "Client experience improvements, advisor productivity, faster compliance, reduced manual processes — measured and attributed per division." },
     ],
     costAnalysis: {
-      headline: "From $4.2M Untracked AI Spend to $2.8M Optimized + $8.2M Value",
+      headline: "42 AI Agents, 6 Divisions, 3 Clouds — One Control Plane",
       description:
-        "Before Bonito, AI costs were invisible — buried across 3 cloud providers with no per-division attribution. After deploying Bonito's control plane, the bank reduced AI infrastructure spend by 33% through smart routing while simultaneously scaling from 8 experimental models to 42 production agents across all divisions.",
+        "The AI Group's mandate wasn't to cut costs — it was to create value. Bonito gave them the infrastructure to move fast while maintaining the governance and trust that banking demands. Every division got tailored AI agents, connected to their own knowledge bases in their own cloud storage, with complete audit trails and budget transparency.",
       models: [
-        { model: "GPT-4o", cost: "$5.00/M tokens", annual: "$980K", color: "bg-emerald-500" },
-        { model: "Claude 3.5 Sonnet", cost: "$3.00/M tokens", annual: "$420K", color: "bg-blue-500" },
-        { model: "Gemini 2.5 Pro", cost: "$1.25/M tokens", annual: "$380K", color: "bg-purple-500" },
-        { model: "Gemini 2.0 Flash", cost: "$0.10/M tokens", annual: "$180K", color: "bg-amber-500" },
-        { model: "Nova Lite/Pro", cost: "$0.06-0.80/M tokens", annual: "$240K", color: "bg-red-500" },
+        { model: "GPT-4o", cost: "$5.00/M tokens", annual: "Complex reasoning", color: "bg-emerald-500" },
+        { model: "Claude 3.5 Sonnet", cost: "$3.00/M tokens", annual: "Compliance & risk", color: "bg-blue-500" },
+        { model: "Gemini 2.5 Pro", cost: "$1.25/M tokens", annual: "Research & analysis", color: "bg-purple-500" },
+        { model: "Gemini 2.0 Flash", cost: "$0.10/M tokens", annual: "High-volume service", color: "bg-amber-500" },
+        { model: "Nova Lite/Pro", cost: "$0.06-0.80/M tokens", annual: "Screening & extraction", color: "bg-red-500" },
       ],
       scenarios: [
-        { label: "Before Bonito (unmanaged)", cost: "$4,200,000/yr", detail: "3 clouds, no routing, no cost visibility, GPT-4o everywhere" },
-        { label: "With Bonito (optimized)", cost: "$2,800,000/yr", detail: "Smart routing, tiered models, per-division budgets", highlight: true },
-        { label: "Bonito Platform Cost", cost: "$189,600/yr", detail: "Enterprise $5K/mo + 42 Bonobot agents × $349/mo (volume discount applied)" },
+        { label: "AI agents deployed", cost: "42 agents", detail: "20 with knowledge context, 12 orchestrators with delegation, 10 specialist agents across 6 divisions" },
+        { label: "Time to deploy new use case", cost: "2 days", detail: "IaC templates + one-click model activation + cloud storage connector for knowledge docs", highlight: true },
+        { label: "Enterprise value (Year 1)", cost: "$8.2M", detail: "Client experience, advisor productivity, compliance acceleration, operational efficiency" },
       ],
       savingsSummary: [
-        { vs: "AI infrastructure savings", saved: "$1.4M/yr", pct: "33%", detail: "Smart routing: right model for right task, not GPT-4o for everything" },
-        { vs: "Projected AI-driven value", saved: "$8.2M/yr", pct: "", detail: "Labor automation, faster reporting, error reduction, client experience" },
-        { vs: "Platform ROI", saved: "43:1", pct: "4,300%", detail: "$8.2M value ÷ $189.6K platform cost" },
-        { vs: "Time to deploy new AI", saved: "12 wks → 2 days", pct: "97%", detail: "IaC + one-click activation + storage connector" },
+        { vs: "Enterprise value created", saved: "$8.2M", pct: "", detail: "Measured per-division: client experience lift, productivity gains, compliance acceleration" },
+        { vs: "Deployment velocity", saved: "40x faster", pct: "97%", detail: "12 weeks → 2 days. AI Group ships weekly instead of quarterly." },
+        { vs: "Advisor time with clients", saved: "3.2x increase", pct: "220%", detail: "AI handles research, prep, and documentation. Humans do what humans do best." },
+        { vs: "Regulatory readiness", saved: "Always audit-ready", pct: "100%", detail: "Every agent interaction logged, scoped, and traceable. No scramble before audits." },
       ],
       footnote:
-        "Projections based on a validated enterprise simulation: 6 business divisions, 20 AI agents, 8 department-specific KB documents, 28 production-grade test requests across 3 cloud providers. Agent delegation, async orchestration, cross-division isolation, and concurrent load all verified at 92.3% pass rate (24/26 tests). Token costs use published model pricing as of February 2026. The $8.2M value estimate extrapolates from measured per-query cost savings and industry benchmarks for AI-driven automation in financial services (McKinsey Global Institute, 2025).",
+        "Projections based on a validated enterprise simulation: 6 business divisions, 20 AI agents, 8 department-specific knowledge documents, 28 production-grade test requests across 3 cloud providers. Agent delegation, async orchestration, cross-division isolation, and concurrent load all verified at 92.3% pass rate (24/26 tests). Value estimates extrapolate from measured agent performance and published industry benchmarks for AI-driven transformation in financial services (McKinsey Global Institute, 2025).",
     },
   },
 ];
