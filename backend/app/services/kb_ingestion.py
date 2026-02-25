@@ -544,62 +544,10 @@ async def process_document(
 async def sync_from_cloud_storage(kb_id: uuid.UUID) -> None:
     """
     Sync documents from cloud storage (S3, Azure Blob, GCS).
-    
-    TODO: Implement cloud storage integration
+    Delegates to storage_connector.sync_kb_from_storage().
     """
-    async with get_db_session() as db:
-        kb_result = await db.execute(
-            select(KnowledgeBase).where(KnowledgeBase.id == kb_id)
-        )
-        kb = kb_result.scalar_one_or_none()
-        if not kb:
-            logger.error(f"Knowledge base {kb_id} not found")
-            return
-        
-        try:
-            logger.info(f"Starting cloud storage sync for KB {kb_id} ({kb.source_type})")
-            
-            # Placeholder implementation
-            if kb.source_type == "s3":
-                await _sync_from_s3(kb)
-            elif kb.source_type == "azure_blob":
-                await _sync_from_azure_blob(kb)
-            elif kb.source_type == "gcs":
-                await _sync_from_gcs(kb)
-            else:
-                raise ValueError(f"Unsupported source type: {kb.source_type}")
-            
-            kb.status = "ready"
-            kb.last_synced_at = datetime.now(timezone.utc)
-            await db.commit()
-            
-        except Exception as e:
-            logger.error(f"Failed to sync KB {kb_id} from {kb.source_type}: {e}")
-            kb.status = "error"
-            await db.commit()
-
-
-async def _sync_from_s3(kb: KnowledgeBase) -> None:
-    """Sync documents from S3."""
-    # TODO: Implement S3 sync
-    # 1. Use boto3 to list objects in the specified bucket/prefix
-    # 2. Check file hashes to detect changes
-    # 3. Download and process new/changed files
-    logger.info(f"S3 sync for KB {kb.id} - placeholder implementation")
-    await asyncio.sleep(1)  # Simulate work
-
-
-async def _sync_from_azure_blob(kb: KnowledgeBase) -> None:
-    """Sync documents from Azure Blob Storage."""
-    # TODO: Implement Azure Blob sync
-    logger.info(f"Azure Blob sync for KB {kb.id} - placeholder implementation")
-    await asyncio.sleep(1)  # Simulate work
-
-
-async def _sync_from_gcs(kb: KnowledgeBase) -> None:
-    """Sync documents from GCS."""
-    # TODO: Implement GCS sync
-    logger.info(f"GCS sync for KB {kb.id} - placeholder implementation")
+    from app.services.storage_connector import sync_kb_from_storage
+    await sync_kb_from_storage(kb_id)
     await asyncio.sleep(1)  # Simulate work
 
 

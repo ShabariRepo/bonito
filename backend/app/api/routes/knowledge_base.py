@@ -694,19 +694,9 @@ async def _process_uploaded_document(doc_id: uuid.UUID, content: bytes, kb_id: u
 
 async def _sync_from_cloud_storage(kb_id: uuid.UUID):
     """Sync documents from cloud storage in the background."""
-    # TODO: Implement cloud storage sync
-    # 1. Connect to S3/Blob/GCS using credentials from source_config
-    # 2. List files in the configured bucket/container
-    # 3. Download and process new/changed files
-    # 4. Update document records and process into chunks
-    logger.info(f"Starting background sync for KB {kb_id}")
-    
-    # Placeholder: just mark as ready for now
-    from app.core.database import get_db_session
-    async with get_db_session() as db:
-        result = await db.execute(select(KnowledgeBase).where(KnowledgeBase.id == kb_id))
-        kb = result.scalar_one_or_none()
-        if kb:
-            kb.status = "ready"
-            kb.last_synced_at = datetime.now(timezone.utc)
-            await db.commit()
+    from app.services.storage_connector import sync_kb_from_storage
+    try:
+        summary = await sync_kb_from_storage(kb_id)
+        logger.info(f"Storage sync complete for KB {kb_id}: {summary}")
+    except Exception as e:
+        logger.error(f"Storage sync failed for KB {kb_id}: {e}")
