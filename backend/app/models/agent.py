@@ -59,3 +59,4 @@ class Agent(Base):
     triggers = relationship("AgentTrigger", back_populates="agent")
     source_connections = relationship("AgentConnection", foreign_keys="[AgentConnection.source_agent_id]", back_populates="source_agent")
     target_connections = relationship("AgentConnection", foreign_keys="[AgentConnection.target_agent_id]", back_populates="target_agent")
+    mcp_servers = relationship("AgentMCPServer", back_populates="agent", cascade="all, delete-orphan")

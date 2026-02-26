@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Settings, MessageSquare, Clock, BarChart3, Send } from "lucide-react";
+import { X, Settings, MessageSquare, Clock, BarChart3, Send, Plug } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { apiRequest } from "@/lib/auth";
+import { MCPServersPanel } from "@/components/agents/mcp-servers-panel";
 
 interface AgentDetailPanelProps {
   isOpen: boolean;
@@ -246,7 +247,7 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
           </div>
         ) : (
           <Tabs defaultValue="chat" className="h-full">
-            <TabsList className="grid w-full grid-cols-4 bg-[#2a2a4e]">
+            <TabsList className="grid w-full grid-cols-5 bg-[#2a2a4e]">
               <TabsTrigger value="chat" className="data-[state=active]:bg-[#3a3a6e]">
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Chat
@@ -254,6 +255,10 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
               <TabsTrigger value="configure" className="data-[state=active]:bg-[#3a3a6e]">
                 <Settings className="w-4 h-4 mr-2" />
                 Configure
+              </TabsTrigger>
+              <TabsTrigger value="mcp" className="data-[state=active]:bg-[#3a3a6e]">
+                <Plug className="w-4 h-4 mr-2" />
+                MCP
               </TabsTrigger>
               <TabsTrigger value="sessions" className="data-[state=active]:bg-[#3a3a6e]">
                 <Clock className="w-4 h-4 mr-2" />
@@ -395,6 +400,10 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="mcp" className="space-y-4">
+              {agentId && <MCPServersPanel agentId={agentId} />}
             </TabsContent>
 
             <TabsContent value="sessions" className="space-y-4">
