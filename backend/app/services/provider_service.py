@@ -14,6 +14,7 @@ from app.services.providers.azure_foundry import AzureFoundryProvider
 from app.services.providers.gcp_vertex import GCPVertexProvider
 from app.services.providers.openai_direct import OpenAIDirectProvider
 from app.services.providers.anthropic_direct import AnthropicDirectProvider
+from app.services.providers.groq_provider import GroqProvider
 from app.services.providers.base import CloudProvider as CloudProviderInterface
 
 logger = logging.getLogger(__name__)
@@ -57,11 +58,26 @@ ANTHROPIC_MODELS: List[ModelInfo] = [
     ModelInfo(id="anthropic-5", name="Claude 3 Haiku", provider="anthropic", provider_model_id="claude-3-haiku-20240307", capabilities=["text", "vision", "code"], context_window=200000, pricing_tier="economy", input_price_per_1k=0.00025, output_price_per_1k=0.00125),
 ]
 
+GROQ_MODELS: List[ModelInfo] = [
+    ModelInfo(id="groq-1", name="Llama 3.3 70B", provider="groq", provider_model_id="llama-3.3-70b-versatile", capabilities=["text", "code", "function_calling"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00059, output_price_per_1k=0.00079),
+    ModelInfo(id="groq-2", name="Llama 3.1 8B", provider="groq", provider_model_id="llama-3.1-8b-instant", capabilities=["text", "code"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00005, output_price_per_1k=0.00008),
+    ModelInfo(id="groq-3", name="Llama 3.3 70B Speculative Decoding", provider="groq", provider_model_id="llama-3.3-70b-specdec", capabilities=["text", "code"], context_window=32000, pricing_tier="economy", input_price_per_1k=0.00059, output_price_per_1k=0.00079),
+    ModelInfo(id="groq-4", name="Mixtral 8x7B", provider="groq", provider_model_id="mixtral-8x7b-32768", capabilities=["text", "code"], context_window=32768, pricing_tier="economy", input_price_per_1k=0.00024, output_price_per_1k=0.00024),
+    ModelInfo(id="groq-5", name="Gemma 2 9B", provider="groq", provider_model_id="gemma2-9b-it", capabilities=["text", "code"], context_window=8000, pricing_tier="economy", input_price_per_1k=0.0002, output_price_per_1k=0.0002),
+    ModelInfo(id="groq-6", name="DeepSeek R1 Distill 70B", provider="groq", provider_model_id="deepseek-r1-distill-llama-70b", capabilities=["text", "reasoning", "code"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00075, output_price_per_1k=0.00099),
+    ModelInfo(id="groq-7", name="Qwen 2.5 Coder 32B", provider="groq", provider_model_id="qwen-2.5-coder-32b", capabilities=["text", "code"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.0002, output_price_per_1k=0.0002),
+    ModelInfo(id="groq-8", name="Llama 3.2 1B", provider="groq", provider_model_id="llama-3.2-1b-preview", capabilities=["text"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00004, output_price_per_1k=0.00004),
+    ModelInfo(id="groq-9", name="Llama 3.2 3B", provider="groq", provider_model_id="llama-3.2-3b-preview", capabilities=["text", "code"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00006, output_price_per_1k=0.00006),
+    ModelInfo(id="groq-10", name="Llama 3.2 11B Vision", provider="groq", provider_model_id="llama-3.2-11b-vision-preview", capabilities=["text", "vision"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00018, output_price_per_1k=0.00018),
+    ModelInfo(id="groq-11", name="Llama 3.2 90B Vision", provider="groq", provider_model_id="llama-3.2-90b-vision-preview", capabilities=["text", "vision"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.0009, output_price_per_1k=0.0009),
+]
+
 MOCK_CATALOG = {
     "azure": AZURE_MODELS,
     "gcp": GCP_MODELS,
     "openai": OPENAI_MODELS,
     "anthropic": ANTHROPIC_MODELS,
+    "groq": GROQ_MODELS,
 }
 
 PROVIDER_NAMES = {
@@ -70,6 +86,7 @@ PROVIDER_NAMES = {
     "gcp": "GCP Vertex AI",
     "openai": "OpenAI Direct",
     "anthropic": "Anthropic Direct",
+    "groq": "Groq",
 }
 
 PROVIDER_REGIONS = {
@@ -82,6 +99,7 @@ PROVIDER_REGIONS = {
     "gcp": ["us-central1", "us-east1", "europe-west1", "asia-east1"],
     "openai": ["Global"],
     "anthropic": ["Global"],
+    "groq": ["Global"],
 }
 
 
@@ -141,6 +159,11 @@ def validate_credentials(provider_type: str, credentials: dict) -> Tuple[bool, s
             return False, "Missing required field: api_key"
         if len(credentials["api_key"]) < 20:
             return False, "API key is too short"
+    elif provider_type == "groq":
+        if "api_key" not in credentials or not credentials["api_key"]:
+            return False, "Missing required field: api_key"
+        if len(credentials["api_key"]) < 20:
+            return False, "API key is too short"
     else:
         return False, f"Unsupported provider: {provider_type}"
     return True, ""
@@ -156,6 +179,8 @@ def extract_region(provider_type: str, credentials: dict) -> str:
     elif provider_type == "openai":
         return "Global"
     elif provider_type == "anthropic":
+        return "Global"
+    elif provider_type == "groq":
         return "Global"
     return ""
 
@@ -261,6 +286,14 @@ async def get_anthropic_provider(provider_id: str) -> AnthropicDirectProvider:
     )
 
 
+async def get_groq_provider(provider_id: str) -> GroqProvider:
+    """Create a GroqProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
+    return GroqProvider(
+        api_key=secrets["api_key"],
+    )
+
+
 async def store_credentials(provider_id: str, credentials: dict, db_provider=None) -> str:
     """
     Store credentials in both Vault and encrypted DB column.
@@ -344,6 +377,9 @@ async def get_models_for_provider(provider_type: str, provider_id: str = None) -
             elif provider_type == "anthropic":
                 provider = await get_anthropic_provider(provider_id)
                 return _convert(await provider.list_models(), "anthropic")
+            elif provider_type == "groq":
+                provider = await get_groq_provider(provider_id)
+                return _convert(await provider.list_models(), "groq")
         except Exception as e:
             logger.error(f"Failed to fetch real {provider_type} models: {e}")
             return MOCK_CATALOG.get(provider_type, [])

@@ -57,6 +57,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   aws: "AWS",
   azure: "Azure",
   gcp: "GCP",
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  groq: "⚡ Groq",
 };
 
 export default function ModelsPage() {
@@ -190,6 +193,7 @@ export default function ModelsPage() {
     if (id.includes("anthropic") || id.includes("claude") || id.includes("amazon") || id.includes("meta") || id.includes("mistral") || id.includes("cohere") || id.includes("ai21") || id.includes("stability")) return "aws";
     if (id.includes("gpt") || id.includes("dall-e") || id.includes("whisper") || id.includes("phi")) return "azure";
     if (id.includes("gemini") || id.includes("palm") || id.includes("imagen") || id.includes("code-bison") || id.includes("text-bison")) return "gcp";
+    if (id.includes("groq")) return "groq";
     return "unknown";
   };
 

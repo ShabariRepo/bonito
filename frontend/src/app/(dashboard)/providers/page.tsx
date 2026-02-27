@@ -55,6 +55,9 @@ const providerStyles: Record<
   aws: { color: "text-amber-500", glowColor: "amber", icon: "☁️", bgColor: "bg-amber-500/10" },
   azure: { color: "text-blue-500", glowColor: "blue", icon: "🔷", bgColor: "bg-blue-500/10" },
   gcp: { color: "text-red-500", glowColor: "red", icon: "🔺", bgColor: "bg-red-500/10" },
+  openai: { color: "text-green-500", glowColor: "green", icon: "🤖", bgColor: "bg-green-500/10" },
+  anthropic: { color: "text-purple-500", glowColor: "purple", icon: "🧠", bgColor: "bg-purple-500/10" },
+  groq: { color: "text-orange-500", glowColor: "orange", icon: "⚡", bgColor: "bg-orange-500/10" },
 };
 
 const statusColors: Record<string, string> = {
@@ -95,6 +98,16 @@ const CRED_FIELDS: Record<
     { key: "project_id", label: "Project ID" },
     { key: "service_account_json", label: "Service Account Key (JSON)", secret: true },
     { key: "region", label: "Region", placeholder: "us-central1" },
+  ],
+  openai: [
+    { key: "api_key", label: "API Key", secret: true, placeholder: "sk-..." },
+    { key: "organization_id", label: "Organization ID", placeholder: "org-..." },
+  ],
+  anthropic: [
+    { key: "api_key", label: "API Key", secret: true, placeholder: "sk-ant-api03-..." },
+  ],
+  groq: [
+    { key: "api_key", label: "API Key", secret: true, placeholder: "gsk_..." },
   ],
 };
 

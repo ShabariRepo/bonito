@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
 
 // --- Types ---
-type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic";
+type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq";
 type IaCTool = "terraform" | "pulumi" | "cloudformation" | "bicep" | "manual";
 type OnboardingPath = "quick" | "iac" | null;
 
@@ -80,6 +80,7 @@ const PROVIDERS: { id: Provider; name: string; icon: string; color: string; desc
   { id: "gcp", name: "Google Cloud", icon: "🌐", color: "from-green-500 to-emerald-500", desc: "Vertex AI — Gemini, PaLM, Claude" },
   { id: "openai", name: "OpenAI", icon: "🤖", color: "from-green-500 to-blue-500", desc: "Direct API — GPT-4o, o1, o3-mini" },
   { id: "anthropic", name: "Anthropic", icon: "🧠", color: "from-purple-500 to-pink-500", desc: "Direct API — Claude 3.5 Sonnet, Claude Opus" },
+  { id: "groq", name: "Groq", icon: "⚡", color: "from-orange-500 to-red-500", desc: "LPU Inference — Llama, Mixtral, DeepSeek R1 — ultra-fast" },
 ];
 
 const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; description: string; required: boolean }[]> = {
@@ -103,6 +104,10 @@ const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; descri
   anthropic: [
     { key: "api_key", name: "API Key Authentication", description: "Valid Anthropic API key with model access", required: true },
     { key: "models", name: "Model Access", description: "Access to Claude 3.5 Sonnet, Opus, and other models", required: true },
+  ],
+  groq: [
+    { key: "api_key", name: "API Key Authentication", description: "Valid Groq API key with model access", required: true },
+    { key: "models", name: "Model Access", description: "Access to Llama, Mixtral, DeepSeek R1, and other models via LPU", required: true },
   ],
 };
 
@@ -128,6 +133,9 @@ const CRED_FIELDS: Record<Provider, { key: string; label: string; type?: string;
   ],
   anthropic: [
     { key: "api_key", label: "API Key", type: "password", placeholder: "sk-ant-api03-...", required: true },
+  ],
+  groq: [
+    { key: "api_key", label: "Groq API Key", type: "password", placeholder: "gsk_...", required: true },
   ],
 };
 
@@ -192,6 +200,8 @@ const IAM_POLICIES: Record<Provider, string> = {
 Get yours at platform.openai.com/api-keys`,
   anthropic: `No IAM setup needed — just an API key.
 Get yours at console.anthropic.com/settings/keys`,
+  groq: `No IAM setup needed — just an API key.
+Get yours at console.groq.com/keys`,
 };
 
 
