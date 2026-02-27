@@ -19,6 +19,7 @@ class ProviderType(str, Enum):
     gcp = "gcp"
     openai = "openai"
     anthropic = "anthropic"
+    groq = "groq"
 
 
 class AWSCredentials(BaseModel):
@@ -53,12 +54,17 @@ class AnthropicCredentials(BaseModel):
     api_key: str = Field(..., min_length=20)
 
 
+class GroqCredentials(BaseModel):
+    api_key: str = Field(..., min_length=20)
+
+
 _CREDENTIAL_SCHEMAS: dict[str, type[BaseModel]] = {
     "aws": AWSCredentials,
     "azure": AzureCredentials,
     "gcp": GCPCredentials,
     "openai": OpenAICredentials,
     "anthropic": AnthropicCredentials,
+    "groq": GroqCredentials,
 }
 
 # Fields allowed per provider (for strict rejection of unexpected keys)
@@ -68,6 +74,7 @@ _ALLOWED_FIELDS: dict[str, set[str]] = {
     "gcp": {"project_id", "service_account_json", "region"},
     "openai": {"api_key", "organization_id"},
     "anthropic": {"api_key"},
+    "groq": {"api_key"},
 }
 
 
