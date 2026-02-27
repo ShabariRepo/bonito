@@ -41,6 +41,7 @@ from app.services.gateway import PolicyViolation
 from app.models.cloud_provider import CloudProvider
 from app.models.model import Model
 from app.services.usage_tracker import usage_tracker
+from app.services.managed_inference import calculate_marked_up_cost
 
 logger = logging.getLogger(__name__)
 
@@ -380,6 +381,15 @@ async def _handle_streaming_completion(
                         provider=provider,
                     )
                     log_db.add(log_entry)
+                    await log_db.flush()
+
+                    # Track managed inference (markup + provider counters)
+                    if not error_occurred and provider and cost > 0:
+                        try:
+                            from app.services.gateway import _track_managed_inference
+                            await _track_managed_inference(log_db, log_entry, org_id)
+                        except Exception as mi_err:
+                            logger.warning(f"Failed to track managed inference (streaming): {mi_err}")
             except Exception as log_err:
                 logger.error(f"Failed to log streaming request: {log_err}")
 
@@ -509,6 +519,15 @@ async def _handle_streaming_completion_policy(
                         provider=provider,
                     )
                     log_db.add(log_entry)
+                    await log_db.flush()
+
+                    # Track managed inference (markup + provider counters)
+                    if not error_occurred and provider and cost > 0:
+                        try:
+                            from app.services.gateway import _track_managed_inference
+                            await _track_managed_inference(log_db, log_entry, org_id)
+                        except Exception as mi_err:
+                            logger.warning(f"Failed to track managed inference (streaming policy): {mi_err}")
             except Exception as log_err:
                 logger.error(f"Failed to log streaming policy request: {log_err}")
 

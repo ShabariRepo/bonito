@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index, Boolean, JSON
+from sqlalchemy import String, DateTime, Integer, Float, ForeignKey, BigInteger, Index, Boolean, JSON, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -40,6 +40,8 @@ class GatewayRequest(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(50), default="success")  # success, error, rate_limited
     error_message: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    is_managed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    marked_up_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     __table_args__ = (

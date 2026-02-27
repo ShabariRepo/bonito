@@ -26,6 +26,7 @@ class SubscriptionTier(str, Enum):
     FREE = "free"
     PRO = "pro"
     ENTERPRISE = "enterprise"
+    SCALE = "scale"
 
 
 class SubscriptionStatus(str, Enum):
@@ -126,7 +127,30 @@ class TierLimits:
                 "custom_integrations": True,
                 "dedicated_support": True,
             }
-        }
+        },
+        SubscriptionTier.SCALE: {
+            "providers": float('inf'),  # unlimited
+            "gateway_calls_per_month": float('inf'),  # unlimited
+            "members": float('inf'),  # unlimited
+            "features": {
+                "models": True,
+                "playground": True,
+                "routing": True,
+                "ai_context": True,
+                "analytics": True,
+                "cli": True,
+                "audit": True,
+                "notifications": True,
+                "budget_alerts": True,
+                "sso": True,
+                "rbac": True,
+                "iac_templates": True,
+                "compliance": True,
+                "on_premise": True,
+                "custom_integrations": True,
+                "dedicated_support": True,
+            }
+        },
     }
 
     @classmethod
@@ -146,7 +170,7 @@ class TierLimits:
     @classmethod
     def get_required_tier_for_feature(cls, feature: str) -> Optional[SubscriptionTier]:
         """Get the minimum tier required for a feature"""
-        for tier in [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE]:
+        for tier in [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE, SubscriptionTier.SCALE]:
             if cls.get_feature_access(tier, feature):
                 return tier
         return None

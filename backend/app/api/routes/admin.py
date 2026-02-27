@@ -19,6 +19,11 @@ from app.models.user import User
 from app.models.organization import Organization
 from app.models.cloud_provider import CloudProvider
 from app.services.log_emitters import emit_admin_event
+from app.services.billing import (
+    get_org_billing,
+    get_all_orgs_billing_summary,
+    get_enhanced_admin_stats,
+)
 from app.models.deployment import Deployment
 from app.models.gateway import GatewayRequest, GatewayKey
 
@@ -67,6 +72,10 @@ class AdminUserSummary(BaseModel):
 class UserUpdateRequest(BaseModel):
     role: Optional[str] = None
     suspended: Optional[bool] = None
+
+
+class TierUpdateRequest(BaseModel):
+    tier: str  # free, pro, enterprise, scale
 
 
 class PlatformStats(BaseModel):
@@ -330,7 +339,7 @@ async def update_org_tier(
     tier = body.get("tier")
     bonobot_plan = body.get("bonobot_plan")
 
-    if tier and tier in ("free", "pro", "enterprise"):
+    if tier and tier in ("free", "pro", "enterprise", "scale"):
         org.subscription_tier = tier
     if bonobot_plan and bonobot_plan in ("none", "pro", "enterprise"):
         org.bonobot_plan = bonobot_plan
@@ -343,6 +352,89 @@ async def update_org_tier(
         "subscription_tier": org.subscription_tier,
         "bonobot_plan": getattr(org, "bonobot_plan", "none"),
     }
+
+
+@router.patch("/organizations/{org_id}/tier", response_model=dict)
+async def patch_org_tier(
+    org_id: uuid.UUID,
+    body: TierUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Admin: change an organization's subscription tier."""
+    valid_tiers = ("free", "pro", "enterprise", "scale")
+    if body.tier not in valid_tiers:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid tier. Must be one of: {', '.join(valid_tiers)}",
+        )
+
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    previous_tier = org.subscription_tier
+    org.subscription_tier = body.tier
+    org.subscription_updated_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    # Log admin action
+    try:
+        await emit_admin_event(
+            org.id, "tier_change", user_id=_admin.id,
+            resource_id=org.id, resource_type="organization", action="tier_change",
+            message=f"Tier changed from {previous_tier} to {body.tier}",
+            metadata={"previous_tier": previous_tier, "new_tier": body.tier},
+        )
+    except Exception:
+        pass
+
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "subscription_tier": org.subscription_tier,
+        "previous_tier": previous_tier,
+    }
+
+
+# ---------- Billing ----------
+
+@router.get("/billing/summary")
+async def get_billing_summary(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Get billing summary for ALL organizations (god-mode view)."""
+    return await get_all_orgs_billing_summary(db)
+
+
+@router.get("/billing/{org_id}")
+async def get_org_billing_detail(
+    org_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Get detailed billing for a specific organization."""
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return await get_org_billing(db, org_id)
+
+
+@router.get("/organizations/{org_id}/billing")
+async def get_org_billing_via_org(
+    org_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Get full billing summary for an organization (org-scoped path)."""
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return await get_org_billing(db, org_id)
 
 
 @router.post("/users/{user_id}/verify", response_model=dict)
@@ -407,7 +499,7 @@ async def get_platform_stats(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_superadmin),
 ):
-    """Get platform-wide statistics."""
+    """Get platform-wide statistics (enhanced with billing data)."""
     # Total orgs
     org_count = (await db.execute(select(func.count(Organization.id)))).scalar() or 0
 
@@ -460,6 +552,9 @@ async def get_platform_stats(
         for row in active_orgs_result.all()
     ]
 
+    # Enhanced billing stats
+    billing_stats = await get_enhanced_admin_stats(db)
+
     return {
         "total_orgs": org_count,
         "total_users": user_count,
@@ -467,6 +562,13 @@ async def get_platform_stats(
         "total_cost": total_cost,
         "requests_by_day": requests_by_day,
         "active_orgs": active_orgs,
+        # Enhanced billing data
+        "managed_inference_revenue": billing_stats["managed_inference_revenue"],
+        "active_managed_inference_orgs": billing_stats["active_managed_inference_orgs"],
+        "tier_counts": billing_stats["tier_counts"],
+        "platform_mrr": billing_stats["platform_mrr"],
+        "top_spenders": billing_stats["top_spenders"],
+        "billing_period": billing_stats["billing_period"],
     }
 
 

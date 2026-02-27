@@ -30,6 +30,7 @@ from app.models.model import Model
 from app.models.deployment import Deployment
 from app.schemas.gateway import RoutingStrategy
 from app.services.log_emitters import emit_gateway_event
+from app.services.managed_inference import calculate_marked_up_cost
 
 logger = logging.getLogger(__name__)
 
@@ -626,6 +627,53 @@ async def enforce_policies(
     await check_spend_cap(db, key.org_id)
 
 
+# ─── Managed inference tracking ───
+
+async def _track_managed_inference(
+    db: AsyncSession,
+    log_entry: GatewayRequest,
+    org_id: uuid.UUID,
+) -> None:
+    """Check if the request used a managed provider and apply markup.
+
+    Looks up the CloudProvider for the org+provider, checks is_managed,
+    and if true: sets is_managed on the log entry, calculates marked-up
+    cost, and increments the provider's managed usage counters.
+    """
+    if not log_entry.provider or not log_entry.cost:
+        return
+
+    try:
+        result = await db.execute(
+            select(CloudProvider).where(
+                and_(
+                    CloudProvider.org_id == org_id,
+                    CloudProvider.provider_type == log_entry.provider,
+                    CloudProvider.status == "active",
+                    CloudProvider.is_managed.is_(True),
+                )
+            ).limit(1)
+        )
+        managed_provider = result.scalar_one_or_none()
+
+        if managed_provider:
+            base_cost = log_entry.cost or 0.0
+            marked_up = calculate_marked_up_cost(base_cost)
+            log_entry.is_managed = True
+            log_entry.marked_up_cost = marked_up
+
+            # Increment provider-level managed usage counters
+            total_tokens = (log_entry.input_tokens or 0) + (log_entry.output_tokens or 0)
+            managed_provider.managed_usage_tokens = (
+                (managed_provider.managed_usage_tokens or 0) + total_tokens
+            )
+            managed_provider.managed_usage_cost = (
+                float(managed_provider.managed_usage_cost or 0) + marked_up
+            )
+    except Exception as e:
+        logger.warning(f"Failed to track managed inference for org {org_id}: {e}")
+
+
 # ─── Completions ───
 
 async def chat_completion(
@@ -709,6 +757,9 @@ async def chat_completion(
 
         db.add(log_entry)
         await db.flush()
+
+        # Track managed inference (markup + provider counters)
+        await _track_managed_inference(db, log_entry, org_id)
 
         # Add RAG metadata to response
         response_dict = response.model_dump()

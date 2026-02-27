@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import String, DateTime, Integer
+from sqlalchemy import String, DateTime, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -24,6 +25,11 @@ class Organization(Base):
     # Bonobot add-on
     bonobot_plan: Mapped[str] = mapped_column(String(50), nullable=False, default="none", server_default="none")
     bonobot_agent_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+    # Agent usage tracking (for future billing)
+    active_bonbon_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    active_bonobot_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    bonbon_monthly_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0, server_default="0")
 
     cloud_providers = relationship("CloudProvider", back_populates="organization")
     deployments = relationship("Deployment", back_populates="organization")
