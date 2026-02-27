@@ -397,5 +397,60 @@ class ProjectGraphResponse(BaseModel):
     edges: List[GraphEdge]
 
 
+# ─── MCP Server Schemas ───
+
+class MCPServerCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    transport_type: str = Field(..., pattern=r"^(stdio|http)$")
+    endpoint_config: Dict[str, Any] = Field(default_factory=dict)
+    auth_config: Optional[Dict[str, Any]] = Field(default_factory=lambda: {"type": "none"})
+    enabled: bool = True
+    template_id: Optional[str] = None  # If using a pre-built template
+
+
+class MCPServerUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    transport_type: Optional[str] = Field(None, pattern=r"^(stdio|http)$")
+    endpoint_config: Optional[Dict[str, Any]] = None
+    auth_config: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = None
+
+
+class MCPServerResponse(BaseModel):
+    id: UUID
+    agent_id: UUID
+    org_id: UUID
+    name: str
+    transport_type: str
+    endpoint_config: Dict[str, Any]
+    auth_config: Dict[str, Any]  # Redacted in serialization
+    enabled: bool
+    discovered_tools: Optional[List[Dict[str, Any]]] = None
+    last_connected_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MCPServerTestResponse(BaseModel):
+    status: str  # "connected", "error"
+    tools_discovered: int = 0
+    tools: Optional[List[Dict[str, Any]]] = None
+    latency_ms: int = 0
+    error: Optional[str] = None
+
+
+class MCPTemplateResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    transport_type: str
+    endpoint_config: Dict[str, Any]
+    auth_config: Dict[str, Any]
+    category: str
+
+
 # Forward reference resolution
 AgentDetailResponse.model_rebuild()

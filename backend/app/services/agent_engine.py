@@ -44,12 +44,14 @@ from app.models.agent import Agent
 from app.models.agent_session import AgentSession
 from app.models.agent_message import AgentMessage
 from app.models.agent_connection import AgentConnection
+from app.models.agent_mcp_server import AgentMCPServer
 from app.models.knowledge_base import KnowledgeBase, KBChunk
 from app.models.audit import AuditLog
 from app.schemas.bonobot import AgentRunResult, SecurityMetadata
 from app.services.gateway import chat_completion as gateway_chat_completion
 from app.services.kb_content import search_knowledge_base
 from app.services.audit_service import log_audit_event
+from app.services.mcp_client import MCPClientManager, make_namespaced_tool_name
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,9 @@ class AgentEngine:
         
         # Track recursion depth for nested agent invocations
         self._depth = _depth
+        
+        # MCP client manager for this engine instance
+        self._mcp_manager: Optional[MCPClientManager] = None
         
         # Security patterns for input sanitization
         self.prompt_injection_patterns = [
@@ -130,22 +135,25 @@ class AgentEngine:
             # SECURITY STEP 5: Session message limit enforcement
             await self._enforce_session_limits(agent, session, db)
             
-            # 2. Persist user message
+            # 2. Connect to MCP servers (if any configured)
+            await self._connect_mcp_servers(agent, db)
+            
+            # 3. Persist user message
             await self._persist_message(session, role="user", content=sanitized_message, db=db)
             
-            # 3. Assemble context + tools (including dynamic invoke_agent)
+            # 4. Assemble context + tools (including dynamic invoke_agent + MCP tools)
             messages, tools = await self._assemble_context(agent, session, sanitized_message, db)
             
-            # 4. Agent loop (with tool execution and security)
+            # 5. Agent loop (with tool execution and security)
             result = await self._run_agent_loop(agent, session, messages, tools, db, redis, audit_id)
             
             # Update security metadata with input sanitization flag
             result.security.input_sanitized = input_sanitized
             
-            # 5. Update metrics
+            # 6. Update metrics
             await self._update_metrics(agent, session, result, db)
             
-            # 6. Log successful execution
+            # 7. Log successful execution
             await self._log_execution_success(audit_id, result, db)
             
             return result
@@ -154,6 +162,9 @@ class AgentEngine:
             # Log execution failure
             await self._log_execution_failure(audit_id, str(e), db)
             raise
+        finally:
+            # Always disconnect MCP servers when done
+            await self._disconnect_mcp_servers()
 
     async def _resolve_session(
         self,
@@ -268,6 +279,51 @@ class AgentEngine:
             })
         return connected
 
+    async def _connect_mcp_servers(self, agent: Agent, db: AsyncSession) -> None:
+        """Connect to MCP servers configured for this agent."""
+        stmt = select(AgentMCPServer).where(
+            and_(
+                AgentMCPServer.agent_id == agent.id,
+                AgentMCPServer.org_id == agent.org_id,
+                AgentMCPServer.enabled == True,
+            )
+        )
+        result = await db.execute(stmt)
+        mcp_servers = result.scalars().all()
+
+        if not mcp_servers:
+            return
+
+        self._mcp_manager = MCPClientManager()
+        server_configs = [
+            {
+                "id": str(s.id),
+                "name": s.name,
+                "transport_type": s.transport_type,
+                "endpoint_config": s.endpoint_config,
+                "auth_config": s.auth_config,
+            }
+            for s in mcp_servers
+        ]
+
+        mcp_tools = await self._mcp_manager.connect_servers(server_configs)
+
+        # Update discovered_tools cache in DB
+        for s in mcp_servers:
+            server_id = str(s.id)
+            client = self._mcp_manager._clients.get(server_id)
+            if client and client.connected:
+                s.discovered_tools = [t.to_dict() for t in client.tools]
+                s.last_connected_at = datetime.now(timezone.utc)
+
+        await db.flush()
+
+    async def _disconnect_mcp_servers(self) -> None:
+        """Disconnect all MCP clients."""
+        if self._mcp_manager:
+            await self._mcp_manager.disconnect_all()
+            self._mcp_manager = None
+
     async def _assemble_context(
         self,
         agent: Agent,
@@ -283,8 +339,20 @@ class AgentEngine:
         # Load connected agents for invoke_agent tool
         connected_agents = await self._get_connected_agents(agent, db)
         
-        # Build tools (with connection-aware invoke_agent)
+        # Build tools (with connection-aware invoke_agent + MCP tools)
         tools = self._get_tool_definitions(agent, connected_agents)
+        
+        # Merge MCP tools into the tool list
+        if self._mcp_manager:
+            for namespaced_name, (server_id, original_name) in self._mcp_manager._tool_map.items():
+                # Check if the MCP tool is allowed by tool policy
+                if self._is_tool_allowed(agent, namespaced_name):
+                    client = self._mcp_manager._clients.get(server_id)
+                    if client:
+                        for tool_def in client.tools:
+                            if tool_def.name == original_name:
+                                tools.append(tool_def.to_openai_tool(namespaced_name))
+                                break
         
         # Build system prompt with tool info
         system_prompt = self._build_system_prompt(agent, tools, connected_agents)
@@ -652,7 +720,16 @@ class AgentEngine:
         if not self._is_tool_allowed(agent, tool_name):
             return {"error": f"Tool '{tool_name}' is not allowed for this agent"}
         
-        # Route to tool handler
+        # Check if this is an MCP tool call
+        if self._mcp_manager and self._mcp_manager.is_mcp_tool(tool_name):
+            try:
+                args = json.loads(tool_call.get("function", {}).get("arguments", "{}"))
+                return await self._mcp_manager.call_tool(tool_name, args)
+            except Exception as e:
+                logger.error(f"MCP tool execution failed for {tool_name}: {e}")
+                return {"error": f"MCP tool execution failed: {str(e)}"}
+
+        # Route to built-in tool handler
         handlers = {
             "search_knowledge_base": self._tool_search_kb,
             "http_request": self._tool_http_request,
@@ -681,11 +758,16 @@ class AgentEngine:
         policy = agent.tool_policy or {}
         mode = policy.get("mode", "none")
         
+        is_mcp_tool = tool_name.startswith("mcp_")
+        
         built_in_tools = {
             "search_knowledge_base", "http_request", "invoke_agent",
             "delegate_task", "check_task", "collect_results",
             "send_notification", "get_current_time", "list_models",
         }
+        
+        # Known tools = built-in + any registered MCP tools
+        known_tool = tool_name in built_in_tools or is_mcp_tool
         
         if mode == "none":
             return False  # DEFAULT DENY - no tools allowed
@@ -695,9 +777,9 @@ class AgentEngine:
             return tool_name in allowed
         elif mode in ("denylist", "blocked"):
             denied = policy.get("denied", []) or policy.get("denied_tools", [])
-            return tool_name in built_in_tools and tool_name not in denied
+            return known_tool and tool_name not in denied
         elif mode == "all":
-            return tool_name in built_in_tools
+            return known_tool
         else:  # fallback to none mode for security
             return False
 
