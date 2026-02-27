@@ -61,7 +61,7 @@ class TierLimits:
     TIER_CONFIG = {
         SubscriptionTier.FREE: {
             "providers": 1,
-            "gateway_calls_per_month": 100,
+            "gateway_calls_per_month": 1000,
             "members": 1,
             "features": {
                 "models": True,

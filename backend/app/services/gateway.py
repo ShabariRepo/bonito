@@ -626,6 +626,58 @@ async def enforce_policies(
     # 3. Daily spend cap
     await check_spend_cap(db, key.org_id)
 
+    # 4. Monthly gateway call quota
+    await check_monthly_quota(db, key.org_id)
+
+
+async def check_monthly_quota(db: AsyncSession, org_id: uuid.UUID) -> None:
+    """Check if org has exceeded monthly gateway call quota for their tier.
+
+    Emits a notification at 80% usage and blocks at 100%.
+    """
+    from app.services.feature_gate import feature_gate
+
+    try:
+        usage_info = await feature_gate.check_usage_limit(
+            db, str(org_id), "gateway_calls_per_month"
+        )
+
+        # Unlimited plans skip the check
+        if usage_info["limit"] == float("inf"):
+            return
+
+        limit = int(usage_info["limit"])
+        current = usage_info["current"]
+
+        # At limit - block the request
+        if usage_info["at_limit"]:
+            raise PolicyViolation(
+                f"Monthly gateway call limit reached ({limit:,} calls). "
+                f"Upgrade your plan at getbonito.com/pricing for higher limits."
+            )
+
+        # At 80% - emit a warning notification (once per month)
+        if current >= int(limit * 0.8):
+            warning_key = f"quota_warning:{org_id}:{usage_info.get('month', 'current')}"
+            try:
+                from app.core.redis import get_redis
+                redis = await get_redis()
+                already_warned = await redis.get(warning_key)
+                if not already_warned:
+                    await redis.setex(warning_key, 86400 * 31, "1")
+                    logger.warning(
+                        f"Org {org_id} at {current}/{limit} gateway calls "
+                        f"({int(current/limit*100)}%% of monthly quota)"
+                    )
+            except Exception:
+                pass  # Redis unavailable, skip warning dedup
+
+    except PolicyViolation:
+        raise
+    except Exception as e:
+        # Don't block requests if the quota check itself fails
+        logger.warning(f"Quota check failed for org {org_id}: {e}")
+
 
 # ─── Managed inference tracking ───
 
