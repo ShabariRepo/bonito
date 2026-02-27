@@ -126,3 +126,11 @@ export function DialogDescription({ children, className }: { children: ReactNode
     </p>
   );
 }
+
+export function DialogFooter({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6", className)}>
+      {children}
+    </div>
+  );
+}
