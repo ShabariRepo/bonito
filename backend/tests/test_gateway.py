@@ -7,7 +7,57 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 from httpx import AsyncClient
 
-from app.services.gateway import generate_api_key, hash_api_key, PolicyViolation
+from app.services.gateway import generate_api_key, hash_api_key, PolicyViolation, _generate_model_aliases
+
+
+class TestModelAliases:
+    """Tests for model alias generation."""
+
+    def test_gcp_version_suffix(self):
+        aliases = _generate_model_aliases("gemini-2.0-flash-001")
+        assert "gemini-2.0-flash" in aliases
+
+    def test_gcp_lite_version_suffix(self):
+        aliases = _generate_model_aliases("gemini-2.0-flash-lite-001")
+        assert "gemini-2.0-flash-lite" in aliases
+
+    def test_azure_date_suffix(self):
+        aliases = _generate_model_aliases("gpt-4o-mini-2024-07-18")
+        assert "gpt-4o-mini" in aliases
+
+    def test_gcp_preview_suffix(self):
+        aliases = _generate_model_aliases("gemini-2.5-flash-preview-04-17")
+        assert "gemini-2.5-flash" in aliases
+
+    def test_no_alias_for_stable_names(self):
+        # These are already short/stable - no aliases needed
+        assert _generate_model_aliases("gemini-2.5-flash") == []
+        assert _generate_model_aliases("gemini-2.5-pro") == []
+
+    def test_aws_models_stable(self):
+        # AWS model IDs don't match any suffix patterns
+        assert _generate_model_aliases("amazon.nova-lite-v1:0") == []
+        assert _generate_model_aliases("amazon.nova-pro-v1:0") == []
+        assert _generate_model_aliases("anthropic.claude-sonnet-4-20250514-v1:0") == []
+
+    def test_no_self_alias(self):
+        # Canonical name should never appear in its own alias list
+        for model in [
+            "gemini-2.0-flash-001",
+            "gpt-4o-mini-2024-07-18",
+            "amazon.nova-lite-v1:0",
+        ]:
+            aliases = _generate_model_aliases(model)
+            assert model not in aliases
+
+    def test_openai_date_models(self):
+        aliases = _generate_model_aliases("gpt-4o-2024-11-20")
+        assert "gpt-4o" in aliases
+
+    def test_multiple_aliases(self):
+        # A model with both preview and date patterns should generate multiple aliases
+        aliases = _generate_model_aliases("gemini-2.5-flash-preview-04-17")
+        assert "gemini-2.5-flash" in aliases  # stripped preview entirely
 
 
 class TestGatewayKeyManagement:

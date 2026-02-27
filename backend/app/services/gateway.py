@@ -81,6 +81,53 @@ async def _get_azure_ad_token(
         return token
 
 
+# ─── Model alias resolution ───
+
+import re
+
+
+def _generate_model_aliases(model_id: str) -> list[str]:
+    """Generate common aliases for a model ID.
+
+    Users often request shorthand model names (e.g. ``gemini-2.0-flash``)
+    while the DB stores the versioned canonical name
+    (``gemini-2.0-flash-001``).  This function produces the shorthand
+    variants so both resolve to the same deployment.
+
+    Patterns handled:
+    - GCP version suffixes: ``gemini-2.0-flash-001`` -> ``gemini-2.0-flash``
+    - OpenAI/Azure date suffixes: ``gpt-4o-mini-2024-07-18`` -> ``gpt-4o-mini``
+    - GCP preview suffixes: ``gemini-2.5-flash-preview-04-17`` -> ``gemini-2.5-flash``
+    - AWS version tags: ``amazon.nova-lite-v1:0`` is already stable (no aliases needed)
+    """
+    aliases: set[str] = set()
+
+    # Strip GCP version suffix (-001, -002, etc.)
+    stripped = re.sub(r"-\d{3}$", "", model_id)
+    if stripped != model_id:
+        aliases.add(stripped)
+
+    # Strip OpenAI/Azure date suffix (-2024-07-18, etc.)
+    stripped = re.sub(r"-\d{4}-\d{2}-\d{2}$", "", model_id)
+    if stripped != model_id:
+        aliases.add(stripped)
+
+    # Strip GCP preview+date suffix (-preview-04-17, etc.)
+    stripped = re.sub(r"-preview-\d{2}-\d{2}$", "", model_id)
+    if stripped != model_id:
+        aliases.add(stripped)
+
+    # Strip preview tag entirely (gemini-2.5-flash-preview-04-17 -> gemini-2.5-flash)
+    stripped = re.sub(r"-preview.*$", "", model_id)
+    if stripped != model_id:
+        aliases.add(stripped)
+
+    # Don't include the canonical name itself
+    aliases.discard(model_id)
+
+    return list(aliases)
+
+
 PROVIDER_MODEL_PREFIXES = {
     "aws": "bedrock/",
     "azure": "azure/",
@@ -275,6 +322,25 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                 })
             
             if model_list:
+                # Register aliases so shorthand names resolve to the same
+                # deployment (e.g. "gemini-2.0-flash" -> "gemini-2.0-flash-001").
+                canonical_names = {m["model_name"] for m in model_list}
+                alias_entries: list[dict] = []
+                for entry in model_list:
+                    for alias in _generate_model_aliases(entry["model_name"]):
+                        if alias not in canonical_names:
+                            alias_entries.append({
+                                "model_name": alias,
+                                "litellm_params": entry["litellm_params"].copy(),
+                            })
+                            canonical_names.add(alias)  # prevent duplicate aliases
+                model_list.extend(alias_entries)
+
+                if alias_entries:
+                    logger.info(
+                        f"Registered {len(alias_entries)} model aliases "
+                        f"(e.g. {alias_entries[0]['model_name']})"
+                    )
                 logger.info(f"Built dynamic model list: {len(model_list)} models for org {org_id}")
                 return model_list
         except Exception as e:
@@ -375,7 +441,11 @@ async def get_available_models(
     db: AsyncSession,
     org_id: uuid.UUID,
 ) -> list[dict]:
-    """Return list of available models from the org's configured providers."""
+    """Return list of available models from the org's configured providers.
+
+    Includes both canonical model IDs and their shorthand aliases so
+    users can see all valid names they can pass in API requests.
+    """
     creds = await _get_provider_credentials(db, org_id)
     model_list = await _build_model_list(creds, db=db, org_id=org_id)
     seen: set[str] = set()
@@ -388,10 +458,14 @@ async def get_available_models(
             lp = m["litellm_params"]["model"]
             if lp.startswith("bedrock/"):
                 provider = "aws"
-            elif lp.startswith("azure/"):
+            elif lp.startswith("azure/") or lp.startswith("azure_ai/"):
                 provider = "azure"
             elif lp.startswith("vertex_ai/"):
                 provider = "gcp"
+            elif lp.startswith("openai/"):
+                provider = "openai"
+            elif lp.startswith("anthropic/"):
+                provider = "anthropic"
             models.append({"id": name, "object": "model", "created": 0, "owned_by": provider})
     return models
 
