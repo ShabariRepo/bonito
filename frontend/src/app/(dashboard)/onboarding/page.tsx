@@ -221,6 +221,10 @@ export default function OnboardingPage() {
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [expandedPolicy, setExpandedPolicy] = useState<string | null>(null);
 
+  // Managed inference state
+  const [managedAvailability, setManagedAvailability] = useState<Record<string, { supported: boolean; available: boolean; pricing?: Record<string, number> }>>({});
+  const [managedMode, setManagedMode] = useState<Record<string, boolean>>({});
+
   // AI Context state
   const [kbEnabled, setKbEnabled] = useState(false);
   const [kbProvider, setKbProvider] = useState<Provider | null>(null);
@@ -234,6 +238,18 @@ export default function OnboardingPage() {
   const [copied, setCopied] = useState(false);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+
+  // Fetch managed availability on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiRequest("/api/providers/managed-availability");
+        if (res.ok) {
+          setManagedAvailability(await res.json());
+        }
+      } catch {}
+    })();
+  }, []);
 
   const toggleProvider = (p: Provider) => {
     const next = providers.includes(p) ? providers.filter((x) => x !== p) : [...providers, p];
@@ -262,7 +278,8 @@ export default function OnboardingPage() {
   };
 
   const handleValidate = async (provider: Provider) => {
-    const creds = credInputs[provider];
+    const isManaged = managedMode[provider] === true;
+    const creds = isManaged ? { managed: true } : credInputs[provider];
     if (!creds) return;
     setValidating(true);
 
@@ -273,6 +290,37 @@ export default function OnboardingPage() {
     }));
 
     try {
+      // Managed mode: skip validation, connect directly
+      if (isManaged) {
+        const connectRes = await apiRequest(`/api/providers/connect`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider_type: provider, credentials: { managed: true } }),
+        });
+        if (!connectRes.ok) {
+          const errData = await connectRes.json().catch(() => null);
+          throw new Error(errData?.detail || "Connection failed");
+        }
+        // Mark all permission checks as passed
+        const permDefs = REQUIRED_PERMISSIONS[provider];
+        for (let i = 0; i < permDefs.length; i++) {
+          await new Promise((r) => setTimeout(r, 300));
+          setPermChecks((prev) => {
+            const checks = [...(prev[provider] || [])];
+            checks[i] = { name: permDefs[i].name, description: permDefs[i].description, status: "pass", message: "Bonito Managed ⚡" };
+            return { ...prev, [provider]: checks };
+          });
+        }
+        setValidated((prev) => ({ ...prev, [provider]: true }));
+        const allValidated = providers.every((p) => p === provider ? true : validated[p]);
+        if (allValidated) {
+          await new Promise((r) => setTimeout(r, 600));
+          setShowConfetti(true);
+        }
+        setValidating(false);
+        return;
+      }
+
       const res = await apiRequest(`/api/onboarding/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -327,19 +375,21 @@ export default function OnboardingPage() {
 
         // Also persist credentials
         try {
-          let backendCreds: Record<string, string> = { ...creds };
-          if (provider === "aws" && !backendCreds.region) backendCreds.region = "us-east-1";
-          if (provider === "gcp") {
-            if (backendCreds.key_file && !backendCreds.service_account_json) {
-              backendCreds.service_account_json = backendCreds.key_file;
-              delete backendCreds.key_file;
+          let backendCreds: Record<string, any> = isManaged ? { managed: true } : { ...creds };
+          if (!isManaged) {
+            if (provider === "aws" && !backendCreds.region) backendCreds.region = "us-east-1";
+            if (provider === "gcp") {
+              if (backendCreds.key_file && !backendCreds.service_account_json) {
+                backendCreds.service_account_json = backendCreds.key_file;
+                delete backendCreds.key_file;
+              }
+              delete backendCreds.service_account_email;
             }
-            delete backendCreds.service_account_email;
-          }
-          if (provider === "azure") {
-            if (backendCreds.resource_group_name && !backendCreds.resource_group) {
-              backendCreds.resource_group = backendCreds.resource_group_name;
-              delete backendCreds.resource_group_name;
+            if (provider === "azure") {
+              if (backendCreds.resource_group_name && !backendCreds.resource_group) {
+                backendCreds.resource_group = backendCreds.resource_group_name;
+                delete backendCreds.resource_group_name;
+              }
             }
           }
           await apiRequest(`/api/providers/connect`, {
@@ -615,6 +665,76 @@ export default function OnboardingPage() {
                 <div className="grid gap-6 md:grid-cols-2">
                   {/* Left: Credential form */}
                   <div className="space-y-4">
+                    {/* Managed vs BYOK toggle — only for supported providers */}
+                    {managedAvailability[activeProvider]?.available && (
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-muted-foreground">How do you want to connect?</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setManagedMode((prev) => ({ ...prev, [activeProvider!]: false }))}
+                            className={cn(
+                              "relative rounded-xl border-2 p-4 text-left transition-all",
+                              !managedMode[activeProvider]
+                                ? "border-violet-500 bg-violet-500/10"
+                                : "border-border hover:border-violet-500/50"
+                            )}
+                          >
+                            <Key className="h-5 w-5 text-muted-foreground mb-2" />
+                            <p className="text-sm font-semibold">I have my own API key</p>
+                            <p className="text-xs text-muted-foreground mt-1">Use your own credentials</p>
+                          </button>
+                          <button
+                            onClick={() => setManagedMode((prev) => ({ ...prev, [activeProvider!]: true }))}
+                            className={cn(
+                              "relative rounded-xl border-2 p-4 text-left transition-all",
+                              managedMode[activeProvider]
+                                ? "border-fuchsia-500 bg-gradient-to-br from-fuchsia-500/10 to-violet-500/10"
+                                : "border-border hover:border-fuchsia-500/50"
+                            )}
+                          >
+                            <Zap className="h-5 w-5 text-fuchsia-400 mb-2" />
+                            <p className="text-sm font-semibold">Bonito Managed ⚡</p>
+                            <p className="text-xs text-muted-foreground mt-1">No setup needed. We handle everything.</p>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Managed mode summary */}
+                    {managedMode[activeProvider] ? (
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/5 to-violet-500/5 p-5 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-fuchsia-400" />
+                            <h3 className="font-semibold text-fuchsia-300">Zero Setup Required</h3>
+                          </div>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            We&apos;ll handle the API keys and infrastructure. You&apos;ll be billed for usage at our managed rates with a small service fee.
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Instant access</span>
+                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> Usage-based billing</span>
+                            <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> No key management</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleValidate(activeProvider)}
+                          disabled={validating || validated[activeProvider]}
+                          className="w-full py-2.5 rounded-lg bg-gradient-to-r from-fuchsia-600 to-violet-600 hover:from-fuchsia-500 hover:to-violet-500 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {validating ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Connecting...</>
+                          ) : validated[activeProvider] ? (
+                            <><CheckCircle2 className="h-4 w-4" /> Connected</>
+                          ) : (
+                            <><Zap className="h-4 w-4" /> Connect with Bonito Managed</>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                    /* BYOK credential fields */
+                    <>
                     <h3 className="font-semibold flex items-center gap-2">
                       <Key className="h-4 w-4 text-violet-400" />
                       {activeProvider.toUpperCase()} Credentials
@@ -695,6 +815,8 @@ export default function OnboardingPage() {
                         <><Shield className="h-4 w-4" /> Validate & Connect</>
                       )}
                     </button>
+                    </>
+                    )}
                   </div>
 
                   {/* Right: Permission checklist */}

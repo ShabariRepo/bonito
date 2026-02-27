@@ -44,6 +44,13 @@ from app.services.provider_service import (
     store_credentials_in_vault,
 )
 
+from app.services.managed_inference import (
+    is_managed_provider,
+    is_managed_available,
+    get_managed_pricing,
+    MANAGED_PROVIDERS,
+)
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/providers", tags=["providers"])
 
@@ -65,7 +72,21 @@ def _to_response(p: CloudProvider, model_count: int = None) -> dict:
         "region": region,
         "model_count": model_count if model_count is not None else 0,
         "created_at": p.created_at,
+        "is_managed": getattr(p, "is_managed", False),
     }
+
+
+@router.get("/managed-availability")
+async def managed_availability(user: User = Depends(get_current_user)):
+    """Returns which providers support managed mode and whether master keys are configured."""
+    result = {}
+    for pt in MANAGED_PROVIDERS:
+        result[pt] = {
+            "supported": True,
+            "available": is_managed_available(pt),
+            "pricing": get_managed_pricing(pt),
+        }
+    return result
 
 
 @router.get("", response_model=List[ProviderResponse])
@@ -241,12 +262,54 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
     from app.services.feature_gate import feature_gate
     await feature_gate.require_usage_limit(db, str(user.org_id), "providers")
 
+    is_managed_mode = data.credentials.get("managed") is True
+
     # Validate credential format
     valid, error = validate_credentials(data.provider_type, data.credentials)
     if not valid:
         raise HTTPException(status_code=422, detail=error)
 
     provider_id = uuid.uuid4()
+
+    # Managed mode — skip cloud provider validation entirely
+    if is_managed_mode:
+        # Store managed flag credentials
+        managed_creds = {"managed": True, "provider_type": data.provider_type}
+        import os
+        from app.core.encryption import encrypt_credentials
+
+        encrypted_creds = f"vault:providers/{provider_id}"
+        try:
+            secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+            if secret_key:
+                encrypted_creds = encrypt_credentials(managed_creds, secret_key)
+        except Exception as e:
+            logger.warning(f"Credential encryption failed: {e}")
+
+        try:
+            await store_credentials_in_vault(str(provider_id), managed_creds)
+        except Exception as e:
+            logger.warning(f"Vault storage failed (DB fallback will be used): {e}")
+
+        provider = CloudProvider(
+            id=provider_id,
+            org_id=user.org_id,
+            provider_type=data.provider_type,
+            credentials_encrypted=encrypted_creds,
+            status="active",
+            is_managed=True,
+        )
+        db.add(provider)
+        await db.flush()
+        await db.refresh(provider)
+
+        # Sync discovered models using the managed (master) key
+        from app.api.routes.models import sync_provider_models
+        sync_result = await sync_provider_models(provider, db)
+        model_count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
+        logger.info(f"Synced {model_count} models for managed {data.provider_type} provider {provider_id}")
+
+        return _to_response(provider, model_count)
 
     # Validate credentials against real cloud provider before saving
     if data.provider_type == "aws":

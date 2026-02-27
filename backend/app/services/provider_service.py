@@ -115,6 +115,13 @@ def get_provider_display_name(provider_type: str, credentials: dict = None) -> s
 
 def validate_credentials(provider_type: str, credentials: dict) -> Tuple[bool, str]:
     """Validate credential format (quick local check)."""
+    # Managed mode — skip API key validation for supported providers
+    if credentials.get("managed") is True:
+        from app.services.managed_inference import is_managed_available
+        if is_managed_available(provider_type):
+            return True, ""
+        return False, f"Managed mode is not available for {provider_type}"
+
     if provider_type == "aws":
         required = ["access_key_id", "secret_access_key", "region"]
         for field in required:
@@ -270,8 +277,14 @@ async def get_gcp_provider(provider_id: str) -> GCPVertexProvider:
 
 
 async def get_openai_provider(provider_id: str) -> OpenAIDirectProvider:
-    """Create an OpenAIDirectProvider with Vault→DB fallback."""
+    """Create an OpenAIDirectProvider with Vault→DB fallback. Uses master key if managed."""
     secrets = await _get_provider_secrets(provider_id)
+    if secrets.get("managed"):
+        from app.services.managed_inference import get_master_key
+        master_key = get_master_key("openai")
+        if not master_key:
+            raise RuntimeError("Managed OpenAI key not configured on server")
+        return OpenAIDirectProvider(api_key=master_key)
     return OpenAIDirectProvider(
         api_key=secrets["api_key"],
         organization_id=secrets.get("organization_id"),
@@ -279,16 +292,28 @@ async def get_openai_provider(provider_id: str) -> OpenAIDirectProvider:
 
 
 async def get_anthropic_provider(provider_id: str) -> AnthropicDirectProvider:
-    """Create an AnthropicDirectProvider with Vault→DB fallback."""
+    """Create an AnthropicDirectProvider with Vault→DB fallback. Uses master key if managed."""
     secrets = await _get_provider_secrets(provider_id)
+    if secrets.get("managed"):
+        from app.services.managed_inference import get_master_key
+        master_key = get_master_key("anthropic")
+        if not master_key:
+            raise RuntimeError("Managed Anthropic key not configured on server")
+        return AnthropicDirectProvider(api_key=master_key)
     return AnthropicDirectProvider(
         api_key=secrets["api_key"],
     )
 
 
 async def get_groq_provider(provider_id: str) -> GroqProvider:
-    """Create a GroqProvider with Vault→DB fallback."""
+    """Create a GroqProvider with Vault→DB fallback. Uses master key if managed."""
     secrets = await _get_provider_secrets(provider_id)
+    if secrets.get("managed"):
+        from app.services.managed_inference import get_master_key
+        master_key = get_master_key("groq")
+        if not master_key:
+            raise RuntimeError("Managed Groq key not configured on server")
+        return GroqProvider(api_key=master_key)
     return GroqProvider(
         api_key=secrets["api_key"],
     )
@@ -298,6 +323,7 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
     """
     Store credentials in both Vault and encrypted DB column.
     
+    For managed mode, stores {"managed": true, "provider_type": "..."} instead of actual keys.
     Vault is primary (fast, cached). DB is durable fallback.
     Returns the vault path.
     """
@@ -306,9 +332,14 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
 
     vault_path = f"providers/{provider_id}"
 
+    # For managed mode, store a minimal managed flag (no real API key)
+    store_data = credentials
+    if credentials.get("managed") is True:
+        store_data = {"managed": True, "provider_type": credentials.get("provider_type", "")}
+
     # 1. Try Vault
     try:
-        await vault_client.put_secrets(vault_path, credentials)
+        await vault_client.put_secrets(vault_path, store_data)
     except Exception as e:
         logger.warning(f"Vault write failed for {provider_id}: {e}")
 
@@ -316,7 +347,7 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
     try:
         secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
         if secret_key and db_provider:
-            db_provider.credentials_encrypted = encrypt_credentials(credentials, secret_key)
+            db_provider.credentials_encrypted = encrypt_credentials(store_data, secret_key)
         elif secret_key:
             from app.core.database import get_db_session
             from app.models.cloud_provider import CloudProvider as CPModel
@@ -326,7 +357,7 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
                 result = await db.execute(select(CPModel).where(CPModel.id == uuid.UUID(provider_id)))
                 prov = result.scalar_one_or_none()
                 if prov:
-                    prov.credentials_encrypted = encrypt_credentials(credentials, secret_key)
+                    prov.credentials_encrypted = encrypt_credentials(store_data, secret_key)
                     await db.commit()
     except Exception as e:
         logger.warning(f"DB credential storage failed for {provider_id}: {e}")

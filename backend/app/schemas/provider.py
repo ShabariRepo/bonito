@@ -86,6 +86,14 @@ class ProviderConnect(BaseModel):
     @model_validator(mode="after")
     def validate_credentials(self):
         pt = self.provider_type.value
+
+        # Managed mode — skip credential validation for supported providers
+        if self.credentials.get("managed") is True:
+            from app.services.managed_inference import is_managed_available
+            if not is_managed_available(pt):
+                raise ValueError(f"Managed mode is not available for {pt}")
+            return self
+
         schema = _CREDENTIAL_SCHEMAS.get(pt)
         if not schema:
             raise ValueError(f"Unsupported provider type: {pt}")
@@ -181,6 +189,7 @@ class ProviderResponse(BaseModel):
     region: str = ""
     model_count: int = 0
     created_at: datetime
+    is_managed: bool = False
 
 
 class ProviderDetail(ProviderResponse):
