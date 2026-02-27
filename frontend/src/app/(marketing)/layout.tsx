@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -150,6 +151,14 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       >
         {children}
       </motion.main>
+
+      {/* BonBon Chat Widget */}
+      <Script
+        src="/widget.js"
+        data-agent-id="82c23927-a92d-4420-a0f7-f771e7a23361"
+        data-theme="dark"
+        strategy="lazyOnload"
+      />
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-[#1a1a1a] bg-[#0a0a0a]">
