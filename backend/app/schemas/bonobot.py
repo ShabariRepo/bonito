@@ -97,6 +97,12 @@ class AgentResponse(BaseModel):
     max_session_messages: int
     rate_limit_rpm: int
     budget_alert_threshold: Decimal
+    # BonBon fields
+    bonbon_template_id: Optional[str] = None
+    bonbon_config: Optional[Dict[str, Any]] = None
+    widget_enabled: bool = False
+    widget_config: Optional[Dict[str, Any]] = None
+
     status: str
     last_active_at: Optional[datetime]
     total_runs: int

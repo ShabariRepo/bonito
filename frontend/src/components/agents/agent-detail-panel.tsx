@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Settings, MessageSquare, Clock, BarChart3, Send, Plug } from "lucide-react";
+import { X, Settings, MessageSquare, Clock, BarChart3, Send, Plug, Globe, Copy, Check } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,15 @@ interface Agent {
   total_cost: number;
   last_active_at?: string;
   created_at: string;
+  bonbon_template_id?: string;
+  bonbon_config?: any;
+  widget_enabled?: boolean;
+  widget_config?: {
+    welcome_message?: string;
+    suggested_questions?: string[];
+    theme?: string;
+    accent_color?: string;
+  };
 }
 
 interface Session {
@@ -65,6 +74,7 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
   const [chatMessage, setChatMessage] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [widgetCopied, setWidgetCopied] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -247,7 +257,7 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
           </div>
         ) : (
           <Tabs defaultValue="chat" className="h-full">
-            <TabsList className="grid w-full grid-cols-5 bg-[#2a2a4e]">
+            <TabsList className={`grid w-full ${agent?.bonbon_template_id ? "grid-cols-6" : "grid-cols-5"} bg-[#2a2a4e]`}>
               <TabsTrigger value="chat" className="data-[state=active]:bg-[#3a3a6e]">
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Chat
@@ -260,6 +270,12 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
                 <Plug className="w-4 h-4 mr-2" />
                 MCP
               </TabsTrigger>
+              {agent?.bonbon_template_id && (
+                <TabsTrigger value="widget" className="data-[state=active]:bg-[#3a3a6e]">
+                  <Globe className="w-4 h-4 mr-2" />
+                  Widget
+                </TabsTrigger>
+              )}
               <TabsTrigger value="sessions" className="data-[state=active]:bg-[#3a3a6e]">
                 <Clock className="w-4 h-4 mr-2" />
                 Sessions
@@ -405,6 +421,128 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
             <TabsContent value="mcp" className="space-y-4">
               {agentId && <MCPServersPanel agentId={agentId} />}
             </TabsContent>
+
+            {agent?.bonbon_template_id && (
+              <TabsContent value="widget" className="space-y-4">
+                <Card className="bg-[#2a2a4e] border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-white">Embed Widget</CardTitle>
+                    <CardDescription className="text-gray-400">
+                      Add this chat widget to your website. Paste the code snippet before the closing {`</body>`} tag.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="relative">
+                      <pre className="bg-[#1a1a2e] border border-gray-700 rounded-lg p-4 text-sm text-gray-300 overflow-x-auto">
+{`<script
+  src="https://getbonito.com/widget.js"
+  data-agent-id="${agent?.id}"
+  data-theme="${agent?.widget_config?.theme || 'light'}"
+></script>`}
+                      </pre>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            `<script src="https://getbonito.com/widget.js" data-agent-id="${agent?.id}" data-theme="${agent?.widget_config?.theme || 'light'}"></script>`
+                          );
+                          setWidgetCopied(true);
+                          setTimeout(() => setWidgetCopied(false), 2000);
+                          toast({ title: "Copied!", description: "Widget code copied to clipboard" });
+                        }}
+                      >
+                        {widgetCopied ? (
+                          <Check className="h-4 w-4 text-green-400" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#2a2a4e] border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm">Widget Preview</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-[#1a1a2e] rounded-lg p-4 max-w-sm mx-auto">
+                      {/* Mini widget preview */}
+                      <div className="border border-gray-700 rounded-xl overflow-hidden">
+                        <div
+                          className="px-4 py-3 text-white text-sm font-medium"
+                          style={{ backgroundColor: agent?.widget_config?.accent_color || "#6366f1" }}
+                        >
+                          {agent?.name}
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-300">
+                            {agent?.widget_config?.welcome_message || "Hi! How can I help you?"}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(agent?.widget_config?.suggested_questions || []).slice(0, 3).map((q, i) => (
+                              <span
+                                key={i}
+                                className="text-xs px-2 py-1 rounded-full border border-gray-700 text-gray-400"
+                              >
+                                {q}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-[#2a2a4e] border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm">Widget Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Welcome Message</label>
+                      <p className="text-sm text-white mt-1">
+                        {agent?.widget_config?.welcome_message || "Hi! How can I help you?"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Theme</label>
+                      <p className="text-sm text-white mt-1 capitalize">
+                        {agent?.widget_config?.theme || "light"}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Accent Color</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div
+                          className="w-4 h-4 rounded-full border border-gray-600"
+                          style={{ backgroundColor: agent?.widget_config?.accent_color || "#6366f1" }}
+                        />
+                        <span className="text-sm text-white">
+                          {agent?.widget_config?.accent_color || "#6366f1"}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-400">Status</label>
+                      <Badge
+                        variant="outline"
+                        className={
+                          agent?.widget_enabled
+                            ? "bg-green-500/10 text-green-400 border-green-500/30 mt-1"
+                            : "bg-gray-500/10 text-gray-400 border-gray-500/30 mt-1"
+                        }
+                      >
+                        {agent?.widget_enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             <TabsContent value="sessions" className="space-y-4">
               <Card className="bg-[#2a2a4e] border-gray-700">

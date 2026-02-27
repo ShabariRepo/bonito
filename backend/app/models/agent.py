@@ -39,6 +39,12 @@ class Agent(Base):
     rate_limit_rpm: Mapped[int] = mapped_column(Integer, nullable=False, default=30)  # requests per minute
     budget_alert_threshold: Mapped[Decimal] = mapped_column(Numeric(precision=3, scale=2), nullable=False, default=Decimal("0.8"))  # alert when 80% budget consumed
     
+    # BonBon fields
+    bonbon_template_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # which template was used, null for DIY
+    bonbon_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # tone, company_name, industry
+    widget_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    widget_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # welcome_message, suggested_questions, theme
+
     # Status
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")  # active, paused, disabled
     last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
