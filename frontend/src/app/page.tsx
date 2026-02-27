@@ -326,6 +326,14 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* BonBon Chat Widget */}
+      <Script
+        src="/widget.js"
+        data-agent-id="82c23927-a92d-4420-a0f7-f771e7a23361"
+        data-theme="dark"
+        strategy="lazyOnload"
+      />
     </div>
   );
 }
