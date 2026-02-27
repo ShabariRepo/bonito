@@ -69,6 +69,28 @@ const plans = [
     cta: "Contact Sales",
     highlighted: false,
   },
+  {
+    name: "Scale",
+    price: "Custom",
+    period: "",
+    description: "For large-scale deployments with dedicated infrastructure and premium SLAs.",
+    features: [
+      "Everything in Enterprise",
+      "Dedicated infrastructure & compute",
+      "Custom model fine-tuning pipelines",
+      "Multi-region deployment",
+      "99.99% SLA guarantee",
+      "24/7 premium support with war room access",
+      "Custom compliance & audit frameworks",
+      "Volume-based pricing on all services",
+      "Executive sponsor & strategic reviews",
+      "Early access to new features & APIs",
+      "Custom data retention policies",
+      "Dedicated account team",
+    ],
+    cta: "Contact Sales",
+    highlighted: false,
+  },
 ];
 
 const agentPlans = [
@@ -110,56 +132,60 @@ const agentPlans = [
 
 const comparisonFeatures = [
   // ── Core Platform
-  { category: "Core Platform", name: "Cloud Providers", free: "1", pro: "3", enterprise: "Unlimited" },
-  { category: "Core Platform", name: "Gateway API Calls / month", free: "100", pro: "50,000", enterprise: "Unlimited" },
-  { category: "Core Platform", name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited" },
-  { category: "Core Platform", name: "Model Catalog & Playground", free: true, pro: true, enterprise: true },
-  { category: "Core Platform", name: "One-Click Model Activation", free: true, pro: true, enterprise: true },
+  { category: "Core Platform", name: "Cloud Providers", free: "1", pro: "3", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Gateway API Calls / month", free: "100", pro: "50,000", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Model Catalog & Playground", free: true, pro: true, enterprise: true, scale: true },
+  { category: "Core Platform", name: "One-Click Model Activation", free: true, pro: true, enterprise: true, scale: true },
   // ── AI Gateway
-  { category: "AI Gateway", name: "Unified API Endpoint (OpenAI-compatible)", free: true, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "Routing Policies (cost, latency, failover)", free: false, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "Deployment Provisioning", free: false, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "A/B Testing & Weighted Routing", free: false, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "Per-Key Model Restrictions", free: false, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "Rate Limiting (per key & org)", free: false, pro: true, enterprise: true },
-  { category: "AI Gateway", name: "Advanced Load Balancing", free: false, pro: false, enterprise: true },
+  { category: "AI Gateway", name: "Unified API Endpoint (OpenAI-compatible)", free: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Routing Policies (cost, latency, failover)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Deployment Provisioning", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "A/B Testing & Weighted Routing", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Per-Key Model Restrictions", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Rate Limiting (per key & org)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Advanced Load Balancing", free: false, pro: false, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Multi-Region Routing", free: false, pro: false, enterprise: false, scale: true },
   // ── AI Context (RAG)
-  { category: "AI Context (RAG)", name: "Knowledge Base Upload & Indexing", free: false, pro: true, enterprise: true },
-  { category: "AI Context (RAG)", name: "Vector Search (pgvector)", free: false, pro: true, enterprise: true },
-  { category: "AI Context (RAG)", name: "Context Injection at Query Time", free: false, pro: true, enterprise: true },
-  { category: "AI Context (RAG)", name: "Knowledge Bases per Org", free: false, pro: "5", enterprise: "Unlimited" },
-  { category: "AI Context (RAG)", name: "Team-Isolated Knowledge Bases", free: false, pro: false, enterprise: true },
+  { category: "AI Context (RAG)", name: "Knowledge Base Upload & Indexing", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Vector Search (pgvector)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Context Injection at Query Time", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Knowledge Bases per Org", free: false, pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "AI Context (RAG)", name: "Team-Isolated Knowledge Bases", free: false, pro: false, enterprise: true, scale: true },
   // ── Analytics & Cost
-  { category: "Analytics & Cost", name: "Cost Analytics & Breakdown", free: false, pro: true, enterprise: true },
-  { category: "Analytics & Cost", name: "Budget Alerts & Spend Caps", free: false, pro: true, enterprise: true },
-  { category: "Analytics & Cost", name: "Usage Trends & Forecasting", free: false, pro: true, enterprise: true },
-  { category: "Analytics & Cost", name: "Per-Team Cost Attribution", free: false, pro: false, enterprise: true },
+  { category: "Analytics & Cost", name: "Cost Analytics & Breakdown", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Budget Alerts & Spend Caps", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Usage Trends & Forecasting", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Per-Team Cost Attribution", free: false, pro: false, enterprise: true, scale: true },
   // ── Security & Compliance
-  { category: "Security & Compliance", name: "Audit Trail", free: false, pro: true, enterprise: true },
-  { category: "Security & Compliance", name: "SSO / SAML", free: false, pro: false, enterprise: true },
-  { category: "Security & Compliance", name: "Role-Based Access Control (RBAC)", free: false, pro: false, enterprise: true },
-  { category: "Security & Compliance", name: "IaC Templates (Terraform)", free: false, pro: false, enterprise: true },
-  { category: "Security & Compliance", name: "SLA Guarantee", free: false, pro: false, enterprise: "99.9%" },
-  { category: "Security & Compliance", name: "Compliance Ready (SOC2, HIPAA)", free: false, pro: false, enterprise: true },
-  { category: "Security & Compliance", name: "On-Premise Deployment", free: false, pro: false, enterprise: true },
+  { category: "Security & Compliance", name: "Audit Trail", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "SSO / SAML", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "Role-Based Access Control (RBAC)", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "IaC Templates (Terraform)", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "SLA Guarantee", free: false, pro: false, enterprise: "99.9%", scale: "99.99%" },
+  { category: "Security & Compliance", name: "Compliance Ready (SOC2, HIPAA)", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "On-Premise Deployment", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "Custom Compliance Frameworks", free: false, pro: false, enterprise: false, scale: true },
   // ── Tools & Integrations
-  { category: "Tools & Integrations", name: "AI Copilot Assistant", free: false, pro: true, enterprise: true },
-  { category: "Tools & Integrations", name: "CLI Tool (bonito-cli)", free: false, pro: true, enterprise: true },
-  { category: "Tools & Integrations", name: "In-App & Email Notifications", free: false, pro: true, enterprise: true },
-  { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, pro: false, enterprise: true },
+  { category: "Tools & Integrations", name: "AI Copilot Assistant", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "CLI Tool (bonito-cli)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "In-App & Email Notifications", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, pro: false, enterprise: true, scale: true },
   // ── Bonobot (AI Agents)
-  { category: "Bonobot AI Agents", name: "Visual Agent Canvas", free: false, pro: "Add-on", enterprise: "Add-on" },
-  { category: "Bonobot AI Agents", name: "Agent Execution Engine", free: false, pro: "Add-on", enterprise: "Add-on" },
-  { category: "Bonobot AI Agents", name: "Per-Agent AI Context & Budget", free: false, pro: "Add-on", enterprise: "Add-on" },
-  { category: "Bonobot AI Agents", name: "Agent-to-Agent Connections", free: false, pro: "Add-on", enterprise: "Add-on" },
-  { category: "Bonobot AI Agents", name: "Resource Connectors", free: false, pro: "5 / agent", enterprise: "Unlimited" },
-  { category: "Bonobot AI Agents", name: "VPC-Deployed Agents", free: false, pro: false, enterprise: "Add-on" },
+  { category: "Bonobot AI Agents", name: "Visual Agent Canvas", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot AI Agents", name: "Agent Execution Engine", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot AI Agents", name: "Per-Agent AI Context & Budget", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot AI Agents", name: "Agent-to-Agent Connections", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot AI Agents", name: "Resource Connectors", free: false, pro: "5 / agent", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Bonobot AI Agents", name: "VPC-Deployed Agents", free: false, pro: false, enterprise: "Add-on", scale: "Included" },
   // ── Support
-  { category: "Support", name: "Community Discord", free: true, pro: true, enterprise: true },
-  { category: "Support", name: "Email Support (24h)", free: false, pro: true, enterprise: true },
-  { category: "Support", name: "Dedicated Support Engineer", free: false, pro: false, enterprise: true },
-  { category: "Support", name: "Priority Feature Requests", free: false, pro: false, enterprise: true },
-  { category: "Support", name: "Quarterly Business Reviews", free: false, pro: false, enterprise: true },
+  { category: "Support", name: "Community Discord", free: true, pro: true, enterprise: true, scale: true },
+  { category: "Support", name: "Email Support (24h)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "Support", name: "Dedicated Support Engineer", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "Priority Feature Requests", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "Quarterly Business Reviews", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "24/7 Premium Support", free: false, pro: false, enterprise: false, scale: true },
+  { category: "Support", name: "Dedicated Account Team", free: false, pro: false, enterprise: false, scale: true },
 ];
 
 const faqs = [
@@ -247,7 +273,7 @@ export default function PricingPage() {
       </section>
 
       {/* Platform Plan Cards */}
-      <section className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto pb-16">
+      <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto pb-16">
         {plans.map((plan, i) => (
           <motion.div
             key={plan.name}
@@ -358,6 +384,7 @@ export default function PricingPage() {
                 <th className="text-center py-4 px-4 text-sm font-semibold">Free</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold text-[#7c3aed]">Pro</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Enterprise</th>
+                <th className="text-center py-4 px-4 text-sm font-semibold">Scale</th>
               </tr>
             </thead>
             <tbody>
@@ -376,6 +403,7 @@ export default function PricingPage() {
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.free} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.pro} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.enterprise} /></td>
+                        <td className="py-3.5 px-4 text-center"><CellValue value={f.scale} /></td>
                       </tr>
                     ))}
                 </Fragment>
