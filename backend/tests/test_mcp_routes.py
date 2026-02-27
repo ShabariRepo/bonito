@@ -162,7 +162,9 @@ class TestMCPServerCRUD:
             },
         )
         assert response.status_code == 400
-        assert "command" in response.json()["detail"].lower()
+        body = response.json()
+        msg = body.get("detail", "") or body.get("error", {}).get("message", "")
+        assert "command" in msg.lower()
 
     @pytest.mark.asyncio
     async def test_create_mcp_server_http_missing_url(self, auth_client: AsyncClient, agent):
@@ -176,7 +178,9 @@ class TestMCPServerCRUD:
             },
         )
         assert response.status_code == 400
-        assert "url" in response.json()["detail"].lower()
+        body = response.json()
+        msg = body.get("detail", "") or body.get("error", {}).get("message", "")
+        assert "url" in msg.lower()
 
     @pytest.mark.asyncio
     async def test_create_mcp_server_invalid_agent(self, auth_client: AsyncClient):

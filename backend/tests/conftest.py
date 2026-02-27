@@ -265,6 +265,34 @@ async def auth_headers_b(auth_token_b) -> dict:
     return {"Authorization": f"Bearer {auth_token_b}"}
 
 
+@pytest_asyncio.fixture(scope="function")
+async def auth_client(test_engine, mock_redis, auth_token) -> AsyncGenerator[AsyncClient, None]:
+    """Return an AsyncClient with auth headers pre-set."""
+    session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
+
+    async def override_get_db():
+        async with session_factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_redis] = lambda: mock_redis
+
+    transport = ASGITransport(app=asgi_app)
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    ) as ac:
+        yield ac
+
+    fastapi_app.dependency_overrides.clear()
+
+
 # ── Test Data Helpers ──────────────────────────────────────────────
 
 AWS_CREDENTIALS = {
