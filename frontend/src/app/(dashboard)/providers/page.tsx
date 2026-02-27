@@ -17,6 +17,8 @@ import {
   X,
   Eye,
   EyeOff,
+  Zap,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
@@ -34,6 +36,7 @@ interface Provider {
   region: string;
   model_count: number;
   created_at: string;
+  is_managed?: boolean;
 }
 
 interface ProviderSummary {
@@ -126,6 +129,8 @@ export default function ProvidersPage() {
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState(false);
+  const [managedAvailability, setManagedAvailability] = useState<Record<string, { supported: boolean; available: boolean }>>({});
+  const [editManagedMode, setEditManagedMode] = useState<boolean | null>(null);
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -156,6 +161,13 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     fetchProviders();
+    // Fetch managed availability
+    (async () => {
+      try {
+        const res = await apiRequest("/api/providers/managed-availability");
+        if (res.ok) setManagedAvailability(await res.json());
+      } catch {}
+    })();
   }, [fetchProviders]);
 
   const handleRevalidate = async (providerId: string) => {
@@ -218,13 +230,14 @@ export default function ProvidersPage() {
     }
   };
 
-  const openEditModal = (summary: ProviderSummary) => {
+  const openEditModal = (summary: ProviderSummary, providerData?: Provider) => {
     setEditingProvider(summary);
     // Start all fields blank — backend merges with existing values from Vault
     // Only fields the user fills in will be updated
     setEditCreds({});
     setEditError(null);
     setEditSuccess(false);
+    setEditManagedMode(providerData?.is_managed ?? null);
   };
 
   const handleUpdateCredentials = async () => {
@@ -233,6 +246,41 @@ export default function ProvidersPage() {
     setEditError(null);
     setEditSuccess(false);
     try {
+      // Switching to/from managed mode requires delete + reconnect
+      const currentProvider = providers.find((p) => p.id === editingProvider.id);
+      const wasManaged = currentProvider?.is_managed ?? false;
+      const wantManaged = editManagedMode === true;
+
+      if (wasManaged !== wantManaged) {
+        // Delete and reconnect with new mode
+        const delRes = await apiRequest(`/api/providers/${editingProvider.id}`, { method: "DELETE" });
+        if (!delRes.ok && delRes.status !== 204) {
+          setEditError("Failed to switch mode — could not disconnect existing provider");
+          setEditLoading(false);
+          return;
+        }
+
+        const newCreds = wantManaged ? { managed: true } : { ...editCreds };
+        const connectRes = await apiRequest(`/api/providers/connect`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider_type: editingProvider.provider_type, credentials: newCreds }),
+        });
+        if (connectRes.ok) {
+          setEditSuccess(true);
+          fetchProviders();
+          setTimeout(() => setEditingProvider(null), 1500);
+        } else {
+          const data = await connectRes.json().catch(() => ({}));
+          setEditError(data.detail || `Failed to reconnect (${connectRes.status})`);
+          // Refresh anyway since old provider was deleted
+          fetchProviders();
+        }
+        setEditLoading(false);
+        return;
+      }
+
+      // Normal credential update (no mode switch)
       // Pre-parse service_account_json so it arrives as an object, not a string
       // with literal newlines that break json.loads() on the backend
       const creds = { ...editCreds };
@@ -356,7 +404,14 @@ export default function ProvidersPage() {
                           {style.icon}
                         </div>
                         <div>
-                          <h3 className="font-semibold">{p.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{p.name}</h3>
+                            {p.is_managed && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-fuchsia-500/20 to-violet-500/20 text-fuchsia-300 border border-fuchsia-500/30">
+                                <Zap className="h-2.5 w-2.5" /> Managed
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">{p.region}</p>
                         </div>
                       </div>
@@ -451,7 +506,7 @@ export default function ProvidersPage() {
                         Re-validate
                       </button>
                       <button
-                        onClick={() => summary && openEditModal(summary)}
+                        onClick={() => summary && openEditModal(summary, p)}
                         disabled={!summary}
                         className="flex-1 flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50 min-h-[44px] touch-manipulation"
                       >
@@ -556,6 +611,50 @@ export default function ProvidersPage() {
                 </button>
               </div>
 
+              {/* Managed/BYOK toggle for supported providers */}
+              {managedAvailability[editingProvider.provider_type]?.available && (
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setEditManagedMode(false)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 rounded-lg border-2 py-2.5 text-xs font-medium transition-all",
+                      editManagedMode === false
+                        ? "border-violet-500 bg-violet-500/10 text-foreground"
+                        : "border-border text-muted-foreground hover:border-violet-500/50"
+                    )}
+                  >
+                    <Key className="h-3.5 w-3.5" /> Own API Key
+                  </button>
+                  <button
+                    onClick={() => setEditManagedMode(true)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 rounded-lg border-2 py-2.5 text-xs font-medium transition-all",
+                      editManagedMode === true
+                        ? "border-fuchsia-500 bg-fuchsia-500/10 text-foreground"
+                        : "border-border text-muted-foreground hover:border-fuchsia-500/50"
+                    )}
+                  >
+                    <Zap className="h-3.5 w-3.5" /> Bonito Managed ⚡
+                  </button>
+                </div>
+              )}
+
+              {editManagedMode === true ? (
+                <div className="rounded-xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/5 to-violet-500/5 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-fuchsia-400" />
+                    <h3 className="font-semibold text-sm text-fuchsia-300">Bonito Managed</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This provider is managed by Bonito. No API key needed — we handle everything.
+                  </p>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-400" /> Usage-based billing</span>
+                    <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-400" /> No key management</span>
+                  </div>
+                </div>
+              ) : (
+              <>
               <p className="text-xs text-muted-foreground mb-3">
                 Only fill in the fields you want to change. Blank fields keep their current values.
               </p>
@@ -603,6 +702,8 @@ export default function ProvidersPage() {
                   );
                 })}
               </div>
+              </>
+              )}
 
               {editError && (
                 <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 flex items-center gap-2">
