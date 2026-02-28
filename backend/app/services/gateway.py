@@ -161,6 +161,13 @@ async def _get_provider_credentials(
     creds: dict[str, dict] = {}
     for provider in providers:
         try:
+            # Managed providers use platform master keys from env vars
+            if provider.is_managed:
+                from app.services.managed_inference import get_master_key
+                master_key = get_master_key(provider.provider_type)
+                if master_key:
+                    creds[provider.provider_type] = {"api_key": master_key, "managed": True}
+                    continue
             data = await vault_client.get_secrets(f"providers/{provider.id}")
             if data:
                 creds[provider.provider_type] = data
