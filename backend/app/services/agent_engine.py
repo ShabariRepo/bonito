@@ -126,7 +126,13 @@ class AgentEngine:
         sanitized_message, input_sanitized = self._sanitize_input(message)
         
         # SECURITY STEP 4: Create audit log for execution attempt
-        audit_id = await self._log_execution_start(agent, sanitized_message, user_id, db)
+        try:
+            audit_id = await self._log_execution_start(agent, sanitized_message, user_id, db)
+        except Exception as audit_err:
+            logger.warning(f"Audit log failed (non-fatal): {audit_err}")
+            # Rollback the failed statement so the transaction remains usable
+            await db.rollback()
+            audit_id = uuid.uuid4()  # placeholder
         
         try:
             # 1. Resolve or create session
@@ -159,8 +165,11 @@ class AgentEngine:
             return result
             
         except Exception as e:
-            # Log execution failure
-            await self._log_execution_failure(audit_id, str(e), db)
+            # Log execution failure (non-fatal if this also fails)
+            try:
+                await self._log_execution_failure(audit_id, str(e), db)
+            except Exception:
+                logger.warning(f"Failed to log execution failure audit (non-fatal)")
             raise
         finally:
             # Always disconnect MCP servers when done
@@ -423,7 +432,7 @@ class AgentEngine:
                     kb_id=uuid.UUID(kb_id),
                     query=query,
                     limit=5,
-                    similarity_threshold=0.7,
+                    similarity_threshold=0.4,
                     org_id=agent.org_id,
                     db=db
                 )

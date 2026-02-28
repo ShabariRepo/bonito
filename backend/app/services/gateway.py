@@ -1242,10 +1242,12 @@ async def _perform_rag_retrieval_inner(kb_name: str, messages: list, org_id: uui
         logger.warning("No user query found in messages")
         return None
     
-    # Generate embedding for the query
+    # Generate embedding for the query using the SAME model as ingestion
     embedding_gen = EmbeddingGenerator(org_id)
+    kb_embed_model = getattr(kb, 'embedding_model', None)
+    embed_model = kb_embed_model if (kb_embed_model and kb_embed_model != 'auto') else None
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([user_query])
+        query_embeddings = await embedding_gen.generate_embeddings([user_query], model=embed_model)
         if not query_embeddings:
             logger.error("Failed to generate query embedding")
             return None

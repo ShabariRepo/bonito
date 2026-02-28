@@ -1094,10 +1094,16 @@ async def search_knowledge_base(
         _kb_logger.warning(f"Knowledge base {kb_id} not found")
         return []
 
-    # Generate embedding for the query
+    # Generate embedding for the query using the SAME model as ingestion
     embedding_gen = EmbeddingGenerator(org_id or kb.org_id)
+    # Use the KB's configured embedding model to avoid dimension mismatch
+    kb_embedding_model = getattr(kb, 'embedding_model', None)
+    if kb_embedding_model and kb_embedding_model != 'auto':
+        embed_model = kb_embedding_model
+    else:
+        embed_model = None  # auto-detect
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([query])
+        query_embeddings = await embedding_gen.generate_embeddings([query], model=embed_model)
         if not query_embeddings:
             _kb_logger.error("Failed to generate query embedding")
             return []

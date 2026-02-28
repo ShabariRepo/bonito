@@ -530,12 +530,15 @@ async def search_knowledge_base(
 
     top_k = body.top_k if hasattr(body, "top_k") and body.top_k else 5
     
-    # Generate embedding for the query
+    # Generate embedding for the query using the SAME model as ingestion
     from app.services.kb_ingestion import EmbeddingGenerator
     embedding_gen = EmbeddingGenerator(user.org_id)
+    # Use the KB's configured embedding model to avoid dimension mismatch
+    kb_embed_model = getattr(kb, 'embedding_model', None)
+    embed_model = kb_embed_model if (kb_embed_model and kb_embed_model != 'auto') else None
     
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([body.query])
+        query_embeddings = await embedding_gen.generate_embeddings([body.query], model=embed_model)
         if not query_embeddings:
             raise HTTPException(status_code=500, detail="Failed to generate query embedding")
         query_embedding = query_embeddings[0]
