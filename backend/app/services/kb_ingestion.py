@@ -364,13 +364,18 @@ class EmbeddingGenerator:
         # Last resort — GCP is most likely to work serverlessly
         return "text-embedding-005"
     
-    async def generate_embeddings(self, texts: List[str], model: str = None) -> List[List[float]]:
+    async def generate_embeddings(self, texts: List[str], model: str = None, dimensions: int = None) -> List[List[float]]:
         """
         Generate embeddings for a list of texts.
         
         Routes through the org's LiteLLM router to use their configured
         embedding models and cloud credentials. Includes timeout to prevent
         hanging on unresponsive models (e.g., unactivated Bedrock models).
+        
+        Args:
+            dimensions: If set, request reduced-dimension embeddings (supported by
+                        OpenAI text-embedding-3-small/large). Useful when the KB
+                        vector column is smaller than the model's default output.
         """
         if not texts:
             return []
@@ -379,7 +384,7 @@ class EmbeddingGenerator:
             async with get_db_session() as db:
                 model = await self.get_cheapest_embedding_model(db)
         
-        logger.info(f"Generating embeddings for {len(texts)} texts using model {model}")
+        logger.info(f"Generating embeddings for {len(texts)} texts using model {model} (dims={dimensions})")
         
         from app.services.gateway import get_router
         
@@ -392,8 +397,11 @@ class EmbeddingGenerator:
                 async with get_db_session() as db:
                     router = await get_router(db, self.org_id)
                     # Timeout to prevent hanging on unactivated/unavailable models
+                    embed_kwargs = {"model": model, "input": batch}
+                    if dimensions:
+                        embed_kwargs["dimensions"] = dimensions
                     response = await asyncio.wait_for(
-                        router.aembedding(model=model, input=batch),
+                        router.aembedding(**embed_kwargs),
                         timeout=self.EMBEDDING_TIMEOUT,
                     )
                     for item in response.data:
@@ -475,9 +483,14 @@ async def process_document(
             
             # Step 3: Generate embeddings
             embedding_gen = EmbeddingGenerator(doc.org_id)
+            embed_model = kb.embedding_model if kb.embedding_model != "auto" else None
+            # Pass target dimensions to support OpenAI dimension reduction
+            # (e.g., text-embedding-3-small can produce 768 instead of default 1536)
+            embed_dims = kb.embedding_dimensions if kb.embedding_dimensions else None
             embeddings = await embedding_gen.generate_embeddings(
                 chunks, 
-                model=kb.embedding_model if kb.embedding_model != "auto" else None
+                model=embed_model,
+                dimensions=embed_dims
             )
             
             if len(embeddings) != len(chunks):

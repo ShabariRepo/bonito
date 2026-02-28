@@ -1247,7 +1247,8 @@ async def _perform_rag_retrieval_inner(kb_name: str, messages: list, org_id: uui
     kb_embed_model = getattr(kb, 'embedding_model', None)
     embed_model = kb_embed_model if (kb_embed_model and kb_embed_model != 'auto') else None
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([user_query], model=embed_model)
+        embed_dims = getattr(kb, 'embedding_dimensions', None)
+        query_embeddings = await embedding_gen.generate_embeddings([user_query], model=embed_model, dimensions=embed_dims)
         if not query_embeddings:
             logger.error("Failed to generate query embedding")
             return None

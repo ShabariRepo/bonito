@@ -538,7 +538,8 @@ async def search_knowledge_base(
     embed_model = kb_embed_model if (kb_embed_model and kb_embed_model != 'auto') else None
     
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([body.query], model=embed_model)
+        embed_dims = getattr(kb, 'embedding_dimensions', None)
+        query_embeddings = await embedding_gen.generate_embeddings([body.query], model=embed_model, dimensions=embed_dims)
         if not query_embeddings:
             raise HTTPException(status_code=500, detail="Failed to generate query embedding")
         query_embedding = query_embeddings[0]

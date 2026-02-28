@@ -1103,7 +1103,8 @@ async def search_knowledge_base(
     else:
         embed_model = None  # auto-detect
     try:
-        query_embeddings = await embedding_gen.generate_embeddings([query], model=embed_model)
+        embed_dims = getattr(kb, 'embedding_dimensions', None)
+        query_embeddings = await embedding_gen.generate_embeddings([query], model=embed_model, dimensions=embed_dims)
         if not query_embeddings:
             _kb_logger.error("Failed to generate query embedding")
             return []
