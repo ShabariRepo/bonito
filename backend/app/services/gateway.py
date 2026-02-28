@@ -314,6 +314,11 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         "model": f"anthropic/{model_id}",
                         "api_key": c.get("api_key", ""),
                     }
+                elif provider_type == "groq":
+                    litellm_params = {
+                        "model": f"groq/{model_id}",
+                        "api_key": c.get("api_key", ""),
+                    }
                 else:
                     continue
                 
@@ -785,7 +790,12 @@ async def chat_completion(
         log_entry.input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
         log_entry.output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
         log_entry.latency_ms = elapsed_ms
-        log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
+        try:
+            log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
+        except Exception:
+            # Some providers (e.g. Groq) return model names without provider prefix,
+            # causing litellm cost lookup to fail. Fall back to 0.
+            log_entry.cost = 0.0
 
         # Determine provider from DB lookup, fallback to heuristic
         model_used = log_entry.model_used or ""
@@ -800,12 +810,18 @@ async def chat_completion(
         except Exception:
             log_entry.provider = None
         if not log_entry.provider:
-            if any(k in model_used for k in ("bedrock", "anthropic", "amazon", "nova", "titan")):
+            if any(k in model_used for k in ("bedrock", "amazon", "nova", "titan")):
                 log_entry.provider = "aws"
-            elif any(k in model_used for k in ("azure", "gpt-", "o1-", "o3-", "o4-", "dall-e")):
+            elif any(k in model_used for k in ("azure",)):
                 log_entry.provider = "azure"
             elif any(k in model_used for k in ("vertex", "gemini", "palm")):
                 log_entry.provider = "gcp"
+            elif any(k in model_used for k in ("gpt-", "o1-", "o3-", "o4-", "dall-e", "chatgpt")):
+                log_entry.provider = "openai"
+            elif any(k in model_used for k in ("claude",)):
+                log_entry.provider = "anthropic"
+            elif any(k in model_used for k in ("llama", "mixtral", "gemma")):
+                log_entry.provider = "groq"
 
         db.add(log_entry)
         await db.flush()
