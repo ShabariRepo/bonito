@@ -35,6 +35,13 @@ const sections = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "cost-management", label: "Cost Management", icon: DollarSign },
   { id: "cli", label: "CLI Tool", icon: Terminal },
+  { id: "bonbon", label: "BonBon Agents", icon: Bot },
+  { id: "bonobot", label: "Bonobot", icon: Network },
+  { id: "mcp", label: "MCP Integration", icon: Plug },
+  { id: "knowledge-bases", label: "Knowledge Bases", icon: Database },
+  { id: "managed-inference", label: "Managed Inference", icon: Sparkles },
+  { id: "triggers", label: "Triggers", icon: Clock },
+  { id: "observability", label: "Observability", icon: BarChart3 },
   { id: "troubleshooting", label: "Troubleshooting", icon: Shield },
 ];
 
@@ -631,6 +638,646 @@ bonito costs summary`}
           <Paragraph>
             Run <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito --help</code> for the full list of commands and options.
           </Paragraph>
+
+          {/* ── BonBon Agents ── */}
+          <SectionHeading id="bonbon" title="BonBon Agents" />
+          <Paragraph>
+            BonBon is Bonito&apos;s managed agent service. Create AI agents with custom system prompts, connect them to knowledge bases for RAG, and deploy them as embeddable chat widgets or API endpoints — all without managing infrastructure.
+          </Paragraph>
+
+          <SubHeading title="Agent tiers" />
+          <div className="grid sm:grid-cols-2 gap-4 my-6">
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot className="w-4 h-4 text-[#7c3aed]" />
+                <h4 className="font-semibold text-sm">Simple — $199/mo</h4>
+              </div>
+              <p className="text-xs text-[#888] leading-relaxed">Single-model agent with a system prompt, optional knowledge base, and an embeddable widget. Ideal for FAQ bots, customer support, and internal assistants.</p>
+            </div>
+            <div className="bg-[#111] border border-[#7c3aed]/30 rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-[#7c3aed]" />
+                <h4 className="font-semibold text-sm">Advanced — $399/mo</h4>
+              </div>
+              <p className="text-xs text-[#888] leading-relaxed">Multi-model agent with MCP tool integration, multiple knowledge bases, advanced routing, Bonobot orchestration, and full API access. Built for complex workflows.</p>
+            </div>
+          </div>
+
+          <SubHeading title="Creating an agent" />
+          <StepList
+            steps={[
+              "Go to Agents → Create Agent in the dashboard.",
+              "Choose a tier (Simple or Advanced) and give your agent a name.",
+              "Write a system prompt that defines your agent's personality, constraints, and behavior.",
+              "Optionally attach a knowledge base for RAG-powered responses.",
+              "Select the backing model (or models for Advanced tier).",
+              "Deploy — Bonito gives you a widget embed code and an API endpoint.",
+            ]}
+          />
+
+          <CodeBlock
+            code={`# Create an agent via CLI
+bonito agents create \\
+  --name "Support Bot" \\
+  --tier simple \\
+  --model "anthropic.claude-3-sonnet-20240229-v1:0" \\
+  --system-prompt "You are a helpful support agent for Acme Corp..."
+
+# List your agents
+bonito agents list
+
+# Get agent details
+bonito agents get --id ag_abc123`}
+          />
+
+          <SubHeading title="System prompts" />
+          <Paragraph>
+            System prompts define how your agent behaves. Write clear instructions about the agent&apos;s role, tone, constraints, and what it should or shouldn&apos;t do. You can update the system prompt at any time without redeploying.
+          </Paragraph>
+          <CodeBlock
+            language="text"
+            code={`You are a customer support agent for Acme Corp.
+
+Rules:
+- Only answer questions about Acme products and services.
+- If you don't know the answer, say so and offer to connect with a human.
+- Be friendly, concise, and professional.
+- Never make up pricing or feature information — use the knowledge base.
+- Respond in the same language as the customer.`}
+          />
+
+          <SubHeading title="RAG integration" />
+          <Paragraph>
+            Connect a knowledge base to give your agent access to your documents. When a user asks a question, Bonito retrieves relevant chunks from your KB and includes them in the context before the model generates a response.
+          </Paragraph>
+          <CodeBlock
+            code={`# Attach a knowledge base to an agent
+bonito agents update --id ag_abc123 \\
+  --knowledge-base kb_xyz789
+
+# Attach multiple KBs (Advanced tier only)
+bonito agents update --id ag_abc123 \\
+  --knowledge-base kb_xyz789 \\
+  --knowledge-base kb_docs456`}
+          />
+
+          <SubHeading title="Widget embedding" />
+          <Paragraph>
+            Every BonBon agent gets an embeddable chat widget. Add it to any website with a single script tag:
+          </Paragraph>
+          <CodeBlock
+            language="html"
+            code={`<!-- Add to your website -->
+<script
+  src="https://getbonito.com/widget.js"
+  data-agent-id="ag_abc123"
+  data-theme="dark"
+  data-position="bottom-right"
+  async
+></script>`}
+          />
+          <Callout variant="tip">
+            You can also use the agent via the API directly. Send messages to <code className="text-xs">POST /v1/agents/ag_abc123/chat</code> with the same OpenAI-compatible format.
+          </Callout>
+
+          {/* ── Bonobot ── */}
+          <SectionHeading id="bonobot" title="Bonobot Orchestrator" />
+          <Paragraph>
+            Bonobot is Bonito&apos;s multi-agent orchestration layer. It acts as a front-door agent that classifies user intent, delegates to specialized sub-agents, and synthesizes their responses into a unified reply. Think of it as a dispatcher that routes conversations to the right expert.
+          </Paragraph>
+
+          <SubHeading title="How it works" />
+          <StepList
+            steps={[
+              "A user sends a message to the Bonobot endpoint.",
+              "The orchestrator classifies the user's intent using a fast classification model.",
+              "Based on the intent, it delegates the request to one or more specialized BonBon agents.",
+              "Each sub-agent processes its part using its own system prompt, model, and knowledge base.",
+              "Bonobot synthesizes the responses and returns a single, coherent answer.",
+            ]}
+          />
+
+          <SubHeading title="Delegation map" />
+          <Paragraph>
+            The delegation map defines which sub-agents handle which intents. Configure it as a JSON mapping of intent patterns to agent IDs:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "delegation_map": {
+    "billing": {
+      "agent_id": "ag_billing01",
+      "description": "Handles billing, invoices, and payment questions"
+    },
+    "technical_support": {
+      "agent_id": "ag_techsup01",
+      "description": "Handles technical issues, bugs, and troubleshooting"
+    },
+    "sales": {
+      "agent_id": "ag_sales01",
+      "description": "Handles pricing, demos, and feature inquiries"
+    },
+    "general": {
+      "agent_id": "ag_general01",
+      "description": "Fallback for anything that doesn't match a specific intent"
+    }
+  }
+}`}
+          />
+
+          <SubHeading title="Creating a Bonobot" />
+          <CodeBlock
+            code={`# Create an orchestrator
+bonito bonobot create \\
+  --name "Customer Hub" \\
+  --classifier-model "anthropic.claude-3-haiku-20240307-v1:0" \\
+  --delegation-map ./delegation.json
+
+# Update the delegation map
+bonito bonobot update --id bot_abc123 \\
+  --delegation-map ./updated-delegation.json
+
+# Test intent classification
+bonito bonobot classify --id bot_abc123 \\
+  --message "I need a refund for my last invoice"`}
+          />
+
+          <Callout variant="info">
+            Bonobot requires the Advanced agent tier ($399/mo). Each sub-agent in the delegation map must be an existing BonBon agent.
+          </Callout>
+
+          <SubHeading title="Response synthesis" />
+          <Paragraph>
+            When a request touches multiple intents (e.g., &quot;I want to upgrade my plan and fix a bug&quot;), Bonobot can delegate to multiple agents in parallel and merge their responses. Enable multi-delegation in the orchestrator settings:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "multi_delegation": true,
+  "synthesis_model": "anthropic.claude-3-sonnet-20240229-v1:0",
+  "synthesis_prompt": "Combine the following specialist responses into a single, coherent answer."
+}`}
+          />
+
+          {/* ── MCP Integration ── */}
+          <SectionHeading id="mcp" title="MCP Integration" />
+          <Paragraph>
+            MCP (Model Context Protocol) lets your BonBon agents call external tools — databases, APIs, code execution, file systems, and more. Register MCP servers with Bonito and connect them to your agents so they can take actions, not just answer questions.
+          </Paragraph>
+
+          <SubHeading title="Supported transports" />
+          <div className="grid sm:grid-cols-2 gap-4 my-6">
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1">SSE (Server-Sent Events)</h4>
+              <p className="text-xs text-[#888] leading-relaxed">Connect to remote MCP servers over HTTP. Best for hosted tools, third-party integrations, and production deployments.</p>
+            </div>
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1">stdio (Standard I/O)</h4>
+              <p className="text-xs text-[#888] leading-relaxed">Run MCP servers as local subprocesses. Best for development, local tools, and self-hosted servers.</p>
+            </div>
+          </div>
+
+          <SubHeading title="Registering an MCP server" />
+          <CodeBlock
+            language="json"
+            code={`{
+  "name": "github-tools",
+  "transport": "sse",
+  "url": "https://mcp.example.com/github/sse",
+  "headers": {
+    "Authorization": "Bearer ghp_xxxxxxxxxxxx"
+  },
+  "tools": ["create_issue", "search_repos", "get_pull_request"]
+}`}
+          />
+          <CodeBlock
+            code={`# Register via CLI
+bonito mcp register \\
+  --name "github-tools" \\
+  --transport sse \\
+  --url "https://mcp.example.com/github/sse"
+
+# List registered MCP servers
+bonito mcp list
+
+# Test a tool call
+bonito mcp test --server "github-tools" --tool "search_repos" \\
+  --params '{"query": "bonito"}'`}
+          />
+
+          <SubHeading title="stdio configuration" />
+          <Paragraph>
+            For stdio-based MCP servers, provide the command and arguments to launch the server process:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "name": "sqlite-tools",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-sqlite", "./data/mydb.sqlite"],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}`}
+          />
+
+          <SubHeading title="Connecting MCP to agents" />
+          <Paragraph>
+            Once registered, attach MCP servers to your BonBon agents. The agent&apos;s model will automatically see the available tools and can call them during conversations:
+          </Paragraph>
+          <CodeBlock
+            code={`# Connect MCP server to an agent
+bonito agents update --id ag_abc123 \\
+  --mcp-server "github-tools" \\
+  --mcp-server "sqlite-tools"
+
+# Remove an MCP server from an agent
+bonito agents update --id ag_abc123 \\
+  --remove-mcp-server "sqlite-tools"`}
+          />
+          <Callout variant="warning">
+            MCP tool execution happens server-side. Make sure your MCP servers are secured — Bonito passes through authentication headers but does not sandbox tool execution.
+          </Callout>
+
+          {/* ── Knowledge Bases ── */}
+          <SectionHeading id="knowledge-bases" title="Knowledge Bases" />
+          <Paragraph>
+            Knowledge Bases power RAG (Retrieval-Augmented Generation) for your BonBon agents. Upload documents, and Bonito chunks, embeds, and indexes them so your agents can retrieve relevant context at query time.
+          </Paragraph>
+
+          <SubHeading title="Creating a knowledge base" />
+          <StepList
+            steps={[
+              "Go to Knowledge Bases → Create in the dashboard, or use the CLI.",
+              "Give it a name and optional description.",
+              "Choose an embedding model (defaults to a high-quality model on your connected providers).",
+              "Configure chunking strategy (size, overlap).",
+              "Upload your documents.",
+            ]}
+          />
+          <CodeBlock
+            code={`# Create a knowledge base
+bonito kb create --name "Product Docs" \\
+  --embedding-model "amazon.titan-embed-text-v2:0" \\
+  --chunk-size 512 \\
+  --chunk-overlap 50
+
+# Upload documents
+bonito kb upload --id kb_xyz789 ./docs/*.pdf
+bonito kb upload --id kb_xyz789 ./faq.md
+bonito kb upload --id kb_xyz789 https://example.com/api-reference.html
+
+# Check indexing status
+bonito kb status --id kb_xyz789`}
+          />
+
+          <SubHeading title="Supported file formats" />
+          <Paragraph>
+            Bonito accepts PDF, Markdown, plain text, HTML, DOCX, and CSV files. Each file is parsed, split into chunks, and embedded using your chosen embedding model.
+          </Paragraph>
+
+          <SubHeading title="Chunking strategies" />
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Strategy</th>
+                  <th className="text-left py-2 pr-4 font-medium">Description</th>
+                  <th className="text-left py-2 font-medium">Best For</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc] text-xs">
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">fixed</td>
+                  <td className="py-2 pr-4">Split by token count with configurable overlap</td>
+                  <td className="py-2">General purpose, predictable chunk sizes</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">semantic</td>
+                  <td className="py-2 pr-4">Split at natural boundaries (paragraphs, sections)</td>
+                  <td className="py-2">Long-form documents, articles</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">sentence</td>
+                  <td className="py-2 pr-4">Split by sentence with grouping</td>
+                  <td className="py-2">FAQ, short-form content</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="Embedding models" />
+          <Paragraph>
+            Bonito uses embedding models from your connected providers. Any enabled embedding model can be used:
+          </Paragraph>
+          <ul className="space-y-2 my-4">
+            {[
+              "AWS Bedrock: amazon.titan-embed-text-v2:0, cohere.embed-english-v3",
+              "Azure OpenAI: text-embedding-ada-002, text-embedding-3-small, text-embedding-3-large",
+              "GCP Vertex AI: textembedding-gecko, text-embedding-004",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SubHeading title="Querying" />
+          <Paragraph>
+            You can query a knowledge base directly to test retrieval before connecting it to an agent:
+          </Paragraph>
+          <CodeBlock
+            code={`# Query a knowledge base directly
+bonito kb query --id kb_xyz789 \\
+  --query "What is the refund policy?" \\
+  --top-k 5
+
+# Connect KB to an agent (see BonBon Agents section)
+bonito agents update --id ag_abc123 \\
+  --knowledge-base kb_xyz789`}
+          />
+          <Callout variant="tip">
+            Start with a chunk size of 512 tokens and 50-token overlap. Adjust based on your content — shorter chunks work better for precise Q&amp;A, longer chunks for summarization tasks.
+          </Callout>
+
+          {/* ── Managed Inference ── */}
+          <SectionHeading id="managed-inference" title="Managed Inference" />
+          <Paragraph>
+            Managed Inference gives you zero-config access to AI models without connecting any cloud provider. No API keys, no cloud accounts, no setup — just start making requests. Bonito handles provider selection, routing, and billing.
+          </Paragraph>
+
+          <SubHeading title="How it works" />
+          <StepList
+            steps={[
+              "Sign up for Bonito and create a gateway API key — that's it.",
+              "Use any supported model by name in your API requests.",
+              "Bonito routes your request to the optimal provider automatically.",
+              "You're billed through Bonito based on token usage — no separate cloud bills.",
+            ]}
+          />
+
+          <CodeBlock
+            language="python"
+            code={`from openai import OpenAI
+
+# No cloud provider setup needed — just your Bonito key
+client = OpenAI(
+    base_url="https://getbonito.com/v1",
+    api_key="YOUR_BONITO_API_KEY"
+)
+
+# Use any supported model
+response = client.chat.completions.create(
+    model="claude-3-sonnet",  # Bonito routes to the best provider
+    messages=[{"role": "user", "content": "Explain quantum computing"}]
+)
+
+print(response.choices[0].message.content)`}
+          />
+
+          <SubHeading title="Supported models" />
+          <Paragraph>
+            Managed Inference supports a curated set of popular models across providers. Use simplified model names — Bonito resolves them to provider-specific IDs:
+          </Paragraph>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Model</th>
+                  <th className="text-left py-2 pr-4 font-medium">Provider</th>
+                  <th className="text-left py-2 font-medium">Use Case</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc] text-xs">
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">claude-3-sonnet</td>
+                  <td className="py-2 pr-4">Anthropic</td>
+                  <td className="py-2">General purpose, balanced performance</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">claude-3-haiku</td>
+                  <td className="py-2 pr-4">Anthropic</td>
+                  <td className="py-2">Fast, cost-effective tasks</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">gpt-4o</td>
+                  <td className="py-2 pr-4">OpenAI</td>
+                  <td className="py-2">Multimodal, high performance</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">gpt-4o-mini</td>
+                  <td className="py-2 pr-4">OpenAI</td>
+                  <td className="py-2">Lightweight, budget-friendly</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">gemini-1.5-pro</td>
+                  <td className="py-2 pr-4">Google</td>
+                  <td className="py-2">Long context, multimodal</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="When to use Managed vs BYOC" />
+          <div className="grid sm:grid-cols-2 gap-4 my-6">
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1">Managed Inference</h4>
+              <ul className="text-xs text-[#888] leading-relaxed space-y-1 mt-2">
+                <li>• Quick start — no cloud setup</li>
+                <li>• Don&apos;t want to manage API keys</li>
+                <li>• Prototyping and development</li>
+                <li>• Teams without cloud accounts</li>
+              </ul>
+            </div>
+            <div className="bg-[#111] border border-[#7c3aed]/30 rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1">Bring Your Own Cloud</h4>
+              <ul className="text-xs text-[#888] leading-relaxed space-y-1 mt-2">
+                <li>• Data residency requirements</li>
+                <li>• Existing cloud commitments/discounts</li>
+                <li>• Full provider control</li>
+                <li>• Enterprise compliance needs</li>
+              </ul>
+            </div>
+          </div>
+
+          <Callout variant="info">
+            Managed Inference and BYOC (Bring Your Own Cloud) can be used simultaneously. Use managed models for quick experiments and your own providers for production workloads.
+          </Callout>
+
+          {/* ── Triggers ── */}
+          <SectionHeading id="triggers" title="Triggers" />
+          <Paragraph>
+            Triggers let you invoke BonBon agents automatically based on events — incoming webhooks, cron schedules, slash commands, or custom events. Instead of waiting for a user to open a chat widget, triggers bring your agents into workflows programmatically.
+          </Paragraph>
+
+          <SubHeading title="Trigger types" />
+          <div className="space-y-4 my-6">
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1 flex items-center gap-2"><Key className="w-4 h-4 text-[#7c3aed]" /> Webhook</h4>
+              <p className="text-xs text-[#888] leading-relaxed">HTTP endpoint that invokes your agent when called. Connect to GitHub, Stripe, Slack, or any service that sends webhooks. The request payload is passed as context to the agent.</p>
+            </div>
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1 flex items-center gap-2"><Clock className="w-4 h-4 text-green-400" /> Scheduled (Cron)</h4>
+              <p className="text-xs text-[#888] leading-relaxed">Run your agent on a schedule using cron expressions. Great for daily reports, periodic data processing, health checks, and recurring tasks.</p>
+            </div>
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1 flex items-center gap-2"><Terminal className="w-4 h-4 text-blue-400" /> Slash Command</h4>
+              <p className="text-xs text-[#888] leading-relaxed">Register slash commands in Slack or Discord that invoke your agent. Users type <code className="text-xs bg-[#0a0a0a] px-1 rounded">/ask-support how do I reset my password?</code> and get an agent response inline.</p>
+            </div>
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
+              <h4 className="font-semibold text-sm mb-1 flex items-center gap-2"><Zap className="w-4 h-4 text-yellow-400" /> Event</h4>
+              <p className="text-xs text-[#888] leading-relaxed">Trigger agents from internal Bonito events — new document indexed in a KB, agent error threshold exceeded, or cost alert fired.</p>
+            </div>
+          </div>
+
+          <SubHeading title="Creating triggers" />
+          <CodeBlock
+            code={`# Create a webhook trigger
+bonito triggers create \\
+  --agent-id ag_abc123 \\
+  --type webhook \\
+  --name "GitHub PR Review"
+
+# Output: Webhook URL → https://getbonito.com/hooks/tr_wh_abc123
+
+# Create a scheduled trigger (daily at 9 AM UTC)
+bonito triggers create \\
+  --agent-id ag_abc123 \\
+  --type cron \\
+  --schedule "0 9 * * *" \\
+  --name "Daily Summary" \\
+  --input "Generate a summary of yesterday's support tickets"
+
+# Create a slash command trigger
+bonito triggers create \\
+  --agent-id ag_abc123 \\
+  --type slash-command \\
+  --platform slack \\
+  --command "/ask-support" \\
+  --name "Slack Support"
+
+# List triggers for an agent
+bonito triggers list --agent-id ag_abc123`}
+          />
+
+          <SubHeading title="Webhook payload" />
+          <Paragraph>
+            When a webhook trigger fires, the HTTP request body is passed to the agent as context. You can define a template to extract specific fields:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "trigger_id": "tr_wh_abc123",
+  "payload_template": "New {{event}} from {{repository.full_name}}: {{pull_request.title}}",
+  "headers_to_forward": ["X-GitHub-Event"],
+  "secret": "whsec_xxxxxxxx"
+}`}
+          />
+          <Callout variant="tip">
+            Use the <code className="text-xs">secret</code> field to verify webhook signatures. Bonito validates the HMAC signature on incoming requests and rejects unverified payloads.
+          </Callout>
+
+          {/* ── Observability ── */}
+          <SectionHeading id="observability" title="Observability" />
+          <Paragraph>
+            Bonito provides built-in observability for every request flowing through the gateway and every agent interaction. Track tokens, latency, costs, and errors across your entire AI stack without any additional tooling.
+          </Paragraph>
+
+          <SubHeading title="Request tracing" />
+          <Paragraph>
+            Every API request gets a unique trace ID. View the full lifecycle of a request — from gateway receipt through provider routing to response delivery:
+          </Paragraph>
+          <CodeBlock
+            code={`# View recent requests
+bonito logs list --limit 20
+
+# Get details for a specific trace
+bonito logs get --trace-id tr_xxxxxxxxxxxx
+
+# Filter by model, status, or time range
+bonito logs list \\
+  --model "claude-3-sonnet" \\
+  --status error \\
+  --since "2024-01-15T00:00:00Z"`}
+          />
+
+          <SubHeading title="What&apos;s tracked" />
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Metric</th>
+                  <th className="text-left py-2 font-medium">Description</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc] text-xs">
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Tokens (in/out)</td>
+                  <td className="py-2">Input and output token counts per request</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Latency</td>
+                  <td className="py-2">Time to first token (TTFT) and total response time</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Cost</td>
+                  <td className="py-2">Estimated cost per request based on provider pricing</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Model</td>
+                  <td className="py-2">Which model and provider served the request</td>
+                </tr>
+                <tr className="border-b border-[#1a1a1a]/50">
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Status</td>
+                  <td className="py-2">Success, error, rate-limited, or timed-out</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-mono text-[#7c3aed]">Agent</td>
+                  <td className="py-2">Which BonBon agent handled the request (if applicable)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="Per-agent analytics" />
+          <Paragraph>
+            Each BonBon agent has its own analytics dashboard showing conversation volume, average response time, token usage, cost breakdown, and error rates over time.
+          </Paragraph>
+          <CodeBlock
+            code={`# Get agent analytics
+bonito agents analytics --id ag_abc123 \\
+  --period 7d
+
+# Export analytics as CSV
+bonito agents analytics --id ag_abc123 \\
+  --period 30d \\
+  --format csv > agent-analytics.csv`}
+          />
+
+          <SubHeading title="Cost monitoring" />
+          <Paragraph>
+            Observability integrates with Cost Management to show real-time spend. Set budget alerts per agent, per model, or globally:
+          </Paragraph>
+          <CodeBlock
+            code={`# Set a per-agent budget alert
+bonito alerts create \\
+  --scope agent \\
+  --agent-id ag_abc123 \\
+  --threshold 500 \\
+  --period monthly \\
+  --notify email,in-app
+
+# Set a global daily spend alert
+bonito alerts create \\
+  --scope global \\
+  --threshold 100 \\
+  --period daily`}
+          />
+          <Callout variant="info">
+            Observability data is retained for 90 days by default. Contact support for extended retention or data export to your own analytics pipeline.
+          </Callout>
 
           {/* ── Troubleshooting ── */}
           <SectionHeading id="troubleshooting" title="Troubleshooting" />
