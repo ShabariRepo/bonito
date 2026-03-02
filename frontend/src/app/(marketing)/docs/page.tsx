@@ -21,6 +21,7 @@ import {
   Copy,
   Check,
   BookOpen,
+  Bot,
 } from "lucide-react";
 
 /* ─── Sidebar sections ─── */
