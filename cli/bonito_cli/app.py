@@ -24,6 +24,7 @@ from .commands.projects import app as projects_app
 from .commands.groups import app as groups_app
 from .commands.sso import app as sso_app
 from .commands.plan import app as plan_app
+from .commands.deploy import app as deploy_app
 
 console = Console()
 
@@ -84,6 +85,7 @@ app.add_typer(projects_app,    name="projects",    help="📁 Agent projects")
 app.add_typer(groups_app,      name="groups",      help="👥 Agent groups (RBAC)")
 app.add_typer(sso_app,         name="sso",         help="🔐 SAML Single Sign-On")
 app.add_typer(plan_app,        name="plan",        help="💎 Subscription plans & usage")
+app.add_typer(deploy_app,     name="deploy",      help="📦 Deploy from bonito.yaml")
 
 
 # ── Callbacks ──────────────────────────────────────────────────
