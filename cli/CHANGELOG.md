@@ -2,7 +2,26 @@
 
 All notable changes to the Bonito CLI will be documented in this file.
 
-## [0.2.0] — 2026-02-18
+## [0.5.0] - 2026-03-02
+
+### Fixed
+- **`bonito deploy` completely rewritten** to match real Bonito API endpoints:
+  - Agent creation now uses `POST /api/projects/{project_id}/agents`
+  - MCP servers register per-agent via `POST /api/agents/{agent_id}/mcp-servers`
+  - Project find-or-create step added (`/api/projects`)
+  - Provider connection via `/api/providers/connect`
+  - Knowledge base creation with file upload support
+  - KB "already exists" gracefully reuses existing KBs
+  - Provider errors are non-fatal (reported as "skipped")
+- Environment variable interpolation (`${VAR}` and `${VAR:-default}` syntax)
+- YAML validation with clear error messages
+
+### Changed
+- Deploy order: providers -> knowledge bases -> project -> agents (with per-agent MCP)
+- Summary table shows all resources with status (ok/skip/fail)
+
+
+## [0.2.0] - 2026-02-18
 
 ### Added
 - **Knowledge Base (RAG) commands** — full `bonito kb` command group:
