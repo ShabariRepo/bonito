@@ -22,6 +22,12 @@ import {
   Check,
   BookOpen,
   Bot,
+  Network,
+  Plug,
+  Database,
+  Sparkles,
+  Clock,
+  BarChart3,
 } from "lucide-react";
 
 /* ─── Sidebar sections ─── */
