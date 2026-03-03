@@ -17,6 +17,7 @@ import {
   Check,
   Loader2,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -196,6 +197,33 @@ export default function SettingsPage() {
             <button className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition-colors">
               Save Changes
             </button>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Setup Wizard */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.03 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-violet-500" />
+              Setup Wizard
+            </CardTitle>
+            <CardDescription>Re-run the onboarding wizard to configure providers or explore features</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Walk through provider setup, Bonobot configuration, or BonBon catalog.
+              </p>
+              <Link
+                href="/onboarding"
+                className="flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors whitespace-nowrap ml-4"
+              >
+                Re-run Wizard
+                <Sparkles className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

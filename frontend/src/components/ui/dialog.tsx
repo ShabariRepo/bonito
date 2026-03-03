@@ -91,7 +91,7 @@ export function DialogContent({
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
             <div className={cn(
-              "bg-white dark:bg-[#1a1a2e] rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 max-w-md w-full",
+              "bg-white dark:bg-[#1a1a2e] rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 w-full sm:max-w-md max-h-[90vh] overflow-y-auto",
               className
             )}>
               {children}

@@ -30,6 +30,7 @@ import {
   Database,
   BookOpen,
   AlertTriangle,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
@@ -38,6 +39,7 @@ import { apiRequest } from "@/lib/auth";
 type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq";
 type IaCTool = "terraform" | "pulumi" | "cloudformation" | "bicep" | "manual";
 type OnboardingPath = "quick" | "iac" | null;
+type ProductPath = "models" | "bonobot" | "bonbon" | null;
 
 interface PermissionCheck {
   name: string;
@@ -211,6 +213,13 @@ export default function OnboardingPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [path, setPath] = useState<OnboardingPath>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [productPath, setProductPath] = useState<ProductPath>(null);
+
+  // BonBon catalog state
+  const [bonbonTemplates, setBonbonTemplates] = useState<any[]>([]);
+  const [bonbonLoading, setBonbonLoading] = useState(false);
+  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
+  const [deployingTemplates, setDeployingTemplates] = useState(false);
 
   // Quick connect state
   const [activeProvider, setActiveProvider] = useState<Provider | null>(null);
@@ -513,8 +522,37 @@ export default function OnboardingPage() {
     router.push("/dashboard");
   };
 
+  const fetchBonbonTemplates = useCallback(async () => {
+    setBonbonLoading(true);
+    try {
+      const res = await apiRequest("/api/bonbon/templates");
+      if (res.ok) {
+        const data = await res.json();
+        setBonbonTemplates(Array.isArray(data) ? data : []);
+      }
+    } catch {} finally {
+      setBonbonLoading(false);
+    }
+  }, []);
+
+  const deployBonbonTemplates = async () => {
+    setDeployingTemplates(true);
+    try {
+      for (const templateId of selectedTemplates) {
+        await apiRequest("/api/bonbon/deploy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ template_id: templateId }),
+        });
+      }
+      router.push("/agents");
+    } catch {} finally {
+      setDeployingTemplates(false);
+    }
+  };
+
   // Progress percentage
-  const progressPct = step === 0 ? 33 : step === 1 ? 66 : 100;
+  const progressPct = step === 0 ? 25 : step === 1 ? 60 : 100;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -566,8 +604,56 @@ export default function OnboardingPage() {
                   </span>
                 </h1>
                 <p className="text-muted-foreground text-lg">
-                  Connect your cloud providers to get started. Select one or more.
+                  {productPath ? "Now connect your cloud providers." : "What would you like to do?"}
                 </p>
+              </div>
+
+              {/* Product path selection */}
+              <div className="grid gap-4 md:grid-cols-3">
+                {([
+                  { id: "models" as ProductPath, name: "Deploy AI Models", icon: Cloud, desc: "Connect your cloud providers and start routing AI requests", color: "from-blue-500 to-cyan-500" },
+                  { id: "bonobot" as ProductPath, name: "Build Custom Agents", icon: Bot, desc: "Use the Bonobot framework to build AI agents with tools and workflows", color: "from-violet-500 to-purple-500" },
+                  { id: "bonbon" as ProductPath, name: "Deploy Pre-built Agents", icon: Sparkles, desc: "Pick from the curated BonBon catalog and deploy in minutes", color: "from-fuchsia-500 to-pink-500" },
+                ]).map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setProductPath(item.id)}
+                    className={cn(
+                      "relative rounded-xl border-2 p-6 text-left transition-all hover:scale-[1.02]",
+                      productPath === item.id
+                        ? "border-violet-500 bg-violet-500/10"
+                        : "border-border hover:border-violet-500/50"
+                    )}
+                  >
+                    {productPath === item.id && (
+                      <div className="absolute top-3 right-3">
+                        <Check className="h-5 w-5 text-violet-400" />
+                      </div>
+                    )}
+                    <div className={cn("inline-flex items-center justify-center w-10 h-10 rounded-lg mb-3 bg-gradient-to-br", item.color)}>
+                      <item.icon className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-lg">{item.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Skip link */}
+              <div className="text-center">
+                <button
+                  onClick={goToDashboard}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                >
+                  I know what I&apos;m doing - skip to dashboard
+                </button>
+              </div>
+
+              {/* Provider selection - shown after choosing a path */}
+              {productPath && (<>
+              <div className="border-t border-border pt-6 text-center space-y-3">
+                <h2 className="text-xl font-semibold">Connect Your Cloud Providers</h2>
+                <p className="text-muted-foreground">Select one or more to get started.</p>
               </div>
 
               {/* Provider cards */}
@@ -629,6 +715,7 @@ export default function OnboardingPage() {
                   </div>
                 </motion.div>
               )}
+              </>)}
             </motion.div>
           )}
 
@@ -1048,12 +1135,28 @@ export default function OnboardingPage() {
                     </AnimatePresence>
                   </motion.div>
 
-                  <button
-                    onClick={goToDashboard}
-                    className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
-                  >
-                    Go to Dashboard <ArrowRight className="inline h-5 w-5 ml-1" />
-                  </button>
+                  {productPath === "bonobot" ? (
+                    <button
+                      onClick={() => setStep(2)}
+                      className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
+                    >
+                      Continue to Setup Guide <ArrowRight className="inline h-5 w-5 ml-1" />
+                    </button>
+                  ) : productPath === "bonbon" ? (
+                    <button
+                      onClick={() => { setStep(2); fetchBonbonTemplates(); }}
+                      className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
+                    >
+                      Browse BonBon Catalog <ArrowRight className="inline h-5 w-5 ml-1" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={goToDashboard}
+                      className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
+                    >
+                      Go to Dashboard <ArrowRight className="inline h-5 w-5 ml-1" />
+                    </button>
+                  )}
                 </motion.div>
               )}
 
@@ -1064,6 +1167,12 @@ export default function OnboardingPage() {
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" /> Back
+                </button>
+                <button
+                  onClick={goToDashboard}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip to dashboard
                 </button>
               </div>
             </motion.div>
@@ -1373,6 +1482,210 @@ export default function OnboardingPage() {
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="h-4 w-4" /> Back
+                </button>
+                <button
+                  onClick={goToDashboard}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip to dashboard
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══════════════ STEP 2: BONOBOT GUIDE ═══════════════ */}
+          {step === 2 && productPath === "bonobot" && (
+            <motion.div key="bonobot-guide" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+              <div className="text-center space-y-3">
+                <h2 className="text-2xl font-bold">Build Custom Agents with Bonobot</h2>
+                <p className="text-muted-foreground">Everything you need to start building AI agents.</p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 max-w-3xl mx-auto">
+                <div className="rounded-xl border border-border p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-violet-500/20 p-2">
+                      <Bot className="h-5 w-5 text-violet-400" />
+                    </div>
+                    <h3 className="font-semibold">1. Create a Project</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Projects organize your agents, tools, and MCP servers into logical groups.
+                  </p>
+                  <button
+                    onClick={() => router.push("/agents")}
+                    className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1"
+                  >
+                    Go to Projects <ArrowRight className="h-3 w-3" />
+                  </button>
+                </div>
+
+                <div className="rounded-xl border border-border p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-fuchsia-500/20 p-2">
+                      <Sparkles className="h-5 w-5 text-fuchsia-400" />
+                    </div>
+                    <h3 className="font-semibold">2. Add Agents</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Create AI agents with system prompts, tools, and delegation rules.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-cyan-500/20 p-2">
+                      <Database className="h-5 w-5 text-cyan-400" />
+                    </div>
+                    <h3 className="font-semibold">3. Connect MCP Servers</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Give your agents access to tools and data through Model Context Protocol servers.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border p-5 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-green-500/20 p-2">
+                      <Rocket className="h-5 w-5 text-green-400" />
+                    </div>
+                    <h3 className="font-semibold">4. Deploy</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Deploy agents via the dashboard or use the CLI for automation.
+                  </p>
+                </div>
+              </div>
+
+              {/* CLI section */}
+              <div className="max-w-2xl mx-auto rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                  <Terminal className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground font-mono">CLI Quick Start</span>
+                </div>
+                <pre className="p-4 text-sm text-zinc-300 overflow-x-auto">
+                  <code>{`pip install bonito-cli\n\n# Deploy from a config file\nbonito deploy -f bonito.yaml`}</code>
+                </pre>
+              </div>
+
+              {/* Docs link */}
+              <div className="text-center">
+                <a
+                  href="https://docs.bonito.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-violet-400 hover:text-violet-300"
+                >
+                  <BookOpen className="h-4 w-4" /> Read the documentation
+                </a>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </button>
+                <button
+                  onClick={goToDashboard}
+                  className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity"
+                >
+                  Go to Dashboard <ArrowRight className="inline h-5 w-5 ml-1" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══════════════ STEP 2: BONBON CATALOG ═══════════════ */}
+          {step === 2 && productPath === "bonbon" && (
+            <motion.div key="bonbon-catalog" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+              <div className="text-center space-y-3">
+                <h2 className="text-2xl font-bold">BonBon Solution Kits</h2>
+                <p className="text-muted-foreground">Pick pre-built agent templates and deploy them instantly.</p>
+              </div>
+
+              {bonbonLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+                </div>
+              ) : bonbonTemplates.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <Sparkles className="h-12 w-12 text-muted-foreground mx-auto" />
+                  <p className="text-muted-foreground">No templates available yet. Check back soon!</p>
+                  <button
+                    onClick={goToDashboard}
+                    className="px-6 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
+                  >
+                    Go to Dashboard
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {bonbonTemplates.map((template: any) => (
+                      <button
+                        key={template.id}
+                        onClick={() =>
+                          setSelectedTemplates((prev) =>
+                            prev.includes(template.id)
+                              ? prev.filter((id) => id !== template.id)
+                              : [...prev, template.id]
+                          )
+                        }
+                        className={cn(
+                          "relative rounded-xl border-2 p-5 text-left transition-all hover:scale-[1.02]",
+                          selectedTemplates.includes(template.id)
+                            ? "border-violet-500 bg-violet-500/10"
+                            : "border-border hover:border-violet-500/50"
+                        )}
+                      >
+                        {selectedTemplates.includes(template.id) && (
+                          <div className="absolute top-3 right-3">
+                            <Check className="h-5 w-5 text-violet-400" />
+                          </div>
+                        )}
+                        <h3 className="font-semibold">{template.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{template.description}</p>
+                        {template.category && (
+                          <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded-full bg-accent text-muted-foreground">
+                            {template.category}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedTemplates.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+                      <button
+                        onClick={deployBonbonTemplates}
+                        disabled={deployingTemplates}
+                        className="px-8 py-3 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 inline-flex items-center gap-2"
+                      >
+                        {deployingTemplates ? (
+                          <><Loader2 className="h-5 w-5 animate-spin" /> Deploying...</>
+                        ) : (
+                          <>Deploy {selectedTemplates.length} Template{selectedTemplates.length > 1 ? "s" : ""} <Rocket className="h-5 w-5" /></>
+                        )}
+                      </button>
+                    </motion.div>
+                  )}
+                </>
+              )}
+
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </button>
+                <button
+                  onClick={goToDashboard}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Skip to dashboard
                 </button>
               </div>
             </motion.div>

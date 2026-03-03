@@ -29,6 +29,7 @@ import {
   Server,
   BookOpen,
   Bot,
+  Package,
   FileText,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
@@ -56,6 +57,7 @@ const navigation = [
 
 const bonobotNavigation = [
   { name: "Projects", href: "/agents", icon: Bot },
+  { name: "BonBon", href: "/agents/bonbon", icon: Package },
 ];
 
 const adminNavigation = [
@@ -233,7 +235,13 @@ export function Sidebar() {
           )}
         </AnimatePresence>
         {bonobotNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const matchesPath = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const hasMoreSpecificMatch = bonobotNavigation.some(
+            (other) => other.href !== item.href &&
+              other.href.startsWith(item.href + "/") &&
+              (pathname === other.href || pathname?.startsWith(other.href + "/"))
+          );
+          const isActive = matchesPath && !hasMoreSpecificMatch;
           return (
             <Link key={item.name} href={item.href} className="relative block">
               {isActive && (
