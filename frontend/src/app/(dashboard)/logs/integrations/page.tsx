@@ -227,7 +227,7 @@ export default function LogIntegrationsPage() {
               Add Integration
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Log Integration</DialogTitle>
             </DialogHeader>
