@@ -253,7 +253,7 @@ async def get_project_graph(
     nodes = []
     
     # Agent nodes
-    for agent in agents:
+    for idx, agent in enumerate(agents):
         node_data = {
             "id": str(agent.id),
             "name": agent.name,
@@ -270,7 +270,7 @@ async def get_project_graph(
             id=agent.id,
             type="agent",
             data=node_data,
-            position={"x": 100, "y": 100}  # TODO: Store positions in metadata
+            position=agent.canvas_position or {"x": 100 + (idx % 4) * 300, "y": 100 + (idx // 4) * 200}
         ))
     
     # Trigger nodes
@@ -288,7 +288,7 @@ async def get_project_graph(
             id=trigger.id,
             type="trigger",
             data=node_data,
-            position={"x": 50, "y": 50}  # TODO: Store positions
+            position={"x": 50, "y": 50}  # Trigger positions use defaults for now
         ))
     
     # Build edges

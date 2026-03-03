@@ -30,6 +30,15 @@ from app.schemas.bonobot import (
 router = APIRouter()
 
 
+def _require_write_access(user: User, action: str = "perform this action"):
+    """Require admin or editor role for write operations."""
+    if user.role not in ("admin", "editor"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Admin or editor role required to {action}"
+        )
+
+
 @router.post("/projects/{project_id}/groups", response_model=AgentGroupResponse, status_code=status.HTTP_201_CREATED)
 async def create_agent_group(
     project_id: UUID,
@@ -54,7 +63,7 @@ async def create_agent_group(
             detail="Project not found"
         )
     
-    # TODO: Check permission - require manage_groups on project
+    _require_write_access(current_user, "create agent groups")
     
     # Validate knowledge base IDs if provided
     if group_data.knowledge_base_ids:
@@ -125,7 +134,7 @@ async def list_agent_groups(
             detail="Project not found"
         )
     
-    # TODO: Filter by user's group access permissions
+    # Any authenticated org member can list groups in their projects
     
     # Get groups with agent counts
     stmt = (
@@ -173,7 +182,7 @@ async def get_agent_group(
             detail="Agent group not found"
         )
     
-    # TODO: Check permission - require view access to group
+    # Any authenticated org member can view group details
     
     # Get agent count
     stmt = select(func.count(Agent.id)).where(Agent.group_id == group_id)
@@ -218,7 +227,7 @@ async def update_agent_group(
             detail="Agent group not found"
         )
     
-    # TODO: Check permission - require manage_groups on group's project
+    _require_write_access(current_user, "update agent groups")
     
     # Validate knowledge base IDs if being updated
     if group_data.knowledge_base_ids is not None:
@@ -281,7 +290,12 @@ async def delete_agent_group(
             detail="Agent group not found"
         )
     
-    # TODO: Check permission - require manage_groups on group's project
+    # Only admins can delete groups (destructive operation)
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required to delete agent groups"
+        )
     
     await db.delete(group)
     await db.commit()
@@ -310,7 +324,7 @@ async def list_group_agents(
             detail="Agent group not found"
         )
     
-    # TODO: Check permission - require view access to group
+    # Any authenticated org member can list agents in a group
     
     # Get agents in group
     stmt = select(Agent).where(Agent.group_id == group_id).order_by(Agent.created_at.desc())
@@ -361,7 +375,7 @@ async def assign_agent_to_group(
             detail="Agent not found or not in same project"
         )
     
-    # TODO: Check permission - require manage_agents on agent and manage_groups on group
+    _require_write_access(current_user, "assign agents to groups")
     
     # Assign agent to group
     agent.group_id = group_id
@@ -395,7 +409,7 @@ async def unassign_agent_from_group(
             detail="Agent not found in specified group"
         )
     
-    # TODO: Check permission - require manage_agents on agent
+    _require_write_access(current_user, "remove agents from groups")
     
     # Remove agent from group
     agent.group_id = None

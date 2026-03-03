@@ -168,10 +168,45 @@ export default function ProjectCanvasPage() {
 
   const onConnect = useCallback(
     (params: Connection) => {
-      // TODO: Create connection via API
       setEdges((eds) => addEdge(params, eds));
+
+      // Persist connection to backend
+      if (params.source && params.target) {
+        apiRequest(`/api/agents/${params.source}/connections`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            target_agent_id: params.target,
+            connection_type: "handoff",
+          }),
+        }).catch((err) => {
+          console.error("Failed to save connection:", err);
+          toast({
+            title: "Warning",
+            description: "Connection could not be saved. Try again.",
+            variant: "destructive",
+          });
+        });
+      }
     },
-    [setEdges]
+    [setEdges, toast]
+  );
+
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.type === "agent") {
+        apiRequest(`/api/agents/${node.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            canvas_position: { x: node.position.x, y: node.position.y },
+          }),
+        }).catch((err) => {
+          console.error("Failed to save node position:", err);
+        });
+      }
+    },
+    []
   );
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -340,6 +375,7 @@ export default function ProjectCanvasPage() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         className="bg-[#0a0a1a]"

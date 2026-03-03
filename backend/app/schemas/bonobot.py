@@ -59,6 +59,7 @@ class AgentCreate(BaseModel):
     max_session_messages: Optional[int] = Field(200, ge=10, le=1000)
     rate_limit_rpm: Optional[int] = Field(30, ge=1, le=1000)
     budget_alert_threshold: Optional[Decimal] = Field(Decimal("0.8"), ge=Decimal("0.1"), le=Decimal("1.0"))
+    canvas_position: Optional[Dict[str, float]] = None
 
 
 class AgentUpdate(BaseModel):
@@ -77,6 +78,7 @@ class AgentUpdate(BaseModel):
     rate_limit_rpm: Optional[int] = Field(None, ge=1, le=1000)
     budget_alert_threshold: Optional[Decimal] = Field(None, ge=Decimal("0.1"), le=Decimal("1.0"))
     status: Optional[str] = Field(None, pattern=r"^(active|paused|disabled)$")
+    canvas_position: Optional[Dict[str, float]] = None
 
 
 class AgentResponse(BaseModel):
@@ -102,6 +104,7 @@ class AgentResponse(BaseModel):
     bonbon_config: Optional[Dict[str, Any]] = None
     widget_enabled: bool = False
     widget_config: Optional[Dict[str, Any]] = None
+    canvas_position: Optional[Dict[str, float]] = None
 
     status: str
     last_active_at: Optional[datetime]

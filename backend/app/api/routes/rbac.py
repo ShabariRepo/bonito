@@ -39,6 +39,15 @@ async def _require_rbac(db: AsyncSession, user: User):
     await feature_gate.require_feature(db, str(user.org_id), "rbac")
 
 
+def _require_admin(user: User, action: str = "perform this action"):
+    """Require the user to have the admin role."""
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Admin role required to {action}"
+        )
+
+
 # ─── Role Management ───
 
 @router.post("/roles", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
@@ -49,7 +58,7 @@ async def create_role(
 ):
     """Create a custom role. Only org_admin can create roles."""
     await _require_rbac(db, current_user)
-    # TODO: Check permission - require org_admin role
+    _require_admin(current_user, "create roles")
     
     # Check if role name already exists in org
     stmt = select(Role).where(
@@ -90,7 +99,7 @@ async def list_roles(
 ):
     """List all roles in the organization."""
     await _require_rbac(db, current_user)
-    # TODO: Check permission - require appropriate access
+    # Any authenticated org member can list roles
     
     stmt = select(Role).where(Role.org_id == current_user.org_id).order_by(Role.is_managed.desc(), Role.name)
     result = await db.execute(stmt)
@@ -122,7 +131,7 @@ async def get_role(
             detail="Role not found"
         )
     
-    # TODO: Check permission - require appropriate access
+    # Any authenticated org member can view role details
     
     return RoleResponse.model_validate(role)
 
@@ -157,7 +166,7 @@ async def update_role(
             detail="Managed roles cannot be updated"
         )
     
-    # TODO: Check permission - require org_admin role
+    _require_admin(current_user, "update roles")
     
     # Check for name conflicts if name is being changed
     if role_data.name and role_data.name != role.name:
@@ -216,7 +225,7 @@ async def delete_role(
             detail="Managed roles cannot be deleted"
         )
     
-    # TODO: Check permission - require org_admin role
+    _require_admin(current_user, "delete roles")
     
     # Check if role is assigned to any users
     stmt = select(RoleAssignment).where(RoleAssignment.role_id == role_id)
@@ -334,7 +343,7 @@ async def create_role_assignment(
                 detail="scope_id should be null for org scope"
             )
     
-    # TODO: Check permission - require appropriate role assignment permissions
+    _require_admin(current_user, "assign roles")
     
     # Check if assignment already exists
     stmt = select(RoleAssignment).where(
@@ -386,7 +395,9 @@ async def list_role_assignments(
 ):
     """List role assignments with optional filters."""
     await _require_rbac(db, current_user)
-    # TODO: Filter by user's permissions - only show assignments they can manage
+    # Non-admins can only see their own assignments
+    if current_user.role != "admin":
+        user_id = current_user.id
     
     # Build query with joins
     stmt = (
@@ -455,7 +466,7 @@ async def delete_role_assignment(
             detail="Role assignment not found"
         )
     
-    # TODO: Check permission - require appropriate role assignment permissions
+    _require_admin(current_user, "remove role assignments")
     
     await db.delete(assignment)
     await db.commit()
@@ -488,7 +499,7 @@ async def get_user_roles(
                 detail="User not found"
             )
         
-        # TODO: Check permission - require appropriate access to view user roles
+        _require_admin(current_user, "view other users' roles")
     
     # Get role assignments with role details
     stmt = (
@@ -553,7 +564,7 @@ async def get_user_permissions(
                 detail="User not found"
             )
         
-        # TODO: Check permission - require appropriate access to view user permissions
+        _require_admin(current_user, "view other users' permissions")
     
     # Get role assignments with role permissions
     stmt = (
