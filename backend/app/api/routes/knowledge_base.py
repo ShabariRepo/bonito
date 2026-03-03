@@ -678,22 +678,13 @@ async def get_knowledge_base_stats(
 # ─── Background Tasks (Placeholder implementations) ───
 
 async def _process_uploaded_document(doc_id: uuid.UUID, content: bytes, kb_id: uuid.UUID):
-    """Process an uploaded document in the background."""
-    # TODO: Implement document processing pipeline
-    # 1. Parse document content based on file type
-    # 2. Split into chunks
-    # 3. Generate embeddings
-    # 4. Store chunks in database
-    logger.info(f"Starting background processing for document {doc_id}")
-    
-    # Placeholder: just mark as processed for now
-    from app.core.database import get_db_session
-    async with get_db_session() as db:
-        result = await db.execute(select(KBDocument).where(KBDocument.id == doc_id))
-        doc = result.scalar_one_or_none()
-        if doc:
-            doc.status = "ready"  # In real implementation, this would be "processing" then "ready"
-            await db.commit()
+    """Process an uploaded document in the background.
+
+    Delegates to the full ingestion pipeline in kb_ingestion.process_document()
+    which handles parsing, chunking, embedding generation, and storage.
+    """
+    from app.services.kb_ingestion import process_document
+    await process_document(doc_id, content, kb_id)
 
 
 async def _sync_from_cloud_storage(kb_id: uuid.UUID):

@@ -45,6 +45,9 @@ class Agent(Base):
     widget_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     widget_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # welcome_message, suggested_questions, theme
 
+    # Canvas
+    canvas_position: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # {x: float, y: float}
+
     # Status
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")  # active, paused, disabled
     last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

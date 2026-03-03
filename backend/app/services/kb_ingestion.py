@@ -573,9 +573,13 @@ async def search_chunks(
 ) -> List[Dict[str, Any]]:
     """
     Search for similar chunks using pgvector cosine similarity.
-    
-    TODO: Implement actual vector search
+
+    Uses the ``<=>`` (cosine distance) operator provided by pgvector.
+    Returns up to *top_k* results whose cosine similarity (1 - distance)
+    meets or exceeds *min_score*.
     """
+    from sqlalchemy import text as sa_text
+
     async with get_db_session() as db:
         # Verify knowledge base access
         if org_id:
@@ -588,15 +592,55 @@ async def search_chunks(
             kb = kb_result.scalar_one_or_none()
             if not kb:
                 raise ValueError("Knowledge base not found or access denied")
-        
-        # TODO: Implement pgvector similarity search
-        # Example query:
-        # SELECT *, (embedding <=> %s) as distance 
-        # FROM kb_chunks 
-        # WHERE knowledge_base_id = %s 
-        # ORDER BY distance ASC 
-        # LIMIT %s
-        
-        # Placeholder: return empty results
-        logger.info(f"Vector search in KB {kb_id} for {len(query_embedding)}-dim embedding (top_k={top_k})")
-        return []
+
+        # Build the pgvector literal expected by CAST(... AS vector)
+        embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+
+        logger.info(
+            f"Vector search in KB {kb_id} for {len(query_embedding)}-dim embedding "
+            f"(top_k={top_k}, min_score={min_score})"
+        )
+
+        try:
+            result = await db.execute(
+                sa_text("""
+                    SELECT c.id, c.content, c.token_count, c.chunk_index,
+                           c.source_file, c.source_page, c.source_section,
+                           c.document_id,
+                           1 - (c.embedding <=> CAST(:query_vec AS vector)) AS score
+                    FROM kb_chunks c
+                    WHERE c.knowledge_base_id = :kb_id
+                      AND c.embedding IS NOT NULL
+                    ORDER BY c.embedding <=> CAST(:query_vec AS vector)
+                    LIMIT :top_k
+                """),
+                {
+                    "query_vec": embedding_str,
+                    "kb_id": str(kb_id),
+                    "top_k": top_k,
+                },
+            )
+            rows = result.fetchall()
+        except Exception as e:
+            logger.error(f"pgvector search failed for KB {kb_id}: {e}")
+            return []
+
+        results: List[Dict[str, Any]] = []
+        for row in rows:
+            score = float(row.score) if row.score is not None else 0.0
+            if score < min_score:
+                continue
+            results.append({
+                "chunk_id": str(row.id),
+                "content": row.content,
+                "score": round(score, 4),
+                "token_count": row.token_count,
+                "chunk_index": row.chunk_index,
+                "source_file": row.source_file,
+                "source_page": row.source_page,
+                "source_section": row.source_section,
+                "document_id": str(row.document_id),
+            })
+
+        logger.info(f"Vector search returned {len(results)} results for KB {kb_id}")
+        return results
