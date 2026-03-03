@@ -2,6 +2,17 @@
 
 All notable changes to the Bonito CLI will be documented in this file.
 
+## [0.5.1] - 2026-03-02
+
+### Added
+- **Auto-enable tools**: Agents with MCP servers, delegates, or RAG now get `tool_policy: {mode: "all"}` automatically (previously defaulted to deny-all)
+- **Agent delegation wiring**: CLI now creates AgentConnection records for Bonobot agents that define `delegates` in bonito.yaml
+
+### Fixed
+- Agents created via `bonito deploy` now work with MCP tools out of the box (no manual tool_policy fix needed)
+- Bonobot orchestrators can now delegate to sub-agents without manual API calls
+
+
 ## [0.5.0] - 2026-03-02
 
 ### Fixed

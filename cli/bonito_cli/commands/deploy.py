@@ -459,6 +459,15 @@ def _deploy_agents(
                 if params.get("max_tokens") is not None:
                     payload["model_config"]["max_tokens"] = params["max_tokens"]
 
+            # Enable tools if agent has MCP servers or delegates
+            agent_mcp_refs = cfg.get("mcp_servers", [])
+            agent_delegates = cfg.get("delegates", [])
+            if agent_mcp_refs or agent_delegates:
+                payload["tool_policy"] = {"mode": "all"}
+            elif cfg.get("rag"):
+                # RAG agents get search_knowledge_base tool
+                payload["tool_policy"] = {"mode": "all"}
+
             # Attach knowledge base if configured via RAG section
             rag = cfg.get("rag", {})
             if rag and rag.get("knowledge_base"):
@@ -535,6 +544,75 @@ def _deploy_agents(
             console.print(f"  [red]x[/red] {cfg.get('display_name', name)}: {exc}")
 
     return agent_id_map
+
+
+# -- step: agent connections (delegation) ------------------------------------
+
+
+def _create_agent_connections(
+    agents: Dict[str, Dict[str, Any]],
+    agent_id_map: Dict[str, str],
+    result: DeployResult,
+    dry_run: bool,
+    verbose: bool,
+) -> None:
+    """Create connections from Bonobot orchestrators to their delegate agents."""
+    connections_made = 0
+
+    for name, cfg in agents.items():
+        delegates = cfg.get("delegates", [])
+        if not delegates:
+            continue
+
+        source_id = agent_id_map.get(name)
+        if not source_id:
+            continue
+
+        display_name = cfg.get("display_name", name)
+
+        if verbose:
+            console.print(f"\n  [dim]Wiring {display_name} delegation...[/dim]")
+
+        for delegate_cfg in delegates:
+            # Delegates can be strings (agent names) or dicts with agent + domains
+            if isinstance(delegate_cfg, str):
+                target_name = delegate_cfg
+            elif isinstance(delegate_cfg, dict):
+                target_name = delegate_cfg.get("agent", "")
+            else:
+                continue
+
+            target_id = agent_id_map.get(target_name)
+            if not target_id:
+                if verbose:
+                    console.print(f"    [dim yellow]! delegate '{target_name}' not found in deployed agents[/dim yellow]")
+                continue
+
+            if dry_run:
+                if verbose:
+                    console.print(f"    [dim]{display_name} -> {target_name} (dry-run)[/dim]")
+                continue
+
+            try:
+                api.post(f"/agents/{source_id}/connections", {
+                    "target_agent_id": target_id,
+                    "connection_type": "handoff",
+                    "label": target_name,
+                    "enabled": True,
+                })
+                connections_made += 1
+                if verbose:
+                    console.print(f"    [green]v[/green] {display_name} -> {target_name}")
+            except Exception as exc:
+                if "already exists" in str(exc).lower():
+                    if verbose:
+                        console.print(f"    [dim]{display_name} -> {target_name} (exists)[/dim]")
+                else:
+                    if verbose:
+                        console.print(f"    [dim red]! {display_name} -> {target_name}: {exc}[/dim red]")
+
+    if connections_made and not dry_run:
+        console.print(f"\n  [green]{connections_made} agent connection(s) created[/green]")
 
 
 # -- summary -----------------------------------------------------------------
@@ -709,7 +787,10 @@ def deploy(
         else:
             result.mcp_servers.append({"name": server_name, "status": "ok", "detail": "defined (no agent reference)"})
 
-    # -- 8. Summary ----------------------------------------------------------
+    # -- 8. Agent connections (delegation) -----------------------------------
+    _create_agent_connections(agents, agent_id_map, result, dry_run, verbose)
+
+    # -- 9. Summary ----------------------------------------------------------
     _print_summary(result, stack_name, dry_run)
 
     if result.errors:
