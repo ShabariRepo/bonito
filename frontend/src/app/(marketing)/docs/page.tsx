@@ -657,16 +657,16 @@ bonito costs summary`}
             <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Bot className="w-4 h-4 text-[#7c3aed]" />
-                <h4 className="font-semibold text-sm">Simple — $199/mo</h4>
+                <h4 className="font-semibold text-sm">Simple — $49/mo</h4>
               </div>
-              <p className="text-xs text-[#888] leading-relaxed">Single-model agent with a system prompt, optional knowledge base, and an embeddable widget. Ideal for FAQ bots, customer support, and internal assistants.</p>
+              <p className="text-xs text-[#888] leading-relaxed">Pre-built agent with a system prompt, optional knowledge base, and an embeddable widget. Ideal for FAQ bots, customer support, and internal assistants. Deploy in minutes.</p>
             </div>
             <div className="bg-[#111] border border-[#7c3aed]/30 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-4 h-4 text-[#7c3aed]" />
-                <h4 className="font-semibold text-sm">Advanced — $399/mo</h4>
+                <h4 className="font-semibold text-sm">Advanced — $99/mo</h4>
               </div>
-              <p className="text-xs text-[#888] leading-relaxed">Multi-model agent with MCP tool integration, multiple knowledge bases, advanced routing, Bonobot orchestration, and full API access. Built for complex workflows.</p>
+              <p className="text-xs text-[#888] leading-relaxed">Agent with MCP tool integration, multiple knowledge bases, webhook triggers, and custom workflows. Built for agents that need to interact with external systems.</p>
             </div>
           </div>
 
@@ -810,7 +810,7 @@ bonito bonobot classify --id bot_abc123 \\
           />
 
           <Callout variant="info">
-            Bonobot requires the Advanced agent tier ($399/mo). Each sub-agent in the delegation map must be an existing BonBon agent.
+            Bonobot is a separate add-on ($349/mo hosted) for fully custom multi-agent orchestration. Each sub-agent in the delegation map can be a BonBon agent or another Bonobot.
           </Callout>
 
           <SubHeading title="Response synthesis" />

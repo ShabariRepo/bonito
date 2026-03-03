@@ -93,20 +93,54 @@ const plans = [
   },
 ];
 
+const bonbonPlans = [
+  {
+    name: "BonBon Simple",
+    price: "$49",
+    period: "/mo per agent",
+    description: "Pre-built AI agents ready to deploy. Just add your content.",
+    features: [
+      "Curated agent templates (Support, Knowledge, FAQ)",
+      "Built-in RAG — upload docs, get answers",
+      "Auto model selection (or bring your own)",
+      "Embeddable chat widget",
+      "Session history & analytics",
+      "No coding required",
+    ],
+    cta: "Deploy an Agent",
+  },
+  {
+    name: "BonBon Advanced",
+    price: "$99",
+    period: "/mo per agent",
+    description: "Agents with external tools, triggers, and workflows.",
+    features: [
+      "Everything in Simple",
+      "MCP tool server connections",
+      "Webhook & scheduled triggers",
+      "Multi-step workflows",
+      "Custom system prompts",
+      "Advanced model configuration",
+      "Priority support",
+    ],
+    cta: "Deploy an Agent",
+  },
+];
+
 const agentPlans = [
   {
     name: "Hosted Agent",
     price: "$349",
     period: "/mo per agent",
-    description: "AI agents running on Bonito infrastructure. Fully managed.",
+    description: "Custom AI agents on Bonito infrastructure. Build anything.",
     features: [
-      "Managed agent hosting",
+      "Fully custom agent logic",
       "Up to 5 resource connectors",
       "Scoped AI Context per agent group",
       "Budget enforcement & rate limiting",
       "Session history & audit trail",
       "Visual agent canvas (drag & drop)",
-      "Agent-to-agent connections",
+      "Agent-to-agent orchestration",
       "Triggers (schedule, webhook, event)",
     ],
     cta: "Add to Pro or Enterprise",
@@ -172,12 +206,17 @@ const comparisonFeatures = [
   { category: "Tools & Integrations", name: "In-App & Email Notifications", free: false, pro: true, enterprise: true, scale: true },
   { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, pro: false, enterprise: true, scale: true },
   // ── Bonobot (AI Agents)
-  { category: "Bonobot AI Agents", name: "Visual Agent Canvas", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot AI Agents", name: "Agent Execution Engine", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot AI Agents", name: "Per-Agent AI Context & Budget", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot AI Agents", name: "Agent-to-Agent Connections", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot AI Agents", name: "Resource Connectors", free: false, pro: "5 / agent", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Bonobot AI Agents", name: "VPC-Deployed Agents", free: false, pro: false, enterprise: "Add-on", scale: "Included" },
+  // ── BonBon (Managed Agents)
+  { category: "BonBon Agents", name: "Pre-built Agent Templates", free: false, pro: "$49/mo", enterprise: "$49/mo", scale: "Included" },
+  { category: "BonBon Agents", name: "Built-in RAG & Chat Widget", free: false, pro: "Simple+", enterprise: "Simple+", scale: "Included" },
+  { category: "BonBon Agents", name: "MCP Tools & Triggers", free: false, pro: "$99/mo", enterprise: "$99/mo", scale: "Included" },
+  // ── Bonobot (Custom Agents)
+  { category: "Bonobot Custom Agents", name: "Visual Agent Canvas", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Agent Execution Engine", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Per-Agent AI Context & Budget", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Agent-to-Agent Orchestration", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Resource Connectors", free: false, pro: "5 / agent", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Bonobot Custom Agents", name: "VPC-Deployed Agents", free: false, pro: false, enterprise: "Add-on", scale: "Included" },
   // ── Support
   { category: "Support", name: "Community Discord", free: true, pro: true, enterprise: true, scale: true },
   { category: "Support", name: "Email Support (24h)", free: false, pro: true, enterprise: true, scale: true },
@@ -195,15 +234,15 @@ const faqs = [
   },
   {
     q: "How does billing work?",
-    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card. Pro and Enterprise plans are billed at the start of each billing cycle. Bonobot agents are billed per-agent per-month as an add-on. Bonito charges for the platform — your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
+    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card. Pro and Enterprise plans are billed at the start of each billing cycle. BonBon agents start at $49/mo (Simple) or $99/mo (Advanced) per agent. Bonobot custom agents are billed separately as add-ons. Bonito charges for the platform - your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
   },
   {
     q: "What is AI Context?",
     a: "AI Context is our built-in RAG (Retrieval-Augmented Generation) pipeline. Upload your documents — PDFs, text files, markdown — and Bonito automatically chunks, embeds, and indexes them using vector search. When you or your agents make a query, relevant context is injected automatically. Your documents never leave your infrastructure, and every model in your catalog gets access to the same knowledge.",
   },
   {
-    q: "What are Bonobot agents?",
-    a: "Bonobot is our enterprise AI agent framework. Each agent gets its own system prompt, model selection, knowledge base, tool access, budget, and rate limits. Agents can be connected together for handoffs and workflows, and managed visually on a drag-and-drop canvas. All agent inference routes through Bonito's gateway — so you get the same cost tracking, audit trail, and governance as regular API calls.",
+    q: "What's the difference between BonBon and Bonobot?",
+    a: "BonBon agents are pre-built templates you deploy in minutes - pick a template (Customer Support, Knowledge Assistant, Sales Qualifier), add your content, and go live. No coding needed. Starting at $49/mo per agent. Bonobot is for teams that need fully custom agents with multi-agent orchestration, delegation workflows, and complete control over agent logic. Both run on the same platform with the same cost tracking and governance.",
   },
   {
     q: "What's the difference between Hosted and VPC agents?",
@@ -314,7 +353,65 @@ export default function PricingPage() {
         ))}
       </section>
 
-      {/* Bonobot Agent Add-on */}
+      {/* BonBon — Managed Agent Templates */}
+      <section className="pb-24">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-center mb-10"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#f59e0b]/30 bg-[#f59e0b]/10 text-[#f59e0b] text-sm font-medium mb-4">
+            <Zap className="w-4 h-4" /> Ready to Deploy
+          </div>
+          <h2 className="text-3xl font-bold">BonBon — AI Agents, Ready to Go</h2>
+          <p className="mt-3 text-[#888] max-w-2xl mx-auto">
+            Pre-built agent templates you can deploy in minutes. Pick a template, add your content, go live. No coding required.
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {bonbonPlans.map((plan, i) => (
+            <motion.div
+              key={plan.name}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 + i * 0.1 }}
+              className="rounded-xl p-8 border bg-[#111] border-[#1a1a1a] flex flex-col"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-5 h-5 text-[#f59e0b]" />
+                <h3 className="text-lg font-semibold">{plan.name}</h3>
+              </div>
+              <p className="text-sm text-[#888] mt-1">{plan.description}</p>
+              <div className="mt-6 mb-6">
+                <span className="text-4xl font-bold">{plan.price}</span>
+                <span className="text-[#888] ml-1">{plan.period}</span>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-[#999]">
+                    <Zap className="w-4 h-4 text-[#f59e0b] flex-shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/signup"
+                className="text-center py-3 rounded-lg font-semibold bg-[#f59e0b]/10 text-[#f59e0b] hover:bg-[#f59e0b]/20 transition-colors text-sm"
+              >
+                {plan.cta}
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+
+        <p className="text-center text-sm text-[#666] mt-6">
+          BonBon agents include platform access. Add to any plan, or use standalone.
+        </p>
+      </section>
+
+      {/* Bonobot — Custom Agent Framework */}
       <section className="pb-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -325,9 +422,9 @@ export default function PricingPage() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#7c3aed]/30 bg-[#7c3aed]/10 text-[#7c3aed] text-sm font-medium mb-4">
             <Bot className="w-4 h-4" /> Add-on
           </div>
-          <h2 className="text-3xl font-bold">Bonobot — Enterprise AI Agents</h2>
+          <h2 className="text-3xl font-bold">Bonobot — Custom AI Agents</h2>
           <p className="mt-3 text-[#888] max-w-2xl mx-auto">
-            Deploy intelligent agents scoped to your departments. Each agent gets its own context, models, tools, and budget — all managed through a visual canvas.
+            Build fully custom agents with orchestration, delegation, and multi-agent workflows. For teams that need complete control.
           </p>
         </motion.div>
 
