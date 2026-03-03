@@ -249,9 +249,11 @@ export default function LogIntegrationsPage() {
                     <SelectValue placeholder="Select integration type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(IntegrationTypes).map(([key, value]) => (
-                      <SelectItem key={key} value={key} disabled={!value.implemented}>
-                        {value.icon} {value.name} {!value.implemented && '(Coming Soon)'}
+                    {Object.entries(IntegrationTypes)
+                      .filter(([, value]) => value.implemented)
+                      .map(([key, value]) => (
+                      <SelectItem key={key} value={key}>
+                        {value.icon} {value.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

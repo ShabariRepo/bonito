@@ -326,18 +326,109 @@ async def get_policy_stats(
     if not policy:
         raise HTTPException(status_code=404, detail="Routing policy not found")
     
-    # TODO: Implement real stats from gateway logs when traffic exists
-    model_distribution = {}
-    if policy.models:
-        for m in policy.models:
-            model_distribution[str(m.get("model_id", "unknown"))] = 0
+    # Query real stats from gateway_requests for models in this policy
+    from app.models.gateway import GatewayRequest
+    from datetime import datetime, timedelta, timezone
+
+    model_ids_in_policy = [m.get("model_id", "") for m in (policy.models or [])]
+
+    # Get model_id -> display_name mapping
+    policy_model_ids = [UUID(mid) for mid in model_ids_in_policy if mid]
+    model_name_map = await get_model_names(policy_model_ids, db) if policy_model_ids else {}
+
+    # Resolve model_id UUIDs to the model_id strings used in gateway_requests
+    model_id_to_request_name: Dict[str, str] = {}
+    if policy_model_ids:
+        from app.models.model import Model as ModelTable
+        name_result = await db.execute(
+            select(ModelTable.id, ModelTable.model_id).where(ModelTable.id.in_(policy_model_ids))
+        )
+        for mid, request_name in name_result.all():
+            model_id_to_request_name[str(mid)] = request_name
+
+    request_model_names = list(model_id_to_request_name.values())
+
+    # Query aggregate stats from gateway_requests matching this org and these models
+    now = datetime.now(timezone.utc)
+    day_ago = now - timedelta(hours=24)
+
+    request_count = 0
+    total_cost = 0.0
+    avg_latency_ms = 0.0
+    success_rate = 0.0
+    last_24h_requests = 0
+    model_distribution: Dict[str, int] = {}
+
+    if request_model_names:
+        # Total stats (all time for this org + these models)
+        stats_result = await db.execute(
+            select(
+                func.count(GatewayRequest.id),
+                func.coalesce(func.sum(GatewayRequest.cost), 0.0),
+                func.coalesce(func.avg(GatewayRequest.latency_ms), 0.0),
+            ).where(
+                and_(
+                    GatewayRequest.org_id == user.org_id,
+                    GatewayRequest.model_used.in_(request_model_names),
+                )
+            )
+        )
+        row = stats_result.one()
+        request_count = row[0] or 0
+        total_cost = float(row[1])
+        avg_latency_ms = float(row[2])
+
+        # Success rate
+        if request_count > 0:
+            success_result = await db.execute(
+                select(func.count(GatewayRequest.id)).where(
+                    and_(
+                        GatewayRequest.org_id == user.org_id,
+                        GatewayRequest.model_used.in_(request_model_names),
+                        GatewayRequest.status == "success",
+                    )
+                )
+            )
+            success_count = success_result.scalar() or 0
+            success_rate = success_count / request_count
+
+        # Last 24h requests
+        recent_result = await db.execute(
+            select(func.count(GatewayRequest.id)).where(
+                and_(
+                    GatewayRequest.org_id == user.org_id,
+                    GatewayRequest.model_used.in_(request_model_names),
+                    GatewayRequest.created_at >= day_ago,
+                )
+            )
+        )
+        last_24h_requests = recent_result.scalar() or 0
+
+        # Model distribution
+        dist_result = await db.execute(
+            select(GatewayRequest.model_used, func.count(GatewayRequest.id)).where(
+                and_(
+                    GatewayRequest.org_id == user.org_id,
+                    GatewayRequest.model_used.in_(request_model_names),
+                )
+            ).group_by(GatewayRequest.model_used)
+        )
+        name_to_uuid = {v: k for k, v in model_id_to_request_name.items()}
+        for model_name, count in dist_result.all():
+            key = name_to_uuid.get(model_name, model_name)
+            model_distribution[key] = count
+
+    # Ensure all policy models appear in distribution (even with 0)
+    for mid in model_ids_in_policy:
+        if mid and mid not in model_distribution:
+            model_distribution[mid] = 0
 
     return PolicyStats(
         policy_id=policy_id,
-        request_count=0,
-        total_cost=0.0,
-        avg_latency_ms=0.0,
-        success_rate=0.0,
-        last_24h_requests=0,
+        request_count=request_count,
+        total_cost=total_cost,
+        avg_latency_ms=avg_latency_ms,
+        success_rate=success_rate,
+        last_24h_requests=last_24h_requests,
         model_distribution=model_distribution,
     )

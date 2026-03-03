@@ -65,7 +65,7 @@ async def _resolve_provider(model_name: str, org_id, db: AsyncSession) -> Option
             if row:
                 return row
     except Exception:
-        pass
+        logger.warning(f"DB provider resolution failed for model {model_name}, falling back to heuristic", exc_info=True)
     # Fallback: heuristic from model name
     if any(k in model_name for k in ("bedrock", "anthropic", "amazon", "nova", "titan")):
         return "aws"
@@ -334,7 +334,7 @@ async def _handle_streaming_completion(
                         model=model_used, messages=messages
                     )
                 except Exception:
-                    pass
+                    logger.debug(f"Prompt token estimation failed for model {model_used}", exc_info=True)
             if not total_completion_tokens and streamed_content:
                 try:
                     full_output = "".join(streamed_content)
@@ -343,7 +343,7 @@ async def _handle_streaming_completion(
                         text=full_output,
                     )
                 except Exception:
-                    pass
+                    logger.debug(f"Completion token estimation failed for model {model_used}", exc_info=True)
 
             cost = 0.0
             try:

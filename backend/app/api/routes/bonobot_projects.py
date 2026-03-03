@@ -273,8 +273,8 @@ async def get_project_graph(
             position=agent.canvas_position or {"x": 100 + (idx % 4) * 300, "y": 100 + (idx // 4) * 200}
         ))
     
-    # Trigger nodes
-    for trigger, agent_name in triggers_with_agents:
+    # Trigger nodes - spread in a column to the left of agent nodes
+    for t_idx, (trigger, agent_name) in enumerate(triggers_with_agents):
         node_data = {
             "id": str(trigger.id),
             "trigger_type": trigger.trigger_type,
@@ -284,11 +284,16 @@ async def get_project_graph(
             "last_fired_at": trigger.last_fired_at.isoformat() if trigger.last_fired_at else None,
         }
         
+        trigger_position = getattr(trigger, "canvas_position", None) or {
+            "x": 50,
+            "y": 100 + t_idx * 150,
+        }
+        
         nodes.append(GraphNode(
             id=trigger.id,
             type="trigger",
             data=node_data,
-            position={"x": 50, "y": 50}  # Trigger positions use defaults for now
+            position=trigger_position,
         ))
     
     # Build edges

@@ -173,11 +173,38 @@ async def get_cost_breakdown_real(db: AsyncSession, org_id=None) -> CostBreakdow
             ))
     by_model.sort(key=lambda x: -x.total)
 
-    # TODO: Real department attribution requires team/project tagging on API keys.
-    # Once API keys carry team_id or project_id, query gateway_requests grouped by
-    # that tag to get actual per-department cost attribution.
-    # For now, we skip the fake department breakdown — just show provider + model costs.
-    by_department = []
+    # Department attribution via team_id on gateway_requests.
+    # GatewayKey.team_id propagates to GatewayRequest.team_id at request time.
+    by_department: list[DepartmentCostBreakdown] = []
+    try:
+        from app.models.gateway import GatewayRequest
+        from sqlalchemy import func as sa_func, and_
+
+        dept_filters = [GatewayRequest.team_id.isnot(None)]
+        if org_id:
+            dept_filters.append(GatewayRequest.org_id == org_id)
+        dept_filters.append(GatewayRequest.created_at >= start)
+
+        dept_result = await db.execute(
+            select(
+                GatewayRequest.team_id,
+                sa_func.sum(GatewayRequest.cost),
+            )
+            .where(and_(*dept_filters))
+            .group_by(GatewayRequest.team_id)
+            .order_by(sa_func.sum(GatewayRequest.cost).desc())
+            .limit(20)
+        )
+        dept_rows = dept_result.all()
+        dept_total = sum(r[1] or 0 for r in dept_rows) or 1
+        for team_id, cost_sum in dept_rows:
+            by_department.append(DepartmentCostBreakdown(
+                department=team_id,
+                total=round(cost_sum or 0, 2),
+                percentage=round(((cost_sum or 0) / dept_total * 100), 1),
+            ))
+    except Exception:
+        logger.exception("Failed to compute department cost attribution")
 
     breakdown = CostBreakdownResponse(
         by_provider=by_provider,

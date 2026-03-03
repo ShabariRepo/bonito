@@ -22,6 +22,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
+import { useToast } from "@/components/ui/use-toast";
 
 // ── Severity Config ──
 
@@ -131,6 +132,8 @@ export default function LogsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [stats, setStats] = useState<any>(null);
 
+  const { toast } = useToast();
+
   // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filterLogType, setFilterLogType] = useState("");
@@ -184,9 +187,25 @@ export default function LogsPage() {
       const res = await apiRequest(`/api/logs/export?${params}`);
       if (res.ok) {
         const job = await res.json();
-        alert(`Export started (job ${job.id}). Status: ${job.status}`);
+        toast({
+          title: "Export started",
+          description: `Job ${job.id} is ${job.status}. You will be notified when it completes.`,
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "Export failed",
+          description: "Could not start log export. Please try again.",
+          variant: "destructive",
+        });
       }
-    } catch {}
+    } catch {
+      toast({
+        title: "Export failed",
+        description: "Network error while starting export.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;

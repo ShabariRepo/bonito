@@ -27,10 +27,6 @@ const INTEGRATION_TYPES = [
   { value: "splunk", label: "Splunk", description: "Send logs via HTTP Event Collector", color: "text-green-400", fields: ["hec_token"], configFields: ["hec_url", "index", "source", "sourcetype"] },
   { value: "cloudwatch", label: "AWS CloudWatch", description: "Send logs via boto3", color: "text-orange-400", fields: ["aws_access_key_id", "aws_secret_access_key"], configFields: ["region", "log_group", "log_stream"] },
   { value: "webhook", label: "Webhook", description: "Send logs to any HTTP endpoint", color: "text-blue-400", fields: ["secret"], configFields: ["url"] },
-  { value: "elasticsearch", label: "Elasticsearch", description: "Send to Elasticsearch/OpenSearch (coming soon)", color: "text-yellow-400", fields: [], configFields: [], disabled: true },
-  { value: "azure_monitor", label: "Azure Monitor", description: "Azure Log Analytics (coming soon)", color: "text-sky-400", fields: [], configFields: [], disabled: true },
-  { value: "gcp_logging", label: "Google Cloud Logging", description: "Cloud Logging (coming soon)", color: "text-red-400", fields: [], configFields: [], disabled: true },
-  { value: "cloud_storage", label: "Cloud Storage", description: "Batch export to S3/GCS/Azure Blob (coming soon)", color: "text-teal-400", fields: [], configFields: [], disabled: true },
 ];
 
 interface Integration {
@@ -262,11 +258,10 @@ export default function IntegrationsPage() {
         <h2 className="text-lg font-semibold mb-3">Available Integrations</h2>
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {INTEGRATION_TYPES.map((type) => (
-            <Card key={type.value} className={type.disabled ? "opacity-50" : "hover:border-violet-500/15 transition-colors"}>
+            <Card key={type.value} className="hover:border-violet-500/15 transition-colors">
               <CardContent className="p-4">
                 <h3 className={`font-medium ${type.color}`}>{type.label}</h3>
                 <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
-                {type.disabled && <span className="text-xs text-muted-foreground mt-2 inline-block">Coming soon</span>}
               </CardContent>
             </Card>
           ))}
@@ -315,7 +310,7 @@ export default function IntegrationsPage() {
                 <div>
                   <label className="text-sm font-medium">Type</label>
                   <div className="mt-1 grid grid-cols-2 gap-2">
-                    {INTEGRATION_TYPES.filter(t => !t.disabled).map((type) => (
+                    {INTEGRATION_TYPES.map((type) => (
                       <button
                         key={type.value}
                         type="button"

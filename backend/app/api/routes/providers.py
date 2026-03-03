@@ -116,7 +116,7 @@ async def get_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), us
     models = await get_models_for_provider(provider.provider_type, str(provider.id))
     resp = _to_response(provider, len(models))
     resp["models"] = [m.model_dump() if hasattr(m, 'model_dump') else m for m in models]
-    resp["last_verified"] = provider.created_at
+    resp["last_verified"] = provider.updated_at or provider.created_at
     resp["connection_health"] = "healthy" if provider.status == "active" else "degraded"
     return resp
 
@@ -148,7 +148,7 @@ async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get
         region=extract_region(provider.provider_type, masked_creds),
         model_count=len(models),
         masked_credentials=masked_creds,
-        last_validated=provider.created_at,  # TODO: track separately
+        last_validated=provider.updated_at or provider.created_at,
         created_at=provider.created_at,
     )
 
@@ -251,7 +251,7 @@ async def update_provider_credentials(
         region=extract_region(provider.provider_type, merged),
         model_count=len(models),
         masked_credentials=masked_creds,
-        last_validated=provider.created_at,
+        last_validated=provider.updated_at or provider.created_at,
         created_at=provider.created_at,
     )
 

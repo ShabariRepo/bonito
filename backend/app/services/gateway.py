@@ -1379,8 +1379,12 @@ def _inject_rag_context(request_data: dict, kb_context: dict) -> dict:
 async def detect_knowledge_base_from_policy(policy_id: uuid.UUID, db: AsyncSession) -> Optional[str]:
     """
     Check if a routing policy has an attached knowledge base.
-    
-    TODO: Implement when routing policy KB attachment is added.
+
+    Cannot be implemented yet: the RoutingPolicy model has no
+    knowledge_base_id or knowledge_base_ids column.  To enable this:
+      1. Add a ``knowledge_base_ids`` JSON column to RoutingPolicy
+         (same pattern as Agent.knowledge_base_ids).
+      2. Query it here and return the first matching KB id.
+      3. Wire up the UI on the routing-policy editor page.
     """
-    # Placeholder - will be implemented when routing policy page is updated
     return None

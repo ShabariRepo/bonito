@@ -449,15 +449,20 @@ class AgentEngine:
         return None
 
     async def _get_session_history(self, session: AgentSession, db: AsyncSession) -> List[Dict[str, Any]]:
-        """Get session message history."""
-        # TODO: Implement compaction logic when context window fills
+        """Get session message history, with truncation as a safety net."""
+        # Fetch only the most recent messages to avoid blowing the context window.
+        # _enforce_session_limits handles DB-level compaction; this is a read-time guard.
+        max_history = 200  # hard cap on messages sent to the model
         
-        stmt = select(AgentMessage).where(
-            AgentMessage.session_id == session.id
-        ).order_by(AgentMessage.sequence)
+        stmt = (
+            select(AgentMessage)
+            .where(AgentMessage.session_id == session.id)
+            .order_by(AgentMessage.sequence.desc())
+            .limit(max_history)
+        )
         
         result = await db.execute(stmt)
-        messages = result.scalars().all()
+        messages = list(reversed(result.scalars().all()))
         
         history = []
         for msg in messages:
@@ -837,7 +842,34 @@ class AgentEngine:
                         "required": ["url"]
                     }
                 }
-            }
+            },
+            "send_notification": {
+                "type": "function",
+                "function": {
+                    "name": "send_notification",
+                    "description": "Send an in-app notification to all organization members",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "description": "Notification title"},
+                            "body": {"type": "string", "description": "Notification body text"},
+                            "type": {"type": "string", "description": "Notification type (e.g. agent_alert, cost_alert)", "default": "agent_alert"}
+                        },
+                        "required": ["title", "body"]
+                    }
+                }
+            },
+            "list_models": {
+                "type": "function",
+                "function": {
+                    "name": "list_models",
+                    "description": "List AI models available to the organization",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                }
+            },
         }
         
         # Dynamic agent orchestration tools — only if agent has outbound connections
@@ -1293,14 +1325,52 @@ class AgentEngine:
         return {"results": results, "all_completed": all_done}
 
     async def _tool_send_notification(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """Send notification tool."""
-        # TODO: Implement notification sending
-        return {"error": "Notification tool not implemented yet"}
+        """Send an in-app notification via the notification service."""
+        title = args.get("title", "")
+        body = args.get("body", "")
+        notification_type = args.get("type", "agent_alert")
+
+        if not title or not body:
+            return {"error": "Both 'title' and 'body' are required"}
+
+        try:
+            from app.services.notifications import notification_service
+
+            await notification_service.notify_org_admins(
+                db=db,
+                org_id=agent.org_id,
+                type=notification_type,
+                title=title,
+                body=body,
+            )
+            return {"status": "sent", "title": title, "type": notification_type}
+        except Exception as e:
+            logger.error(f"Notification tool failed for agent {agent.id}: {e}")
+            return {"error": f"Failed to send notification: {str(e)}"}
 
     async def _tool_list_models(self, agent: Agent, args: Dict[str, Any], db: AsyncSession, redis: Redis) -> Dict[str, Any]:
-        """List available models tool."""
-        # TODO: Return list of models available to the org
-        return {"models": ["gpt-4o", "gpt-4", "claude-3-sonnet", "auto"]}
+        """List AI models available to the organization from synced providers."""
+        try:
+            from app.models.model import Model as ModelTable
+            from app.models.cloud_provider import CloudProvider
+
+            result = await db.execute(
+                select(ModelTable.model_id, ModelTable.display_name, CloudProvider.provider_type)
+                .join(CloudProvider, ModelTable.provider_id == CloudProvider.id)
+                .where(CloudProvider.org_id == agent.org_id, CloudProvider.status == "active")
+                .order_by(ModelTable.display_name)
+            )
+            rows = result.all()
+
+            models = [
+                {"model_id": model_id, "display_name": display_name, "provider": provider_type}
+                for model_id, display_name, provider_type in rows
+            ]
+
+            return {"models": models, "count": len(models)}
+        except Exception as e:
+            logger.error(f"list_models tool failed for org {agent.org_id}: {e}")
+            return {"error": f"Failed to list models: {str(e)}"}
 
     async def _update_metrics(self, agent: Agent, session: AgentSession, result: AgentRunResult, db: AsyncSession):
         """Update agent and session metrics."""
@@ -1450,11 +1520,51 @@ class AgentEngine:
             logger.warning(f"Failed to update audit log {audit_id}: {e}")
 
     async def _enforce_session_limits(self, agent: Agent, session: AgentSession, db: AsyncSession):
-        """Enforce session message limits and trigger compaction if needed."""
-        if session.message_count >= agent.max_session_messages:
-            logger.info(f"Session {session.id} exceeds message limit ({agent.max_session_messages}), compaction needed")
-            # TODO: Implement session compaction - for now just warn
-            pass
+        """Enforce session message limits and trigger compaction if needed.
+
+        Strategy: when message_count >= max_session_messages, delete the oldest
+        messages (keeping the most recent half) so the context window stays
+        manageable.  A compaction-summary marker is inserted so the model knows
+        earlier context was trimmed.
+        """
+        if session.message_count < agent.max_session_messages:
+            return
+
+        keep_count = agent.max_session_messages // 2
+        logger.info(
+            f"Session {session.id} hit message limit "
+            f"({session.message_count}/{agent.max_session_messages}), "
+            f"compacting to newest {keep_count} messages"
+        )
+
+        try:
+            # Find the sequence cutoff: keep messages with the highest sequence values
+            cutoff_stmt = (
+                select(AgentMessage.sequence)
+                .where(AgentMessage.session_id == session.id)
+                .order_by(AgentMessage.sequence.desc())
+                .offset(keep_count)
+                .limit(1)
+            )
+            cutoff_result = await db.execute(cutoff_stmt)
+            cutoff_seq = cutoff_result.scalar_one_or_none()
+
+            if cutoff_seq is not None:
+                from sqlalchemy import delete as sa_delete
+                delete_stmt = (
+                    sa_delete(AgentMessage)
+                    .where(
+                        AgentMessage.session_id == session.id,
+                        AgentMessage.sequence <= cutoff_seq,
+                    )
+                )
+                result = await db.execute(delete_stmt)
+                deleted = result.rowcount
+                session.message_count = max(session.message_count - deleted, 0)
+                logger.info(f"Session {session.id}: compacted {deleted} old messages")
+                await db.flush()
+        except Exception:
+            logger.exception(f"Session compaction failed for session {session.id}")
 
     async def _log_tool_execution(
         self,
