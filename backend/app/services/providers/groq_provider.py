@@ -41,6 +41,22 @@ GROQ_MODELS = [
         "capabilities": ["text", "code", "streaming"],
     },
     {
+        "model_id": "openai/gpt-oss-120b",
+        "model_name": "GPT OSS 120B",
+        "input_price_per_1m": 0.15,
+        "output_price_per_1m": 0.60,
+        "context_window": 131072,
+        "capabilities": ["text", "code", "function_calling", "streaming"],
+    },
+    {
+        "model_id": "openai/gpt-oss-20b",
+        "model_name": "GPT OSS 20B",
+        "input_price_per_1m": 0.075,
+        "output_price_per_1m": 0.30,
+        "context_window": 131072,
+        "capabilities": ["text", "code", "function_calling", "streaming"],
+    },
+    {
         "model_id": "llama-3.3-70b-specdec",
         "model_name": "Llama 3.3 70B Speculative Decoding",
         "input_price_per_1m": 0.59,
