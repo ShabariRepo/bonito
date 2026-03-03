@@ -362,7 +362,7 @@ async def _handle_streaming_completion(
                     )
                     cost = (prompt_cost + compl_cost) or 0.0
             except Exception:
-                pass
+                logger.debug(f"Cost calculation failed for model {model_used}", exc_info=True)
 
             try:
                 async with get_db_session() as log_db:
@@ -500,7 +500,7 @@ async def _handle_streaming_completion_policy(
                     )
                     cost = (prompt_cost + compl_cost) or 0.0
             except Exception:
-                pass
+                logger.debug(f"Cost calculation failed for model {model_used}", exc_info=True)
 
             try:
                 async with get_db_session() as log_db:

@@ -166,7 +166,7 @@ class BonitoCopilot:
                     + ", ".join(f"{k.upper()}: {v}" for k, v in counts.items())
                 )
         except Exception:
-            pass
+            logger.warning("Failed to load provider summary for agent context", exc_info=True)
 
         return "\n".join(parts) if parts else "No org data available yet — providers need to be connected."
 
@@ -272,7 +272,7 @@ class BonitoCopilot:
                 aws_models = await aws_provider.list_models()
                 all_models.extend(aws_models)
         except Exception:
-            pass
+            logger.warning("Failed to fetch AWS models for recommendations", exc_info=True)
 
         if use_case:
             all_models = [m for m in all_models if use_case.lower() in (m.capabilities if hasattr(m, "capabilities") else [])]

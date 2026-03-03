@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import uuid
@@ -18,6 +19,8 @@ from app.models.organization import Organization
 from app.services import auth_service
 from app.services import email_service
 from app.services.log_emitters import emit_auth_event
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -175,7 +178,7 @@ async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_
     try:
         await email_service.send_welcome_email(user.email, user.name)
     except Exception:
-        pass
+        logger.exception("Failed to send welcome email to %s", user.email)
 
     return MessageResponse(message="Email verified successfully. You can now log in.")
 
@@ -211,8 +214,8 @@ async def login(
     except HTTPException:
         raise  # Re-raise SSO enforcement errors
     except Exception:
-        # SSO check failed (table missing, connection issue, etc.) — allow login
-        pass
+        # SSO check failed (table missing, connection issue, etc.) -- allow login
+        logger.warning("SSO enforcement check failed, allowing password login", exc_info=True)
 
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Please verify your email before logging in")
@@ -225,7 +228,7 @@ async def login(
     try:
         await emit_auth_event(user.org_id, user.id, "login_success", message=f"User {user.email} logged in")
     except Exception:
-        pass
+        logger.warning("Failed to emit login_success auth event for user %s", user.id, exc_info=True)
 
     return TokenResponse(access_token=access, refresh_token=refresh)
 
@@ -241,7 +244,7 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
         try:
             await email_service.send_password_reset_email(body.email, token)
         except Exception:
-            pass
+            logger.exception("Failed to send password reset email")
     # Always return success to prevent email enumeration
     return MessageResponse(message="If an account exists with that email, a password reset link has been sent.")
 

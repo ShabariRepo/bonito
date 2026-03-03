@@ -317,7 +317,7 @@ class StdioMCPClient(MCPClient):
                 except asyncio.TimeoutError:
                     self._process.kill()
             except ProcessLookupError:
-                pass
+                logger.debug("MCP subprocess already exited during cleanup")
             self._process = None
 
 
@@ -498,7 +498,7 @@ class HTTPMCPClient(MCPClient):
                 headers={"Content-Type": "application/json"},
             )
         except Exception:
-            pass  # Notifications are fire-and-forget
+            logger.warning("MCP HTTP notification send failed", exc_info=True)
 
     def _parse_sse_response(self, text: str) -> Dict[str, Any]:
         """Parse SSE response to extract JSON-RPC response."""
