@@ -664,6 +664,109 @@ def _print_summary(result: DeployResult, stack_name: str, dry_run: bool) -> None
         console.print(f"\n[green bold]{msg}[/green bold]")
 
 
+# -- next steps --------------------------------------------------------------
+
+
+def _print_next_steps(
+    result: DeployResult,
+    stack_name: str,
+    project_id: str,
+    agent_id_map: Dict[str, str],
+    cfg: Dict[str, Any],
+) -> None:
+    """Print context-aware next steps after a successful deploy."""
+    lines: List[str] = []
+
+    # --- Always show ---
+    lines.append("[bold cyan]Dashboard:[/bold cyan]  https://getbonito.com/dashboard")
+    lines.append("[bold cyan]View logs:[/bold cyan]  bonito gateway logs")
+
+    # --- Providers ---
+    has_providers = any(p["status"] == "ok" for p in result.providers)
+    if has_providers:
+        lines.append("")
+        lines.append("[bold green]Providers[/bold green]")
+        lines.append("  List models:    [cyan]bonito models list[/cyan]")
+        lines.append(
+            "  Test gateway:   [white]curl -X POST https://gateway.bonito.ai/v1/chat/completions \\\n"
+            "                    -H 'Authorization: Bearer $BONITO_API_KEY' \\\n"
+            "                    -H 'Content-Type: application/json' \\\n"
+            '                    -d \'{"model":"gpt-4","messages":[{"role":"user","content":"Hello!"}]}\'[/white]'
+        )
+
+    # --- Agents ---
+    deployed_agents = [a for a in result.agents if a["status"] == "ok"]
+    agents_cfg = cfg.get("agents", {})
+    if deployed_agents and agent_id_map:
+        lines.append("")
+        lines.append("[bold green]Agents[/bold green]")
+        lines.append(f"  Project:        https://getbonito.com/agents/{project_id}")
+
+        first_agent_name = next(iter(agent_id_map), None)
+        if first_agent_name:
+            lines.append(f"  Test chat:      [cyan]bonito chat --agent {first_agent_name}[/cyan]")
+
+        # Widget embed and API endpoint for each deployed agent
+        for agent_name, agent_id in agent_id_map.items():
+            agent_cfg = agents_cfg.get(agent_name, {})
+            display = agent_cfg.get("display_name", agent_name)
+
+            lines.append(f"  API endpoint:   [white]POST https://api.getbonito.com/api/agents/{agent_id}/chat[/white]")
+
+            if agent_cfg.get("widget_enabled"):
+                lines.append(f"  BonBon widget ({display}):")
+                lines.append(
+                    f'    [white]<script src="https://getbonito.com/widget/chat/{agent_id}"></script>[/white]'
+                )
+
+    # --- Knowledge Bases ---
+    deployed_kbs = [kb for kb in result.knowledge_bases if kb["status"] == "ok"]
+    if deployed_kbs:
+        lines.append("")
+        lines.append("[bold green]Knowledge Bases[/bold green]")
+        lines.append("  Manage:         https://getbonito.com/admin/kb")
+        lines.append("  Documents are being processed. Check status with: [cyan]bonito kb list[/cyan]")
+
+    # --- MCP Servers ---
+    deployed_mcp = [m for m in result.mcp_servers if m["status"] == "ok"]
+    if deployed_mcp:
+        lines.append("")
+        lines.append("[bold green]MCP Servers[/bold green]")
+        # Find the first agent that has MCP servers attached
+        mcp_agent_name: Optional[str] = None
+        for agent_name, agent_cfg in agents_cfg.items():
+            if agent_cfg.get("mcp_servers") and agent_name in agent_id_map:
+                mcp_agent_name = agent_name
+                break
+        if mcp_agent_name:
+            lines.append(
+                f"  MCP servers are registered per-agent. Test with: [cyan]bonito chat --agent {mcp_agent_name}[/cyan]"
+            )
+        else:
+            lines.append("  MCP servers are registered per-agent. Test with: [cyan]bonito chat --agent <name>[/cyan]")
+
+    # --- Connect your own infrastructure ---
+    lines.append("")
+    lines.append("[bold green]Connecting to your own infrastructure[/bold green]")
+    lines.append("  Self-hosted:      Set [cyan]BONITO_API_URL[/cyan] to point to your backend")
+    lines.append("  VPC deployment:   See https://getbonito.com/docs#vpc-deployment")
+    lines.append("  Custom providers: [cyan]bonito providers connect --help[/cyan]")
+
+    # --- Footer ---
+    lines.append("")
+    lines.append("[dim]Docs: https://getbonito.com/docs[/dim]")
+    lines.append("[dim]CLI help: bonito --help[/dim]")
+
+    panel_content = "\n".join(lines)
+    console.print()
+    console.print(Panel(
+        panel_content,
+        title="[bold green]Next Steps[/bold green]",
+        border_style="green",
+        padding=(1, 2),
+    ))
+
+
 # -- main command ------------------------------------------------------------
 
 
@@ -792,6 +895,10 @@ def deploy(
 
     # -- 9. Summary ----------------------------------------------------------
     _print_summary(result, stack_name, dry_run)
+
+    # -- 10. Next steps (only on successful, real deploys) -------------------
+    if result.errors == 0 and not dry_run:
+        _print_next_steps(result, stack_name, project_id, agent_id_map, cfg)
 
     if result.errors:
         raise typer.Exit(1)
