@@ -10,6 +10,10 @@ import {
   Sparkles,
   ArrowRight,
   Zap,
+  Siren,
+  GitPullRequest,
+  Rocket,
+  FileCode,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +30,7 @@ interface Template {
   suggested_tone: string;
   widget_enabled: boolean;
   tags: string[];
+  tier: "simple" | "advanced";
 }
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -33,6 +38,10 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   BookOpen: <BookOpen className="h-6 w-6" />,
   TrendingUp: <TrendingUp className="h-6 w-6" />,
   PenTool: <PenTool className="h-6 w-6" />,
+  Siren: <Siren className="h-6 w-6" />,
+  GitPullRequest: <GitPullRequest className="h-6 w-6" />,
+  Rocket: <Rocket className="h-6 w-6" />,
+  FileCode: <FileCode className="h-6 w-6" />,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -40,6 +49,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Internal: "bg-sky-500/10 text-sky-400 border-sky-500/20",
   Sales: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   Marketing: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  DevOps: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
 const CARD_ACCENTS: Record<string, string> = {
@@ -47,6 +57,10 @@ const CARD_ACCENTS: Record<string, string> = {
   knowledge_assistant: "hover:border-sky-500/40",
   sales_qualifier: "hover:border-emerald-500/40",
   content_assistant: "hover:border-amber-500/40",
+  incident_responder: "hover:border-red-500/40",
+  code_reviewer: "hover:border-purple-500/40",
+  deploy_monitor: "hover:border-orange-500/40",
+  devops_docs: "hover:border-cyan-500/40",
 };
 
 const ICON_BG: Record<string, string> = {
@@ -54,6 +68,10 @@ const ICON_BG: Record<string, string> = {
   knowledge_assistant: "bg-sky-500/10 text-sky-400",
   sales_qualifier: "bg-emerald-500/10 text-emerald-400",
   content_assistant: "bg-amber-500/10 text-amber-400",
+  incident_responder: "bg-red-500/10 text-red-400",
+  code_reviewer: "bg-purple-500/10 text-purple-400",
+  deploy_monitor: "bg-orange-500/10 text-orange-400",
+  devops_docs: "bg-cyan-500/10 text-cyan-400",
 };
 
 export default function BonBonPage() {
@@ -158,12 +176,24 @@ export default function BonBonPage() {
                 >
                   {ICON_MAP[template.icon] || <Sparkles className="h-6 w-6" />}
                 </div>
-                <Badge
-                  variant="outline"
-                  className={CATEGORY_COLORS[template.category] || ""}
-                >
-                  {template.category}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant="outline"
+                    className={
+                      template.tier === "advanced"
+                        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
+                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                    }
+                  >
+                    {template.tier === "advanced" ? "Advanced · $99/mo" : "Simple · $49/mo"}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={CATEGORY_COLORS[template.category] || ""}
+                  >
+                    {template.category}
+                  </Badge>
+                </div>
               </div>
               <div>
                 <CardTitle className="text-lg">{template.name}</CardTitle>
