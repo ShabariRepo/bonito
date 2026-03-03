@@ -4,6 +4,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://getbonito.com";
   const now = new Date().toISOString();
 
+  const blogSlugs = [
+    "how-ad-tech-platform-cut-cloud-ai-costs-30-percent-multi-cloud-routing",
+    "building-hipaa-compliant-ai-agents-clinical-decision-support",
+    "introducing-bonobot-enterprise-ai-agent-platform",
+    "ai-openpath-problem-enterprise-cost-transparency",
+    "how-novamart-deployed-ai-agents-across-teams",
+    "how-meridian-technologies-cut-ai-costs-84-percent",
+    "openclaw-proved-ai-agents-work-enterprise-needs-them-governed",
+    "the-94-billion-bet-enterprise-ai-adoption",
+    "why-multi-cloud-ai-management-matters-2026",
+    "introducing-bonito-your-ai-control-plane",
+    "reducing-ai-costs-across-aws-azure-gcp",
+  ];
+
+  const compareSlugs = [
+    "langfuse",
+    "helicone",
+    "portkey",
+    "langsmith",
+    "arize",
+  ];
+
   return [
     {
       url: baseUrl,
@@ -29,30 +51,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.8,
     },
-    {
-      url: `${baseUrl}/blog/meridian-case-study`,
+    ...blogSlugs.map((slug) => ({
+      url: `${baseUrl}/blog/${slug}`,
       lastModified: now,
-      changeFrequency: "monthly",
+      changeFrequency: "monthly" as const,
       priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/blog/enterprise-ai-agents-governed`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/blog/enterprise-ai-market-2026`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
+    })),
     {
       url: `${baseUrl}/use-cases`,
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    {
+      url: `${baseUrl}/compare`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
+    ...compareSlugs.map((slug) => ({
+      url: `${baseUrl}/compare/${slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     {
       url: `${baseUrl}/docs`,
       lastModified: now,

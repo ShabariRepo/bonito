@@ -3,7 +3,25 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "About Bonito — The Enterprise AI Control Plane",
   description:
-    "Bonito is building the operating system for enterprise AI. Unified governance, routing, and cost management across AWS, Azure, and GCP. Founded by Shabari, software architect at FIS Global.",
+    "Bonito is building the operating system for enterprise AI. Unified AI governance, LLM routing, and AI cost optimization across AWS, Azure, and GCP. An agentic AI platform with multi-cloud management and full observability.",
+  keywords: [
+    "about Bonito",
+    "enterprise AI control plane",
+    "agentic AI platform",
+    "AI governance",
+    "AI compliance",
+    "multi-cloud AI management",
+    "LLM routing",
+    "AI cost optimization",
+    "AI observability",
+    "AI orchestration platform",
+    "enterprise AI agents",
+    "Langfuse",
+    "Helicone",
+    "Portkey",
+    "LangSmith",
+    "Arize",
+  ],
   openGraph: {
     title: "About Bonito",
     description:
