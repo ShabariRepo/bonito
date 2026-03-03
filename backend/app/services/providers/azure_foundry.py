@@ -156,11 +156,18 @@ class AzureFoundryProvider(CloudProvider):
                     return CredentialInfo(valid=False, message="Foundry mode requires api_key and endpoint")
                 
                 async with httpx.AsyncClient() as client:
+                    # Try AI Foundry endpoint first, fall back to Azure OpenAI format
                     resp = await client.get(
                         f"{self._endpoint.rstrip('/')}/models?api-version=2024-05-01-preview",
                         headers={"api-key": self._api_key},
                         timeout=10.0,
                     )
+                    if resp.status_code == 404:
+                        resp = await client.get(
+                            f"{self._endpoint.rstrip('/')}/openai/models?api-version=2024-06-01",
+                            headers={"api-key": self._api_key},
+                            timeout=10.0,
+                        )
                     if resp.status_code == 200:
                         return CredentialInfo(
                             valid=True,
