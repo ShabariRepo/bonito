@@ -711,13 +711,27 @@ class AgentEngine:
             return response
             
         except Exception as e:
-            logger.error(f"Gateway call failed for agent {agent.id}: {e}")
-            # Return a fallback response
+            err_str = str(e).lower()
+            is_rate_limit = any(k in err_str for k in ("rate limit", "429", "too many requests"))
+            if is_rate_limit:
+                logger.warning(
+                    f"Gateway rate limit for agent {agent.id} (model: {agent.model_id}) "
+                    f"after cross-provider failover exhausted: {e}"
+                )
+            else:
+                logger.error(f"Gateway call failed for agent {agent.id}: {e}")
+            # Return an error response that the agent loop can surface to the user
+            error_msg = (
+                "I'm temporarily unable to respond due to high demand. Please try again in a moment."
+                if is_rate_limit
+                else f"I encountered an error processing your request: {str(e)[:200]}"
+            )
             return {
-                "choices": [{"message": {"role": "assistant", "content": f"I apologize, but I encountered an error: {str(e)}"}}],
+                "choices": [{"message": {"role": "assistant", "content": error_msg}}],
                 "usage": {"total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0},
                 "cost": 0,
-                "model": "error"
+                "model": "error",
+                "bonito": {"error": str(e)[:500], "rate_limited": is_rate_limit},
             }
 
     async def _execute_tool(

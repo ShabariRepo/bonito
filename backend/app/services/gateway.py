@@ -138,6 +138,120 @@ PROVIDER_MODEL_PREFIXES = {
 }
 
 
+# ─── Cross-provider model equivalence for failover ───
+# Maps model families to equivalent models across providers.
+# When a provider returns 429 (rate limit), the gateway can retry on
+# an equivalent model from a different provider automatically.
+# Format: { "family_key": { "provider_type": "model_id", ... } }
+MODEL_EQUIVALENCE_MAP: dict[str, dict[str, list[str]]] = {
+    # Llama 3.x family
+    "llama-3.3-70b": {
+        "groq": ["llama-3.3-70b-versatile"],
+        "aws": ["meta.llama3-3-70b-instruct-v1:0"],
+    },
+    "llama-3.1-70b": {
+        "groq": ["llama-3.1-70b-versatile"],
+        "aws": ["meta.llama3-1-70b-instruct-v1:0"],
+    },
+    "llama-3.1-8b": {
+        "groq": ["llama-3.1-8b-instant"],
+        "aws": ["meta.llama3-1-8b-instruct-v1:0"],
+    },
+    # Mixtral family
+    "mixtral-8x7b": {
+        "groq": ["mixtral-8x7b-32768"],
+        "aws": ["mistral.mixtral-8x7b-instruct-v0:1"],
+    },
+    # Claude family
+    "claude-3.5-sonnet": {
+        "anthropic": ["claude-3-5-sonnet-20241022"],
+        "aws": ["anthropic.claude-3-5-sonnet-20241022-v2:0"],
+        "gcp": ["claude-3-5-sonnet-v2@20241022"],
+    },
+    "claude-3-haiku": {
+        "anthropic": ["claude-3-haiku-20240307"],
+        "aws": ["anthropic.claude-3-haiku-20240307-v1:0"],
+        "gcp": ["claude-3-haiku@20240307"],
+    },
+    # Gemma family
+    "gemma2-9b": {
+        "groq": ["gemma2-9b-it"],
+        "gcp": ["gemma-2-9b-it"],
+    },
+}
+
+# Reverse index: model_id -> (family_key, provider_type)
+_MODEL_TO_FAMILY: dict[str, tuple[str, str]] = {}
+for _fam, _providers in MODEL_EQUIVALENCE_MAP.items():
+    for _prov, _models in _providers.items():
+        for _mid in _models:
+            _MODEL_TO_FAMILY[_mid] = (_fam, _prov)
+
+
+def _find_fallback_models(
+    model_id: str,
+    failed_provider: str,
+    available_model_names: set[str],
+) -> list[str]:
+    """Find equivalent models on other providers for cross-provider failover.
+
+    Returns a list of model IDs that are (a) in a different provider and
+    (b) actually registered in the org's model list.
+    """
+    family_info = _MODEL_TO_FAMILY.get(model_id)
+    if not family_info:
+        return []
+
+    family_key, _ = family_info
+    equivalents = MODEL_EQUIVALENCE_MAP.get(family_key, {})
+    fallbacks = []
+    for provider, model_ids in equivalents.items():
+        if provider == failed_provider:
+            continue
+        for mid in model_ids:
+            if mid in available_model_names:
+                fallbacks.append(mid)
+    return fallbacks
+
+
+def _is_rate_limit_error(exc: Exception) -> bool:
+    """Detect whether an exception is a provider rate-limit (429) error."""
+    err_str = str(exc).lower()
+    if "rate limit" in err_str or "rate_limit" in err_str:
+        return True
+    if "429" in err_str:
+        return True
+    if "too many requests" in err_str:
+        return True
+    if "quota" in err_str and "exceeded" in err_str:
+        return True
+    # LiteLLM wraps these as RateLimitError
+    exc_type = type(exc).__name__
+    if "RateLimitError" in exc_type:
+        return True
+    return False
+
+
+def _detect_provider_from_model(model_id: str, model_list: list[dict]) -> Optional[str]:
+    """Determine the provider type from the LiteLLM model list entry."""
+    for entry in model_list:
+        if entry["model_name"] == model_id:
+            lp = entry["litellm_params"].get("model", "")
+            if lp.startswith("bedrock/"):
+                return "aws"
+            elif lp.startswith("azure/") or lp.startswith("azure_ai/"):
+                return "azure"
+            elif lp.startswith("vertex_ai/"):
+                return "gcp"
+            elif lp.startswith("openai/"):
+                return "openai"
+            elif lp.startswith("anthropic/"):
+                return "anthropic"
+            elif lp.startswith("groq/"):
+                return "groq"
+    return None
+
+
 async def _get_provider_credentials(
     db: AsyncSession,
     org_id: uuid.UUID,
@@ -738,6 +852,38 @@ async def _track_managed_inference(
         logger.warning(f"Failed to track managed inference for org {org_id}: {e}")
 
 
+async def _resolve_provider_for_log(
+    db: AsyncSession, org_id: uuid.UUID, model_used: str
+) -> Optional[str]:
+    """Resolve provider type for a model, with heuristic fallback."""
+    try:
+        result = await db.execute(
+            select(CloudProvider.provider_type)
+            .join(Model, Model.provider_id == CloudProvider.id)
+            .where(and_(CloudProvider.org_id == org_id, Model.model_id == model_used))
+            .limit(1)
+        )
+        provider = result.scalar_one_or_none()
+        if provider:
+            return provider
+    except Exception:
+        pass
+    # Heuristic fallback
+    if any(k in model_used for k in ("bedrock", "amazon", "nova", "titan")):
+        return "aws"
+    elif any(k in model_used for k in ("azure",)):
+        return "azure"
+    elif any(k in model_used for k in ("vertex", "gemini", "palm")):
+        return "gcp"
+    elif any(k in model_used for k in ("gpt-", "o1-", "o3-", "o4-", "dall-e", "chatgpt")):
+        return "openai"
+    elif any(k in model_used for k in ("claude",)):
+        return "anthropic"
+    elif any(k in model_used for k in ("llama", "mixtral", "gemma")):
+        return "groq"
+    return None
+
+
 # ─── Completions ───
 
 async def chat_completion(
@@ -788,112 +934,166 @@ async def chat_completion(
         status="success",
     )
 
+    # Build the list of models to try: primary first, then cross-provider fallbacks
+    models_to_try = [model]
+
+    # Pre-compute available model names from the router for fallback lookup
+    available_model_names: set[str] = set()
     try:
-        response = await router.acompletion(**request_data)
-        elapsed_ms = int((time.time() - start) * 1000)
+        for entry in router.model_list:
+            available_model_names.add(entry["model_name"])
+    except Exception:
+        pass
 
-        usage = getattr(response, "usage", None)
-        log_entry.model_used = getattr(response, "model", model)
-        log_entry.input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
-        log_entry.output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
-        log_entry.latency_ms = elapsed_ms
+    # Find the provider of the requested model for fallback selection
+    primary_provider = _detect_provider_from_model(model, router.model_list)
+
+    if primary_provider:
+        fallbacks = _find_fallback_models(model, primary_provider, available_model_names)
+        models_to_try.extend(fallbacks)
+
+    last_error: Optional[Exception] = None
+    failover_from: Optional[str] = None
+
+    for attempt_idx, attempt_model in enumerate(models_to_try):
         try:
-            log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
-        except Exception:
-            # Some providers (e.g. Groq) return model names without provider prefix,
-            # causing litellm cost lookup to fail. Fall back to 0.
-            log_entry.cost = 0.0
+            attempt_data = {**request_data, "model": attempt_model}
+            response = await router.acompletion(**attempt_data)
+            elapsed_ms = int((time.time() - start) * 1000)
 
-        # Determine provider from DB lookup, fallback to heuristic
-        model_used = log_entry.model_used or ""
-        try:
-            result = await db.execute(
-                select(CloudProvider.provider_type)
-                .join(Model, Model.provider_id == CloudProvider.id)
-                .where(and_(CloudProvider.org_id == org_id, Model.model_id == model_used))
-                .limit(1)
-            )
-            log_entry.provider = result.scalar_one_or_none()
-        except Exception:
-            log_entry.provider = None
-        if not log_entry.provider:
-            if any(k in model_used for k in ("bedrock", "amazon", "nova", "titan")):
-                log_entry.provider = "aws"
-            elif any(k in model_used for k in ("azure",)):
-                log_entry.provider = "azure"
-            elif any(k in model_used for k in ("vertex", "gemini", "palm")):
-                log_entry.provider = "gcp"
-            elif any(k in model_used for k in ("gpt-", "o1-", "o3-", "o4-", "dall-e", "chatgpt")):
-                log_entry.provider = "openai"
-            elif any(k in model_used for k in ("claude",)):
-                log_entry.provider = "anthropic"
-            elif any(k in model_used for k in ("llama", "mixtral", "gemma")):
-                log_entry.provider = "groq"
+            usage = getattr(response, "usage", None)
+            log_entry.model_used = getattr(response, "model", attempt_model)
+            log_entry.input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
+            log_entry.output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
+            log_entry.latency_ms = elapsed_ms
+            try:
+                log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
+            except Exception:
+                log_entry.cost = 0.0
 
-        db.add(log_entry)
-        await db.flush()
+            # Determine provider from DB lookup, fallback to heuristic
+            model_used = log_entry.model_used or ""
+            log_entry.provider = await _resolve_provider_for_log(db, org_id, model_used)
 
-        # Track managed inference (markup + provider counters)
-        await _track_managed_inference(db, log_entry, org_id)
+            # If this was a failover, log the original error
+            if attempt_idx > 0 and failover_from:
+                log_entry.error_message = f"[failover] Original model '{failover_from}' rate-limited; routed to '{attempt_model}'"
+                logger.info(
+                    f"Cross-provider failover: {failover_from} -> {attempt_model} "
+                    f"for org {org_id} (attempt {attempt_idx + 1})"
+                )
 
-        # Add RAG metadata to response
-        response_dict = response.model_dump()
-        if kb_context:
-            response_dict["bonito"] = {
-                "knowledge_base": kb_name,
-                "sources": kb_context["sources"],
-                "retrieval_cost": retrieval_cost,
-                "retrieval_latency_ms": retrieval_time_ms
-            }
+            db.add(log_entry)
+            await db.flush()
 
-        # Emit to platform logging system (fire-and-forget)
-        try:
-            await emit_gateway_event(
-                org_id, "request",
-                resource_type="model",
-                message=f"Chat completion: {model}",
-                duration_ms=elapsed_ms,
-                cost=log_entry.cost,
-                metadata={
-                    "model": model,
-                    "model_used": log_entry.model_used,
-                    "input_tokens": log_entry.input_tokens,
-                    "output_tokens": log_entry.output_tokens,
-                    "provider": log_entry.provider,
-                    "kb_name": kb_name,
-                },
-            )
-        except Exception:
-            pass
+            # Track managed inference (markup + provider counters)
+            await _track_managed_inference(db, log_entry, org_id)
 
-        return response_dict
+            # Add RAG + failover metadata to response
+            response_dict = response.model_dump()
+            if kb_context:
+                response_dict["bonito"] = {
+                    "knowledge_base": kb_name,
+                    "sources": kb_context["sources"],
+                    "retrieval_cost": retrieval_cost,
+                    "retrieval_latency_ms": retrieval_time_ms,
+                }
+            if attempt_idx > 0:
+                response_dict.setdefault("bonito", {})["failover"] = {
+                    "original_model": model,
+                    "routed_to": attempt_model,
+                    "reason": "rate_limit",
+                }
 
-    except Exception as e:
-        elapsed_ms = int((time.time() - start) * 1000)
-        log_entry.status = "error"
-        log_entry.error_message = str(e)[:1000]
-        log_entry.latency_ms = elapsed_ms
-        # Log in a separate session so the error entry persists even when
-        # the caller's session rolls back due to the re-raised exception.
-        try:
-            async with get_db_session() as log_db:
-                log_db.add(log_entry)
-        except Exception as log_err:
-            logger.error(f"Failed to log error request: {log_err}")
+            # Emit to platform logging system (fire-and-forget)
+            try:
+                await emit_gateway_event(
+                    org_id, "request",
+                    resource_type="model",
+                    message=f"Chat completion: {attempt_model}" + (
+                        f" (failover from {model})" if attempt_idx > 0 else ""
+                    ),
+                    duration_ms=elapsed_ms,
+                    cost=log_entry.cost,
+                    metadata={
+                        "model": model,
+                        "model_used": log_entry.model_used,
+                        "input_tokens": log_entry.input_tokens,
+                        "output_tokens": log_entry.output_tokens,
+                        "provider": log_entry.provider,
+                        "kb_name": kb_name,
+                        "failover": attempt_idx > 0,
+                        "failover_from": failover_from,
+                    },
+                )
+            except Exception:
+                pass
 
-        # Emit error to platform logging system
-        try:
-            await emit_gateway_event(
-                org_id, "error",
-                severity="error",
-                message=f"Chat completion error: {model} — {str(e)[:200]}",
-                duration_ms=elapsed_ms,
-                metadata={"model": model, "error": str(e)[:500]},
-            )
-        except Exception:
-            pass
+            return response_dict
 
-        raise
+        except Exception as e:
+            last_error = e
+            # If this is a rate limit error and we have more models to try, continue
+            if _is_rate_limit_error(e) and attempt_idx < len(models_to_try) - 1:
+                failover_from = failover_from or attempt_model
+                logger.warning(
+                    f"Rate limit hit on '{attempt_model}' for org {org_id}, "
+                    f"trying fallback model ({attempt_idx + 2}/{len(models_to_try)})"
+                )
+                # Log the rate-limited attempt as a separate entry
+                try:
+                    rl_log = GatewayRequest(
+                        org_id=org_id,
+                        key_id=key_id,
+                        model_requested=attempt_model,
+                        status="rate_limited",
+                        error_message=f"Provider rate limit (429): {str(e)[:500]}",
+                        latency_ms=int((time.time() - start) * 1000),
+                    )
+                    rl_log.provider = _detect_provider_from_model(attempt_model, router.model_list)
+                    async with get_db_session() as rl_db:
+                        rl_db.add(rl_log)
+                except Exception as log_err:
+                    logger.warning(f"Failed to log rate-limit entry: {log_err}")
+                continue
+            else:
+                # Not a rate limit error, or no more fallbacks - fail normally
+                break
+
+    # All attempts exhausted - log the final error
+    elapsed_ms = int((time.time() - start) * 1000)
+    log_entry.status = "error"
+    log_entry.error_message = str(last_error)[:1000]
+    log_entry.latency_ms = elapsed_ms
+    if failover_from:
+        log_entry.error_message = (
+            f"[all-failovers-exhausted] Tried {len(models_to_try)} models: "
+            f"{', '.join(models_to_try)}. Last error: {str(last_error)[:500]}"
+        )
+    try:
+        async with get_db_session() as log_db:
+            log_db.add(log_entry)
+    except Exception as log_err:
+        logger.error(f"Failed to log error request: {log_err}")
+
+    # Emit error to platform logging system
+    try:
+        await emit_gateway_event(
+            org_id, "error",
+            severity="error",
+            message=f"Chat completion error: {model} - {str(last_error)[:200]}",
+            duration_ms=elapsed_ms,
+            metadata={
+                "model": model,
+                "error": str(last_error)[:500],
+                "failover_attempted": failover_from is not None,
+                "models_tried": models_to_try,
+            },
+        )
+    except Exception:
+        pass
+
+    raise last_error
 
 
 async def completion(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, db: AsyncSession) -> dict:
