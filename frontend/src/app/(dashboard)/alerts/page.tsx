@@ -38,6 +38,7 @@ const CHANNEL_OPTIONS = [
 export default function AlertsPage() {
   const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gated, setGated] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newRule, setNewRule] = useState({ type: "budget_threshold", threshold: 80, channel: "in_app", enabled: true });
 
@@ -45,7 +46,14 @@ export default function AlertsPage() {
     setLoading(true);
     try {
       const res = await apiRequest("/api/alert-rules/");
-      setRules(await res.json());
+      if (res.status === 403) {
+        setGated(true);
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        setRules(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
       console.error("Failed to load alert rules", e);
     } finally {
@@ -96,6 +104,32 @@ export default function AlertsPage() {
 
   if (loading) {
     return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;
+  }
+
+  if (gated) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Alert Rules"
+          description="Configure automated alerts for cost, compliance, and model changes"
+        />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="rounded-full bg-violet-500/10 p-4 mb-4">
+            <Bell className="h-8 w-8 text-violet-400" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Alert Rules require a Pro plan</h2>
+          <p className="text-muted-foreground max-w-md mb-6">
+            Get automated cost alerts, compliance notifications, model deprecation warnings, and more with a Pro or Enterprise plan.
+          </p>
+          <a
+            href="/pricing"
+            className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+          >
+            View Plans
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (

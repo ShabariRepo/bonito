@@ -174,7 +174,19 @@ export default function DeployPage() {
     try {
       const res = await apiRequest("/api/projects");
       if (res.ok) {
-        const data = await res.json();
+        let data = await res.json();
+        // Auto-create a default project if none exist so BonBon deploy works out of the box
+        if (Array.isArray(data) && data.length === 0) {
+          const createRes = await apiRequest("/api/projects", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "Default Project", description: "Auto-created for BonBon deployment" }),
+          });
+          if (createRes.ok) {
+            const newProject = await createRes.json();
+            data = [newProject];
+          }
+        }
         setProjects(data);
         if (data.length > 0) setProjectId(data[0].id);
       }

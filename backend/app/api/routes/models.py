@@ -597,7 +597,17 @@ async def playground_execute(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Playground execution failed: {e}")
+        err_str = str(e).lower()
+        logger.error(f"Playground execution failed for {model.model_id} ({provider.provider_type}): {e}")
+        # Return actionable error messages for common provider issues
+        if "accessdenied" in err_str or "not authorized" in err_str or "not have access" in err_str:
+            raise HTTPException(status_code=403, detail=f"Model access denied. Enable '{model.display_name}' in your {provider.provider_type.upper()} console first.")
+        if "not found" in err_str or "does not exist" in err_str or "resource not found" in err_str:
+            raise HTTPException(status_code=404, detail=f"Model '{model.display_name}' not found on {provider.provider_type.upper()}. It may need to be deployed or enabled.")
+        if "throttl" in err_str or "rate" in err_str or "too many" in err_str:
+            raise HTTPException(status_code=429, detail=f"Rate limited by {provider.provider_type.upper()}. Try again in a moment.")
+        if "credential" in err_str or "auth" in err_str or "invalid.*key" in err_str:
+            raise HTTPException(status_code=502, detail=f"Provider authentication failed. Check your {provider.provider_type.upper()} credentials in Settings.")
         raise HTTPException(status_code=500, detail=f"Model execution failed: {str(e)}")
 
 
