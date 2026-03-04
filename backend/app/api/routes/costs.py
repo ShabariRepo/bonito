@@ -30,6 +30,34 @@ async def _require_budget_alerts(db: AsyncSession, user: User):
     await feature_gate.require_feature(db, str(user.org_id), "budget_alerts")
 
 
+@router.get("/all")
+async def get_all_costs(
+    period: str = Query("monthly", enum=["daily", "weekly", "monthly"]),
+    budget: float = Query(40000.0, description="Budget amount for percentage calculation"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get summary + breakdown + forecast in a single request.
+    
+    Replaces 3 separate API calls with 1 round-trip.
+    All data served from Redis cache when warm.
+    """
+    await _require_budget_alerts(db, user)
+    import asyncio
+    s, b, f = await asyncio.gather(
+        get_cost_summary_real(period, db, budget, org_id=user.org_id),
+        get_cost_breakdown_real(db, org_id=user.org_id),
+        get_cost_forecast_real(db, org_id=user.org_id),
+    )
+    # Fire background refresh for next load
+    await trigger_background_refresh(db, user.org_id)
+    return {
+        "summary": s.model_dump() if hasattr(s, "model_dump") else s,
+        "breakdown": b.model_dump() if hasattr(b, "model_dump") else b,
+        "forecast": f.model_dump() if hasattr(f, "model_dump") else f,
+    }
+
+
 @router.get("", response_model=CostSummary)
 async def get_costs(
     period: str = Query("monthly", enum=["daily", "weekly", "monthly"]),

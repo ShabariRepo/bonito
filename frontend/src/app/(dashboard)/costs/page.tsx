@@ -148,14 +148,13 @@ export default function CostsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [s, b, f] = await Promise.all([
-        apiRequest(`/api/costs/?period=${period}`).then(r => { if (!r.ok) throw new Error("costs"); return r.json(); }),
-        apiRequest("/api/costs/breakdown").then(r => { if (!r.ok) throw new Error("breakdown"); return r.json(); }),
-        apiRequest("/api/costs/forecast").then(r => { if (!r.ok) throw new Error("forecast"); return r.json(); }),
-      ]);
-      setSummary(s);
-      setBreakdown(b);
-      setForecast(f);
+      // Single API call replaces 3 separate requests
+      const r = await apiRequest(`/api/costs/all?period=${period}`);
+      if (!r.ok) throw new Error("costs");
+      const data = await r.json();
+      setSummary(data.summary);
+      setBreakdown(data.breakdown);
+      setForecast(data.forecast);
     } catch (e) {
       console.error("Failed to load costs", e);
       setError("Failed to load cost data. Please check your connection and try again.");
