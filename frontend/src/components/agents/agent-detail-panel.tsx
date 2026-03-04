@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Settings, MessageSquare, Clock, BarChart3, Send, Plug, Globe, Copy, Check } from "lucide-react";
+import { X, Settings, MessageSquare, Clock, BarChart3, Send, Plug, Globe, Copy, Check, Link2, Terminal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { apiRequest } from "@/lib/auth";
 import { MCPServersPanel } from "@/components/agents/mcp-servers-panel";
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="p-1.5 rounded hover:bg-accent/50 transition-colors shrink-0"
+    >
+      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
+    </button>
+  );
+}
 
 interface AgentDetailPanelProps {
   isOpen: boolean;
@@ -257,10 +269,14 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
           </div>
         ) : (
           <Tabs defaultValue="chat" className="h-full">
-            <TabsList className={`grid w-full ${agent?.bonbon_template_id ? "grid-cols-6" : "grid-cols-5"} bg-[#2a2a4e]`}>
+            <TabsList className={`grid w-full ${agent?.bonbon_template_id ? "grid-cols-7" : "grid-cols-6"} bg-[#2a2a4e]`}>
               <TabsTrigger value="chat" className="data-[state=active]:bg-[#3a3a6e]">
                 <MessageSquare className="w-4 h-4 mr-2" />
                 Chat
+              </TabsTrigger>
+              <TabsTrigger value="connect" className="data-[state=active]:bg-[#3a3a6e]">
+                <Link2 className="w-4 h-4 mr-2" />
+                Connect
               </TabsTrigger>
               <TabsTrigger value="configure" className="data-[state=active]:bg-[#3a3a6e]">
                 <Settings className="w-4 h-4 mr-2" />
@@ -285,6 +301,72 @@ export function AgentDetailPanel({ isOpen, onClose, agentId, onAgentUpdate }: Ag
                 Metrics
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="connect" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Terminal className="h-4 w-4" /> Agent API Endpoint
+                  </CardTitle>
+                  <CardDescription>
+                    Call this agent from your application. No provider credentials needed.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Execute Endpoint</label>
+                    <div className="flex items-center gap-2 mt-1 bg-black/60 rounded-lg p-3 font-mono text-sm text-green-400">
+                      <span className="flex-1 break-all">POST {typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/api/agents/{agent?.id}/execute</span>
+                      <CopyButton text={`${typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/api/agents/${agent?.id}/execute`} />
+                    </div>
+                  </div>
+
+                  {/* cURL example */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">cURL</label>
+                    <div className="relative mt-1">
+                      <pre className="bg-black/60 rounded-lg p-3 text-xs text-green-400 overflow-x-auto font-mono leading-relaxed">
+{`curl -X POST "${typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/api/agents/${agent?.id}/execute" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Hello!"}'`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Python example */}
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Python</label>
+                    <div className="relative mt-1">
+                      <pre className="bg-black/60 rounded-lg p-3 text-xs text-green-400 overflow-x-auto font-mono leading-relaxed">
+{`import requests
+
+response = requests.post(
+    "${typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/api/agents/${agent?.id}/execute",
+    headers={"Authorization": "Bearer YOUR_TOKEN"},
+    json={"message": "Hello!"}
+)
+print(response.json()["content"])`}
+                      </pre>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border pt-4 space-y-2">
+                    <h4 className="text-sm font-medium">Gateway (OpenAI-compatible)</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Use the gateway for direct model access. Works with any OpenAI SDK.
+                    </p>
+                    <div className="flex items-center gap-2 bg-black/60 rounded-lg p-3 font-mono text-sm text-green-400">
+                      <span className="flex-1 break-all">{typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/v1/chat/completions</span>
+                      <CopyButton text={`${typeof window !== "undefined" && window.location.hostname !== "localhost" ? `https://${window.location.hostname}` : ""}/v1/chat/completions`} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Create API keys on the <a href="/gateway" className="text-violet-400 hover:text-violet-300 underline">API Gateway</a> page.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="chat" className="space-y-4 h-full">
               <div className="flex space-x-4 h-full">
