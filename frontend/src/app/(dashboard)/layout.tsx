@@ -12,6 +12,7 @@ import { CommandBar } from "@/components/ai/command-bar";
 import { ChatPanel } from "@/components/ai/chat-panel";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { useAuth } from "@/components/auth/auth-context";
+import { apiRequest } from "@/lib/auth";
 
 function SidebarToggle() {
   const { isCollapsed, isMobile, toggle } = useSidebar();
@@ -90,6 +91,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
     }
   }, [loading, user, router, refresh, checked]);
+
+  // Preload cost data into Redis cache on dashboard mount.
+  // Fire-and-forget: the backend caches results so the Costs page loads instantly.
+  useEffect(() => {
+    if (!user) return;
+    apiRequest("/api/costs/preload", { method: "POST" }).catch(() => {
+      // Silently ignore — preload is best-effort
+    });
+  }, [user]);
 
   if (loading || (!user && !checked)) {
     return (

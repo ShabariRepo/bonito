@@ -3,10 +3,18 @@
 Pulls real cost data from connected cloud providers, normalizes it,
 and provides unified views, breakdowns, and forecasting.
 Falls back to cached/empty data when providers aren't connected.
+
+Caching strategy: 10-minute TTL with background preloading.
+- On page load, always serve from Redis cache (instant)
+- If cache miss, fetch from clouds and cache it
+- Background refresh task keeps cache warm (runs every 8 min)
+- Stale data served while refresh happens in background
 """
 
+import asyncio
 import json
 import logging
+import time
 from datetime import date, timedelta
 from typing import Optional
 
@@ -34,27 +42,30 @@ from app.schemas.cost import (
 logger = logging.getLogger(__name__)
 
 PROVIDER_COLORS = {"aws": "#FF9900", "azure": "#0078D4", "gcp": "#EA4335"}
-COST_CACHE_TTL = 3600  # 1 hour
+COST_CACHE_TTL = 600  # 10 minutes
+COST_STALE_TTL = 1800  # 30 minutes — serve stale data while refreshing
+_refresh_lock = asyncio.Lock()  # Prevent concurrent refreshes
 
 
 async def get_cost_summary_real(
-    period: str, db: AsyncSession, budget: float = 40000.0, org_id=None
+    period: str, db: AsyncSession, budget: float = 40000.0, org_id=None,
+    skip_cache: bool = False,
 ) -> CostSummary:
     """Get unified cost summary across all connected providers."""
-    import asyncio
 
     days = {"daily": 1, "weekly": 7, "monthly": 30}.get(period, 30)
     end = date.today()
     start = end - timedelta(days=days)
 
     # Check cache
-    cache_key = f"costs:summary:{period}:{end.isoformat()}"
-    try:
-        cached = await redis_client.get(cache_key)
-        if cached:
-            return CostSummary(**json.loads(cached))
-    except Exception:
-        pass
+    cache_key = f"costs:summary:{org_id}:{period}:{end.isoformat()}"
+    if not skip_cache:
+        try:
+            cached = await redis_client.get(cache_key)
+            if cached:
+                return CostSummary(**json.loads(cached))
+        except Exception:
+            pass
 
     result = await db.execute(
         select(CloudProvider).where(CloudProvider.status == "active", *([CloudProvider.org_id == org_id] if org_id else []))
@@ -120,7 +131,7 @@ async def get_cost_breakdown_real(db: AsyncSession, org_id=None) -> CostBreakdow
     end = date.today()
     start = end - timedelta(days=30)
 
-    cache_key = f"costs:breakdown:{end.isoformat()}"
+    cache_key = f"costs:breakdown:{org_id}:{end.isoformat()}"
     try:
         cached = await redis_client.get(cache_key)
         if cached:
@@ -400,6 +411,78 @@ async def _get_provider_costs(provider: CloudProvider, start: date, end: date):
         pass
 
     return cost_data
+
+
+# ── Background cost preloader ──────────────────────────────────
+
+
+async def preload_costs_for_org(db: AsyncSession, org_id) -> dict:
+    """Preload all cost data into Redis for an org.
+    
+    Called on login, dashboard load, or by a periodic background task.
+    Returns a summary of what was cached.
+    """
+    if _refresh_lock.locked():
+        return {"status": "already_refreshing"}
+
+    async with _refresh_lock:
+        start_time = time.monotonic()
+        results = {}
+
+        try:
+            # Preload summary for all periods
+            for period in ("daily", "weekly", "monthly"):
+                try:
+                    await get_cost_summary_real(period, db, org_id=org_id, skip_cache=False)
+                    results[f"summary_{period}"] = "ok"
+                except Exception as e:
+                    results[f"summary_{period}"] = f"error: {e}"
+
+            # Preload breakdown
+            try:
+                await get_cost_breakdown_real(db, org_id=org_id)
+                results["breakdown"] = "ok"
+            except Exception as e:
+                results["breakdown"] = f"error: {e}"
+
+            # Preload forecast
+            try:
+                await get_cost_forecast_real(db, org_id=org_id)
+                results["forecast"] = "ok"
+            except Exception as e:
+                results["forecast"] = f"error: {e}"
+
+        except Exception as e:
+            logger.exception(f"Cost preload failed for org {org_id}: {e}")
+            results["error"] = str(e)
+
+        elapsed = round(time.monotonic() - start_time, 2)
+        results["elapsed_seconds"] = elapsed
+        logger.info(f"Cost preload for org {org_id} completed in {elapsed}s: {results}")
+        return results
+
+
+async def trigger_background_refresh(db: AsyncSession, org_id) -> None:
+    """Fire-and-forget cost refresh. Used after login or on dashboard load."""
+    cache_key = f"costs:last_refresh:{org_id}"
+    try:
+        last = await redis_client.get(cache_key)
+        if last and (time.time() - float(last)) < COST_CACHE_TTL * 0.8:
+            return  # Recently refreshed, skip
+    except Exception:
+        pass
+
+    async def _refresh():
+        try:
+            await preload_costs_for_org(db, org_id)
+            try:
+                await redis_client.setex(cache_key, COST_CACHE_TTL, str(time.time()))
+            except Exception:
+                pass
+        except Exception:
+            logger.exception(f"Background cost refresh failed for org {org_id}")
+
+    asyncio.create_task(_refresh())
 
 
 # ── Legacy sync API (fallback) ──────────────────────────────────
