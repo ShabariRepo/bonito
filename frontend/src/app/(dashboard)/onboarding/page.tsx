@@ -1568,6 +1568,113 @@ export default function OnboardingPage() {
                 </pre>
               </div>
 
+              {/* Connect to Your Agents section */}
+              <div className="max-w-3xl mx-auto space-y-4">
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-semibold">5. Connect from Your Applications</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your developers can call Bonito agents and models using any OpenAI-compatible SDK. No provider credentials needed - just a Bonito API key.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-border p-5 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-amber-500/20 p-2">
+                        <Key className="h-5 w-5 text-amber-400" />
+                      </div>
+                      <h4 className="font-semibold">API Keys</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Create scoped API keys for each team or application. Keys inherit your routing policies and rate limits.
+                    </p>
+                    <button
+                      onClick={() => router.push("/gateway")}
+                      className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1"
+                    >
+                      Manage API Keys <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-border p-5 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-blue-500/20 p-2">
+                        <Activity className="h-5 w-5 text-blue-400" />
+                      </div>
+                      <h4 className="font-semibold">Embeddable Widget</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Drop a chat widget into any website with one line of code. Configure theme, colors, and suggested questions per agent.
+                    </p>
+                    <button
+                      onClick={() => router.push("/agents")}
+                      className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1"
+                    >
+                      Agent Widget Settings <ArrowRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gateway endpoint */}
+                <div className="rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                    <Zap className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-muted-foreground font-mono">Gateway Endpoint (OpenAI-compatible)</span>
+                  </div>
+                  <div className="p-4 space-y-1">
+                    <code className="text-sm text-green-400 font-mono">https://api.getbonito.com/v1/chat/completions</code>
+                    <p className="text-xs text-muted-foreground mt-2">Works with any OpenAI SDK. Just change the base URL and use your Bonito API key.</p>
+                  </div>
+                </div>
+
+                {/* Code snippets */}
+                <div className="rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                    <FileCode className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground font-mono">Python (OpenAI SDK)</span>
+                  </div>
+                  <pre className="p-4 text-sm text-zinc-300 overflow-x-auto">
+                    <code>{`from openai import OpenAI
+
+# Point to Bonito instead of OpenAI directly
+client = OpenAI(
+    api_key="bn-your-api-key",
+    base_url="https://api.getbonito.com/v1"
+)
+
+# Use any model from any connected provider
+response = client.chat.completions.create(
+    model="gpt-4o",          # Azure OpenAI
+    # model="gemini-2.5-flash",  # GCP Vertex AI
+    # model="nova-pro",          # AWS Bedrock
+    messages=[{"role": "user", "content": "Hello!"}]
+)`}</code>
+                  </pre>
+                </div>
+
+                <div className="rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                    <Terminal className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground font-mono">cURL</span>
+                  </div>
+                  <pre className="p-4 text-sm text-zinc-300 overflow-x-auto">
+                    <code>{`curl https://api.getbonito.com/v1/chat/completions \\
+  -H "Authorization: Bearer bn-your-api-key" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "gemini-2.5-flash",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'`}</code>
+                  </pre>
+                </div>
+
+                <div className="rounded-lg bg-violet-500/5 border border-violet-500/20 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-semibold text-violet-400">For your dev team:</span> Developers only need a Bonito API key and the gateway URL. They don&apos;t need access to cloud provider credentials, the Bonito dashboard, or any infrastructure setup. All routing, failover, cost tracking, and observability happens automatically.
+                  </p>
+                </div>
+              </div>
+
               {/* Docs link */}
               <div className="text-center">
                 <a
@@ -1673,6 +1780,64 @@ export default function OnboardingPage() {
                   )}
                 </>
               )}
+
+              {/* Connect to Your Agents - BonBon path */}
+              <div className="max-w-3xl mx-auto space-y-4 pt-4 border-t border-border">
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-semibold">Connect from Your Applications</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Share this with your dev team. They only need a Bonito API key - no cloud credentials required.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                    <Zap className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-muted-foreground font-mono">Gateway Endpoint</span>
+                  </div>
+                  <div className="p-4">
+                    <code className="text-sm text-green-400 font-mono">https://api.getbonito.com/v1/chat/completions</code>
+                    <p className="text-xs text-muted-foreground mt-2">OpenAI-compatible. Works with any SDK that supports custom base URLs.</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-zinc-950 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-zinc-900/50">
+                    <FileCode className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground font-mono">Quick Integration (Python)</span>
+                  </div>
+                  <pre className="p-4 text-sm text-zinc-300 overflow-x-auto">
+                    <code>{`from openai import OpenAI
+
+client = OpenAI(
+    api_key="bn-your-api-key",
+    base_url="https://api.getbonito.com/v1"
+)
+
+response = client.chat.completions.create(
+    model="gemini-2.5-flash",  # Any model, any provider
+    messages=[{"role": "user", "content": "Hello!"}]
+)`}</code>
+                  </pre>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => router.push("/gateway")}
+                    className="flex-1 rounded-lg border border-border p-3 text-sm text-center hover:bg-accent transition-colors"
+                  >
+                    <Key className="h-4 w-4 mx-auto mb-1 text-amber-400" />
+                    Create API Keys
+                  </button>
+                  <button
+                    onClick={() => router.push("/agents")}
+                    className="flex-1 rounded-lg border border-border p-3 text-sm text-center hover:bg-accent transition-colors"
+                  >
+                    <Bot className="h-4 w-4 mx-auto mb-1 text-violet-400" />
+                    Agent Widget Embed
+                  </button>
+                </div>
+              </div>
 
               <div className="flex items-center justify-between">
                 <button
