@@ -1282,6 +1282,7 @@ module "bonito_gateway" {
 - [ ] Connection creation/management in CLI (`bonito agents connect`)
 - [ ] Visual connection editing in React Flow canvas
 - [ ] Cross-project agent invocation (Enterprise only)
+- [ ] **Embedded Agent Test Console** - in-UI terminal/chat panel to test agent networks live. Type a message, watch it route through the network in real time, see logs stream. Like Playground but for agent networks instead of single model calls.
 
 ### 🔧 Production Polish
 - [ ] Vault client cache TTL (currently no expiry — stale reads possible)
