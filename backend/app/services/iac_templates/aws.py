@@ -729,7 +729,7 @@ else:
                 }}]
             }})
         )
-        aws.iam.UserPolicyAttachment("{project_name}-prov-attach",
+        aws.iam.UserPolicyAttachment("{project_name}-provisioning-attach",
             user=user.name, policy_arn=prov_policy.arn)
 
     if enable_model_activation:
@@ -779,9 +779,11 @@ pulumi.export("secret_access_key", access_key.secret)
             "Install Pulumi (https://www.pulumi.com/docs/install/)",
             "Run: `pulumi new aws-python` in a new directory",
             "Replace `__main__.py` with this code",
-            "Configure mode: `pulumi config set iam_mode least_privilege`",
-            "Toggle capabilities: `pulumi config set enable_provisioning false`",
-            "Run: `pulumi up` - review and confirm",
+            f"Configure IAM mode: `pulumi config set iam_mode {iam_mode}`",
+            f"Toggle capabilities: `pulumi config set enable_provisioning {str(enable_provisioning).lower()}`",
+            f"Run: `pulumi config set enable_model_activation {str(enable_model_activation).lower()}`",
+            f"Run: `pulumi config set enable_cost_tracking {str(enable_cost_tracking).lower()}`",
+            "Run: `pulumi up` — review and confirm",
             "Copy the access_key_id and secret_access_key into Bonito",
         ],
         "security_notes": [
@@ -988,7 +990,7 @@ Outputs:
         "instructions": [
             "Save this file as `bonito-aws.yaml`",
             f"Run: `aws cloudformation create-stack --stack-name {project_name}-setup --template-body file://bonito-aws.yaml --capabilities CAPABILITY_NAMED_IAM --region {region}`",
-            "Toggle capabilities via parameters: `--parameters ParameterKey=EnableProvisioning,ParameterValue=false`",
+            f"Optional parameters: `--parameters ParameterKey=IAMMode,ParameterValue={iam_mode} ParameterKey=EnableProvisioning,ParameterValue={str(enable_provisioning).lower()} ParameterKey=EnableModelActivation,ParameterValue={str(enable_model_activation).lower()} ParameterKey=EnableCostTracking,ParameterValue={str(enable_cost_tracking).lower()}`",
             f"Wait: `aws cloudformation wait stack-create-complete --stack-name {project_name}-setup`",
             f"Get outputs: `aws cloudformation describe-stacks --stack-name {project_name}-setup --query 'Stacks[0].Outputs'`",
             "Copy the access_key_id and secret_access_key into Bonito",
