@@ -386,7 +386,7 @@ async def get_models_for_provider(provider_type: str, provider_id: str = None) -
                 pricing_tier=_pricing_tier(m.input_price_per_1m_tokens),
                 input_price_per_1k=m.input_price_per_1m_tokens / 1000,
                 output_price_per_1k=m.output_price_per_1m_tokens / 1000,
-                status=m.status.lower() if m.status else "available",
+                status=_normalize_model_status(m.status) if hasattr(m, 'status') and m.status else "active",
             )
             for i, m in enumerate(models, 1)
         ]
@@ -424,6 +424,21 @@ def _pricing_tier(input_price_per_1m: float) -> str:
     elif input_price_per_1m >= 1:
         return "standard"
     return "economy"
+
+
+def _normalize_model_status(status: str) -> str:
+    """Normalize model status from provider-specific values to standard values."""
+    status_lower = status.lower() if status else ""
+    
+    # Map provider-specific status to our standard values
+    if status_lower in ["available", "enabled", "active"]:
+        return "active"
+    elif status_lower in ["access_required", "not_enabled", "available_with_access_request", "pending_access"]:
+        return "access_required"
+    elif status_lower in ["unavailable", "inactive", "disabled"]:
+        return "inactive"
+    else:
+        return "active"  # Default fallback
 
 
 async def mock_verify_connection(provider_type: str) -> Tuple[bool, float]:

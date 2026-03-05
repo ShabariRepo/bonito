@@ -281,10 +281,22 @@ async def _get_provider_credentials(
                 master_key = get_master_key(provider.provider_type)
                 if master_key:
                     creds[provider.provider_type] = {"api_key": master_key, "managed": True}
-                    continue
+                    logger.debug(f"✓ Managed {provider.provider_type} provider credentials loaded")
+                else:
+                    logger.error(
+                        f"✗ Managed {provider.provider_type} provider {provider.id} has no master key configured. "
+                        f"Expected env var: BONITO_{provider.provider_type.upper()}_MASTER_KEY"
+                    )
+                continue
+                    
+            # Non-managed providers use Vault/DB credentials
             data = await vault_client.get_secrets(f"providers/{provider.id}")
             if data:
                 creds[provider.provider_type] = data
+                logger.debug(f"✓ {provider.provider_type} provider credentials loaded from Vault")
+            else:
+                logger.warning(f"✗ No Vault credentials found for {provider.provider_type} provider {provider.id}")
+                
         except Exception as e:
             logger.warning(
                 "Failed to fetch %s credentials for provider %s: %s",
@@ -292,6 +304,8 @@ async def _get_provider_credentials(
                 provider.id,
                 e,
             )
+    
+    logger.info(f"Loaded credentials for providers: {list(creds.keys())}")
     return creds
 
 

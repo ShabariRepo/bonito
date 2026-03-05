@@ -705,3 +705,68 @@ async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSess
     await db.flush()
     await db.refresh(provider)
     return _to_response(provider)
+
+
+@router.post("/{provider_id}/models/{model_id}/request-access")
+async def request_model_access(
+    provider_id: UUID, 
+    model_id: str,
+    db: AsyncSession = Depends(get_db), 
+    user: User = Depends(get_current_user)
+):
+    """Request access to a foundation model (AWS Bedrock only)."""
+    # Get the provider
+    result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
+    provider = result.scalar_one_or_none()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    # Only works for AWS providers
+    if provider.provider_type != "aws":
+        raise HTTPException(status_code=400, detail="Model access requests are only supported for AWS Bedrock providers")
+    
+    try:
+        # Get the AWS provider instance and request access
+        aws_provider = await get_aws_provider(str(provider_id))
+        result = await aws_provider.request_model_access(model_id)
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": result["message"],
+                "status": result.get("status", "submitted")
+            }
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail=result["message"]
+            )
+            
+    except Exception as e:
+        logger.error(f"Model access request failed for {model_id} on provider {provider_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to request model access: {str(e)}")
+
+
+@router.get("/managed-health")
+async def get_managed_provider_health(user: User = Depends(get_current_user)):
+    """Check which managed provider master keys are configured."""
+    from app.services.managed_inference import get_master_key, MANAGED_PROVIDERS
+    
+    health = {}
+    for provider_type in MANAGED_PROVIDERS:
+        master_key = get_master_key(provider_type)
+        env_var = f"BONITO_{provider_type.upper()}_MASTER_KEY"
+        
+        health[provider_type] = {
+            "env_var": env_var,
+            "configured": master_key is not None,
+            "key_prefix": master_key[:8] + "..." if master_key else None
+        }
+    
+    all_configured = all(info["configured"] for info in health.values())
+    
+    return {
+        "status": "healthy" if all_configured else "partial",
+        "providers": health,
+        "missing_count": sum(1 for info in health.values() if not info["configured"])
+    }

@@ -85,23 +85,6 @@ class AWSBedrockProvider(CloudProvider):
 
         try:
             async with self._session.client("bedrock") as bedrock:
-                # Get models the account actually has access to
-                enabled_ids: set[str] = set()
-                try:
-                    paginator = bedrock.get_paginator("list_inference_profiles") if hasattr(bedrock, "get_paginator") else None
-                    # list_foundation_models with byInferenceType or check model access
-                    access_resp = await bedrock.list_foundation_models(byOutputModality="TEXT")
-                    # Also try to get enabled model access list
-                    try:
-                        access_list = await bedrock.list_model_access()
-                        for entry in access_list.get("modelAccessList", []):
-                            if entry.get("accessStatus") == "ENABLED":
-                                enabled_ids.add(entry.get("modelId", ""))
-                    except Exception:
-                        pass  # API might not be available, continue showing all
-                except Exception:
-                    pass
-
                 resp = await bedrock.list_foundation_models()
                 models = []
                 for m in resp.get("modelSummaries", []):
@@ -138,12 +121,8 @@ class AWSBedrockProvider(CloudProvider):
                     if streaming:
                         caps.append("streaming")
 
-                    # Determine access status
-                    lifecycle = m.get("modelLifecycle", {}).get("status", "ACTIVE")
-                    if enabled_ids:
-                        access_status = "ENABLED" if model_id in enabled_ids else "NOT_ENABLED"
-                    else:
-                        access_status = lifecycle  # Fallback if we couldn't get access list
+                    # Check actual model access using GetFoundationModelAvailability
+                    access_status = await self._check_model_access(bedrock, model_id)
 
                     models.append(ModelInfo(
                         model_id=model_id,
@@ -186,6 +165,86 @@ class AWSBedrockProvider(CloudProvider):
         except ClientError as e:
             logger.error(f"Bedrock list_models error: {e}")
             raise RuntimeError(f"Failed to list models: {e.response['Error']['Message']}")
+
+    async def _check_model_access(self, bedrock_client, model_id: str) -> str:
+        """Check if the account has access to invoke a specific model."""
+        try:
+            # Use GetFoundationModelAvailability to check access
+            availability = await bedrock_client.get_foundation_model_availability(modelId=model_id)
+            
+            # Check the model lifecycle status and access
+            status = availability.get("availability", {}).get("status", "UNAVAILABLE")
+            
+            if status == "AVAILABLE":
+                return "available"
+            elif status in ["AVAILABLE_WITH_ACCESS_REQUEST", "PENDING_ACCESS"]:
+                return "access_required"
+            else:
+                return "unavailable"
+                
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            
+            # If the model is not available to the account, it needs access request
+            if error_code in ["AccessDeniedException", "ValidationException"]:
+                # Try to determine if this model requires access approval
+                if any(provider in model_id.lower() for provider in ["anthropic", "meta", "ai21", "cohere"]):
+                    return "access_required"
+                else:
+                    return "unavailable"
+            
+            # Other errors - assume unavailable
+            logger.warning(f"Error checking model access for {model_id}: {e}")
+            return "unavailable"
+        
+        except Exception as e:
+            logger.warning(f"Unexpected error checking model access for {model_id}: {e}")
+            return "unavailable"
+
+    async def request_model_access(self, model_id: str) -> dict:
+        """Request access to a foundation model."""
+        try:
+            async with self._session.client("bedrock") as bedrock:
+                response = await bedrock.put_foundation_model_entitlement(
+                    modelId=model_id
+                )
+                
+                return {
+                    "success": True,
+                    "status": response.get("status", "submitted"),
+                    "message": f"Access request submitted for model {model_id}"
+                }
+                
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
+            
+            if error_code == "ConflictException":
+                return {
+                    "success": False,
+                    "error": "access_already_requested",
+                    "message": "Access has already been requested for this model"
+                }
+            elif error_code == "AccessDeniedException":
+                return {
+                    "success": False,
+                    "error": "insufficient_permissions",
+                    "message": "Insufficient permissions to request model access"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": error_code.lower(),
+                    "message": f"Failed to request access: {error_message}"
+                }
+                
+        except Exception as e:
+            logger.error(f"Unexpected error requesting model access for {model_id}: {e}")
+            return {
+                "success": False,
+                "error": "unknown_error",
+                "message": f"Unexpected error: {str(e)}"
+            }
 
     async def get_model(self, model_id: str) -> Optional[ModelInfo]:
         models = await self.list_models()

@@ -74,8 +74,9 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dic
                 val = getattr(m, field, None)
                 if val is not None:
                     pricing[field] = val
-            status_val = getattr(m, "status", "available")
-            pricing["status"] = status_val
+            
+            # Extract status separately for the new status column
+            status_val = getattr(m, "status", "active")
 
             # If this model has a deployment, update it in-place instead of inserting
             if str(model_id) in deployed_models:
@@ -85,6 +86,7 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dic
                     existing.display_name = str(display_name)
                     existing.capabilities = capabilities
                     existing.pricing_info = pricing
+                    existing.status = status_val
                     count += 1
                     continue
 
@@ -94,6 +96,7 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dic
                 display_name=str(display_name),
                 capabilities=capabilities,
                 pricing_info=pricing,
+                status=status_val,
             )
             db.add(db_model)
             count += 1

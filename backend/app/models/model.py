@@ -17,6 +17,7 @@ class Model(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     capabilities: Mapped[dict] = mapped_column(JSON, default=dict)
     pricing_info: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)  # active, access_required, inactive
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     provider = relationship("CloudProvider", back_populates="models")
