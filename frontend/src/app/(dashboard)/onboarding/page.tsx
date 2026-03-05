@@ -239,6 +239,12 @@ export default function OnboardingPage() {
   const [kbProvider, setKbProvider] = useState<Provider | null>(null);
   const [kbConfig, setKbConfig] = useState<Record<string, string>>({});
 
+  // AWS IAM mode and capabilities state
+  const [iamMode, setIamMode] = useState<"managed" | "least_privilege">("least_privilege");
+  const [enableProvisioning, setEnableProvisioning] = useState(true);
+  const [enableModelActivation, setEnableModelActivation] = useState(true);
+  const [enableCostTracking, setEnableCostTracking] = useState(true);
+
   // IaC state
   const [iacTool, setIacTool] = useState<IaCTool | null>(null);
   const [iacResults, setIacResults] = useState<Record<Provider, IaCResult | null>>({} as any);
@@ -463,10 +469,17 @@ export default function OnboardingPage() {
           kbPayload.kb_prefix = kbConfig.prefix || "";
         }
       }
+      const iamPayload: Record<string, unknown> = provider === "aws" ? {
+        iam_mode: iamMode,
+        enable_provisioning: enableProvisioning,
+        enable_model_activation: enableModelActivation,
+        enable_cost_tracking: enableCostTracking,
+      } : {};
+
       const res = await apiRequest(`/api/onboarding/generate-iac`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, iac_tool: iacTool, ...kbPayload }),
+        body: JSON.stringify({ provider, iac_tool: iacTool, ...kbPayload, ...iamPayload }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
@@ -1239,6 +1252,155 @@ export default function OnboardingPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* AWS IAM Configuration */}
+                  {providers.includes("aws") && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="max-w-2xl mx-auto space-y-4"
+                    >
+                      <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-5 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-5 w-5 text-violet-400" />
+                          <h3 className="font-semibold text-violet-300">AWS IAM Configuration</h3>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground mb-2 block">Permission Strategy</label>
+                            <div className="grid grid-cols-2 gap-3">
+                              <button
+                                onClick={() => {
+                                  setIamMode("managed");
+                                  // Regenerate IaC with new settings
+                                  setIacResults({} as any);
+                                  if (activeProvider === "aws") setTimeout(() => handleGenerateIaC("aws"), 100);
+                                }}
+                                className={cn(
+                                  "relative rounded-xl border-2 p-4 text-left transition-all",
+                                  iamMode === "managed"
+                                    ? "border-orange-500 bg-orange-500/10"
+                                    : "border-border hover:border-orange-500/50"
+                                )}
+                              >
+                                <Zap className="h-5 w-5 text-orange-400 mb-2" />
+                                <p className="text-sm font-semibold">Quick Start</p>
+                                <p className="text-xs text-muted-foreground mt-1">Single policy with all permissions</p>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIamMode("least_privilege");
+                                  // Regenerate IaC with new settings
+                                  setIacResults({} as any);
+                                  if (activeProvider === "aws") setTimeout(() => handleGenerateIaC("aws"), 100);
+                                }}
+                                className={cn(
+                                  "relative rounded-xl border-2 p-4 text-left transition-all",
+                                  iamMode === "least_privilege"
+                                    ? "border-emerald-500 bg-emerald-500/10"
+                                    : "border-border hover:border-emerald-500/50"
+                                )}
+                              >
+                                <Shield className="h-5 w-5 text-emerald-400 mb-2" />
+                                <p className="text-sm font-semibold">Enterprise</p>
+                                <p className="text-xs text-muted-foreground mt-1">Separate policies per capability</p>
+                              </button>
+                            </div>
+                          </div>
+
+                          <AnimatePresence>
+                            {iamMode === "least_privilege" && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden space-y-3"
+                              >
+                                <p className="text-sm text-muted-foreground">Choose which capabilities to enable:</p>
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border">
+                                    <div>
+                                      <p className="text-sm font-medium">Provisioned Throughput</p>
+                                      <p className="text-xs text-muted-foreground">Create and manage dedicated model capacity</p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEnableProvisioning(!enableProvisioning);
+                                        // Regenerate IaC with new settings
+                                        setIacResults({} as any);
+                                        if (activeProvider === "aws") setTimeout(() => handleGenerateIaC("aws"), 100);
+                                      }}
+                                      className={cn(
+                                        "w-11 h-6 rounded-full transition-colors flex items-center px-0.5",
+                                        enableProvisioning ? "bg-emerald-500" : "bg-zinc-700"
+                                      )}
+                                    >
+                                      <motion.div
+                                        className="w-5 h-5 rounded-full bg-white"
+                                        animate={{ x: enableProvisioning ? 20 : 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                      />
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border">
+                                    <div>
+                                      <p className="text-sm font-medium">Model Activation</p>
+                                      <p className="text-xs text-muted-foreground">Enable new foundation models from Bonito UI</p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEnableModelActivation(!enableModelActivation);
+                                        // Regenerate IaC with new settings
+                                        setIacResults({} as any);
+                                        if (activeProvider === "aws") setTimeout(() => handleGenerateIaC("aws"), 100);
+                                      }}
+                                      className={cn(
+                                        "w-11 h-6 rounded-full transition-colors flex items-center px-0.5",
+                                        enableModelActivation ? "bg-emerald-500" : "bg-zinc-700"
+                                      )}
+                                    >
+                                      <motion.div
+                                        className="w-5 h-5 rounded-full bg-white"
+                                        animate={{ x: enableModelActivation ? 20 : 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                      />
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border">
+                                    <div>
+                                      <p className="text-sm font-medium">Cost Tracking</p>
+                                      <p className="text-xs text-muted-foreground">View spending data in Bonito dashboard</p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setEnableCostTracking(!enableCostTracking);
+                                        // Regenerate IaC with new settings
+                                        setIacResults({} as any);
+                                        if (activeProvider === "aws") setTimeout(() => handleGenerateIaC("aws"), 100);
+                                      }}
+                                      className={cn(
+                                        "w-11 h-6 rounded-full transition-colors flex items-center px-0.5",
+                                        enableCostTracking ? "bg-emerald-500" : "bg-zinc-700"
+                                      )}
+                                    >
+                                      <motion.div
+                                        className="w-5 h-5 rounded-full bg-white"
+                                        animate={{ x: enableCostTracking ? 20 : 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                      />
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
 
                   {/* AI Context toggle for IaC flow */}
                   {providers.some((p) => ["aws", "azure", "gcp"].includes(p)) && (

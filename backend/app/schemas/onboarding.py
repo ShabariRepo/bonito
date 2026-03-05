@@ -45,6 +45,11 @@ class GenerateIaCRequest(BaseModel):
     azure_subscription_id: Optional[str] = None
     # GCP-specific
     gcp_project_id: Optional[str] = None
+    # IAM Mode and capability toggles (AWS)
+    iam_mode: Optional[str] = Field("least_privilege", pattern="^(managed|least_privilege)$")
+    enable_provisioning: bool = True
+    enable_model_activation: bool = True
+    enable_cost_tracking: bool = True
     # Knowledge Base (RAG) — optional storage integration
     enable_knowledge_base: bool = False
     kb_storage_provider: Optional[str] = None  # "aws", "azure", or "gcp" — which provider hosts docs
