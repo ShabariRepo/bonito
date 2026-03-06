@@ -13,7 +13,7 @@ const plans = [
     description: "For individuals exploring multi-cloud AI management.",
     features: [
       "1 cloud provider connection",
-      "1,000 gateway API calls / month",
+      "5,000 gateway API calls / month",
       "Model catalog & playground",
       "Standard request logging",
       "Community support (Discord)",
@@ -167,7 +167,7 @@ const agentPlans = [
 const comparisonFeatures = [
   // ── Core Platform
   { category: "Core Platform", name: "Cloud Providers", free: "1", pro: "3", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Gateway API Calls / month", free: "1,000", pro: "50,000", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Gateway API Calls / month", free: "5,000", pro: "50,000", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Model Catalog & Playground", free: true, pro: true, enterprise: true, scale: true },
   { category: "Core Platform", name: "One-Click Model Activation", free: true, pro: true, enterprise: true, scale: true },
