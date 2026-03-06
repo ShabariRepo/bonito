@@ -56,7 +56,7 @@ export default function ComparePage() {
             {
               icon: Shield,
               title: "Enterprise Governance",
-              description: "SOC 2 and HIPAA-ready compliance, full audit trails, and role-based access controls.",
+              description: "Compliance-ready architecture with full audit trails, RBAC, and data isolation.",
             },
           ].map((item, i) => (
             <motion.div

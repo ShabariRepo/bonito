@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <h2 className="text-lg font-semibold text-[#f5f0e8]">4. How We Use Your Information</h2>
         <p>We use your information to provide and improve the service, send notifications (deployment status, spend alerts, model activation updates), and process payments. We do not sell your data to third parties.</p>
         <h2 className="text-lg font-semibold text-[#f5f0e8]">5. Data Security</h2>
-        <p>We use industry-standard encryption at rest and in transit. Access to customer data is restricted and audited. Enterprise plans include additional compliance certifications (SOC2, HIPAA readiness).</p>
+        <p>We use industry-standard encryption at rest and in transit. Access to customer data is restricted and audited. Enterprise plans include compliance-ready architecture with enhanced audit trails and data isolation.</p>
         <h2 className="text-lg font-semibold text-[#f5f0e8]">6. Cookies and Analytics</h2>
         <p>We use Microsoft Clarity for analytics to understand how users interact with our platform. This helps us improve the user experience.</p>
         <h2 className="text-lg font-semibold text-[#f5f0e8]">7. Contact</h2>

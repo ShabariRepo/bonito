@@ -47,7 +47,7 @@ export const competitors: Competitor[] = [
       "AI cost analytics with per-model, per-provider breakdowns and budget alerts",
       "Knowledge bases with RAG for agent-powered retrieval",
       "MCP (Model Context Protocol) integration for tool-using agents",
-      "Enterprise compliance features (SOC 2, HIPAA-ready audit trails)",
+      "Enterprise compliance-ready architecture (audit trails, RBAC, data isolation)",
     ],
     features: [
       {
@@ -128,7 +128,7 @@ export const competitors: Competitor[] = [
       "Model deployment and activation across all providers from one dashboard",
       "Knowledge bases with RAG for retrieval-augmented agent workflows",
       "MCP integration for agents that use external tools",
-      "Enterprise governance with SOC 2 and HIPAA-ready compliance",
+      "Enterprise governance with full audit trails, RBAC, and compliance-ready architecture",
       "Multi-agent orchestration with async fan-out patterns",
     ],
     features: [
@@ -169,7 +169,7 @@ export const competitors: Competitor[] = [
           { name: "One-click model deployment", bonito: true, competitor: false },
           { name: "MCP tool integration", bonito: true, competitor: false },
           { name: "Threat detection", bonito: true, competitor: true },
-          { name: "Enterprise compliance (SOC 2, HIPAA)", bonito: true, competitor: false },
+          { name: "Compliance-ready architecture (audit trails, RBAC)", bonito: true, competitor: false },
         ],
       },
     ],
@@ -211,7 +211,7 @@ export const competitors: Competitor[] = [
       "One-click model deployment and activation across all three cloud providers",
       "AI cost analytics with cross-cloud aggregation and budget alerts",
       "MCP integration for tool-using agents",
-      "Enterprise governance with audit trails, compliance scanning, and HIPAA readiness",
+      "Enterprise governance with audit trails, compliance scanning, and data isolation",
     ],
     features: [
       {
@@ -251,7 +251,7 @@ export const competitors: Competitor[] = [
           { name: "One-click model deployment", bonito: true, competitor: false },
           { name: "Knowledge bases / RAG", bonito: true, competitor: false },
           { name: "MCP tool integration", bonito: true, competitor: false },
-          { name: "Enterprise compliance (SOC 2, HIPAA)", bonito: true, competitor: "Partial" },
+          { name: "Compliance-ready architecture (audit trails, RBAC)", bonito: true, competitor: "Partial" },
         ],
       },
     ],
@@ -333,7 +333,7 @@ export const competitors: Competitor[] = [
           { name: "One-click model deployment", bonito: true, competitor: false },
           { name: "MCP tool integration", bonito: true, competitor: false },
           { name: "Multi-cloud cost aggregation", bonito: true, competitor: false },
-          { name: "Enterprise compliance (SOC 2, HIPAA)", bonito: true, competitor: "Partial" },
+          { name: "Compliance-ready architecture (audit trails, RBAC)", bonito: true, competitor: "Partial" },
         ],
       },
     ],
@@ -415,7 +415,7 @@ export const competitors: Competitor[] = [
           { name: "One-click model deployment", bonito: true, competitor: false },
           { name: "MCP tool integration", bonito: true, competitor: false },
           { name: "Traditional ML pipeline integration", bonito: false, competitor: true },
-          { name: "Enterprise compliance (SOC 2, HIPAA)", bonito: true, competitor: true },
+          { name: "Compliance-ready architecture (audit trails, RBAC)", bonito: true, competitor: true },
         ],
       },
     ],

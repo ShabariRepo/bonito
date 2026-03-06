@@ -61,7 +61,7 @@ const plans = [
       "99.9% SLA guarantee",
       "Dedicated support engineer",
       "Custom integrations & webhooks",
-      "Compliance (SOC2, HIPAA ready)",
+      "Compliance-ready architecture (audit trails, RBAC)",
       "On-premise deployment option",
       "Priority feature requests",
       "Quarterly business reviews",
@@ -197,7 +197,7 @@ const comparisonFeatures = [
   { category: "Security & Compliance", name: "Role-Based Access Control (RBAC)", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "IaC Templates (Terraform)", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "SLA Guarantee", free: false, pro: false, enterprise: "99.9%", scale: "99.99%" },
-  { category: "Security & Compliance", name: "Compliance Ready (SOC2, HIPAA)", free: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "Compliance-ready architecture (audit trails, RBAC)", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "On-Premise Deployment", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "Custom Compliance Frameworks", free: false, pro: false, enterprise: false, scale: true },
   // ── Tools & Integrations
@@ -270,7 +270,7 @@ const faqs = [
   },
   {
     q: "Is my data secure?",
-    a: "Absolutely. Bonito never stores your AI request/response data. Prompts and completions pass through the gateway but are never persisted. Credentials are stored in HashiCorp Vault with encryption at rest. Enterprise plans include SOC2 and HIPAA compliance options. Agent knowledge bases use isolated vector stores per organization.",
+    a: "Absolutely. Bonito never stores your AI request/response data. Prompts and completions pass through the gateway but are never persisted. Credentials are stored in HashiCorp Vault with encryption at rest. Enterprise plans include compliance-ready architecture with full audit trails, RBAC, and data isolation. Agent knowledge bases use isolated vector stores per organization.",
   },
   {
     q: "Do you offer volume discounts for agents?",
