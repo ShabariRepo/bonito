@@ -11,6 +11,7 @@ import SchematicBackground from "@/components/SchematicBackground";
 
 const navLinks = [
   { href: "/use-cases", label: "Use Cases" },
+  { href: "/compare", label: "Compare" },
   { href: "/pricing", label: "Pricing" },
   { href: "/blog", label: "Blog" },
   { href: "/docs", label: "Docs" },
@@ -20,6 +21,7 @@ const navLinks = [
 const footerLinks = {
   Product: [
     { href: "/use-cases", label: "Use Cases" },
+    { href: "/compare", label: "Compare" },
     { href: "/pricing", label: "Pricing" },
     { href: "/changelog", label: "Changelog" },
     { href: "/docs", label: "Documentation" },
