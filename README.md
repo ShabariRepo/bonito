@@ -19,6 +19,9 @@ Bonito solves this with:
 - **AI copilot** — An intelligent assistant that helps with onboarding, configuration, troubleshooting, and infrastructure-as-code generation.
 - **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, failover, and load balancing across providers.
 - **Bonobot — AI Agents** — Enterprise AI agent framework with visual canvas (React Flow), project-based organization, built-in tools (KB search, HTTP requests, agent-to-agent invocation), and enterprise security (default deny, budget enforcement, rate limiting, SSRF protection, full audit trail). All agent inference routes through the Bonito gateway for cost tracking and governance.
+  - **Persistent Agent Memory** — Long-term memory system with pgvector similarity search. Agents store and retrieve facts, patterns, interactions, preferences, and contextual information across sessions. AI-powered memory extraction from conversations.
+  - **Scheduled Autonomous Execution** — Cron-based task scheduling with timezone support. Agents run tasks automatically, deliver results via webhook/email/Slack, with full execution history and retry logic.
+  - **Approval Queue / Human-in-the-Loop** — Configurable approval workflows for sensitive agent actions. Risk assessment, timeout handling, auto-approval conditions, and comprehensive audit trails for enterprise compliance.
 
 ## How Bonito Compares
 
@@ -174,6 +177,7 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 ### Completed (Recent)
 - ✅ **SAML SSO** — Enterprise SSO with SAML 2.0 (Okta, Azure AD, Google Workspace, Custom SAML), SSO enforcement, break-glass admin, JIT provisioning
 - ✅ **Bonobot v1 — AI Agents** — Enterprise agent framework with visual canvas, OpenClaw-inspired execution engine, built-in tools, enterprise security (default deny, budget stops, rate limiting, SSRF protection, audit trail)
+- ✅ **Bonobot Enterprise Features** — Persistent Agent Memory (pgvector, 5 memory types, AI extraction), Scheduled Autonomous Execution (cron, timezone, multi-channel delivery), and Approval Queue / Human-in-the-Loop (risk assessment, auto-approve, timeout handling)
 
 ### Planned
 - ~~📋 SSO/SAML integration~~ ✅ Shipped

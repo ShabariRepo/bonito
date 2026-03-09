@@ -5,6 +5,7 @@ _Last updated: 2026-02-22_
 ## Current Status
 - All 18 core phases complete ✅
 - **AI Context (Knowledge Base) — SHIPPED** ✅ (cross-cloud RAG pipeline, fully E2E tested)
+- **Bonobot Enterprise Features — SHIPPED** ✅ (persistent memory, scheduled execution, approval queue)
 - Live at https://getbonito.com
 - Backend: https://celebrated-contentment-production-0fc4.up.railway.app
 - 3 cloud providers (AWS Bedrock, Azure OpenAI, GCP Vertex AI)
