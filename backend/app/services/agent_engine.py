@@ -52,6 +52,9 @@ from app.services.gateway import chat_completion as gateway_chat_completion
 from app.services.kb_content import search_knowledge_base
 from app.services.audit_service import log_audit_event
 from app.services.mcp_client import MCPClientManager, make_namespaced_tool_name
+# Enterprise feature services
+from app.services.agent_memory_service import AgentMemoryService
+from app.services.agent_approval_service import AgentApprovalService
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,10 @@ class AgentEngine:
         
         # MCP client manager for this engine instance
         self._mcp_manager: Optional[MCPClientManager] = None
+        
+        # Enterprise feature services
+        self._memory_service = AgentMemoryService()
+        self._approval_service = AgentApprovalService()
         
         # Security patterns for input sanitization
         self.prompt_injection_patterns = [

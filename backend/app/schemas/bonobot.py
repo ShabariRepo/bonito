@@ -461,5 +461,220 @@ class MCPTemplateResponse(BaseModel):
     category: str
 
 
+# ─── Agent Memory Schemas ───
+
+class AgentMemoryCreate(BaseModel):
+    memory_type: str = Field(..., pattern=r"^(fact|pattern|interaction|preference|context)$")
+    content: str = Field(..., min_length=1, max_length=10000)
+    metadata: Optional[Dict[str, Any]] = None
+    importance_score: Optional[float] = Field(1.0, ge=0.0, le=10.0)
+
+
+class AgentMemoryUpdate(BaseModel):
+    content: Optional[str] = Field(None, min_length=1, max_length=10000)
+    metadata: Optional[Dict[str, Any]] = None
+    importance_score: Optional[float] = Field(None, ge=0.0, le=10.0)
+
+
+class AgentMemoryResponse(BaseModel):
+    id: UUID
+    agent_id: UUID
+    project_id: UUID
+    org_id: UUID
+    memory_type: str
+    content: str
+    metadata: Dict[str, Any] = Field(alias="extra_data")
+    importance_score: float
+    access_count: int
+    source_session_id: Optional[UUID]
+    source_message_id: Optional[UUID]
+    last_accessed_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        populate_by_name = True
+
+
+class AgentMemorySearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=1000)
+    memory_types: Optional[List[str]] = None
+    limit: Optional[int] = Field(10, ge=1, le=50)
+    min_importance: Optional[float] = Field(None, ge=0.0, le=10.0)
+
+
+class AgentMemorySearchResponse(BaseModel):
+    memories: List[AgentMemoryResponse]
+    query: str
+    total_found: int
+
+
+# ─── Scheduled Execution Schemas ───
+
+class AgentScheduleCreate(BaseModel):
+    name: str = Field(..., max_length=255)
+    description: Optional[str] = None
+    cron_expression: str = Field(..., max_length=100)  # Will be validated separately
+    task_prompt: str = Field(..., min_length=1, max_length=10000)
+    output_config: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = True
+    timezone: Optional[str] = Field("UTC", max_length=50)
+    max_retries: Optional[int] = Field(3, ge=0, le=10)
+    retry_delay_minutes: Optional[int] = Field(5, ge=1, le=60)
+    timeout_minutes: Optional[int] = Field(10, ge=1, le=120)
+
+
+class AgentScheduleUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = None
+    cron_expression: Optional[str] = Field(None, max_length=100)
+    task_prompt: Optional[str] = Field(None, min_length=1, max_length=10000)
+    output_config: Optional[Dict[str, Any]] = None
+    enabled: Optional[bool] = None
+    timezone: Optional[str] = Field(None, max_length=50)
+    max_retries: Optional[int] = Field(None, ge=0, le=10)
+    retry_delay_minutes: Optional[int] = Field(None, ge=1, le=60)
+    timeout_minutes: Optional[int] = Field(None, ge=1, le=120)
+
+
+class AgentScheduleResponse(BaseModel):
+    id: UUID
+    agent_id: UUID
+    project_id: UUID
+    org_id: UUID
+    name: str
+    description: Optional[str]
+    cron_expression: str
+    task_prompt: str
+    output_config: Dict[str, Any]
+    enabled: bool
+    timezone: str
+    next_run_at: Optional[datetime]
+    last_run_at: Optional[datetime]
+    run_count: int
+    failure_count: int
+    max_retries: int
+    retry_delay_minutes: int
+    timeout_minutes: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ScheduledExecutionResponse(BaseModel):
+    id: UUID
+    schedule_id: UUID
+    agent_id: UUID
+    session_id: Optional[UUID]
+    org_id: UUID
+    status: str
+    scheduled_at: datetime
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    result_content: Optional[str]
+    error_message: Optional[str]
+    tokens_used: Optional[int]
+    cost: Optional[Decimal]
+    output_delivered: bool
+    output_log: Optional[Dict[str, Any]]
+    retry_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ScheduledExecutionTriggerRequest(BaseModel):
+    """Request to manually trigger a schedule execution"""
+    override_prompt: Optional[str] = None  # Override the scheduled prompt
+
+
+# ─── Approval Queue Schemas ───
+
+class AgentApprovalActionResponse(BaseModel):
+    id: UUID
+    agent_id: UUID
+    session_id: UUID
+    message_id: UUID
+    project_id: UUID
+    org_id: UUID
+    action_type: str
+    action_description: str
+    action_payload: Dict[str, Any]
+    risk_level: str
+    status: str
+    requested_by: Optional[UUID]
+    reviewed_by: Optional[UUID]
+    review_notes: Optional[str]
+    expires_at: datetime
+    reviewed_at: Optional[datetime]
+    executed_at: Optional[datetime]
+    execution_result: Optional[Dict[str, Any]]
+    execution_error: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    # Populated from joins
+    agent_name: Optional[str] = None
+    requester_name: Optional[str] = None
+    reviewer_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AgentApprovalActionReviewRequest(BaseModel):
+    action: str = Field(..., pattern=r"^(approve|reject)$")
+    review_notes: Optional[str] = Field(None, max_length=1000)
+
+
+class AgentApprovalConfigCreate(BaseModel):
+    action_type: str = Field(..., max_length=50)
+    requires_approval: bool = True
+    auto_approve_conditions: Optional[Dict[str, Any]] = None
+    timeout_hours: Optional[int] = Field(24, ge=1, le=168)  # 1 hour to 1 week
+    required_approvers: Optional[int] = Field(1, ge=1, le=5)
+    risk_assessment_rules: Optional[Dict[str, Any]] = None
+
+
+class AgentApprovalConfigUpdate(BaseModel):
+    requires_approval: Optional[bool] = None
+    auto_approve_conditions: Optional[Dict[str, Any]] = None
+    timeout_hours: Optional[int] = Field(None, ge=1, le=168)
+    required_approvers: Optional[int] = Field(None, ge=1, le=5)
+    risk_assessment_rules: Optional[Dict[str, Any]] = None
+
+
+class AgentApprovalConfigResponse(BaseModel):
+    id: UUID
+    agent_id: UUID
+    org_id: UUID
+    action_type: str
+    requires_approval: bool
+    auto_approve_conditions: Optional[Dict[str, Any]]
+    timeout_hours: int
+    required_approvers: int
+    risk_assessment_rules: Optional[Dict[str, Any]]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ApprovalQueueSummaryResponse(BaseModel):
+    """Summary of approval queue status for dashboard"""
+    total_pending: int
+    high_risk_pending: int
+    critical_risk_pending: int
+    expiring_soon: int  # Expiring in next 2 hours
+    by_action_type: Dict[str, int]  # Action type -> count
+    by_agent: Dict[str, Dict[str, Any]]  # Agent ID -> {name, count}
+
+
 # Forward reference resolution
 AgentDetailResponse.model_rebuild()
