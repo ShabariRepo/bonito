@@ -147,7 +147,7 @@ class AgentMemoryService:
                    m.created_at, m.updated_at,
                    1 - (m.embedding <=> CAST(:query_vec AS vector)) AS similarity_score
             FROM agent_memories m
-            WHERE m.agent_id = :agent_id::uuid
+            WHERE m.agent_id = CAST(:agent_id AS uuid)
               AND m.embedding IS NOT NULL
               {type_filter}
             ORDER BY m.embedding <=> CAST(:query_vec AS vector)
