@@ -69,3 +69,7 @@ class Agent(Base):
     source_connections = relationship("AgentConnection", foreign_keys="[AgentConnection.source_agent_id]", back_populates="source_agent")
     target_connections = relationship("AgentConnection", foreign_keys="[AgentConnection.target_agent_id]", back_populates="target_agent")
     mcp_servers = relationship("AgentMCPServer", back_populates="agent", cascade="all, delete-orphan")
+    # New enterprise features
+    memories = relationship("AgentMemory", back_populates="agent", cascade="all, delete-orphan")
+    schedules = relationship("AgentSchedule", back_populates="agent", cascade="all, delete-orphan")
+    approval_configs = relationship("AgentApprovalConfig", back_populates="agent", cascade="all, delete-orphan")

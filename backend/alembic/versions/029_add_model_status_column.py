@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '029_add_model_status_column'
-down_revision = '028_add_agent_canvas_position'
+down_revision = '028_agent_canvas_position'
 branch_labels = None
 depends_on = None
 
