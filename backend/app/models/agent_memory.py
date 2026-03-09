@@ -27,8 +27,7 @@ class AgentMemory(Base):
     importance_score: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
     access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     
-    # Vector embedding for similarity search (pgvector type - defined as ARRAY but will be vector(1536) in DB)
-    embedding: Mapped[Optional[List[float]]] = mapped_column(ARRAY(Float), nullable=True)
+    # Vector embedding stored via raw SQL (pgvector type handled outside ORM to avoid asyncpg codec issues)
     
     # Source tracking
     source_session_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("agent_sessions.id", ondelete="SET NULL"), nullable=True)

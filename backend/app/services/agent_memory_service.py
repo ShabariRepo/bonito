@@ -126,40 +126,62 @@ class AgentMemoryService:
                 agent_id, query, db, limit, memory_types, min_importance
             )
         
-        # Build the query with vector similarity
-        conditions = [AgentMemory.agent_id == agent_id]
+        # Use raw SQL for vector similarity search (same pattern as KB chunks)
+        query_vec_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+        
+        type_filter = ""
+        params = {"agent_id": str(agent_id), "query_vec": query_vec_str, "limit": limit}
         
         if memory_types:
-            conditions.append(AgentMemory.memory_type.in_(memory_types))
+            type_filter += " AND m.memory_type = ANY(:types)"
+            params["types"] = memory_types
         
         if min_importance is not None:
-            conditions.append(AgentMemory.importance_score >= min_importance)
+            type_filter += " AND m.importance_score >= :min_importance"
+            params["min_importance"] = min_importance
         
-        # Only search memories that have embeddings
-        conditions.append(AgentMemory.embedding.isnot(None))
+        sql = text(f"""
+            SELECT m.id, m.agent_id, m.project_id, m.org_id, m.memory_type, m.content,
+                   m.metadata AS extra_data, m.importance_score, m.access_count,
+                   m.source_session_id, m.source_message_id, m.last_accessed_at,
+                   m.created_at, m.updated_at,
+                   1 - (m.embedding <=> CAST(:query_vec AS vector)) AS similarity_score
+            FROM agent_memories m
+            WHERE m.agent_id = :agent_id::uuid
+              AND m.embedding IS NOT NULL
+              {type_filter}
+            ORDER BY m.embedding <=> CAST(:query_vec AS vector)
+            LIMIT :limit
+        """)
         
-        # Use cosine distance for similarity search
-        stmt = (
-            select(AgentMemory)
-            .where(and_(*conditions))
-            .order_by(AgentMemory.embedding.cosine_distance(query_embedding))
-            .limit(limit)
-        )
+        result = await db.execute(sql, params)
+        rows = result.fetchall()
         
-        result = await db.execute(stmt)
-        memories = result.scalars().all()
+        # Convert rows to AgentMemory objects
+        memories = []
+        memory_ids = []
+        for row in rows:
+            memory = AgentMemory(
+                id=row.id, agent_id=row.agent_id, project_id=row.project_id,
+                org_id=row.org_id, memory_type=row.memory_type, content=row.content,
+                extra_data=row.extra_data, importance_score=row.importance_score,
+                access_count=row.access_count, source_session_id=row.source_session_id,
+                source_message_id=row.source_message_id, last_accessed_at=row.last_accessed_at,
+                created_at=row.created_at, updated_at=row.updated_at
+            )
+            memories.append(memory)
+            memory_ids.append(row.id)
         
         # Update access count for retrieved memories
-        if memories:
-            memory_ids = [m.id for m in memories]
-            update_stmt = (
-                text("UPDATE agent_memories SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = ANY(:ids)")
+        if memory_ids:
+            await db.execute(
+                text("UPDATE agent_memories SET access_count = access_count + 1, last_accessed_at = NOW() WHERE id = ANY(:ids)"),
+                {"ids": memory_ids}
             )
-            await db.execute(update_stmt, {"ids": memory_ids})
             await db.commit()
         
         logger.info(f"Found {len(memories)} memories for agent {agent_id} with query: {query[:100]}")
-        return list(memories)
+        return memories
     
     async def _text_search_memories(
         self,
@@ -280,7 +302,12 @@ class AgentMemoryService:
                 if agent:
                     embedding_gen = EmbeddingGenerator(agent.org_id)
                     embeddings = await embedding_gen.generate_embeddings([content])
-                    memory.embedding = embeddings[0] if embeddings else None
+                    if embeddings and embeddings[0]:
+                        embedding_str = "[" + ",".join(str(x) for x in embeddings[0]) + "]"
+                        await db.execute(
+                            text("UPDATE agent_memories SET embedding = :emb::vector WHERE id = :id"),
+                            {"emb": embedding_str, "id": str(memory_id)}
+                        )
             except Exception as e:
                 logger.warning(f"Failed to update embedding: {e}")
         
