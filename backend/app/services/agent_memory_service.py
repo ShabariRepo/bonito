@@ -30,7 +30,7 @@ class AgentMemoryService:
     """Service for managing agent memories with vector search capabilities."""
     
     def __init__(self):
-        self.embedding_dimension = 1536  # OpenAI embedding dimension
+        self.embedding_dimension = 768  # OpenAI embedding dimension
         
     async def store_memory(
         self,

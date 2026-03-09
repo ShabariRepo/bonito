@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-03-09T14:09:51.086150",
+  "summary": {
+    "total_requests": 3,
+    "successful_requests": 1,
+    "failed_requests": 2,
+    "avg_latency_ms": 80.41659990946452,
+    "p50_latency_ms": 49.54695701599121,
+    "p95_latency_ms": 0,
+    "p99_latency_ms": 0,
+    "throughput_rps": 0.01,
+    "error_rate": 66.66666666666666
+  },
+  "detailed_results": [
+    {
+      "endpoint": "/api/health",
+      "method": "GET",
+      "status_code": 200,
+      "response_time_ms": 148.223876953125,
+      "success": true,
+      "error": null
+    },
+    {
+      "endpoint": "/api/projects",
+      "method": "GET",
+      "status_code": 401,
+      "response_time_ms": 43.478965759277344,
+      "success": false,
+      "error": "{\"success\":false,\"error\":{\"code\":\"HTTP_401\",\"message\":\"Invalid token\",\"field\":null},\"request_id\":\"724a1dfd-4586-4d75-9c46-24139350e9e4\"}"
+    },
+    {
+      "endpoint": "/api/projects",
+      "method": "POST",
+      "status_code": 401,
+      "response_time_ms": 49.54695701599121,
+      "success": false,
+      "error": "{\"success\":false,\"error\":{\"code\":\"HTTP_401\",\"message\":\"Invalid token\",\"field\":null},\"request_id\":\"649c1e65-4005-4642-b788-15caa2e89fdc\"}"
+    }
+  ],
+  "config": {
+    "base_url": "https://celebrated-contentment-production-0fc4.up.railway.app",
+    "total_duration_minutes": 15,
+    "features_tested": [
+      "agent_memory",
+      "scheduled_execution",
+      "approval_queue"
+    ]
+  }
+}

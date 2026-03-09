@@ -45,7 +45,7 @@ def upgrade() -> None:
     
     # Add vector index for similarity search (requires pgvector extension)
     # First create the vector column type, then add the index
-    op.execute("ALTER TABLE agent_memories ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector")
+    op.execute("ALTER TABLE agent_memories ALTER COLUMN embedding TYPE vector(768) USING embedding::vector")
     op.execute("CREATE INDEX IF NOT EXISTS idx_agent_memories_embedding ON agent_memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)")
 
 
