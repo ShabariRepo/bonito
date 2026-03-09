@@ -61,7 +61,7 @@ class AgentMemoryService:
             logger.warning(f"Failed to generate embedding for memory: {e}")
             embedding = None
         
-        # Create memory record
+        # Create memory record (without embedding - set via raw SQL to avoid asyncpg vector type issues)
         memory = AgentMemory(
             agent_id=agent_id,
             project_id=agent.project_id,
@@ -70,7 +70,6 @@ class AgentMemoryService:
             content=content,
             extra_data=metadata or {},
             importance_score=importance_score,
-            embedding=embedding,
             source_session_id=source_session_id,
             source_message_id=source_message_id
         )
@@ -78,6 +77,18 @@ class AgentMemoryService:
         db.add(memory)
         await db.commit()
         await db.refresh(memory)
+        
+        # Set embedding via raw SQL to work around asyncpg/pgvector type mapping
+        if embedding:
+            try:
+                embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
+                await db.execute(
+                    text("UPDATE agent_memories SET embedding = :emb::vector WHERE id = :id"),
+                    {"emb": embedding_str, "id": str(memory.id)}
+                )
+                await db.commit()
+            except Exception as e:
+                logger.warning(f"Failed to store embedding for memory {memory.id}: {e}")
         
         logger.info(f"Stored memory {memory.id} for agent {agent_id} (type: {memory_type})")
         return memory
