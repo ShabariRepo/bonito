@@ -38,6 +38,8 @@ class SubscriptionStatus(str, Enum):
 
 class BonobotPlan(str, Enum):
     NONE = "none"
+    SIMPLE = "simple"
+    ADVANCED = "advanced"
     PRO = "pro"
     ENTERPRISE = "enterprise"
     HOSTED = "hosted"  # legacy alias
