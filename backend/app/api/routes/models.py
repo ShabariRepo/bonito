@@ -468,18 +468,8 @@ async def playground_execute(
         # Build litellm model string + auth params based on provider type
         litellm_params: dict = {}
         if provider.provider_type == "aws":
-            bedrock_model_id = model.model_id
-            # Newer Anthropic/Meta/Mistral models on Bedrock require cross-region
-            # inference profiles — prefix with "us." to use the US inference profile
-            inference_profile_prefixes = [
-                "anthropic.claude-sonnet-4", "anthropic.claude-opus-4",
-                "anthropic.claude-haiku-4", "anthropic.claude-3-7",
-                "meta.llama4", "meta.llama3-3", "meta.llama3-2",
-                "mistral.mistral-large-2",
-            ]
-            needs_profile = any(bedrock_model_id.startswith(p) for p in inference_profile_prefixes)
-            if needs_profile and not bedrock_model_id.startswith("us."):
-                bedrock_model_id = f"us.{bedrock_model_id}"
+            from app.services.gateway import _apply_bedrock_inference_profile
+            bedrock_model_id = _apply_bedrock_inference_profile(model.model_id)
             gateway_request["model"] = f"bedrock/{bedrock_model_id}"
             litellm_params["aws_access_key_id"] = secrets.get("access_key_id", "")
             litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
@@ -664,7 +654,9 @@ async def compare_models(
             secrets = await _get_provider_secrets(str(provider.id))
             litellm_params: dict = {}
             if provider.provider_type == "aws":
-                gateway_request["model"] = f"bedrock/{model.model_id}"
+                from app.services.gateway import _apply_bedrock_inference_profile
+                bedrock_model_id = _apply_bedrock_inference_profile(model.model_id)
+                gateway_request["model"] = f"bedrock/{bedrock_model_id}"
                 litellm_params["aws_access_key_id"] = secrets.get("access_key_id", "")
                 litellm_params["aws_secret_access_key"] = secrets.get("secret_access_key", "")
                 litellm_params["aws_region_name"] = secrets.get("region", "us-east-1")

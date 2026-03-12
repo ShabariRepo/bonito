@@ -135,6 +135,7 @@ PROVIDER_MODEL_PREFIXES = {
     "gcp": "vertex_ai/",
     "openai": "openai/",
     "anthropic": "anthropic/",
+    "gemini": "gemini/",
 }
 
 
@@ -163,6 +164,10 @@ MODEL_EQUIVALENCE_MAP: dict[str, dict[str, list[str]]] = {
         "aws": ["mistral.mixtral-8x7b-instruct-v0:1"],
     },
     # Claude family
+    "claude-sonnet-4": {
+        "anthropic": ["claude-sonnet-4-20250514"],
+        "aws": ["anthropic.claude-sonnet-4-20250514-v1:0"],
+    },
     "claude-3.5-sonnet": {
         "anthropic": ["claude-3-5-sonnet-20241022"],
         "aws": ["anthropic.claude-3-5-sonnet-20241022-v2:0"],
@@ -232,6 +237,81 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     return False
 
 
+def _is_retriable_provider_error(exc: Exception) -> bool:
+    """Detect whether an exception is a retriable provider error.
+
+    Covers rate limits, timeouts, server errors, and model unavailability
+    so the gateway can automatically failover to equivalent models on
+    other providers instead of failing the request outright.
+    """
+    if _is_rate_limit_error(exc):
+        return True
+
+    err_str = str(exc).lower()
+    exc_type = type(exc).__name__
+
+    # Timeouts
+    if any(k in err_str for k in ("timeout", "timed out", "deadline exceeded")):
+        return True
+    if "Timeout" in exc_type:
+        return True
+
+    # Server errors (5xx)
+    for code in ("500", "502", "503", "529"):
+        if code in err_str:
+            return True
+    if any(k in err_str for k in (
+        "internal server error", "service unavailable", "bad gateway",
+        "overloaded", "capacity", "server error",
+    )):
+        return True
+    if any(k in exc_type for k in ("ServiceUnavailableError", "InternalServerError", "APIConnectionError")):
+        return True
+
+    # Model-specific unavailability
+    if any(k in err_str for k in (
+        "model not ready", "model is not available", "model_not_found",
+        "deployment not found", "resource not found",
+    )):
+        return True
+
+    return False
+
+
+# ─── AWS Bedrock cross-region inference profiles ───
+
+# Newer models on Bedrock require cross-region inference profiles.
+# When a model ID matches one of these prefixes, the gateway prepends
+# "us." so LiteLLM routes to the US inference profile endpoint.
+BEDROCK_INFERENCE_PROFILE_PREFIXES = [
+    "anthropic.claude-sonnet-4",
+    "anthropic.claude-opus-4",
+    "anthropic.claude-haiku-4",
+    "anthropic.claude-3-7",
+    "anthropic.claude-3-5-sonnet-20241022-v2",
+    "anthropic.claude-3-5-haiku",
+    "meta.llama4",
+    "meta.llama3-3",
+    "meta.llama3-2",
+    "mistral.mistral-large-2",
+]
+
+
+def _apply_bedrock_inference_profile(model_id: str) -> str:
+    """Prepend 'us.' to a Bedrock model ID if it needs a cross-region
+    inference profile. Returns the (possibly modified) model ID.
+
+    This keeps the model registry clean -- customers register canonical
+    model IDs and the gateway handles the routing prefix transparently.
+    """
+    if model_id.startswith("us."):
+        return model_id  # already prefixed
+    needs_profile = any(model_id.startswith(p) for p in BEDROCK_INFERENCE_PROFILE_PREFIXES)
+    if needs_profile:
+        return f"us.{model_id}"
+    return model_id
+
+
 def _detect_provider_from_model(model_id: str, model_list: list[dict]) -> Optional[str]:
     """Determine the provider type from the LiteLLM model list entry."""
     for entry in model_list:
@@ -249,6 +329,8 @@ def _detect_provider_from_model(model_id: str, model_list: list[dict]) -> Option
                 return "anthropic"
             elif lp.startswith("groq/"):
                 return "groq"
+            elif lp.startswith("gemini/"):
+                return "gemini"
     return None
 
 
@@ -361,8 +443,9 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                 litellm_params: dict = {}
                 
                 if provider_type == "aws":
+                    bedrock_model_id = _apply_bedrock_inference_profile(model_id)
                     litellm_params = {
-                        "model": f"bedrock/{model_id}",
+                        "model": f"bedrock/{bedrock_model_id}",
                         "aws_access_key_id": c.get("access_key_id", ""),
                         "aws_secret_access_key": c.get("secret_access_key", ""),
                         "aws_region_name": c.get("region", "us-east-1"),
@@ -454,6 +537,11 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                         "model": f"groq/{model_id}",
                         "api_key": c.get("api_key", ""),
                     }
+                elif provider_type == "gemini":
+                    litellm_params = {
+                        "model": f"gemini/{model_id}",
+                        "api_key": c.get("api_key", ""),
+                    }
                 else:
                     continue
                 
@@ -500,9 +588,10 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
             "anthropic.claude-3-haiku-20240307-v1:0",
             "meta.llama3-70b-instruct-v1:0",
         ]:
+            bedrock_id = _apply_bedrock_inference_profile(model)
             model_list.append({
                 "model_name": model,
-                "litellm_params": {"model": f"bedrock/{model}", **common},
+                "litellm_params": {"model": f"bedrock/{bedrock_id}", **common},
             })
 
     # Azure fallback: skipped — Azure requires explicit deployments tracked
@@ -991,7 +1080,7 @@ async def chat_completion(
 
             # If this was a failover, log the original error
             if attempt_idx > 0 and failover_from:
-                log_entry.error_message = f"[failover] Original model '{failover_from}' rate-limited; routed to '{attempt_model}'"
+                log_entry.error_message = f"[failover] Original model '{failover_from}' unavailable; routed to '{attempt_model}'"
                 logger.info(
                     f"Cross-provider failover: {failover_from} -> {attempt_model} "
                     f"for org {org_id} (attempt {attempt_idx + 1})"
@@ -1016,7 +1105,7 @@ async def chat_completion(
                 response_dict.setdefault("bonito", {})["failover"] = {
                     "original_model": model,
                     "routed_to": attempt_model,
-                    "reason": "rate_limit",
+                    "reason": "provider_unavailable",
                 }
 
             # Emit to platform logging system (fire-and-forget)
@@ -1047,31 +1136,34 @@ async def chat_completion(
 
         except Exception as e:
             last_error = e
-            # If this is a rate limit error and we have more models to try, continue
-            if _is_rate_limit_error(e) and attempt_idx < len(models_to_try) - 1:
+            # If this is a retriable provider error and we have more models to try, continue
+            if _is_retriable_provider_error(e) and attempt_idx < len(models_to_try) - 1:
                 failover_from = failover_from or attempt_model
+                is_rl = _is_rate_limit_error(e)
+                error_category = "rate_limited" if is_rl else "provider_error"
+                error_label = "Rate limit" if is_rl else "Provider error"
                 logger.warning(
-                    f"Rate limit hit on '{attempt_model}' for org {org_id}, "
+                    f"{error_label} on '{attempt_model}' for org {org_id}, "
                     f"trying fallback model ({attempt_idx + 2}/{len(models_to_try)})"
                 )
-                # Log the rate-limited attempt as a separate entry
+                # Log the failed attempt as a separate entry
                 try:
-                    rl_log = GatewayRequest(
+                    err_log = GatewayRequest(
                         org_id=org_id,
                         key_id=key_id,
                         model_requested=attempt_model,
-                        status="rate_limited",
-                        error_message=f"Provider rate limit (429): {str(e)[:500]}",
+                        status=error_category,
+                        error_message=f"{error_label}: {str(e)[:500]}",
                         latency_ms=int((time.time() - start) * 1000),
                     )
-                    rl_log.provider = _detect_provider_from_model(attempt_model, router.model_list)
-                    async with get_db_session() as rl_db:
-                        rl_db.add(rl_log)
+                    err_log.provider = _detect_provider_from_model(attempt_model, router.model_list)
+                    async with get_db_session() as err_db:
+                        err_db.add(err_log)
                 except Exception as log_err:
-                    logger.warning(f"Failed to log rate-limit entry: {log_err}")
+                    logger.warning(f"Failed to log failover entry: {log_err}")
                 continue
             else:
-                # Not a rate limit error, or no more fallbacks - fail normally
+                # Not a retriable error, or no more fallbacks - fail normally
                 break
 
     # All attempts exhausted - log the final error
