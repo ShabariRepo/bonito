@@ -31,9 +31,103 @@ export const blogTags = [
   "Enterprise AI",
   "AI Security",
   "AI Orchestration",
+  "Capital Markets",
 ] as const;
 
 export const blogPosts: BlogPost[] = [
+  {
+    slug: "ai-agent-fleet-capital-markets-autonomous-trading",
+    title: "Deploying an AI Agent Fleet for Capital Markets: From Concept to Live Trading in 5 Days",
+    date: "Mar 12, 2026",
+    dateISO: "2026-03-12",
+    author: "Shabari, Founder",
+    readTime: "5 min read",
+    tags: ["AI Agents", "Case Study", "AI Orchestration", "Capital Markets"],
+    metaDescription: "How Bonito deployed 8 autonomous AI agents for a capital markets firm -- multi-provider AI orchestration across AWS Bedrock, Anthropic, OpenAI, and Groq with deterministic risk controls and live trade execution in under a week.",
+    excerpt: "A quantitative trading firm needed 8 specialized AI agents executing real trades across multiple asset classes -- autonomously, around the clock. We shipped it in five days.",
+    content: `A capital markets firm came to us with a problem that most AI vendors would have walked away from: they needed autonomous AI agents executing real trades, on real money, across multiple asset classes -- and they needed it live in under a week.
+
+We shipped it in five days.
+
+## The Brief
+
+The engagement started with a single conversation. A quantitative trading firm running proprietary systematic strategies across indices, metals, equities, and digital assets needed something that didn't exist off the shelf: an AI agent fleet that could analyze markets, generate quantitative signals, manage risk, and execute trades -- autonomously, around the clock, without human intervention between scan cycles.
+
+This wasn't a chatbot project. This wasn't a dashboard. This was a system where AI agents capital markets professionals could trust would be responsible for real capital.
+
+> The brief was straightforward: build an autonomous trading AI platform that scans 10 instruments across multiple timeframes every 15 minutes, coordinates 8 specialized agents, and executes live trades -- all without a single API key exposed to the client.
+
+## The Architecture
+
+We deployed 8 specialized agents, each with a distinct role in the trading pipeline. The specifics of the strategy are confidential -- that is the point -- but the architecture tells a story about what becomes possible when you build an AI agent fleet fintech teams can actually deploy in production.
+
+Each agent handles one piece of the puzzle. Some analyze. Some decide. Some execute. Some monitor. They collaborate through a coordination layer that ensures no single agent can act outside its mandate. The system runs 15-minute scan cycles across 10 instruments and multiple timeframes, generating and validating signals before any capital moves.
+
+:::stats
+8|specialized agents collaborating autonomously
+10|instruments scanned every 15 minutes
+5 days|from concept to live trading
+:::
+
+What makes this different from a typical AI project is the execution layer. These agents don't produce recommendations for a human to act on. They send orders. Real orders, on real markets, with real money behind them.
+
+## Multi-Provider Resilience
+
+When you are running autonomous trading AI, a single point of failure is not acceptable. This deployment routes inference across four providers: AWS Bedrock, Anthropic, OpenAI, and Groq. If any provider degrades or goes down, traffic reroutes automatically. The agents keep scanning. The system keeps trading.
+
+We took this further with cross-region inference profiles -- a capability unique to how we have built the multi-provider AI orchestration layer. Instead of relying on a single region per provider, the system distributes inference across multiple geographic regions. This is not just redundancy. It is latency optimization for a use case where minutes matter.
+
+The client manages zero API keys. Zero provider credentials. Zero infrastructure. They interact with a custom trading desk UI that includes a chat panel for communicating with their agent fleet in natural language. Everything else -- the orchestration, the model routing, the failover logic -- is invisible to them.
+
+:::insight
+Zero API key management for the client. Four inference providers. Cross-region routing. The entire AI infrastructure is invisible -- they see a trading desk with a chat panel, and 8 agents doing the work.
+:::
+
+## Deterministic Risk Controls
+
+Here is something most people get wrong about AI agents in capital markets: the risk layer cannot be LLM-dependent. Language models are powerful for analysis and signal generation, but you do not let a probabilistic system be the last gate before capital moves.
+
+Every risk control in this deployment is deterministic. Position sizing, exposure limits, drawdown thresholds, correlation checks -- all hardcoded, all enforced before any order reaches the execution layer. The AI agents operate within a box. The box does not move because a language model had a creative moment.
+
+Bridge health monitoring runs continuously. If the connection between the AI layer and the execution environment degrades, the system fails safe. No connection, no trades. This is not negotiable when building a quantitative trading AI platform handling real money.
+
+## What We Shipped
+
+The full deployment included:
+
+- 8 specialized agents with distinct roles in the trading pipeline
+- Multi-provider inference across AWS Bedrock, Anthropic, OpenAI, and Groq
+- Cross-region inference profiles for latency and resilience
+- Custom trading desk UI with integrated chat panel
+- 15-minute scan cycles across 10 instruments and multiple timeframes
+- Deterministic risk controls independent of any LLM
+- Bridge health monitoring with fail-safe execution
+- Zero client-side infrastructure management
+
+From first conversation to live trading: five days.
+
+:::stats
+4|AI inference providers with automatic failover
+0|API keys managed by the client
+15 min|autonomous scan cycle frequency
+:::
+
+## Why This Matters
+
+Capital markets is one of the highest-stakes environments for deploying an AI agent fleet. The consequences of failure are measured in dollars, not user complaints. Building autonomous trading AI for this domain requires a level of infrastructure maturity that most platforms cannot deliver: multi-provider AI orchestration with real failover, deterministic safety layers that do not depend on the models they govern, and the ability to go from concept to production in days rather than quarters.
+
+This engagement proved something we have believed since we started building Bonito: the AI agents capital markets firms need are not hypothetical. They are deployable today, on real infrastructure, with real governance, executing real trades.
+
+We cannot share more about the client. We cannot share the strategy. We cannot share the returns. That is by design -- this is exactly the kind of engagement where discretion is the product.
+
+But if your firm is exploring autonomous AI agents for systematic trading, market analysis, or execution automation -- [we should talk](/contact).`,
+    images: [
+      { section: "The Architecture", src: "", alt: "AI agent fleet architecture for capital markets trading pipeline", position: "right" },
+      { section: "Multi-Provider Resilience", src: "", alt: "Multi-provider AI orchestration across AWS Bedrock, Anthropic, OpenAI, and Groq", position: "left" },
+      { section: "Deterministic Risk Controls", src: "", alt: "Deterministic risk control layer independent of LLM inference", position: "right" },
+      { section: "What We Shipped", src: "", alt: "Custom trading desk UI with AI agent chat panel", position: "left" },
+    ],
+  },
   {
     slug: "how-ad-tech-platform-cut-cloud-ai-costs-30-percent-multi-cloud-routing",
     title: "How 7 AI Agents and Multi-Cloud Routing Cut Ad-Tech AI Costs by 30%",
@@ -1202,5 +1296,63 @@ The most effective **AI cost optimization strategy** combines multiple approache
 Start with visibility (know what you're spending), then optimize routing, then negotiate. Most teams find **30-50% savings** within the first month.
 
 Read about [why multi-cloud AI management matters](/blog/why-multi-cloud-ai-management-matters-2026) for more context on building a resilient, cost-effective AI strategy.`,
+  },
+  {
+    slug: "autonomous-ai-agents-capital-markets-case-study",
+    title: "Autonomous AI Agents in Capital Markets: A Client Engagement",
+    date: "Mar 12, 2026",
+    dateISO: "2026-03-12",
+    author: "Shabari, Founder",
+    readTime: "4 min read",
+    tags: ["Case Study", "AI Agents", "AI Orchestration", "Enterprise AI"],
+    metaDescription: "A private fund deployed autonomous AI agents on Bonito's platform for live trading operations. From concept to production in days. No API keys, no model management, no infrastructure overhead.",
+    excerpt: "A private fund asked us to build an autonomous trading operation powered entirely by AI agents. Real money. Live markets. Full autonomy. We delivered in days, not months.",
+    content: `We don't usually talk about client work. Capital markets clients especially prefer it that way. But with permission, here's what we can share about a recent engagement -- with details kept deliberately sparse.
+
+## The Ask
+
+A private fund approached us with a straightforward question: could they run a live, autonomous trading operation using AI agents instead of expanding their team? Not alerts. Not dashboards. Not a chatbot that answers questions about positions. A system that researches, decides, and executes -- on its own, with real capital.
+
+We said yes.
+
+## The Timeline
+
+Concept to live execution took days. Not because we cut corners. Because the platform was built for exactly this.
+
+The fund's team focused on encoding their edge -- the proprietary logic that drives their strategy. We handled everything underneath: agent orchestration, model routing, provider management, execution infrastructure. Clean separation. They own the alpha. We own the plumbing.
+
+## What We Built
+
+A fleet of specialized AI agents, each with a distinct role in the trading pipeline. Some research. Some analyze. Some validate. Some enforce risk. Some execute. They coordinate autonomously -- one agent's output feeds the next. The pipeline runs continuously without human intervention.
+
+Every agent decision is logged. Every inference call is tracked. The fund's team has full visibility into what the system is doing and why, at any point. They can interrogate any agent in real time, override decisions, or adjust parameters on the fly.
+
+We also built a custom operations interface -- live monitoring, agent status, performance tracking, and a direct chat panel where any analyst can talk to any agent. Trust in autonomous systems comes from transparency. When a portfolio manager can ask the risk engine why it rejected a trade and get a grounded answer, that's when "interesting experiment" becomes "this is how we operate."
+
+## The Infrastructure
+
+The agent fleet runs across multiple AI providers simultaneously. If one goes down, the system fails over automatically. The fund manages zero API keys, zero model deployments, zero provider relationships. They interact with their agents. We handle everything else.
+
+We do something in this space that nobody else does: automatic cross-region inference routing. If a region is slow or saturated, requests move transparently. For a system that runs on tight cycles, latency consistency isn't optional. You can't have a scan fail because one cloud region is having a bad day.
+
+## What We Can Say About Results
+
+We're deliberately vague here. NDA norms exist for good reason.
+
+- Autonomous execution running in production with real capital
+- Multiple asset classes in a single unified pipeline
+- Continuous operation, no human in the loop for routine decisions
+- Multi-provider failover tested and working under real conditions
+- The fund's team now spends time on strategy, not infrastructure
+
+## What This Means
+
+This engagement validated something we'd built toward but hadn't yet proven at this scale in live markets: a small team with the right agent architecture operates like a much larger one. Not because agents are smarter than humans. Because they don't sleep, they don't miss a cycle, and they execute with consistency that humans can't sustain around the clock.
+
+The fund still makes every strategic decision. They define the edge, the risk parameters, the universe. The agents execute that vision continuously and precisely.
+
+---
+
+If you're running a systematic operation and spending more time on infrastructure than on alpha, [we should talk](/contact).`,
   },
 ];

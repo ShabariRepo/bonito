@@ -1325,6 +1325,119 @@ const useCases: UseCase[] = [
         "Projections based on a validated enterprise simulation: 6 business divisions, 20 AI agents, 8 department-specific knowledge documents, 28 production-grade test requests across 3 cloud providers. Agent delegation, async orchestration, cross-division isolation, and concurrent load all verified at 92.3% pass rate (24/26 tests). Value estimates extrapolate from measured agent performance and published industry benchmarks for AI-driven transformation in financial services (McKinsey Global Institute, 2025).",
     },
   },
+  /* ── Capital Markets AI Agent Fleet ────────────────────────────── */
+  {
+    id: "capital-markets-ai",
+    tab: "Capital Markets",
+    type: "case-study" as const,
+    title: "Deploying an Autonomous AI Agent Fleet for Capital Markets",
+    subtitle:
+      "A quantitative trading firm needed 8 specialized AI agents executing real trades across multiple asset classes -- autonomously, around the clock. From concept to live trading in 5 days. Read the full case study.",
+    company: {
+      industry: "Capital Markets / Quantitative Trading",
+      scale: "Proprietary systematic strategies across multiple asset classes",
+      cloud: "AWS Bedrock + Anthropic + OpenAI + Groq (4 providers)",
+      teams: "Quantitative Research, Trading Operations",
+      data: "Market data across indices, metals, equities, and digital assets",
+      goal: "Deploy an autonomous AI agent fleet for real-time market analysis, signal generation, risk management, and live trade execution",
+    },
+    painPoints: [
+      {
+        icon: Zap,
+        title: "Speed to market",
+        description:
+          "The firm needed autonomous AI agents analyzing and executing across 10 instruments in multiple timeframes. Traditional AI vendor timelines of 3-6 months were not viable for their competitive window.",
+      },
+      {
+        icon: Shield,
+        title: "Risk controls that don't depend on LLMs",
+        description:
+          "Every AI trading system needs deterministic safety layers. Position sizing, exposure limits, and drawdown thresholds cannot be probabilistic. The risk box must be hardcoded, not generated.",
+      },
+      {
+        icon: AlertTriangle,
+        title: "Zero tolerance for downtime",
+        description:
+          "When AI agents are executing real trades with real capital, a single provider outage can mean missed opportunities or unmanaged exposure. Single-cloud inference was not an option.",
+      },
+      {
+        icon: Key,
+        title: "Zero infrastructure burden on the client",
+        description:
+          "The firm wanted to focus on strategy, not API key management or infrastructure operations. They needed a trading desk UI, not a cloud console.",
+      },
+    ],
+    aiUseCases: [
+      {
+        icon: Bot,
+        title: "8 Specialized Trading Agents",
+        description:
+          "A fleet of 8 autonomous agents, each with a distinct role in the trading pipeline. Analysis, signal generation, validation, risk checking, execution, monitoring -- all coordinated through an orchestration layer.",
+        model: "Multi-provider (AWS Bedrock, Anthropic, OpenAI, Groq)",
+        strategy: "Multi-provider AI orchestration with cross-region inference",
+      },
+      {
+        icon: BarChart3,
+        title: "15-Minute Scan Cycles",
+        description:
+          "Every 15 minutes, the agent fleet scans 10 instruments across multiple timeframes. Signals are generated, validated, and -- when criteria are met -- executed. Fully autonomous, around the clock.",
+        model: "Cross-region inference profiles",
+        strategy: "Latency-optimized with geographic redundancy",
+      },
+      {
+        icon: Shield,
+        title: "Deterministic Risk Controls",
+        description:
+          "Position sizing, exposure limits, drawdown thresholds, and correlation checks -- all hardcoded and enforced before any order reaches the execution layer. The AI operates within a box that doesn't move.",
+        model: "Not LLM-dependent",
+        strategy: "Hardcoded safety layer independent of any model",
+      },
+      {
+        icon: Target,
+        title: "Custom Trading Desk UI",
+        description:
+          "A purpose-built trading interface with an integrated chat panel for communicating with the agent fleet in natural language. The client sees a trading desk, not cloud infrastructure.",
+        model: "All providers via unified gateway",
+        strategy: "Zero API key exposure to the client",
+      },
+      {
+        icon: Layers,
+        title: "Bridge Health Monitoring",
+        description:
+          "Continuous monitoring of the connection between the AI layer and the execution environment. If the bridge degrades, the system fails safe. No connection, no trades.",
+        model: "Infrastructure layer",
+        strategy: "Fail-safe execution with automatic circuit breaking",
+      },
+    ],
+    results: [
+      { metric: "5 days", label: "concept to live trading", detail: "From first conversation to autonomous agents executing real trades on real markets" },
+      { metric: "8 agents", label: "collaborating autonomously", detail: "Specialized roles across the full trading pipeline: analysis, signals, validation, risk, execution, monitoring" },
+      { metric: "4 providers", label: "multi-provider resilience", detail: "AWS Bedrock, Anthropic, OpenAI, and Groq with automatic failover and cross-region inference" },
+      { metric: "0", label: "API keys managed by client", detail: "Zero infrastructure burden. The firm focuses on strategy. Bonito handles everything else." },
+    ],
+    costAnalysis: {
+      headline: "Architecture, Not Numbers",
+      description:
+        "This engagement is under NDA. We cannot share specific costs, returns, or account details. What we can share is the architecture that made it possible -- and why it matters for any firm exploring autonomous AI agents in capital markets. Read the full case study on our blog.",
+      models: [
+        { model: "AWS Bedrock", cost: "Cross-region", annual: "Primary inference", color: "text-green-400" },
+        { model: "Anthropic", cost: "Direct API", annual: "Analysis & reasoning", color: "text-blue-400" },
+        { model: "OpenAI", cost: "Failover", annual: "Signal generation", color: "text-yellow-400" },
+        { model: "Groq", cost: "Low-latency", annual: "Fast inference", color: "text-purple-400" },
+      ],
+      scenarios: [
+        { label: "Traditional approach: 3-6 month vendor engagement", cost: "Months", detail: "Custom integrations, single provider, manual risk controls, slow iteration cycles" },
+        { label: "Bonito: concept to live in 5 days", cost: "5 days", detail: "8 agents, 4 providers, deterministic risk controls, custom UI, zero client infrastructure", highlight: true },
+        { label: "Full case study", cost: "→ Blog", detail: "Read the detailed breakdown: /blog/ai-agent-fleet-capital-markets-autonomous-trading" },
+      ],
+      savingsSummary: [
+        { vs: "Time to production", saved: "5 days vs 3-6 months", pct: "97%", detail: "From first conversation to autonomous agents executing real trades" },
+        { vs: "Infrastructure managed by client", saved: "Zero", pct: "0", detail: "No API keys, no provider credentials, no cloud consoles" },
+      ],
+      footnote:
+        "This case study is intentionally sparse on specifics. The client, strategy, instruments, returns, and account details are confidential. What we've shared is the architecture and the timeline. If your firm is exploring autonomous AI agents for capital markets, reach out directly at /contact.",
+    },
+  },
 ];
 
 /* ─── Shared Onboarding Steps ─────────────────────────────────────── */

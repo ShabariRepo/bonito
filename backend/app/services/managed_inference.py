@@ -18,6 +18,7 @@ MASTER_KEY_ENV = {
     "groq": "BONITO_GROQ_MASTER_KEY",
     "openai": "BONITO_OPENAI_MASTER_KEY",
     "anthropic": "BONITO_ANTHROPIC_MASTER_KEY",
+    "gemini": "BONITO_GEMINI_MASTER_KEY",
 }
 
 # Base pricing per 1K tokens (used for managed pricing display)
