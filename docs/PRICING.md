@@ -35,7 +35,7 @@ For teams adopting AI across multiple providers who need visibility, routing, an
 | Support | Email (business hours) |
 | Analytics | Full (90-day retention) |
 | Governance | Basic policies + cost alerts |
-| API gateway | ✅ with smart routing |
+| API gateway | ✅ with smart routing, auto cross-region inference, multi-provider failover |
 
 ---
 
@@ -53,7 +53,7 @@ For organizations that need advanced governance, compliance, and unlimited scale
 | Support | Priority + SLA |
 | Analytics | Full (unlimited retention) |
 | Governance | Advanced compliance & policy engine |
-| Routing | Custom routing policies + failover |
+| Routing | Custom routing policies + intelligent multi-provider failover + cross-region inference |
 | Audit | Audit log export |
 | Onboarding | Dedicated onboarding session |
 

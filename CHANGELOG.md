@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-12
+
+### Added - Gateway Intelligence
+
+- **Auto Cross-Region Inference Profiles (AWS Bedrock)**
+  - Gateway automatically detects newer Bedrock models that require cross-region inference profiles
+  - Transparently prepends `us.` prefix for models like Claude Sonnet 4, Opus 4, Llama 3.3/4, Mistral Large 2
+  - Customers register canonical model IDs (e.g. `anthropic.claude-sonnet-4-20250514-v1:0`); the gateway handles routing
+  - Shared `_apply_bedrock_inference_profile()` function used across gateway routing and model test endpoints
+  - Prefix list: Claude Sonnet 4, Opus 4, Haiku 4, Claude 3.7, Claude 3.5 Sonnet v2, Claude 3.5 Haiku, Llama 3.2/3.3/4, Mistral Large 2
+  - Zero customer-facing changes when AWS updates inference profile requirements
+
+- **Intelligent Multi-Provider Failover**
+  - Broadened failover triggers beyond rate limits (429) to cover:
+    - Timeouts and deadline exceeded errors
+    - Server errors (500, 502, 503, 529)
+    - Overloaded/capacity provider errors
+    - Model unavailability and deployment-not-found errors
+  - New `_is_retriable_provider_error()` detection function
+  - Failover attempts are logged with accurate error categories (`rate_limited` vs `provider_error`)
+  - Response metadata includes failover details (`bonito.failover.reason`, `original_model`, `routed_to`)
+  - Added Claude Sonnet 4 to cross-provider model equivalence map (Anthropic Direct <-> AWS Bedrock)
+  - Model equivalence map now covers: Claude Sonnet 4, Claude 3.5 Sonnet, Claude 3 Haiku, Llama 3.3/3.1 70B, Llama 3.1 8B, Mixtral 8x7B, Gemma2 9B
+
+### Changed
+- Provider count updated from 3 to 6 (AWS Bedrock, Azure OpenAI, GCP Vertex AI, OpenAI, Anthropic, Groq)
+- Competitor comparison table updated with Guild.ai and new differentiator columns
+
 ## [2.1.0] - 2026-03-09
 
 ### Added - Bonobot Enterprise Features

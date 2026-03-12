@@ -17,7 +17,7 @@ Bonito solves this with:
 - **Team management** — Role-based access control, team seats, and SSO/SAML for enterprise identity management.
 - **SAML SSO** — Enterprise single sign-on with SAML 2.0. Supports Okta, Azure AD, Google Workspace, and custom SAML providers. SSO enforcement, break-glass admin, JIT user provisioning.
 - **AI copilot** — An intelligent assistant that helps with onboarding, configuration, troubleshooting, and infrastructure-as-code generation.
-- **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, failover, and load balancing across providers.
+- **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, automatic cross-region inference profiles (AWS Bedrock `us.` prefix handled transparently), and multi-provider failover that catches rate limits, timeouts, 5xx errors, and model unavailability to automatically route to equivalent models on other providers.
 - **Bonobot — AI Agents** — Enterprise AI agent framework with visual canvas (React Flow), project-based organization, built-in tools (KB search, HTTP requests, agent-to-agent invocation), and enterprise security (default deny, budget enforcement, rate limiting, SSRF protection, full audit trail). All agent inference routes through the Bonito gateway for cost tracking and governance.
   - **Persistent Agent Memory** — Long-term memory system with pgvector similarity search. Agents store and retrieve facts, patterns, interactions, preferences, and contextual information across sessions. AI-powered memory extraction from conversations.
   - **Scheduled Autonomous Execution** — Cron-based task scheduling with timezone support. Agents run tasks automatically, deliver results via webhook/email/Slack, with full execution history and retry logic.
@@ -27,22 +27,27 @@ Bonito solves this with:
 
 We're not the only platform in this space. Here's an honest look at how we fit:
 
-| Capability | Bonito | Portkey | LiteLLM | Helicone |
-|---|---|---|---|---|
-| Multi-cloud gateway | ✅ | ✅ | ✅ | ✅ |
-| Cross-cloud Knowledge Base (RAG) | ✅ Built-in | ❌ | ❌ | ❌ |
-| AI Agent Framework | ✅ Built-in | ❌ | ❌ | ❌ |
-| SAML SSO | ✅ Built-in | ✅ | ❌ | ❌ |
-| Governance & compliance checks | ✅ Built-in | ❌ | ❌ | ❌ |
-| Infrastructure-as-Code (Terraform) | ✅ Built-in | ❌ | ❌ | ❌ |
-| AI copilot for operations | ✅ Built-in | ❌ | ❌ | ❌ |
-| Cost management & forecasting | ✅ | ✅ | Basic | ✅ |
-| Provider count | 3 (growing) | 200+ | 100+ | 30+ |
-| Open source | No | Partial | Yes | Yes |
-| SOC-2 certified | Roadmap | Yes | No | Yes |
-| Self-hosted option | Yes (Docker) | Yes | Yes | Yes |
+| Capability | Bonito | Portkey | LiteLLM | Helicone | Guild.ai |
+|---|---|---|---|---|---|
+| Multi-cloud gateway | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Auto cross-region inference** | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| **Intelligent multi-provider failover** | ✅ Built-in | Basic | Basic | ❌ | ❌ |
+| Cross-cloud Knowledge Base (RAG) | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| AI Agent Framework | ✅ Built-in | ❌ | ❌ | ❌ | Planned |
+| SAML SSO | ✅ Built-in | ✅ | ❌ | ❌ | ❌ |
+| Governance & compliance checks | ✅ Built-in | ❌ | ❌ | ❌ | Planned |
+| Infrastructure-as-Code (Terraform) | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| AI copilot for operations | ✅ Built-in | ❌ | ❌ | ❌ | ❌ |
+| Cost management & forecasting | ✅ | ✅ | Basic | ✅ | ❌ |
+| Provider count | 6 | 200+ | 100+ | 30+ | N/A |
+| Open source | No | Partial | Yes | Yes | No |
+| SOC-2 certified | Roadmap | Yes | No | Yes | No |
+| Self-hosted option | Yes (Docker) | Yes | Yes | Yes | No |
 
-**Where Bonito shines:** Cross-cloud RAG (no competitor has this), integrated governance, IaC generation, and an AI copilot that ties it all together — not just a proxy layer, but a full operations platform.
+**Where Bonito shines:**
+- **Auto cross-region inference profiles** -- Customers register canonical model IDs (e.g. `anthropic.claude-sonnet-4-20250514-v1:0`) and the gateway transparently routes via AWS cross-region inference profiles (`us.` prefix) when required. No competitor handles this automatically. When AWS changes their inference profile scheme, you update one function on the platform -- zero customer impact.
+- **Intelligent multi-provider failover** -- Not just rate-limit retries. Bonito detects rate limits, timeouts, server errors (5xx), model unavailability, and overloaded providers, then automatically routes to equivalent models on other providers. A Claude Sonnet request that gets throttled on Anthropic Direct automatically retries on AWS Bedrock. No client code changes needed. Portkey and LiteLLM offer basic retry/fallback, but not cross-provider model equivalence mapping with transparent re-routing.
+- **Cross-cloud RAG** (no competitor has this), integrated governance, IaC generation, and an AI copilot that ties it all together.
 
 **Where others lead:** Provider breadth (Portkey/LiteLLM support far more providers today), open-source community (LiteLLM), and compliance certifications (Portkey and Helicone have SOC-2 today).
 
@@ -175,6 +180,8 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 - ✅ One-click model activation across all 3 clouds
 
 ### Completed (Recent)
+- ✅ **Auto Cross-Region Inference Profiles** — Gateway automatically detects newer Bedrock models (Claude Sonnet 4, Opus 4, Llama 3.3/4, Mistral Large 2) and routes via `us.` cross-region inference profiles. Customers register canonical model IDs; the platform handles routing transparently.
+- ✅ **Intelligent Multi-Provider Failover** — Gateway detects rate limits, timeouts, server errors (500/502/503), model unavailability, and capacity issues, then automatically retries on equivalent models across different providers (e.g. Anthropic Direct -> AWS Bedrock). Model equivalence mapping covers Claude, Llama, Mixtral, and Gemma families.
 - ✅ **SAML SSO** — Enterprise SSO with SAML 2.0 (Okta, Azure AD, Google Workspace, Custom SAML), SSO enforcement, break-glass admin, JIT provisioning
 - ✅ **Bonobot v1 — AI Agents** — Enterprise agent framework with visual canvas, OpenClaw-inspired execution engine, built-in tools, enterprise security (default deny, budget stops, rate limiting, SSRF protection, audit trail)
 - ✅ **Bonobot Enterprise Features** — Persistent Agent Memory (pgvector, 5 memory types, AI extraction), Scheduled Autonomous Execution (cron, timezone, multi-channel delivery), and Approval Queue / Human-in-the-Loop (risk assessment, auto-approve, timeout handling)
@@ -184,7 +191,7 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 - 📋 SOC-2 Type II certification — [Roadmap](docs/SOC2-ROADMAP.md)
 - 📋 Smart routing (complexity-aware model selection)
 - 📋 VPC Gateway Agent (enterprise self-hosted data plane)
-- 📋 Additional provider integrations (Anthropic, Cohere, Mistral)
+- 📋 Additional provider integrations (Cohere, Mistral, custom endpoints)
 - 📋 Advanced audit log export & SIEM integration
 
 ## Documentation
