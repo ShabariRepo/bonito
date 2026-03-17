@@ -6,7 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
-from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, agent_groups, mcp_servers, rbac, logging as logging_routes, subscriptions, bonbon, widget, agent_memory, agent_scheduler, agent_approval
+from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, agent_groups, mcp_servers, rbac, logging as logging_routes, subscriptions, bonbon, widget, agent_memory, agent_scheduler, agent_approval, github_app
 from app.middleware.security import (
     RateLimitMiddleware,
     RequestBodySizeLimitMiddleware,
@@ -144,6 +144,9 @@ app.include_router(agent_approval.router, prefix="/api")
 # BonBon routes
 app.include_router(bonbon.router, prefix="/api")
 app.include_router(widget.router, prefix="/api")
+
+# GitHub App routes
+app.include_router(github_app.router, prefix="/api/v1")
 
 # Contact form
 from app.api.routes import contact
