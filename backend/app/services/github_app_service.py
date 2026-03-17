@@ -56,7 +56,23 @@ class GitHubAppConfig:
         import os
 
         self.app_id: str = os.getenv("GITHUB_APP_ID", "")
-        self.private_key: str = os.getenv("GITHUB_APP_PRIVATE_KEY", "").replace("\\n", "\n")
+        self.private_key: str = self._parse_pem(os.getenv("GITHUB_APP_PRIVATE_KEY", ""))
+
+    @staticmethod
+    def _parse_pem(raw: str) -> str:
+        """Handle PEM keys stored with literal \\n, spaces, or actual newlines."""
+        if not raw:
+            return ""
+        # Case 1: literal \n escapes
+        if "\\n" in raw:
+            return raw.replace("\\n", "\n")
+        # Case 2: already has real newlines
+        if "\n" in raw and "-----BEGIN" in raw:
+            return raw
+        # Case 3: spaces instead of newlines (Railway bulk editor)
+        if "-----BEGIN" in raw and " " in raw:
+            return raw.replace(" ", "\n").replace("\n\n", "\n")
+        return raw
         self.webhook_secret: str = os.getenv("GITHUB_APP_WEBHOOK_SECRET", "")
         self.client_id: str = os.getenv("GITHUB_APP_CLIENT_ID", "")
         self.client_secret: str = os.getenv("GITHUB_APP_CLIENT_SECRET", "")
