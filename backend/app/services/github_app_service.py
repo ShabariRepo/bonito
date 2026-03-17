@@ -611,6 +611,25 @@ async def handle_pull_request_event(payload: dict) -> dict:
                 logger.info(f"Installation {installation_id} is suspended, skipping")
                 return {"status": "skipped", "reason": "installation_suspended"}
 
+            # 1b. Require Bonito account (org_id must be linked)
+            if not inst.org_id:
+                logger.info(f"Installation {installation_id} has no Bonito org linked, skipping")
+                try:
+                    token = await _get_installation_token(installation_id)
+                    await _post_pr_comment(
+                        token, repo_full_name, pr_number,
+                        f"## 🐟 Bonito AI Code Review\n\n"
+                        f"Almost there! To activate AI code reviews, connect your GitHub to a "
+                        f"free Bonito account:\n\n"
+                        f"1. Sign up at [getbonito.com](https://getbonito.com) (free)\n"
+                        f"2. Go to **Code Review** in the dashboard\n"
+                        f"3. Reviews will start automatically on your next PR\n\n"
+                        f"---\n<sub>Powered by [Bonito](https://getbonito.com)</sub>"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to post signup notice: {e}")
+                return {"status": "skipped", "reason": "no_bonito_account"}
+
             # 2. Check rate limit
             monthly_usage = await _get_monthly_usage(db, installation_id)
             limit = _get_limit_for_tier(inst.tier)
