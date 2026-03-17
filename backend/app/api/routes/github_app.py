@@ -253,9 +253,15 @@ class ReviewItem(BaseModel):
 class CodeReviewStatusResponse(BaseModel):
     connected: bool
     installation: Optional[dict] = None
+    persona: str = "default"
+    available_personas: List[str] = ["default", "gilfoyle", "dinesh", "richard", "jared", "erlich"]
     usage: int = 0
     limit: int = FREE_TIER_MONTHLY_LIMIT
     reviews: List[ReviewItem] = []
+
+
+class UpdatePersonaRequest(BaseModel):
+    persona: str
 
 
 @router.get("/status", response_model=CodeReviewStatusResponse)
@@ -308,6 +314,7 @@ async def github_status(
 
     return CodeReviewStatusResponse(
         connected=True,
+        persona=getattr(installation, "review_persona", "default") or "default",
         installation={
             "account": installation.github_account_login,
             "account_type": installation.github_account_type,
@@ -328,6 +335,43 @@ async def github_status(
             for r in recent_reviews
         ],
     )
+
+
+VALID_PERSONAS = {"default", "gilfoyle", "dinesh", "richard", "jared", "erlich"}
+
+
+@router.patch("/persona")
+async def update_persona(
+    body: UpdatePersonaRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the review persona for the user's GitHub App installation."""
+    if body.persona not in VALID_PERSONAS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid persona. Choose from: {', '.join(sorted(VALID_PERSONAS))}",
+        )
+
+    stmt = select(GitHubAppInstallation).where(
+        and_(
+            GitHubAppInstallation.org_id == user.org_id,
+            GitHubAppInstallation.is_active == True,
+        )
+    )
+    result = await db.execute(stmt)
+    installation = result.scalar_one_or_none()
+
+    if not installation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No GitHub App installation found. Install the app first.",
+        )
+
+    installation.review_persona = body.persona
+    await db.commit()
+
+    return {"status": "ok", "persona": body.persona}
 
 
 # ─── Helpers ───

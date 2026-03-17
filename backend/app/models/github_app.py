@@ -35,6 +35,9 @@ class GitHubAppInstallation(Base):
     # Subscription tier for this installation (independent of Bonito org)
     tier: Mapped[str] = mapped_column(String(50), nullable=False, default="free")  # "free" | "pro" | "enterprise"
 
+    # Review persona (default, gilfoyle, dinesh, richard, jared, erlich)
+    review_persona: Mapped[str] = mapped_column(String(50), nullable=False, default="default")
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     suspended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

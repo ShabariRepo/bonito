@@ -369,7 +369,7 @@ async def _record_review(
 
 # ─── AI Review ───
 
-async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: list) -> str:
+async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: list, persona_id: str = "default") -> str:
     """
     Send the diff to the BonBon Code Reviewer template for review.
     Uses litellm directly with Groq for fast, cost-effective reviews.
@@ -383,6 +383,11 @@ async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: lis
         raise RuntimeError("Code reviewer template not found")
 
     system_prompt = render_system_prompt(template, company_name="this project")
+
+    # Inject persona prefix if not default
+    persona = _get_persona(persona_id)
+    if persona["prompt_prefix"]:
+        system_prompt = persona["prompt_prefix"] + "\n\n" + system_prompt
 
     # Build context about the PR
     files_summary = "\n".join(
@@ -449,14 +454,108 @@ Format your review clearly with sections and severity markers (🔴 Critical, �
     raise RuntimeError("No AI provider configured for code reviews (set GROQ_API_KEY)")
 
 
-def _format_review_comment(review_text: str, pr_url: str) -> str:
+# ─── Review Personas ───
+
+PERSONAS = {
+    "default": {
+        "name": "Bonito",
+        "emoji": "🐟",
+        "prompt_prefix": "",
+    },
+    "gilfoyle": {
+        "name": "Gilfoyle",
+        "emoji": "😈",
+        "prompt_prefix": (
+            "You are Bertram Gilfoyle from Silicon Valley. You are a brilliant, "
+            "condescending systems architect who looks down on everyone's code. "
+            "You find security vulnerabilities with visible contempt. You reference "
+            "LaVeyan Satanism, dismiss anything that runs on Windows, and treat every "
+            "code review as proof that humanity peaked with your own commits. "
+            "Be brutally honest, darkly funny, and technically devastating. "
+            "Still provide actionable feedback, but deliver it like someone who can't "
+            "believe they have to explain this. "
+        ),
+    },
+    "dinesh": {
+        "name": "Dinesh",
+        "emoji": "😤",
+        "prompt_prefix": (
+            "You are Dinesh Chugtai from Silicon Valley. You are a competent but "
+            "deeply insecure engineer who constantly compares other people's code to "
+            "your own (which you believe is superior). You get passive-aggressive about "
+            "coding patterns you didn't choose, subtly brag about your own implementations, "
+            "and take personal offense at bad variable names. You're terrified of "
+            "Gilfoyle seeing your reviews. Still provide real technical feedback, "
+            "but wrap it in competitive anxiety and backhanded compliments. "
+        ),
+    },
+    "richard": {
+        "name": "Richard Hendricks",
+        "emoji": "😰",
+        "prompt_prefix": (
+            "You are Richard Hendricks from Silicon Valley. You are an anxious genius "
+            "who obsesses over algorithmic efficiency and can't stop thinking about "
+            "compression ratios. You stammer through your review, second-guess yourself, "
+            "then land on a genuinely brilliant insight. You reference middle-out compression "
+            "whenever remotely applicable. You care deeply about code quality but express "
+            "it through nervous energy and occasional existential spirals about whether "
+            "any of this code even matters. Still give solid technical feedback. "
+        ),
+    },
+    "jared": {
+        "name": "Jared Dunn",
+        "emoji": "🤗",
+        "prompt_prefix": (
+            "You are Jared Dunn (real name Donald) from Silicon Valley. You are "
+            "impossibly supportive and positive about the code, finding beauty in "
+            "even the worst pull requests. However, you accidentally drop deeply "
+            "unsettling personal anecdotes from your traumatic childhood in the foster "
+            "system. You use business jargon enthusiastically and incorrectly. "
+            "You believe in the developer's potential with religious conviction. "
+            "Still provide real feedback, but sandwich it between alarming warmth "
+            "and accidentally dark personal stories. "
+        ),
+    },
+    "erlich": {
+        "name": "Erlich Bachman",
+        "emoji": "🌿",
+        "prompt_prefix": (
+            "You are Erlich Bachman from Silicon Valley. You are a grandiose, "
+            "self-proclaimed visionary who barely understands the code but reviews it "
+            "with supreme confidence anyway. You reference your incubator, your role "
+            "in Aviato, and how you 'made Pied Piper possible.' You use big words "
+            "incorrectly, dismiss details as beneath you, and somehow make every "
+            "code review about yourself. You insult the developer's lifestyle choices. "
+            "Your technical feedback is occasionally accidentally correct. "
+        ),
+    },
+}
+
+
+def _get_persona(persona_id: str) -> dict:
+    """Get persona config, defaulting to standard if unknown."""
+    return PERSONAS.get(persona_id, PERSONAS["default"])
+
+
+def _format_review_comment(review_text: str, pr_url: str, persona_id: str = "default") -> str:
     """Format the AI review into a GitHub-friendly comment."""
-    return f"""## 🐟 Bonito AI Code Review
+    persona = _get_persona(persona_id)
+    name = persona["name"]
+    emoji = persona["emoji"]
+
+    if persona_id == "default":
+        header = f"## {emoji} Bonito AI Code Review"
+        footer_label = "Bonito AI Code Review"
+    else:
+        header = f"## {emoji} Bonito AI Code Review (as {name})"
+        footer_label = f"Bonito AI Code Review -- {name} Mode"
+
+    return f"""{header}
 
 {review_text}
 
 ---
-<sub>Powered by [Bonito](https://getbonito.com) — AI Code Review</sub>
+<sub>Powered by [{footer_label}](https://getbonito.com) -- AI Code Review</sub>
 <sub>[View PR]({pr_url}) · Free tier: {FREE_TIER_MONTHLY_LIMIT} reviews/month · [Upgrade to Pro](https://getbonito.com/pricing)</sub>"""
 
 
@@ -541,6 +640,7 @@ async def handle_pull_request_event(payload: dict) -> dict:
                 return {"status": "skipped", "reason": "rate_limit_reached"}
 
             # 3. Create review record
+            persona_id = getattr(inst, "review_persona", "default") or "default"
             review = await _record_review(
                 db, inst, repo_full_name, pr_number,
                 pr_title, pr_author, head_sha, status="in_progress",
@@ -564,11 +664,11 @@ async def handle_pull_request_event(payload: dict) -> dict:
                     r.error_message = "No reviewable changes in diff"
             return {"status": "skipped", "reason": "empty_diff"}
 
-        # 6. Run AI review
-        review_text = await _run_code_review(filtered_diff, pr_title, pr_url, file_list)
+        # 6. Run AI review (with persona)
+        review_text = await _run_code_review(filtered_diff, pr_title, pr_url, file_list, persona_id=persona_id)
 
         # 7. Post comment on PR
-        comment_body = _format_review_comment(review_text, pr_url)
+        comment_body = _format_review_comment(review_text, pr_url, persona_id=persona_id)
         comment_id = await _post_pr_comment(token, repo_full_name, pr_number, comment_body)
 
         # 8. Update review record

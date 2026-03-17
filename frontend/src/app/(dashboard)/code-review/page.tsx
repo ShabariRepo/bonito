@@ -38,10 +38,21 @@ interface CodeReviewStatus {
     tier: string;
     installed_at: string | null;
   } | null;
+  persona: string;
+  available_personas: string[];
   usage: number;
   limit: number;
   reviews: ReviewItem[];
 }
+
+const PERSONA_INFO: Record<string, { name: string; emoji: string; desc: string }> = {
+  default: { name: "Professional", emoji: "🐟", desc: "Straight-up technical review. No drama." },
+  gilfoyle: { name: "Gilfoyle", emoji: "😈", desc: "Brutal. Condescending. Technically devastating." },
+  dinesh: { name: "Dinesh", emoji: "😤", desc: "Passive-aggressive. Compares everything to his own code." },
+  richard: { name: "Richard", emoji: "😰", desc: "Anxious genius. Obsesses over efficiency." },
+  jared: { name: "Jared", emoji: "🤗", desc: "Impossibly supportive. Accidentally unsettling." },
+  erlich: { name: "Erlich", emoji: "🌿", desc: "Grandiose visionary. Barely reads the code." },
+};
 
 const INSTALL_URL = "https://github.com/apps/bonito-code-review/installations/new";
 
@@ -75,6 +86,7 @@ export default function CodeReviewPage() {
   const [data, setData] = useState<CodeReviewStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingPersona, setUpdatingPersona] = useState(false);
 
   // Check for ?installed=true query param (redirect from GitHub)
   const [justInstalled, setJustInstalled] = useState(false);
@@ -108,6 +120,24 @@ export default function CodeReviewPage() {
       setError("Failed to connect to server");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function updatePersona(persona: string) {
+    try {
+      setUpdatingPersona(true);
+      const res = await apiRequest("/api/v1/github/persona", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ persona }),
+      });
+      if (res.ok && data) {
+        setData({ ...data, persona });
+      }
+    } catch (e) {
+      // silently fail
+    } finally {
+      setUpdatingPersona(false);
     }
   }
 
@@ -295,6 +325,38 @@ export default function CodeReviewPage() {
               )}
             </AnimatedCard>
           </div>
+
+          {/* Persona Selector */}
+          <AnimatedCard className="p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Review Personality</h3>
+                <p className="text-xs text-muted-foreground mt-1">Choose who reviews your code</p>
+              </div>
+              {updatingPersona && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+              {Object.entries(PERSONA_INFO).map(([id, info]) => (
+                <motion.button
+                  key={id}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => updatePersona(id)}
+                  disabled={updatingPersona}
+                  className={cn(
+                    "p-3 rounded-lg border text-left transition-colors",
+                    data?.persona === id
+                      ? "border-emerald-500/50 bg-emerald-500/10"
+                      : "border-white/5 bg-white/[0.02] hover:border-white/10"
+                  )}
+                >
+                  <span className="text-xl">{info.emoji}</span>
+                  <p className="text-sm font-medium mt-1">{info.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{info.desc}</p>
+                </motion.button>
+              ))}
+            </div>
+          </AnimatedCard>
 
           {/* Recent Reviews */}
           <AnimatedCard className="p-5 space-y-4">
