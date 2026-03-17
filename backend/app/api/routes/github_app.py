@@ -138,13 +138,13 @@ async def github_callback(
         f"setup_action={setup_action}"
     )
 
-    # If we have an OAuth code, exchange it for user info and link to org
+    # Exchange OAuth code for GitHub user info, then link installation to Bonito org
     if code:
         try:
             config = get_config()
             import httpx
             async with httpx.AsyncClient() as client:
-                # Exchange code for access token
+                # Step 1: Exchange code for access token
                 token_resp = await client.post(
                     "https://github.com/login/oauth/access_token",
                     json={
@@ -157,9 +157,52 @@ async def github_callback(
                 )
                 if token_resp.status_code == 200:
                     token_data = token_resp.json()
-                    logger.info(f"GitHub OAuth token exchanged for installation {installation_id}")
+                    access_token = token_data.get("access_token")
+
+                    if access_token:
+                        # Step 2: Get GitHub user's email
+                        emails_resp = await client.get(
+                            "https://api.github.com/user/emails",
+                            headers={
+                                "Authorization": f"token {access_token}",
+                                "Accept": "application/vnd.github+json",
+                            },
+                            timeout=15.0,
+                        )
+                        github_emails = []
+                        if emails_resp.status_code == 200:
+                            github_emails = [
+                                e["email"] for e in emails_resp.json()
+                                if e.get("verified")
+                            ]
+
+                        # Step 3: Match GitHub email to a Bonito user and link org
+                        if github_emails:
+                            async with get_db_session() as db:
+                                from app.models.user import User as UserModel
+                                for email in github_emails:
+                                    stmt = select(UserModel).where(UserModel.email == email)
+                                    result = await db.execute(stmt)
+                                    bonito_user = result.scalar_one_or_none()
+                                    if bonito_user and bonito_user.org_id:
+                                        # Link installation to this org
+                                        inst_stmt = select(GitHubAppInstallation).where(
+                                            GitHubAppInstallation.installation_id == installation_id
+                                        )
+                                        inst_result = await db.execute(inst_stmt)
+                                        inst = inst_result.scalar_one_or_none()
+                                        if inst:
+                                            inst.org_id = bonito_user.org_id
+                                            await db.commit()
+                                            logger.info(
+                                                f"Linked installation {installation_id} to org "
+                                                f"{bonito_user.org_id} via email {email}"
+                                            )
+                                        break
+
+                        logger.info(f"GitHub OAuth completed for installation {installation_id}")
         except Exception as e:
-            logger.warning(f"OAuth token exchange failed: {e}")
+            logger.warning(f"OAuth token exchange/linking failed: {e}", exc_info=True)
 
     # Redirect to dashboard code review page
     return RedirectResponse(
