@@ -56,7 +56,7 @@ class GitHubAppConfig:
         import os
 
         self.app_id: str = os.getenv("GITHUB_APP_ID", "")
-        self.private_key: str = os.getenv("GITHUB_APP_PRIVATE_KEY", "")
+        self.private_key: str = os.getenv("GITHUB_APP_PRIVATE_KEY", "").replace("\\n", "\n")
         self.webhook_secret: str = os.getenv("GITHUB_APP_WEBHOOK_SECRET", "")
         self.client_id: str = os.getenv("GITHUB_APP_CLIENT_ID", "")
         self.client_secret: str = os.getenv("GITHUB_APP_CLIENT_SECRET", "")
