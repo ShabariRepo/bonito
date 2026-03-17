@@ -57,6 +57,9 @@ class GitHubAppConfig:
 
         self.app_id: str = os.getenv("GITHUB_APP_ID", "")
         self.private_key: str = self._parse_pem(os.getenv("GITHUB_APP_PRIVATE_KEY", ""))
+        self.webhook_secret: str = os.getenv("GITHUB_APP_WEBHOOK_SECRET", "")
+        self.client_id: str = os.getenv("GITHUB_APP_CLIENT_ID", "")
+        self.client_secret: str = os.getenv("GITHUB_APP_CLIENT_SECRET", "")
 
     @staticmethod
     def _parse_pem(raw: str) -> str:
@@ -73,9 +76,6 @@ class GitHubAppConfig:
         if "-----BEGIN" in raw and " " in raw:
             return raw.replace(" ", "\n").replace("\n\n", "\n")
         return raw
-        self.webhook_secret: str = os.getenv("GITHUB_APP_WEBHOOK_SECRET", "")
-        self.client_id: str = os.getenv("GITHUB_APP_CLIENT_ID", "")
-        self.client_secret: str = os.getenv("GITHUB_APP_CLIENT_SECRET", "")
 
     @property
     def is_configured(self) -> bool:
