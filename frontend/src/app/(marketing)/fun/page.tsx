@@ -1,17 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 
-interface Ripple {
-  id: number;
-  x: number;
-  y: number;
-  birth: number;
-}
-
 interface Wave {
-  id: number;
   y: number;
   speed: number;
   amplitude: number;
@@ -20,97 +12,165 @@ interface Wave {
   opacity: number;
 }
 
+interface CanvasRipple {
+  birth: number;
+  // Organic shape: radius varies by angle using these harmonics
+  offsets: number[];
+}
+
 export default function FunPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [ripples, setRipples] = useState<Ripple[]>([]);
-  const rippleCounter = useRef(0);
   const animRef = useRef<number>(0);
+  const ripplesRef = useRef<CanvasRipple[]>([]);
+  const lastRippleRef = useRef<number>(0);
 
-  // Pulse ripples from logo center
-  useEffect(() => {
-    const interval = setInterval(() => {
-      rippleCounter.current += 1;
-      setRipples((prev) => [
-        ...prev.filter((r) => Date.now() - r.birth < 2500),
-        {
-          id: rippleCounter.current,
-          x: 0,
-          y: 0,
-          birth: Date.now(),
-        },
-      ]);
-    }, 1200);
-    return () => clearInterval(interval);
+  // Stable particle positions (SSR-safe)
+  const particles = useMemo(() => {
+    const seed = 42;
+    const rng = (i: number) => {
+      const x = Math.sin(seed + i * 127.1) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    return Array.from({ length: 25 }, (_, i) => ({
+      size: 2 + rng(i * 3) * 5,
+      left: rng(i * 3 + 1) * 100,
+      top: rng(i * 3 + 2) * 100,
+      duration: 10 + rng(i * 7) * 15,
+      delay: rng(i * 11) * -20,
+    }));
   }, []);
 
-  // Canvas waves
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    let w = 0, h = 0;
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      w = canvas.width = window.innerWidth;
+      h = canvas.height = window.innerHeight;
     };
     resize();
     window.addEventListener("resize", resize);
 
-    // Generate wave layers
+    // Wave layers
     const waves: Wave[] = Array.from({ length: 6 }, (_, i) => ({
-      id: i,
-      y: canvas.height * 0.5 + (i - 2.5) * 60,
-      speed: 0.3 + Math.random() * 0.4,
-      amplitude: 12 + Math.random() * 18,
-      frequency: 0.003 + Math.random() * 0.004,
-      phase: Math.random() * Math.PI * 2,
-      opacity: 0.08 + Math.random() * 0.12,
+      y: 0.5 + (i - 2.5) * 0.08,
+      speed: 0.3 + (i * 0.618 % 1) * 0.4,
+      amplitude: 14 + (i * 0.382 % 1) * 16,
+      frequency: 0.003 + (i * 0.236 % 1) * 0.004,
+      phase: (i * 1.618) % (Math.PI * 2),
+      opacity: 0.06 + (i * 0.472 % 1) * 0.1,
     }));
 
-    let startTime = performance.now();
+    const LOGO_RADIUS = 280; // half of visible logo area
+    const RIPPLE_LIFETIME = 3500;
+    const RIPPLE_INTERVAL_BASE = 1800;
+    const RIPPLE_INTERVAL_JITTER = 600;
+    const MAX_RIPPLE_RADIUS = Math.max(w, h) * 0.6;
+    const HARMONICS = 8;
+
+    const startTime = performance.now();
 
     const draw = (now: number) => {
       const t = (now - startTime) / 1000;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, w, h);
 
-      const cx = canvas.width / 2;
-      const cy = canvas.height / 2;
+      const cx = w / 2;
+      const cy = h / 2;
 
-      // Draw cartoon waves
+      // --- Spawn ripples organically ---
+      const timeSinceLast = now - lastRippleRef.current;
+      const nextInterval = RIPPLE_INTERVAL_BASE + Math.sin(now * 0.001) * RIPPLE_INTERVAL_JITTER;
+      if (timeSinceLast > nextInterval) {
+        const offsets: number[] = [];
+        for (let k = 0; k < HARMONICS; k++) {
+          offsets.push((Math.random() - 0.5) * 2 * (0.03 / (k + 1)));
+        }
+        ripplesRef.current.push({ birth: now, offsets });
+        lastRippleRef.current = now;
+        // Cap at 6 active
+        if (ripplesRef.current.length > 6) {
+          ripplesRef.current.shift();
+        }
+      }
+
+      // --- Draw ripples (canvas, organic shapes) ---
+      ripplesRef.current = ripplesRef.current.filter((r) => now - r.birth < RIPPLE_LIFETIME);
+      for (const ripple of ripplesRef.current) {
+        const age = (now - ripple.birth) / RIPPLE_LIFETIME;
+        // Ease-out expansion: fast start, slow end (like real water)
+        const easedAge = 1 - Math.pow(1 - age, 2.5);
+        const baseRadius = LOGO_RADIUS * 0.85 + easedAge * MAX_RIPPLE_RADIUS;
+        // Opacity: quick fade in, long fade out
+        const fadeIn = Math.min(1, age * 8);
+        const fadeOut = Math.pow(1 - age, 1.5);
+        const alpha = fadeIn * fadeOut * 0.45;
+
+        if (alpha < 0.005) continue;
+
+        // Draw organic ring
+        ctx.beginPath();
+        const steps = 180;
+        for (let s = 0; s <= steps; s++) {
+          const angle = (s / steps) * Math.PI * 2;
+          // Perturb radius with harmonics for organic wobble
+          let rVar = 1;
+          for (let k = 0; k < ripple.offsets.length; k++) {
+            rVar += ripple.offsets[k] * Math.sin(angle * (k + 2) + t * 0.3 * (k + 1));
+          }
+          // Add subtle time-based breathing
+          rVar += Math.sin(angle * 3 + t * 0.8) * 0.008 * (1 - age);
+          const r = baseRadius * rVar;
+          const px = cx + Math.cos(angle) * r;
+          const py = cy + Math.sin(angle) * r;
+          if (s === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+
+        // Thinner stroke as ripple expands
+        const lineWidth = Math.max(0.5, 2.5 * (1 - easedAge * 0.7));
+        ctx.strokeStyle = `rgba(147, 93, 255, ${alpha})`;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+
+        // Very subtle fill glow on inner ripples
+        if (age < 0.3) {
+          ctx.fillStyle = `rgba(124, 58, 237, ${alpha * 0.06})`;
+          ctx.fill();
+        }
+      }
+
+      // --- Draw waves ---
       waves.forEach((wave) => {
-        const baseY = cy + (wave.y - canvas.height * 0.5);
+        const baseY = cy + (wave.y - 0.5) * h;
 
         ctx.beginPath();
         ctx.moveTo(0, baseY);
 
-        for (let x = 0; x <= canvas.width; x += 2) {
-          // Distance from center affects amplitude (fade near logo)
+        for (let x = 0; x <= w; x += 2) {
           const distFromCenter = Math.abs(x - cx);
-          const logoGap = 90;
+          const logoGap = LOGO_RADIUS * 1.1;
           const fadeFactor = distFromCenter < logoGap
-            ? distFromCenter / logoGap * 0.3
-            : Math.min(1, 0.3 + (distFromCenter - logoGap) / 200);
+            ? Math.pow(distFromCenter / logoGap, 2) * 0.2
+            : Math.min(1, 0.2 + (distFromCenter - logoGap) / 300);
 
           const y =
             baseY +
             Math.sin(x * wave.frequency + t * wave.speed + wave.phase) *
-              wave.amplitude *
-              fadeFactor +
+              wave.amplitude * fadeFactor +
             Math.sin(x * wave.frequency * 2.3 + t * wave.speed * 0.7) *
-              wave.amplitude *
-              0.3 *
-              fadeFactor;
+              wave.amplitude * 0.3 * fadeFactor;
 
           ctx.lineTo(x, y);
         }
 
-        // Complete the wave shape
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
         ctx.closePath();
 
-        // Fill with subtle gradient
         const grad = ctx.createLinearGradient(0, baseY - wave.amplitude, 0, baseY + wave.amplitude + 100);
         grad.addColorStop(0, `rgba(124, 58, 237, ${wave.opacity})`);
         grad.addColorStop(0.5, `rgba(99, 102, 241, ${wave.opacity * 0.6})`);
@@ -118,25 +178,21 @@ export default function FunPage() {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Stroke the wave line
         ctx.beginPath();
         ctx.moveTo(0, baseY);
-        for (let x = 0; x <= canvas.width; x += 2) {
+        for (let x = 0; x <= w; x += 2) {
           const distFromCenter = Math.abs(x - cx);
-          const logoGap = 90;
+          const logoGap = LOGO_RADIUS * 1.1;
           const fadeFactor = distFromCenter < logoGap
-            ? distFromCenter / logoGap * 0.3
-            : Math.min(1, 0.3 + (distFromCenter - logoGap) / 200);
+            ? Math.pow(distFromCenter / logoGap, 2) * 0.2
+            : Math.min(1, 0.2 + (distFromCenter - logoGap) / 300);
 
           const y =
             baseY +
             Math.sin(x * wave.frequency + t * wave.speed + wave.phase) *
-              wave.amplitude *
-              fadeFactor +
+              wave.amplitude * fadeFactor +
             Math.sin(x * wave.frequency * 2.3 + t * wave.speed * 0.7) *
-              wave.amplitude *
-              0.3 *
-              fadeFactor;
+              wave.amplitude * 0.3 * fadeFactor;
 
           ctx.lineTo(x, y);
         }
@@ -158,56 +214,37 @@ export default function FunPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-      {/* Wave canvas */}
+      {/* Wave + ripple canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
         style={{ zIndex: 1 }}
       />
 
-      {/* Logo container with ripples */}
-      <div className="relative z-10 flex items-center justify-center" style={{ width: 160, height: 160 }}>
-        {/* Ripple rings */}
-        {ripples.map((ripple) => {
-          const age = Date.now() - ripple.birth;
-          const progress = age / 2500;
-          const scale = 1 + progress * 4;
-          const opacity = Math.max(0, 1 - progress);
-          return (
-            <div
-              key={ripple.id}
-              className="absolute inset-0 rounded-full border-2 border-purple-500/60"
-              style={{
-                transform: `scale(${scale})`,
-                opacity: opacity * 0.6,
-                transition: "none",
-                pointerEvents: "none",
-              }}
-            />
-          );
-        })}
-
+      {/* Logo container */}
+      <div className="relative z-10 flex items-center justify-center" style={{ width: 600, height: 600 }}>
         {/* Glow behind logo */}
         <div
-          className="absolute inset-0 rounded-full"
+          className="absolute rounded-full"
           style={{
-            background: "radial-gradient(circle, rgba(124, 58, 237, 0.3) 0%, rgba(124, 58, 237, 0.1) 40%, transparent 70%)",
-            transform: "scale(1.5)",
-            animation: "pulse-glow 2.4s ease-in-out infinite",
+            width: 700,
+            height: 700,
+            background: "radial-gradient(circle, rgba(124, 58, 237, 0.25) 0%, rgba(124, 58, 237, 0.08) 35%, transparent 65%)",
+            animation: "pulse-glow 3s ease-in-out infinite",
           }}
         />
 
         {/* Logo */}
         <div
           className="relative z-10"
-          style={{ animation: "logo-pulse 2.4s ease-in-out infinite" }}
+          style={{ animation: "logo-pulse 3s ease-in-out infinite" }}
         >
           <Image
             src="/bonito-logo.png"
             alt="Bonito"
-            width={100}
-            height={100}
-            className="object-contain drop-shadow-[0_0_30px_rgba(124,58,237,0.5)]"
+            width={500}
+            height={500}
+            className="object-contain drop-shadow-[0_0_80px_rgba(124,58,237,0.4)]"
             priority
           />
         </div>
@@ -215,17 +252,17 @@ export default function FunPage() {
 
       {/* Floating particles */}
       <div className="absolute inset-0 z-[2] pointer-events-none overflow-hidden">
-        {Array.from({ length: 20 }).map((_, i) => (
+        {particles.map((p, i) => (
           <div
             key={i}
             className="absolute rounded-full bg-purple-500/20"
             style={{
-              width: 2 + Math.random() * 4,
-              height: 2 + Math.random() * 4,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float-particle ${8 + Math.random() * 12}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * -20}s`,
+              width: p.size,
+              height: p.size,
+              left: `${p.left}%`,
+              top: `${p.top}%`,
+              animation: `float-particle ${p.duration}s ease-in-out infinite`,
+              animationDelay: `${p.delay}s`,
             }}
           />
         ))}
@@ -234,12 +271,12 @@ export default function FunPage() {
       {/* CSS Animations */}
       <style jsx>{`
         @keyframes pulse-glow {
-          0%, 100% { transform: scale(1.5); opacity: 0.6; }
-          50% { transform: scale(1.8); opacity: 1; }
+          0%, 100% { transform: scale(1); opacity: 0.6; }
+          50% { transform: scale(1.15); opacity: 1; }
         }
         @keyframes logo-pulse {
           0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.08); }
+          50% { transform: scale(1.04); }
         }
         @keyframes float-particle {
           0%, 100% { transform: translateY(0) translateX(0); opacity: 0.2; }
