@@ -14,8 +14,9 @@ interface Wave {
 
 interface CanvasRipple {
   birth: number;
-  // Organic shape: radius varies by angle using these harmonics
-  offsets: number[];
+  // Smooth noise offsets sampled at N points around the circle
+  // Interpolated with cubic smoothing for organic shape
+  shape: number[];
 }
 
 export default function FunPage() {
@@ -65,11 +66,23 @@ export default function FunPage() {
     }));
 
     const LOGO_RADIUS = Math.min(w, h) * 0.35; // half of 70vmin logo
-    const RIPPLE_LIFETIME = 3500;
-    const RIPPLE_INTERVAL_BASE = 1800;
-    const RIPPLE_INTERVAL_JITTER = 600;
-    const MAX_RIPPLE_RADIUS = Math.max(w, h) * 0.6;
-    const HARMONICS = 8;
+    const RIPPLE_LIFETIME = 4500; // slower, more graceful
+    const RIPPLE_INTERVAL_BASE = 2200;
+    const RIPPLE_INTERVAL_JITTER = 400;
+    const MAX_RIPPLE_RADIUS = Math.max(w, h) * 0.55;
+    const SHAPE_POINTS = 12; // control points for smooth shape
+
+    // Cubic Catmull-Rom interpolation for buttery smooth shapes
+    const catmullRom = (p0: number, p1: number, p2: number, p3: number, t: number) => {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      return 0.5 * (
+        (2 * p1) +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3
+      );
+    };
 
     const startTime = performance.now();
 
@@ -80,48 +93,52 @@ export default function FunPage() {
       const cx = w / 2;
       const cy = h / 2;
 
-      // --- Spawn ripples organically ---
+      // --- Spawn ripples ---
       const timeSinceLast = now - lastRippleRef.current;
-      const nextInterval = RIPPLE_INTERVAL_BASE + Math.sin(now * 0.001) * RIPPLE_INTERVAL_JITTER;
+      const nextInterval = RIPPLE_INTERVAL_BASE + Math.sin(now * 0.0007) * RIPPLE_INTERVAL_JITTER;
       if (timeSinceLast > nextInterval) {
-        const offsets: number[] = [];
-        for (let k = 0; k < HARMONICS; k++) {
-          offsets.push((Math.random() - 0.5) * 2 * (0.03 / (k + 1)));
+        // Generate smooth organic shape: random offsets at N points
+        const shape: number[] = [];
+        for (let k = 0; k < SHAPE_POINTS; k++) {
+          shape.push(1 + (Math.random() - 0.5) * 0.04); // very subtle: +/- 2%
         }
-        ripplesRef.current.push({ birth: now, offsets });
+        ripplesRef.current.push({ birth: now, shape });
         lastRippleRef.current = now;
-        // Cap at 6 active
-        if (ripplesRef.current.length > 6) {
+        if (ripplesRef.current.length > 5) {
           ripplesRef.current.shift();
         }
       }
 
-      // --- Draw ripples (canvas, organic shapes) ---
+      // --- Draw ripples ---
       ripplesRef.current = ripplesRef.current.filter((r) => now - r.birth < RIPPLE_LIFETIME);
       for (const ripple of ripplesRef.current) {
         const age = (now - ripple.birth) / RIPPLE_LIFETIME;
-        // Ease-out expansion: fast start, slow end (like real water)
-        const easedAge = 1 - Math.pow(1 - age, 2.5);
-        const baseRadius = LOGO_RADIUS * 0.85 + easedAge * MAX_RIPPLE_RADIUS;
-        // Opacity: quick fade in, long fade out
-        const fadeIn = Math.min(1, age * 8);
-        const fadeOut = Math.pow(1 - age, 1.5);
-        const alpha = fadeIn * fadeOut * 0.45;
+        // Cubic ease-out: gentle deceleration like real water
+        const easedAge = 1 - Math.pow(1 - age, 3);
+        const baseRadius = LOGO_RADIUS * 0.9 + easedAge * MAX_RIPPLE_RADIUS;
+        // Smooth bell-curve opacity (no harsh fade-in)
+        const alpha = Math.sin(age * Math.PI) * 0.35 * (1 - age * 0.3);
 
-        if (alpha < 0.005) continue;
+        if (alpha < 0.003) continue;
 
-        // Draw organic ring
+        const n = ripple.shape.length;
+
+        // Draw with Catmull-Rom through control points for perfectly smooth curves
         ctx.beginPath();
-        const steps = 180;
-        for (let s = 0; s <= steps; s++) {
-          const angle = (s / steps) * Math.PI * 2;
-          // Perturb radius with harmonics for organic wobble
-          let rVar = 1;
-          for (let k = 0; k < ripple.offsets.length; k++) {
-            rVar += ripple.offsets[k] * Math.sin(angle * (k + 2) + t * 0.3 * (k + 1));
-          }
-          // Add subtle time-based breathing
-          rVar += Math.sin(angle * 3 + t * 0.8) * 0.008 * (1 - age);
+        const totalSteps = 120;
+        for (let s = 0; s <= totalSteps; s++) {
+          const frac = s / totalSteps;
+          const idx = frac * n;
+          const i = Math.floor(idx) % n;
+          const localT = idx - Math.floor(idx);
+
+          const p0 = ripple.shape[(i - 1 + n) % n];
+          const p1 = ripple.shape[i];
+          const p2 = ripple.shape[(i + 1) % n];
+          const p3 = ripple.shape[(i + 2) % n];
+
+          const rVar = catmullRom(p0, p1, p2, p3, localT);
+          const angle = frac * Math.PI * 2;
           const r = baseRadius * rVar;
           const px = cx + Math.cos(angle) * r;
           const py = cy + Math.sin(angle) * r;
@@ -130,15 +147,15 @@ export default function FunPage() {
         }
         ctx.closePath();
 
-        // Thinner stroke as ripple expands
-        const lineWidth = Math.max(0.5, 2.5 * (1 - easedAge * 0.7));
-        ctx.strokeStyle = `rgba(147, 93, 255, ${alpha})`;
+        // Line width tapers as ripple expands
+        const lineWidth = Math.max(0.3, 1.8 * (1 - easedAge * 0.8));
+        ctx.strokeStyle = `rgba(160, 120, 255, ${alpha})`;
         ctx.lineWidth = lineWidth;
         ctx.stroke();
 
-        // Very subtle fill glow on inner ripples
-        if (age < 0.3) {
-          ctx.fillStyle = `rgba(124, 58, 237, ${alpha * 0.06})`;
+        // Soft inner glow only on youngest ripples
+        if (age < 0.2) {
+          ctx.fillStyle = `rgba(124, 58, 237, ${alpha * 0.04})`;
           ctx.fill();
         }
       }
