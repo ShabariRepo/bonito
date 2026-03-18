@@ -64,7 +64,7 @@ export default function FunPage() {
       opacity: 0.06 + (i * 0.472 % 1) * 0.1,
     }));
 
-    const LOGO_RADIUS = 280; // half of visible logo area
+    const LOGO_RADIUS = Math.min(w, h) * 0.35; // half of 70vmin logo
     const RIPPLE_LIFETIME = 3500;
     const RIPPLE_INTERVAL_BASE = 1800;
     const RIPPLE_INTERVAL_JITTER = 600;
@@ -221,14 +221,14 @@ export default function FunPage() {
         style={{ zIndex: 1 }}
       />
 
-      {/* Logo container */}
-      <div className="relative z-10 flex items-center justify-center" style={{ width: 600, height: 600 }}>
+      {/* Logo container -- fills most of the viewport */}
+      <div className="relative z-10 flex items-center justify-center" style={{ width: "70vmin", height: "70vmin" }}>
         {/* Glow behind logo */}
         <div
           className="absolute rounded-full"
           style={{
-            width: 700,
-            height: 700,
+            width: "90vmin",
+            height: "90vmin",
             background: "radial-gradient(circle, rgba(124, 58, 237, 0.25) 0%, rgba(124, 58, 237, 0.08) 35%, transparent 65%)",
             animation: "pulse-glow 3s ease-in-out infinite",
           }}
@@ -236,15 +236,14 @@ export default function FunPage() {
 
         {/* Logo */}
         <div
-          className="relative z-10"
+          className="relative z-10 w-full h-full"
           style={{ animation: "logo-pulse 3s ease-in-out infinite" }}
         >
           <Image
             src="/bonito-logo.png"
             alt="Bonito"
-            width={500}
-            height={500}
-            className="object-contain drop-shadow-[0_0_80px_rgba(124,58,237,0.4)]"
+            fill
+            className="object-contain drop-shadow-[0_0_120px_rgba(124,58,237,0.5)]"
             priority
           />
         </div>
