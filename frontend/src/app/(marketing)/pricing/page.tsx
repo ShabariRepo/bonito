@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Check, X, ArrowRight, HelpCircle, Bot, Zap } from "lucide-react";
+import { Check, X, ArrowRight, HelpCircle, Bot, Zap, GitPullRequest } from "lucide-react";
 import { Fragment, useState } from "react";
 
 const plans = [
@@ -16,6 +16,7 @@ const plans = [
       "5,000 gateway API calls / month",
       "Model catalog & playground",
       "Standard request logging",
+      "AI Code Review — 6 reviews / month",
       "Community support (Discord)",
       "1 team member",
     ],
@@ -36,6 +37,7 @@ const plans = [
       "AI Context — knowledge base with RAG",
       "Cost analytics & budget alerts",
       "AI copilot assistant",
+      "AI Code Review — 100 reviews / month",
       "CLI tool (bonito-cli)",
       "Audit trail & compliance logging",
       "In-app & email notifications",
@@ -54,6 +56,7 @@ const plans = [
       "Unlimited cloud providers",
       "Unlimited gateway API calls",
       "Advanced routing & load balancing",
+      "AI Code Review — Unlimited",
       "SSO / SAML with JIT provisioning",
       "Role-based access control (RBAC)",
       "AI Context — unlimited KBs with team isolation",
@@ -76,6 +79,7 @@ const plans = [
     description: "For large-scale deployments with dedicated infrastructure and premium SLAs.",
     features: [
       "Everything in Enterprise",
+      "AI Code Review — Unlimited + custom personas",
       "Dedicated infrastructure & compute",
       "Custom model fine-tuning pipelines",
       "Multi-region deployment",
@@ -200,6 +204,11 @@ const comparisonFeatures = [
   { category: "Security & Compliance", name: "Compliance-ready architecture (audit trails, RBAC)", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "On-Premise Deployment", free: false, pro: false, enterprise: true, scale: true },
   { category: "Security & Compliance", name: "Custom Compliance Frameworks", free: false, pro: false, enterprise: false, scale: true },
+  // ── AI Code Review
+  { category: "AI Code Review", name: "GitHub PR Reviews / month", free: "6", pro: "100", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "AI Code Review", name: "Security & Bug Detection", free: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Code Review", name: "Custom Review Personas", free: false, pro: false, enterprise: true, scale: true },
+  { category: "AI Code Review", name: "Private Repo Support", free: true, pro: true, enterprise: true, scale: true },
   // ── Tools & Integrations
   { category: "Tools & Integrations", name: "AI Copilot Assistant", free: false, pro: true, enterprise: true, scale: true },
   { category: "Tools & Integrations", name: "CLI Tool (bonito-cli)", free: false, pro: true, enterprise: true, scale: true },

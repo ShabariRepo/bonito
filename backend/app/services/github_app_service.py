@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 GITHUB_API = "https://api.github.com"
 
 # Rate limits
-FREE_TIER_MONTHLY_LIMIT = 5
+FREE_TIER_MONTHLY_LIMIT = 6
 PRO_TIER_MONTHLY_LIMIT = None  # Unlimited
 
 # Max diff size to send to the reviewer (chars) — prevent token explosion
