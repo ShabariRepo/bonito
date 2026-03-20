@@ -86,33 +86,28 @@ It installs with a single command and is part of NVIDIA's broader Agent Toolkit.
 
 Here is how the three platforms stack up across 20 enterprise-relevant dimensions:
 
-:::stats
-6|cloud providers supported by Bonobots
-0|multi-provider routing in OpenClaw/NemoClaw
-20|feature dimensions compared
-:::
-
-**Primary use case:** Bonobots = Enterprise agent deployment. OpenClaw = Personal AI assistant. NemoClaw = Privacy-focused personal assistant.
-
-**Multi-provider routing:** Bonobots = Yes, automatic with strategy selection. OpenClaw = No. NemoClaw = No.
-
-**Cross-region failover:** Bonobots = Yes, auto inference profiles. OpenClaw = No. NemoClaw = No.
-
-**Cost optimization:** Bonobots = Real-time routing (cost/latency/balanced). OpenClaw = Manual model selection. NemoClaw = Manual model selection.
-
-**Agent orchestration:** Bonobots = Orchestrator to specialist delegation. OpenClaw = Sub-agent spawning (task-level). NemoClaw = Same as OpenClaw.
-
-**Persistent memory:** Bonobots = pgvector-backed, managed. OpenClaw = File-based session memory. NemoClaw = File-based session memory.
-
-**Human-in-the-loop:** Bonobots = Approval queues, HITL workflows. OpenClaw = Manual intervention. NemoClaw = Manual intervention.
-
-**Local model execution:** Bonobots = No (cloud only). OpenClaw = No (cloud only). NemoClaw = Yes (NVIDIA Nemotron).
-
-**Compliance frameworks:** Bonobots = SOC2, HIPAA, GDPR, ISO27001 mapping. OpenClaw = None. NemoClaw = None.
-
-**API-first:** Bonobots = Yes, customers build on top. OpenClaw = No public API. NemoClaw = No public API.
-
-**Open source:** Bonobots = No. OpenClaw = Yes. NemoClaw = Yes.
+| Feature | Bonobots | OpenClaw | NemoClaw |
+|---|---|---|---|
+| **Primary use case** | Enterprise agent deployment | Personal AI assistant | Privacy-focused personal AI |
+| **Deployment model** | Managed cloud platform (API) | Self-hosted on your machine | Self-hosted on your machine |
+| **Model providers** | Bedrock, Azure, Vertex AI, OpenAI, Anthropic, Groq | Cloud models via API keys | Local (Nemotron) + cloud |
+| **Multi-provider routing** | Yes, automatic with strategy selection | No | No |
+| **Cross-region failover** | Yes, auto inference profiles | No | No |
+| **Cost optimization** | Real-time routing (cost/latency/balanced) | Manual model selection | Manual model selection |
+| **Agent orchestration** | Orchestrator to specialist delegation | Sub-agent spawning (task-level) | Sub-agent spawning (inherited) |
+| **Persistent memory** | pgvector-backed, managed | File-based session memory | File-based session memory |
+| **Scheduled execution** | Built-in with approval queues | Cron jobs | Cron jobs |
+| **Human-in-the-loop** | Approval queues, HITL workflows | Manual intervention | Manual intervention |
+| **Local model execution** | No (cloud only) | No (cloud only) | Yes (NVIDIA Nemotron) |
+| **Privacy guardrails** | Enterprise compliance tooling | Basic safety rules | NVIDIA OpenShell policy engine |
+| **Compliance frameworks** | SOC2, HIPAA, GDPR, ISO27001 | None | None |
+| **Audit trails** | Built-in logging and traceability | Session logs | Session logs |
+| **API-first** | Yes, customers build on top | No public API | No public API |
+| **Code review** | GitHub App with persona reviewers | No | No |
+| **Embeddable widget** | BonBon | No | No |
+| **Open source** | No | Yes | Yes |
+| **Pricing** | Free / $499 Pro / $2K-$5K Enterprise | Free (self-hosted + API costs) | Free (self-hosted + hardware) |
+| **Maturity** | Production, actively shipping | Production, established community | Early preview |
 
 ## Benchmark Scenarios
 

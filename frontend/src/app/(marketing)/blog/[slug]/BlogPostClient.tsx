@@ -17,6 +17,8 @@ import { blogPosts, type BlogPostImage } from "../posts";
 
 type StatItem = { value: string; label: string };
 
+type TableData = { headers: string[]; rows: string[][] };
+
 type ContentBlock =
   | { type: "h2"; content: string }
   | { type: "h3"; content: string }
@@ -24,7 +26,8 @@ type ContentBlock =
   | { type: "list"; items: string[] }
   | { type: "stats"; stats: StatItem[] }
   | { type: "insight"; content: string }
-  | { type: "blockquote"; content: string };
+  | { type: "blockquote"; content: string }
+  | { type: "table"; table: TableData };
 
 /* ── Inline renderer (bold + links) ──────────────────────────────── */
 
@@ -253,6 +256,20 @@ function parseContent(content: string): ContentBlock[] {
       if (block.startsWith("### "))
         return { type: "h3", content: block.slice(4) };
 
+      // Table (markdown pipe tables)
+      if (block.includes("|") && block.split("\n").length >= 3) {
+        const lines = block.split("\n").filter((l) => l.trim());
+        const isTable = lines.length >= 2 && lines.every((l) => l.includes("|")) && lines.some((l) => /^\|?\s*-+/.test(l.replace(/\|/g, "").trim()));
+        if (isTable) {
+          const dataLines = lines.filter((l) => !/^\|?\s*[-|:\s]+$/.test(l));
+          const parseCells = (line: string) =>
+            line.split("|").map((c) => c.trim()).filter((c) => c !== "");
+          const headers = dataLines.length > 0 ? parseCells(dataLines[0]) : [];
+          const rows = dataLines.slice(1).map(parseCells);
+          return { type: "table" as const, table: { headers, rows } };
+        }
+      }
+
       // List
       if (block.startsWith("- ")) {
         return {
@@ -361,6 +378,46 @@ function renderContent(content: string, images?: BlogPostImage[]) {
         allElements.push(
           <AnimatedBlock key={i}>
             <StatCards stats={block.stats} />
+          </AnimatedBlock>
+        );
+        break;
+
+      case "table":
+        allElements.push(
+          <AnimatedBlock key={i}>
+            <div className="my-6 overflow-x-auto rounded-xl border border-white/[0.06]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                    {block.table.headers.map((h, j) => (
+                      <th
+                        key={j}
+                        className="px-4 py-3 text-left text-[#f5f0e8] font-semibold whitespace-nowrap"
+                      >
+                        {renderInline(h)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.table.rows.map((row, ri) => (
+                    <tr
+                      key={ri}
+                      className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors"
+                    >
+                      {row.map((cell, ci) => (
+                        <td
+                          key={ci}
+                          className={`px-4 py-2.5 ${ci === 0 ? "text-[#c4bfb5] font-medium" : "text-[#888]"}`}
+                        >
+                          {renderInline(cell)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </AnimatedBlock>
         );
         break;
