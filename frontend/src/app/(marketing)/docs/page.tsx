@@ -28,6 +28,10 @@ import {
   Sparkles,
   Clock,
   BarChart3,
+  GitBranch,
+  Code,
+  Layers,
+  Globe,
 } from "lucide-react";
 
 /* ─── Sidebar sections ─── */
@@ -39,11 +43,15 @@ const sections = [
   { id: "deployments", label: "Deployments", icon: Rocket },
   { id: "gateway-api", label: "Gateway API", icon: Key },
   { id: "routing-policies", label: "Routing Policies", icon: Route },
+  { id: "cross-region", label: "Cross-Region Inference", icon: Globe },
+  { id: "model-aliases", label: "Model Aliases", icon: Layers },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "cost-management", label: "Cost Management", icon: DollarSign },
   { id: "cli", label: "CLI Tool", icon: Terminal },
+  { id: "declarative-config", label: "Declarative Config", icon: Code },
   { id: "bonbon", label: "BonBon Agents", icon: Bot },
   { id: "bonobot", label: "Bonobot", icon: Network },
+  { id: "code-review", label: "Code Review", icon: GitBranch },
   { id: "mcp", label: "MCP Integration", icon: Plug },
   { id: "knowledge-bases", label: "Knowledge Bases", icon: Database },
   { id: "managed-inference", label: "Managed Inference", icon: Sparkles },
@@ -178,7 +186,7 @@ export default function DocsPage() {
           {/* ── Getting Started ── */}
           <SectionHeading id="getting-started" title="Getting Started" />
           <Paragraph>
-            Bonito is a unified AI gateway that connects your own cloud AI providers — AWS Bedrock, Azure OpenAI, and Google Cloud Vertex AI — and lets you manage all your models from a single dashboard. You get one API endpoint, one place to track costs, and one control plane for your entire AI stack.
+            Bonito is a unified AI gateway that connects your AI providers (AWS Bedrock, Azure OpenAI, Google Cloud Vertex AI, OpenAI Direct, Anthropic Direct, and Groq) and lets you manage all your models from a single dashboard. You get one API endpoint, one place to track costs, and one control plane for your entire AI stack.
           </Paragraph>
 
           <SubHeading title="Quick start (5 minutes)" />
@@ -282,6 +290,60 @@ curl -X POST https://getbonito.com/v1/chat/completions \\
           <Callout variant="tip">
             You can update credentials at any time without re-entering everything. Go to Providers → click a provider → change only the fields you need. Blank fields keep their current values.
           </Callout>
+
+          <SubHeading title="OpenAI Direct" />
+          <Paragraph>
+            For teams using OpenAI directly (not through Azure). Connect with just an API key to access GPT-4o, GPT-4o mini, and other OpenAI models.
+          </Paragraph>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Field</th>
+                  <th className="text-left py-2 font-medium">Description</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc]">
+                <tr><td className="py-2 pr-4 font-mono text-xs text-[#7c3aed]">API Key</td><td className="py-2">Your API key from platform.openai.com</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="Anthropic Direct" />
+          <Paragraph>
+            For teams that want to use Claude models directly through Anthropic without going through AWS Bedrock. Connect with just an API key.
+          </Paragraph>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Field</th>
+                  <th className="text-left py-2 font-medium">Description</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc]">
+                <tr><td className="py-2 pr-4 font-mono text-xs text-[#7c3aed]">API Key</td><td className="py-2">Your API key from console.anthropic.com</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="Groq" />
+          <Paragraph>
+            Ultra-fast inference for open-source models like Llama 3.3 and Mixtral. Groq&apos;s LPU hardware delivers the lowest latency in the industry. Connect with just an API key.
+          </Paragraph>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 my-4">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[#888] border-b border-[#1a1a1a]">
+                  <th className="text-left py-2 pr-4 font-medium">Field</th>
+                  <th className="text-left py-2 font-medium">Description</th>
+                </tr>
+              </thead>
+              <tbody className="text-[#ccc]">
+                <tr><td className="py-2 pr-4 font-mono text-xs text-[#7c3aed]">API Key</td><td className="py-2">Your API key from console.groq.com</td></tr>
+              </tbody>
+            </table>
+          </div>
 
           {/* ── Permissions & IAM ── */}
           <SectionHeading id="permissions" title="Permissions & IAM" />
@@ -558,6 +620,74 @@ print(response.choices[0].message.content)`}
             Use the &quot;Test&quot; button on any routing policy to dry-run model selection and verify your configuration before going live.
           </Callout>
 
+          {/* ── Cross-Region Inference ── */}
+          <SectionHeading id="cross-region" title="Cross-Region Inference" />
+          <Paragraph>
+            Bonito automatically creates cross-region inference profiles for AWS Bedrock models. If <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">us-east-1</code> is overloaded or experiencing downtime, requests seamlessly route to <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">us-west-2</code> or <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">eu-west-1</code> without any action on your part.
+          </Paragraph>
+
+          <SubHeading title="How it works" />
+          <ul className="space-y-2 my-4">
+            {[
+              "Bonito handles the us. prefix routing at the gateway level, so cross-region inference profiles are created and managed automatically.",
+              "No configuration needed &mdash; just connect your AWS provider and Bonito takes care of the rest.",
+              "If a primary region is throttled or returns errors, requests are retried in an alternate region transparently.",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SubHeading title="True high-availability" />
+          <Paragraph>
+            Cross-region inference combines with multi-provider failover for true high-availability. For example, if Claude on Bedrock fails across all regions, Bonito can fall back to Anthropic Direct automatically. No other platform (Portkey, LiteLLM, Helicone) offers automatic cross-region inference profiles with intelligent failover built in.
+          </Paragraph>
+          <Callout variant="tip">
+            Cross-region inference works out of the box for all Bedrock models. Pair it with a failover routing policy that includes a direct provider (OpenAI, Anthropic, Groq) for maximum resilience.
+          </Callout>
+
+          {/* ── Model Aliases ── */}
+          <SectionHeading id="model-aliases" title="Model Aliases" />
+          <Paragraph>
+            Bonito supports shorthand model aliases that resolve to provider-specific versioned model IDs. This means you can reference models by simple names and switch providers without changing your code.
+          </Paragraph>
+
+          <SubHeading title="How aliases work" />
+          <Paragraph>
+            When you send a request with an alias like <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">claude-sonnet</code>, Bonito resolves it to the correct model ID for your active provider. On Bedrock, that becomes <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">anthropic.claude-3-sonnet-20240229-v1:0</code>. On Anthropic Direct, it becomes <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">claude-3-sonnet-20240229</code>.
+          </Paragraph>
+
+          <ul className="space-y-2 my-4">
+            {[
+              "Switch providers without changing a single line of code in your application.",
+              "Aliases are updated automatically when new model versions are released.",
+              "Works with routing policies &mdash; aliases resolve before routing rules are applied.",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <CodeBlock
+            language="python"
+            code={`from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://getbonito.com/v1",
+    api_key="YOUR_BONITO_API_KEY"
+)
+
+# Use an alias instead of a provider-specific model ID
+response = client.chat.completions.create(
+    model="claude-sonnet",  # Resolves automatically
+    messages=[{"role": "user", "content": "Hello!"}]
+)`}
+          />
+
           {/* ── Notifications ── */}
           <SectionHeading id="notifications" title="Notifications" />
           <Paragraph>
@@ -645,6 +775,146 @@ bonito costs summary`}
           <Paragraph>
             Run <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito --help</code> for the full list of commands and options.
           </Paragraph>
+
+          {/* ── Declarative Config ── */}
+          <SectionHeading id="declarative-config" title="Declarative Config (bonito.yaml)" />
+          <Paragraph>
+            Define your entire AI stack in a single <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito.yaml</code> file. Providers, agents, MCP servers, knowledge bases, routing, and triggers &mdash; all in one place. Deploy with a single command.
+          </Paragraph>
+
+          <CodeBlock code="bonito deploy -f bonito.yaml" />
+
+          <SubHeading title="Example: AWS Bedrock stack" />
+          <Paragraph>
+            A complete stack using AWS Bedrock with two agents and a knowledge base:
+          </Paragraph>
+          <CodeBlock
+            language="yaml"
+            code={`version: "1"
+name: my-ai-stack
+
+gateway:
+  providers:
+    - name: aws
+      priority: 1
+      models:
+        - anthropic.claude-3-sonnet-20240229-v1:0
+        - amazon.nova-pro-v1:0
+        - amazon.titan-embed-text-v2:0
+      region: us-east-1
+      access_key: \${AWS_ACCESS_KEY_ID}
+      secret_key: \${AWS_SECRET_ACCESS_KEY}
+
+  routing:
+    strategy: cost-optimized
+    fallback: true
+
+agents:
+  support-bot:
+    type: bonbon
+    mode: simple
+    display_name: Support Agent
+    model:
+      primary: anthropic.claude-3-sonnet-20240229-v1:0
+      fallback: amazon.nova-pro-v1:0
+    system_prompt: |
+      You are a helpful support agent...
+    rag:
+      knowledge_base: company-docs
+
+  code-reviewer:
+    type: bonbon
+    mode: advanced
+    display_name: Code Reviewer
+    model:
+      primary: anthropic.claude-3-sonnet-20240229-v1:0
+    mcp_servers:
+      - github
+
+knowledge_bases:
+  company-docs:
+    description: Internal documentation
+    sources:
+      - type: directory
+        path: ./docs/
+        glob: "**/*.md"
+    embedding:
+      model: amazon.titan-embed-text-v2:0
+      provider: aws`}
+          />
+
+          <SubHeading title="Example: Multi-provider stack" />
+          <Paragraph>
+            A stack using Groq, Anthropic, OpenAI, and GCP with multi-agent orchestration:
+          </Paragraph>
+          <CodeBlock
+            language="yaml"
+            code={`version: "1"
+name: multi-provider-stack
+
+gateway:
+  providers:
+    - name: groq
+      priority: 1
+      models: [llama-3.3-70b-versatile, mixtral-8x7b-32768]
+      api_key: \${GROQ_API_KEY}
+
+    - name: anthropic
+      priority: 1
+      models: [claude-sonnet-4-20250514]
+      api_key: \${ANTHROPIC_API_KEY}
+
+    - name: openai
+      priority: 2
+      models: [gpt-4o, gpt-4o-mini]
+      api_key: \${OPENAI_API_KEY}
+
+    - name: gcp
+      priority: 2
+      models: [gemini-1.5-pro, gemini-1.5-flash]
+      project_id: \${GCP_PROJECT_ID}
+      service_account: \${GCP_SERVICE_ACCOUNT_JSON}
+
+  routing:
+    strategy: cost-optimized
+    fallback: true
+    retry_attempts: 2
+
+agents:
+  orchestrator:
+    type: bonobot
+    display_name: Operations Center
+    model:
+      primary: claude-sonnet-4-20250514
+      fallback: gpt-4o
+    delegates:
+      - agent: fast-responder
+        domains: [triage, alerts, summaries]
+      - agent: deep-analyst
+        domains: [code-review, analysis, research]
+
+  fast-responder:
+    type: bonbon
+    mode: simple
+    model:
+      primary: groq/llama-3.3-70b-versatile
+    system_prompt: |
+      You are a fast-response agent for triage...
+
+  deep-analyst:
+    type: bonbon
+    mode: advanced
+    model:
+      primary: claude-sonnet-4-20250514
+      fallback: gpt-4o
+    mcp_servers:
+      - github
+      - jira`}
+          />
+
+          <Callout variant="tip">
+            Use environment variable references like <code className="text-xs">{`\${AWS_ACCESS_KEY_ID}`}</code> to keep secrets out of your config file. Bonito resolves them at deploy time from your environment or a <code className="text-xs">.env</code> file.
+          </Callout>
 
           {/* ── BonBon Agents ── */}
           <SectionHeading id="bonbon" title="BonBon Agents" />
@@ -825,6 +1095,41 @@ bonito bonobot classify --id bot_abc123 \\
   "synthesis_prompt": "Combine the following specialist responses into a single, coherent answer."
 }`}
           />
+
+          {/* ── Code Review ── */}
+          <SectionHeading id="code-review" title="Code Review" />
+          <Paragraph>
+            Bonito&apos;s GitHub App provides AI-powered code review on pull requests. Install it from the Bonito dashboard, connect your GitHub repos, and get automatic reviews on every PR.
+          </Paragraph>
+
+          <SubHeading title="What it does" />
+          <ul className="space-y-2 my-4">
+            {[
+              "Automatically reviews PRs for security vulnerabilities, performance issues, and code quality.",
+              "Posts structured findings directly as PR comments with clear explanations and suggestions.",
+              "Multiple review personas available &mdash; default professional tone, or fun characters for a lighter touch.",
+              "Configure which repos and branches trigger automatic reviews from the dashboard.",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SubHeading title="Getting started" />
+          <StepList
+            steps={[
+              "Go to Code Review in the Bonito dashboard.",
+              "Click Install GitHub App and authorize access to your repositories.",
+              "Select which repos and branches should trigger automatic reviews.",
+              "Open a pull request &mdash; Bonito reviews it and posts comments within minutes.",
+            ]}
+          />
+
+          <Callout variant="info">
+            Free tier includes 5 code reviews per month per repo. Upgrade for unlimited reviews and priority processing.
+          </Callout>
 
           {/* ── MCP Integration ── */}
           <SectionHeading id="mcp" title="MCP Integration" />
