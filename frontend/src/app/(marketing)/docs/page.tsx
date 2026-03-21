@@ -48,6 +48,7 @@ const sections = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "cost-management", label: "Cost Management", icon: DollarSign },
   { id: "cli", label: "CLI Tool", icon: Terminal },
+  { id: "openclaw", label: "OpenClaw", icon: Terminal },
   { id: "declarative-config", label: "Declarative Config", icon: Code },
   { id: "bonbon", label: "BonBon Agents", icon: Bot },
   { id: "bonobot", label: "Bonobot", icon: Network },
@@ -775,6 +776,72 @@ bonito costs summary`}
           <Paragraph>
             Run <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito --help</code> for the full list of commands and options.
           </Paragraph>
+
+          {/* ── OpenClaw Integration ── */}
+          <SectionHeading id="openclaw" title="OpenClaw Integration" />
+          <Paragraph>
+            OpenClaw is an AI-powered workstation that can connect to and interact with your Bonito backend. Use it to set up Bonito end to end, deploy agents conversationally, manage your gateway, and automate workflows against the Bonito API. Think of it as having an AI engineer that knows your entire Bonito stack.
+          </Paragraph>
+
+          <SubHeading title="Install the Bonito Skill" />
+          <Paragraph>
+            The Bonito skill is available on ClaHub (the OpenClaw skill registry). Install it and OpenClaw gains full knowledge of the Bonito platform.
+          </Paragraph>
+          <CodeBlock code="npx clawhub@latest install bonito" />
+
+          <SubHeading title="What You Can Do" />
+          <ul className="space-y-2 my-4">
+            {[
+              "Set up Bonito from scratch (signup, provider connection, gateway key creation)",
+              "Deploy agents conversationally (\"create a support bot using Claude on Bedrock\")",
+              "Manage your bonito.yaml declarative config",
+              "Test gateway endpoints and debug routing",
+              "Connect MCP servers and knowledge bases",
+              "Monitor costs and usage across providers",
+              "Review and iterate on agent system prompts",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SubHeading title="OpenClaw as a Workstation" />
+          <Paragraph>
+            OpenClaw acts as a persistent workstation for your Bonito environment. It reads your project files, understands your bonito.yaml configuration, and can execute bonito-cli commands on your behalf. Instead of switching between the dashboard, CLI, and docs, you describe what you want and OpenClaw handles the rest.
+          </Paragraph>
+          <CodeBlock
+            code={`You: Deploy a support agent using Claude on Bedrock with our internal docs as a knowledge base
+
+OpenClaw: I'll set that up. Creating a BonBon Simple agent with:
+         - Model: anthropic.claude-3-sonnet on AWS Bedrock
+         - Knowledge base: uploading ./docs/ (14 files)
+         - System prompt: customer support persona
+
+         Running: bonito deploy -f bonito.yaml
+
+         Done. Agent live at: https://api.getbonito.com/v1/agents/ag_x7k2m/chat
+         Widget embed code copied to clipboard.`}
+          />
+
+          <Callout variant="tip">
+            OpenClaw works with any Bonito plan including the free tier. Install the skill, point it at your project, and start building.
+          </Callout>
+
+          <SubHeading title="Learn More" />
+          <ul className="space-y-2 my-4">
+            {[
+              { label: "OpenClaw", url: "https://openclaw.ai" },
+              { label: "ClaHub (skill registry)", url: "https://clawhub.ai" },
+              { label: "Bonito skill on ClaHub", url: "https://clawhub.ai/skills/bonito" },
+            ].map((link, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{link.label}</a>
+              </li>
+            ))}
+          </ul>
 
           {/* ── Declarative Config ── */}
           <SectionHeading id="declarative-config" title="Declarative Config (bonito.yaml)" />
