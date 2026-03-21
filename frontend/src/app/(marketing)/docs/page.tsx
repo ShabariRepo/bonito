@@ -779,6 +779,9 @@ bonito costs summary`}
 
           {/* ── OpenClaw Integration ── */}
           <SectionHeading id="openclaw" title="OpenClaw Integration" />
+          <div className="my-6 rounded-xl overflow-hidden border border-[#1a1a1a]">
+            <img src="/bonito-openclaw.png" alt="Bonito + OpenClaw" className="w-full" />
+          </div>
           <Paragraph>
             OpenClaw is an AI-powered workstation that can connect to and interact with your Bonito backend. Use it to set up Bonito end to end, deploy agents conversationally, manage your gateway, and automate workflows against the Bonito API. Think of it as having an AI engineer that knows your entire Bonito stack.
           </Paragraph>
