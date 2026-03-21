@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bonito-mcp"
+version = "1.0.0"
+description = "MCP server for the Bonito AI Platform – manage providers, models, agents, and gateway routing."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Bonito AI", email = "hello@getbonito.com" },
+]
+keywords = ["mcp", "bonito", "ai", "llm", "gateway"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.25.0",
+]
+
+[project.scripts]
+bonito-mcp = "bonito_mcp.server:main"
+
+[project.urls]
+Homepage = "https://getbonito.com"
+Documentation = "https://getbonito.com/docs"
+Repository = "https://github.com/ShabariRepo/bonito"
