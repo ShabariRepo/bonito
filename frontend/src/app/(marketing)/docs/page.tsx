@@ -49,6 +49,7 @@ const sections = [
   { id: "cost-management", label: "Cost Management", icon: DollarSign },
   { id: "cli", label: "CLI Tool", icon: Terminal },
   { id: "openclaw", label: "OpenClaw", icon: Terminal },
+  { id: "bonito-mcp", label: "Bonito MCP Server", icon: Server },
   { id: "declarative-config", label: "Declarative Config", icon: Code },
   { id: "bonbon", label: "BonBon Agents", icon: Bot },
   { id: "bonobot", label: "Bonobot", icon: Network },
@@ -845,6 +846,81 @@ OpenClaw: I'll set that up. Creating a BonBon Simple agent with:
               </li>
             ))}
           </ul>
+
+          {/* ── Bonito MCP Server ── */}
+          <SectionHeading id="bonito-mcp" title="Bonito MCP Server" />
+          <Paragraph>
+            Connect Claude Desktop, Cowork, or any MCP-compatible client directly to your Bonito backend. The Bonito MCP server exposes 18 tools covering provider management, model operations, gateway routing, agent deployment, knowledge bases, and cost monitoring.
+          </Paragraph>
+
+          <SubHeading title="Installation" />
+          <Paragraph>
+            Install via PyPI:
+          </Paragraph>
+          <CodeBlock code="pip install bonito-mcp" />
+          <Paragraph>
+            Or run with Docker:
+          </Paragraph>
+          <CodeBlock code="docker run -e BONITO_API_KEY=your-key -p 8080:8080 bonito/mcp-server" />
+          <Paragraph>
+            Or install from source:
+          </Paragraph>
+          <CodeBlock
+            code={`git clone https://github.com/ShabariRepo/bonito.git
+cd bonito/mcp-server
+pip install -e .`}
+          />
+
+          <SubHeading title="Claude Desktop Configuration" />
+          <Paragraph>
+            Add this to your Claude Desktop MCP config:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "mcpServers": {
+    "bonito": {
+      "command": "bonito-mcp",
+      "env": {
+        "BONITO_API_KEY": "your-bonito-api-key"
+      }
+    }
+  }
+}`}
+          />
+
+          <SubHeading title="Available Tools" />
+          <ul className="space-y-2 my-4">
+            {[
+              "Provider management: list, connect, and verify cloud providers",
+              "Model operations: list, sync, activate, and test models",
+              "Gateway: send chat completions, manage API keys, check usage",
+              "Agent management: list, create, and execute BonBon/Bonobot agents",
+              "Knowledge bases: create and manage RAG knowledge bases",
+              "Observability: cost reports and gateway logs",
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                <span className="leading-relaxed">{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          <SubHeading title="Cowork Plugin" />
+          <Paragraph>
+            For Claude Cowork users, install the Bonito plugin to get slash commands and domain skills alongside MCP tools. The plugin adds commands like /bonito:deploy, /bonito:create-agent, /bonito:cost-report, and /bonito:test-gateway.
+          </Paragraph>
+          <Paragraph>
+            See the{" "}
+            <a href="https://github.com/ShabariRepo/bonito-cowork-plugin" target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">
+              Bonito Cowork Plugin on GitHub
+            </a>{" "}
+            for setup instructions.
+          </Paragraph>
+
+          <Callout variant="tip">
+            The MCP server works with any MCP-compatible client, not just Claude. Connect it to Cursor, Windsurf, or any tool that supports the Model Context Protocol.
+          </Callout>
 
           {/* ── Declarative Config ── */}
           <SectionHeading id="declarative-config" title="Declarative Config (bonito.yaml)" />

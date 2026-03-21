@@ -194,6 +194,16 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 - 📋 Additional provider integrations (Cohere, Mistral, custom endpoints)
 - 📋 Advanced audit log export & SIEM integration
 
+## MCP Server
+
+Connect Claude Desktop, Cowork, or any MCP-compatible client to Bonito with the MCP server:
+
+```bash
+pip install bonito-mcp
+```
+
+Exposes 18 tools covering providers, models, gateway, agents, knowledge bases, and cost monitoring. See [`mcp-server/`](mcp-server/) for full documentation and configuration.
+
 ## Documentation
 
 - [AI Context / Knowledge Base](ROADMAP.md) — Architecture, API design, and RAG pipeline details
