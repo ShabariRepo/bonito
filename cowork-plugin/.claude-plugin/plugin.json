@@ -1,9 +1,8 @@
 {
   "name": "bonito",
-  "display_name": "Bonito AI Platform",
-  "description": "Manage your multi-provider AI infrastructure. Connect providers, deploy agents, route requests, and monitor costs across AWS Bedrock, Azure OpenAI, GCP Vertex AI, OpenAI, Anthropic, and Groq.",
   "version": "1.0.0",
-  "author": "Bonito AI",
-  "homepage": "https://getbonito.com",
-  "repository": "https://github.com/ShabariRepo/bonito"
+  "description": "Deploy and manage AI infrastructure across cloud providers. Connect providers, create agents, configure routing, analyze costs, and debug issues — all from a unified gateway.",
+  "author": {
+    "name": "Bonito AI"
+  }
 }
