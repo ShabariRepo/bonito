@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-03-21
+
+### Added - Documentation & Integrations
+
+- **Documentation Overhaul**
+  - Added 6 new sections to docs page (getbonito.com/docs)
+  - Direct Providers: OpenAI, Anthropic, Groq now documented alongside AWS/Azure/GCP
+  - Cross-Region Inference: automatic Bedrock region failover documentation
+  - Model Aliases: provider-agnostic model references
+  - Declarative Config: full bonito.yaml examples (AWS Bedrock stack + multi-provider stack)
+  - Code Review: GitHub App integration documentation
+  - OpenClaw Integration: workstation workflow with skill install
+
+- **OpenClaw Skill (ClaHub)**
+  - Published `bonito` skill to ClaHub (clawhub.ai)
+  - Conversational onboarding for new users
+  - Health check and prerequisite verification scripts
+  - Install: `npx clawhub@latest install bonito`
+
+- **Updated Provider Coverage**
+  - Getting Started now reflects all 6 supported providers
+  - Provider Setup includes OpenAI Direct, Anthropic Direct, and Groq sections
+
 ## [2.2.0] - 2026-03-12
 
 ### Added - Gateway Intelligence
