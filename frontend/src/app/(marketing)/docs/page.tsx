@@ -15,7 +15,6 @@ import {
   Route,
   Bell,
   Rocket,
-  Server,
   Lock,
   ChevronRight,
   Copy,
@@ -48,8 +47,8 @@ const sections = [
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "cost-management", label: "Cost Management", icon: DollarSign },
   { id: "cli", label: "CLI Tool", icon: Terminal },
+  { id: "claude-cowork", label: "Claude Cowork", icon: Sparkles },
   { id: "openclaw", label: "OpenClaw", icon: Terminal },
-  { id: "bonito-mcp", label: "Bonito MCP Server", icon: Server },
   { id: "declarative-config", label: "Declarative Config", icon: Code },
   { id: "bonbon", label: "BonBon Agents", icon: Bot },
   { id: "bonobot", label: "Bonobot", icon: Network },
@@ -136,9 +135,12 @@ function StepList({ steps }: { steps: string[] }) {
 /* ─── Main page ─── */
 export default function DocsPage() {
   const [active, setActive] = useState("getting-started");
+  const [integrationTab, setIntegrationTab] = useState<"cowork" | "openclaw">("cowork");
 
   const handleNavClick = (id: string) => {
     setActive(id);
+    if (id === "claude-cowork") { setIntegrationTab("cowork"); id = "integrations-tabs"; }
+    if (id === "openclaw") { setIntegrationTab("openclaw"); id = "integrations-tabs"; }
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
@@ -778,45 +780,162 @@ bonito costs summary`}
             Run <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito --help</code> for the full list of commands and options.
           </Paragraph>
 
-          {/* ── OpenClaw Integration ── */}
-          <SectionHeading id="openclaw" title="OpenClaw Integration" />
-          <div className="my-6 rounded-xl overflow-hidden border border-[#1a1a1a]">
-            <img src="/bonito-openclaw.png" alt="Bonito + OpenClaw" className="w-full" />
-          </div>
-          <Paragraph>
-            OpenClaw is an AI-powered workstation that can connect to and interact with your Bonito backend. Use it to set up Bonito end to end, deploy agents conversationally, manage your gateway, and automate workflows against the Bonito API. Think of it as having an AI engineer that knows your entire Bonito stack.
-          </Paragraph>
+          {/* ── Integrations: Claude Cowork + OpenClaw ── */}
+          <div id="integrations-tabs" className="scroll-mt-24">
+            <h2 className="text-2xl font-bold mt-16 mb-6 flex items-center gap-3">
+              <span className="w-1 h-6 bg-[#7c3aed] rounded-full" />
+              Integrations
+            </h2>
 
-          <SubHeading title="Install the Bonito Skill" />
-          <Paragraph>
-            The Bonito skill is available on ClaHub (the OpenClaw skill registry). Install it and OpenClaw gains full knowledge of the Bonito platform.
-          </Paragraph>
-          <CodeBlock code="npx clawhub@latest install bonito" />
+            {/* Tab buttons */}
+            <div className="flex gap-2 mb-8">
+              <button
+                onClick={() => setIntegrationTab("cowork")}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  integrationTab === "cowork"
+                    ? "bg-gradient-to-r from-[#D97706] to-[#EA580C] text-white shadow-lg shadow-orange-500/20"
+                    : "border border-[#333] text-[#888] hover:text-[#ccc] hover:border-[#555]"
+                }`}
+              >
+                Claude Cowork
+              </button>
+              <button
+                onClick={() => setIntegrationTab("openclaw")}
+                className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  integrationTab === "openclaw"
+                    ? "bg-gradient-to-r from-[#DC2626] to-[#EF4444] text-white shadow-lg shadow-red-500/20"
+                    : "border border-[#333] text-[#888] hover:text-[#ccc] hover:border-[#555]"
+                }`}
+              >
+                OpenClaw
+              </button>
+            </div>
 
-          <SubHeading title="What You Can Do" />
-          <ul className="space-y-2 my-4">
-            {[
-              "Set up Bonito from scratch (signup, provider connection, gateway key creation)",
-              "Deploy agents conversationally (\"create a support bot using Claude on Bedrock\")",
-              "Manage your bonito.yaml declarative config",
-              "Test gateway endpoints and debug routing",
-              "Connect MCP servers and knowledge bases",
-              "Monitor costs and usage across providers",
-              "Review and iterate on agent system prompts",
-            ].map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
-                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
-                <span className="leading-relaxed">{item}</span>
-              </li>
-            ))}
-          </ul>
+            {/* Claude Cowork tab content */}
+            {integrationTab === "cowork" && (
+              <div id="claude-cowork">
+                <div className="my-6 rounded-xl overflow-hidden border border-[#1a1a1a]">
+                  <img src="/bonito-claude-cowork.png" alt="Bonito + Claude Cowork" className="w-full" />
+                </div>
+                <Paragraph>
+                  Claude Cowork is Anthropic&apos;s agentic desktop application. The Bonito plugin gives Claude deep knowledge of your AI infrastructure, so you can deploy providers, create agents, configure routing, and analyze costs through natural conversation.
+                </Paragraph>
 
-          <SubHeading title="OpenClaw as a Workstation" />
-          <Paragraph>
-            OpenClaw acts as a persistent workstation for your Bonito environment. It reads your project files, understands your bonito.yaml configuration, and can execute bonito-cli commands on your behalf. Instead of switching between the dashboard, CLI, and docs, you describe what you want and OpenClaw handles the rest.
-          </Paragraph>
-          <CodeBlock
-            code={`You: Deploy a support agent using Claude on Bedrock with our internal docs as a knowledge base
+                <SubHeading title="Install the Plugin" />
+                <Paragraph>
+                  Install from the Claude plugin marketplace or via Claude Code:
+                </Paragraph>
+                <CodeBlock code="claude plugin install bonito" />
+
+                <SubHeading title="What the Plugin Adds" />
+                <Paragraph>
+                  6 domain skills that Claude draws on automatically when relevant:
+                </Paragraph>
+                <ul className="space-y-2 my-4">
+                  {[
+                    "deploy-stack: Deploy infrastructure from a bonito.yaml config",
+                    "manage-providers: Connect and manage cloud AI providers",
+                    "create-agent: Create BonBon agents and Bonobot orchestrators",
+                    "gateway-routing: Configure failover, cost-optimized routing, A/B testing",
+                    "cost-analysis: Analyze spending and recommend optimizations",
+                    "debug-issues: Troubleshoot gateway, provider, and agent problems",
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#D97706] mt-1 shrink-0" />
+                      <span className="leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <SubHeading title="MCP Server" />
+                <Paragraph>
+                  The plugin connects to the Bonito MCP server, which exposes 18 tools for direct API access. Install via PyPI or Docker:
+                </Paragraph>
+                <CodeBlock code="pip install bonito-mcp" />
+                <Paragraph>
+                  Or run with Docker:
+                </Paragraph>
+                <CodeBlock code="docker run -e BONITO_API_KEY=your-key -p 8080:8080 bonitoai/mcp-server" />
+
+                <SubHeading title="Claude Desktop Configuration" />
+                <Paragraph>
+                  Add this to your Claude Desktop MCP config:
+                </Paragraph>
+                <CodeBlock
+                  language="json"
+                  code={`{
+  "mcpServers": {
+    "bonito": {
+      "command": "bonito-mcp",
+      "env": {
+        "BONITO_API_KEY": "your-bonito-api-key"
+      }
+    }
+  }
+}`}
+                />
+
+                <Callout variant="tip">
+                  The MCP server works with any MCP-compatible client including Cursor, Windsurf, and other tools that support the Model Context Protocol.
+                </Callout>
+
+                <SubHeading title="Learn More" />
+                <ul className="space-y-2 my-4">
+                  {[
+                    { label: "Claude Cowork", url: "https://claude.com/product/cowork" },
+                    { label: "Bonito MCP on PyPI", url: "https://pypi.org/project/bonito-mcp/" },
+                    { label: "Bonito MCP on Docker Hub", url: "https://hub.docker.com/r/bonitoai/mcp-server" },
+                    { label: "Plugin source on GitHub", url: "https://github.com/ShabariRepo/bonito/tree/main/cowork-plugin" },
+                  ].map((link, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#D97706] mt-1 shrink-0" />
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#D97706] hover:underline">{link.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* OpenClaw tab content */}
+            {integrationTab === "openclaw" && (
+              <div id="openclaw">
+                <div className="my-6 rounded-xl overflow-hidden border border-[#1a1a1a]">
+                  <img src="/bonito-openclaw.png" alt="Bonito + OpenClaw" className="w-full" />
+                </div>
+                <Paragraph>
+                  OpenClaw is an AI-powered workstation that can connect to and interact with your Bonito backend. Use it to set up Bonito end to end, deploy agents conversationally, manage your gateway, and automate workflows against the Bonito API. Think of it as having an AI engineer that knows your entire Bonito stack.
+                </Paragraph>
+
+                <SubHeading title="Install the Bonito Skill" />
+                <Paragraph>
+                  The Bonito skill is available on ClaHub (the OpenClaw skill registry). Install it and OpenClaw gains full knowledge of the Bonito platform.
+                </Paragraph>
+                <CodeBlock code="npx clawhub@latest install bonito" />
+
+                <SubHeading title="What You Can Do" />
+                <ul className="space-y-2 my-4">
+                  {[
+                    "Set up Bonito from scratch (signup, provider connection, gateway key creation)",
+                    "Deploy agents conversationally (\"create a support bot using Claude on Bedrock\")",
+                    "Manage your bonito.yaml declarative config",
+                    "Test gateway endpoints and debug routing",
+                    "Connect MCP servers and knowledge bases",
+                    "Monitor costs and usage across providers",
+                    "Review and iterate on agent system prompts",
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
+                      <span className="leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <SubHeading title="OpenClaw as a Workstation" />
+                <Paragraph>
+                  OpenClaw acts as a persistent workstation for your Bonito environment. It reads your project files, understands your bonito.yaml configuration, and can execute bonito-cli commands on your behalf. Instead of switching between the dashboard, CLI, and docs, you describe what you want and OpenClaw handles the rest.
+                </Paragraph>
+                <CodeBlock
+                  code={`You: Deploy a support agent using Claude on Bedrock with our internal docs as a knowledge base
 
 OpenClaw: I'll set that up. Creating a BonBon Simple agent with:
          - Model: anthropic.claude-3-sonnet on AWS Bedrock
@@ -827,88 +946,28 @@ OpenClaw: I'll set that up. Creating a BonBon Simple agent with:
 
          Done. Agent live at: https://api.getbonito.com/v1/agents/ag_x7k2m/chat
          Widget embed code copied to clipboard.`}
-          />
+                />
 
-          <Callout variant="tip">
-            OpenClaw works with any Bonito plan including the free tier. Install the skill, point it at your project, and start building.
-          </Callout>
+                <Callout variant="tip">
+                  OpenClaw works with any Bonito plan including the free tier. Install the skill, point it at your project, and start building.
+                </Callout>
 
-          <SubHeading title="Learn More" />
-          <ul className="space-y-2 my-4">
-            {[
-              { label: "OpenClaw", url: "https://openclaw.ai" },
-              { label: "ClaHub (skill registry)", url: "https://clawhub.ai" },
-              { label: "Bonito skill on ClaHub", url: "https://clawhub.ai/skills/bonito" },
-            ].map((link, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
-                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
-                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{link.label}</a>
-              </li>
-            ))}
-          </ul>
-
-          {/* ── Bonito MCP Server ── */}
-          <SectionHeading id="bonito-mcp" title="Bonito MCP Server" />
-          <Paragraph>
-            Connect Claude Desktop, Cowork, or any MCP-compatible client directly to your Bonito backend. The Bonito MCP server exposes 18 tools covering provider management, model operations, gateway routing, agent deployment, knowledge bases, and cost monitoring.
-          </Paragraph>
-
-          <SubHeading title="Installation" />
-          <Paragraph>
-            Install via PyPI:
-          </Paragraph>
-          <CodeBlock code="pip install bonito-mcp" />
-          <Paragraph>
-            Or run with Docker:
-          </Paragraph>
-          <CodeBlock code="docker run -e BONITO_API_KEY=your-key -p 8080:8080 bonitoai/mcp-server" />
-
-          <SubHeading title="Claude Desktop Configuration" />
-          <Paragraph>
-            Add this to your Claude Desktop MCP config:
-          </Paragraph>
-          <CodeBlock
-            language="json"
-            code={`{
-  "mcpServers": {
-    "bonito": {
-      "command": "bonito-mcp",
-      "env": {
-        "BONITO_API_KEY": "your-bonito-api-key"
-      }
-    }
-  }
-}`}
-          />
-
-          <SubHeading title="Available Tools" />
-          <ul className="space-y-2 my-4">
-            {[
-              "Provider management: list, connect, and verify cloud providers",
-              "Model operations: list, sync, activate, and test models",
-              "Gateway: send chat completions, manage API keys, check usage",
-              "Agent management: list, create, and execute BonBon/Bonobot agents",
-              "Knowledge bases: create and manage RAG knowledge bases",
-              "Observability: cost reports and gateway logs",
-            ].map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
-                <ArrowRight className="w-3.5 h-3.5 text-[#7c3aed] mt-1 shrink-0" />
-                <span className="leading-relaxed">{item}</span>
-              </li>
-            ))}
-          </ul>
-
-          <SubHeading title="Cowork Plugin" />
-          <Paragraph>
-            For Claude Cowork users, install the Bonito plugin to get slash commands and domain skills alongside MCP tools. The plugin adds commands like /bonito:deploy, /bonito:create-agent, /bonito:cost-report, and /bonito:test-gateway.
-          </Paragraph>
-          <Paragraph>
-            Install via the Claude plugin marketplace or check the Bonito docs for setup instructions.
-          </Paragraph>
-
-          <Callout variant="tip">
-            The MCP server works with any MCP-compatible client, not just Claude. Connect it to Cursor, Windsurf, or any tool that supports the Model Context Protocol.
-          </Callout>
+                <SubHeading title="Learn More" />
+                <ul className="space-y-2 my-4">
+                  {[
+                    { label: "OpenClaw", url: "https://openclaw.ai" },
+                    { label: "ClaHub (skill registry)", url: "https://clawhub.ai" },
+                    { label: "Bonito skill on ClaHub", url: "https://clawhub.ai/skills/bonito" },
+                  ].map((link, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-[#ccc]">
+                      <ArrowRight className="w-3.5 h-3.5 text-[#EF4444] mt-1 shrink-0" />
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#EF4444] hover:underline">{link.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
           {/* ── Declarative Config ── */}
           <SectionHeading id="declarative-config" title="Declarative Config (bonito.yaml)" />
