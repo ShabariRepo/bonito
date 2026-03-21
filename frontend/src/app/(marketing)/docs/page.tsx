@@ -861,15 +861,7 @@ OpenClaw: I'll set that up. Creating a BonBon Simple agent with:
           <Paragraph>
             Or run with Docker:
           </Paragraph>
-          <CodeBlock code="docker run -e BONITO_API_KEY=your-key -p 8080:8080 bonito/mcp-server" />
-          <Paragraph>
-            Or install from source:
-          </Paragraph>
-          <CodeBlock
-            code={`git clone https://github.com/ShabariRepo/bonito.git
-cd bonito/mcp-server
-pip install -e .`}
-          />
+          <CodeBlock code="docker run -e BONITO_API_KEY=your-key -p 8080:8080 bonitoai/mcp-server" />
 
           <SubHeading title="Claude Desktop Configuration" />
           <Paragraph>
@@ -911,11 +903,7 @@ pip install -e .`}
             For Claude Cowork users, install the Bonito plugin to get slash commands and domain skills alongside MCP tools. The plugin adds commands like /bonito:deploy, /bonito:create-agent, /bonito:cost-report, and /bonito:test-gateway.
           </Paragraph>
           <Paragraph>
-            See the{" "}
-            <a href="https://github.com/ShabariRepo/bonito-cowork-plugin" target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">
-              Bonito Cowork Plugin on GitHub
-            </a>{" "}
-            for setup instructions.
+            Install via the Claude plugin marketplace or check the Bonito docs for setup instructions.
           </Paragraph>
 
           <Callout variant="tip">
