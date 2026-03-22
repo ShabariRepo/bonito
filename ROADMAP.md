@@ -1252,8 +1252,30 @@ module "bonito_gateway" {
 - [ ] Budget alerts and automatic throttling
 - [ ] Weekly digest emails via Resend
 
+### 🧠 Bonobot Conversational Memory (Persistent Recall)
+_Agents that remember across sessions -- auto-extract facts from conversations, auto-inject relevant memories into context._
+
+**Why:** KB retrieval (structured docs) scores 92%+ but conversational memory (recalling details from past chats) is weak. Enterprise customers need agents that learn from interactions over time -- support agents that remember past tickets, sales agents that recall deal context, onboarding agents that know what was already covered.
+
+**Current state:** `AgentMemoryService` exists with full pgvector search, but is disconnected from the execute loop. Memory only works via explicit API calls. The `/execute` endpoint never searches or stores memories.
+
+**Approach (safe, opt-in):**
+- [ ] Feature flag per agent: `persistent_memory: true` in agent config. Off by default. Existing agents untouched.
+- [ ] **Read path**: Before generating response, search `agent_memories` for relevant context. Inject top-K matches into system prompt alongside KB results.
+- [ ] **Write path**: After each conversation turn, extract key facts (lightweight, not full LLM extraction every time). Store with embeddings.
+- [ ] **Smarter chunking**: Chunk by topic/fact, not by session. A single conversation might produce 3-5 discrete memories.
+- [ ] **Decay/consolidation**: Importance scoring with access-based boosting. Memories that keep getting retrieved stay strong; unused ones decay.
+- [ ] **LOCOMO benchmark target**: 50%+ overall (from current 27%), 85%+ single-hop (from 74%).
+
+**LOCOMO Benchmark (baseline, 2026-03-22):**
+- Combined: 134/497 = 27.0% (3 samples, Llama 3.1 8B via Groq)
+- Single-hop: 74.2% | Multi-hop: 18.5% | Temporal: 50% | Open-domain: 18.6% | Adversarial: 9.8%
+- Note: String-matching eval is too strict. Semantic accuracy estimated ~35-45%.
+
+**Build plan:** ~1 week. Wire read/write into execute loop behind flag, add fact extraction prompt, test against NovaMart (regression) + LOCOMO (improvement).
+
 ### 🤖 Agent Framework (Phase 19+)
-- [ ] Agent registry — define AI agents with tool chains
+- [ ] Agent registry -- define AI agents with tool chains
 - [ ] Agent observability — trace multi-step agent runs
 - [ ] Agent cost attribution — who/what is spending
 - [ ] Multi-model agent pipelines (chain cheap→expensive for RAG patterns)

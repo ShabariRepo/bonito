@@ -4,6 +4,8 @@ Real Bonobot LOCOMO Benchmark
 
 Tests Bonobot's actual pgvector memory system against LOCOMO QA pairs.
 Creates a test agent, feeds conversations, queries with questions, scores answers.
+
+Uses JWT auth + correct API routes for Railway prod.
 """
 
 import json
@@ -14,31 +16,58 @@ from datetime import datetime
 from pathlib import Path
 from difflib import SequenceMatcher
 
-API_URL = "https://api.getbonito.com"
-API_KEY = "bn-2e01eec735aa106c01f70c702d18bf4d42e521b73725e63cc8ef421c67e95257"
-HEADERS = {
-    "X-API-Key": API_KEY,
-    "Content-Type": "application/json"
-}
+API_URL = "https://celebrated-contentment-production-0fc4.up.railway.app"
+LOGIN_EMAIL = "cat.shabari@gmail.com"
+LOGIN_PASSWORD = "Bonito2026!"
+PROJECT_ID = "212a46d8-7ce4-4c66-8ed4-bfa466418fa3"
 
 DATA_FILE = Path(__file__).parent / "locomo10.json"
 RESULTS_FILE = Path(__file__).parent / "bonobot_real_results.md"
 RESULTS_JSON = Path(__file__).parent / "bonobot_real_results.json"
 
 # Config
-SAMPLES_TO_TEST = [0, 1, 2]  # First 3 samples
+SAMPLES_TO_TEST = [0, 1, 2]  # All 3 samples
 DELAY_BETWEEN_CALLS = 0.8  # seconds
 FUZZY_THRESHOLD = 0.5  # SequenceMatcher ratio threshold
 
 
-def create_agent(name: str) -> str:
-    """Create a Bonobot agent and return its ID."""
-    resp = requests.post(f"{API_URL}/api/v1/agents", headers=HEADERS, json={
-        "name": name,
-        "description": f"LOCOMO benchmark test agent - {name}",
-        "system_prompt": "You are a memory recall assistant. When asked questions about past conversations, retrieve and provide accurate answers from your memory. Be concise and factual. If you remember the information, state it directly.",
-        "model": "groq/llama-3.1-8b-instant"
+def get_jwt() -> str:
+    """Login and return JWT access token."""
+    resp = requests.post(f"{API_URL}/api/auth/login", json={
+        "email": LOGIN_EMAIL,
+        "password": LOGIN_PASSWORD
     })
+    resp.raise_for_status()
+    token = resp.json().get("access_token")
+    if not token:
+        raise RuntimeError("No access_token in login response")
+    return token
+
+
+def get_headers(token: str) -> dict:
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+
+def create_agent(token: str, name: str) -> str:
+    """Create a Bonobot agent and return its ID."""
+    resp = requests.post(
+        f"{API_URL}/api/projects/{PROJECT_ID}/agents",
+        headers=get_headers(token),
+        json={
+            "name": name,
+            "description": f"LOCOMO benchmark test agent - {name}",
+            "system_prompt": (
+                "You are a memory recall assistant. When asked questions about "
+                "past conversations, retrieve and provide accurate answers from "
+                "your memory. Be concise and factual. If you remember the "
+                "information, state it directly."
+            ),
+            "model": "groq/llama-3.1-8b-instant"
+        }
+    )
     resp.raise_for_status()
     data = resp.json()
     agent_id = data.get("id") or data.get("agent_id")
@@ -46,33 +75,42 @@ def create_agent(name: str) -> str:
     return agent_id
 
 
-def delete_agent(agent_id: str):
+def delete_agent(token: str, agent_id: str):
     """Clean up test agent."""
     try:
-        requests.delete(f"{API_URL}/api/v1/agents/{agent_id}", headers=HEADERS)
+        requests.delete(
+            f"{API_URL}/api/agents/{agent_id}",
+            headers=get_headers(token)
+        )
     except Exception:
         pass
 
 
-def send_message(agent_id: str, message: str) -> str:
-    """Send a message to agent and get response."""
+def send_message(token: str, agent_id: str, message: str, session_id: str = None) -> tuple:
+    """Send a message to agent via /execute and get response.
+    Returns (response_text, session_id)."""
+    body = {"message": message}
+    if session_id:
+        body["session_id"] = session_id
     resp = requests.post(
-        f"{API_URL}/api/v1/agents/{agent_id}/conversations",
-        headers=HEADERS,
-        json={"message": message},
+        f"{API_URL}/api/agents/{agent_id}/execute",
+        headers=get_headers(token),
+        json=body,
         timeout=60
     )
     resp.raise_for_status()
     data = resp.json()
-    return data.get("response", data.get("message", str(data)))
+    text = data.get("content", data.get("response", data.get("message", str(data))))
+    sid = data.get("session_id", session_id)
+    return text, sid
 
 
-def feed_conversations(agent_id: str, conversation: dict):
-    """Feed LOCOMO conversation sessions into the agent's memory."""
+def feed_conversations(token: str, agent_id: str, conversation: dict) -> str:
+    """Feed LOCOMO conversation sessions into the agent's memory.
+    Returns the session_id used."""
     speaker_a = conversation.get("speaker_a", "Speaker A")
     speaker_b = conversation.get("speaker_b", "Speaker B")
 
-    # Find all session keys
     session_keys = sorted([
         k for k in conversation.keys()
         if k.startswith("session_") and "date" not in k
@@ -80,16 +118,16 @@ def feed_conversations(agent_id: str, conversation: dict):
 
     print(f"  Feeding {len(session_keys)} conversation sessions...")
 
+    session_id = None
+
     for i, session_key in enumerate(session_keys):
         session = conversation[session_key]
         if not isinstance(session, list):
             continue
 
-        # Get date if available
         date_key = f"{session_key}_date_time"
         date_str = conversation.get(date_key, f"Session {i+1}")
 
-        # Build conversation text
         lines = [f"[Conversation on {date_str}]"]
         for turn in session:
             speaker = turn.get("speaker", "Unknown")
@@ -98,9 +136,12 @@ def feed_conversations(agent_id: str, conversation: dict):
 
         msg = "\n".join(lines)
 
-        # Send as a memory-building message
         try:
-            send_message(agent_id, f"Please remember this conversation:\n\n{msg}")
+            _, session_id = send_message(
+                token, agent_id,
+                f"Please remember this conversation:\n\n{msg}",
+                session_id
+            )
             time.sleep(DELAY_BETWEEN_CALLS)
         except Exception as e:
             print(f"    Warning: Failed to send {session_key}: {e}")
@@ -110,30 +151,27 @@ def feed_conversations(agent_id: str, conversation: dict):
             print(f"    Fed {i+1}/{len(session_keys)} sessions")
 
     print(f"  Done feeding {len(session_keys)} sessions")
+    return session_id
 
 
 def check_answer(ground_truth: str, response: str) -> tuple:
     """Check if the response contains the ground truth answer.
     Returns (is_correct, match_type)."""
-    gt_lower = ground_truth.lower().strip()
-    resp_lower = response.lower().strip()
+    gt_lower = str(ground_truth).lower().strip()
+    resp_lower = str(response).lower().strip()
 
-    # Exact substring match
     if gt_lower in resp_lower:
         return True, "substring"
 
-    # Check key parts (split by comma, check each part)
     gt_parts = [p.strip() for p in gt_lower.split(",")]
     parts_found = sum(1 for p in gt_parts if p in resp_lower)
     if parts_found > 0 and parts_found >= len(gt_parts) * 0.5:
         return True, "partial"
 
-    # Fuzzy match
     ratio = SequenceMatcher(None, gt_lower, resp_lower).ratio()
     if ratio >= FUZZY_THRESHOLD:
         return True, f"fuzzy({ratio:.2f})"
 
-    # Check individual words from ground truth (for short answers)
     gt_words = set(gt_lower.split())
     resp_words = set(resp_lower.split())
     if len(gt_words) <= 3:
@@ -149,6 +187,11 @@ def run_benchmark():
     print("=" * 60)
     print("BONOBOT LOCOMO BENCHMARK (REAL API)")
     print("=" * 60)
+
+    # Auth
+    print("Authenticating...")
+    token = get_jwt()
+    print("  OK")
 
     # Load data
     with open(DATA_FILE) as f:
@@ -173,17 +216,15 @@ def run_benchmark():
         print(f"Sample {sample_idx}: {speaker_a} & {speaker_b} ({len(qa_list)} questions)")
         print(f"{'='*50}")
 
-        # Create agent
         agent_name = f"locomo-bench-s{sample_idx}-{int(time.time())}"
         try:
-            agent_id = create_agent(agent_name)
+            agent_id = create_agent(token, agent_name)
         except Exception as e:
             print(f"  ERROR creating agent: {e}")
             continue
 
         try:
-            # Feed conversations
-            feed_conversations(agent_id, conv)
+            session_id = feed_conversations(token, agent_id, conv)
             print(f"\n  Querying {len(qa_list)} questions...")
 
             sample_correct = 0
@@ -191,13 +232,14 @@ def run_benchmark():
 
             for q_idx, qa in enumerate(qa_list):
                 question = qa["question"]
-                ground_truth = qa["answer"]
+                ground_truth = qa.get("answer") or qa.get("adversarial_answer", "unknown")
                 category = qa.get("category", 0)
 
-                # Query the agent
                 start_time = time.time()
                 try:
-                    response = send_message(agent_id, question)
+                    response, session_id = send_message(
+                        token, agent_id, question, session_id
+                    )
                     elapsed = time.time() - start_time
                 except Exception as e:
                     response = f"ERROR: {e}"
@@ -206,7 +248,6 @@ def run_benchmark():
                 total_response_time += elapsed
                 time.sleep(DELAY_BETWEEN_CALLS)
 
-                # Score
                 is_correct, match_type = check_answer(ground_truth, response)
                 if is_correct:
                     sample_correct += 1
@@ -214,7 +255,6 @@ def run_benchmark():
 
                 total_questions += 1
 
-                # Track category stats
                 if category not in category_stats:
                     category_stats[category] = {"correct": 0, "total": 0}
                 category_stats[category]["total"] += 1
@@ -235,7 +275,6 @@ def run_benchmark():
                 sample_results.append(result)
                 all_results.append(result)
 
-                # Progress
                 if (q_idx + 1) % 10 == 0:
                     acc = sample_correct / (q_idx + 1) * 100
                     print(f"    [{q_idx+1}/{len(qa_list)}] Running accuracy: {acc:.1f}%")
@@ -249,14 +288,13 @@ def run_benchmark():
             sample_details.append({
                 "idx": sample_idx,
                 "speakers": f"{speaker_a} & {speaker_b}",
-                "results": sample_results[:10]  # First 10 for report
+                "results": sample_results[:10]
             })
 
             print(f"\n  Sample {sample_idx} accuracy: {sample_correct}/{len(qa_list)} = {sample_acc:.1f}%")
 
         finally:
-            # Clean up
-            delete_agent(agent_id)
+            delete_agent(token, agent_id)
             print(f"  Agent cleaned up")
 
     # Final report
@@ -272,7 +310,7 @@ def run_benchmark():
         s = category_stats[cat]
         print(f"  Cat {cat}: {s['correct']}/{s['total']} = {s['correct']/s['total']*100:.1f}%")
 
-    # Write results MD
+    # Write results
     cat_names = {1: "single-hop", 2: "multi-hop", 3: "temporal", 4: "open-domain", 5: "adversarial"}
 
     with open(RESULTS_FILE, "w") as f:
@@ -334,7 +372,6 @@ def run_benchmark():
         else:
             f.write("No failures.\n")
 
-    # Write JSON
     with open(RESULTS_JSON, "w") as f:
         json.dump({
             "date": datetime.now().isoformat(),
