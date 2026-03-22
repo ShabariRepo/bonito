@@ -189,6 +189,9 @@ export const LANGUAGE_NAMES: Record<string, string> = {
   ko: 'Korean',
   ru: 'Russian',
   hi: 'Hindi',
+  it: 'Italian',
+  fi: 'Finnish',
+  da: 'Danish',
 };
 
 export const LANGUAGE_FLAGS: Record<string, string> = {
@@ -202,6 +205,9 @@ export const LANGUAGE_FLAGS: Record<string, string> = {
   ko: '🇰🇷',
   ru: '🇷🇺',
   hi: '🇮🇳',
+  it: '🇮🇹',
+  fi: '🇫🇮',
+  da: '🇩🇰',
 };
 
 export function getBiasCategory(bias: number): string {

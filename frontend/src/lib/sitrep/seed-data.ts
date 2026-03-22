@@ -4,6 +4,7 @@ import { articlesPart2 } from './seed-data-part2';
 import { articlesPart3 } from './seed-data-part3';
 import { articlesPart4 } from './seed-data-part4';
 import { articlesPart5 } from './seed-data-part5';
+import { articlesPart6 } from './seed-data-part6';
 
 // Combine all seed data
 export const articles: Article[] = [
@@ -12,6 +13,7 @@ export const articles: Article[] = [
   ...articlesPart3,
   ...articlesPart4,
   ...articlesPart5,
+  ...articlesPart6,
 ];
 
 // Helper functions
