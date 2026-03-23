@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { geoEquirectangular } from 'd3-geo';
 import {
   ComposableMap,
   Geographies,
@@ -18,22 +19,31 @@ const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 // Countries with active conflicts
 const CONFLICT_COUNTRIES = ['UA', 'RU', 'IL', 'PS', 'YE', 'SD', 'MM', 'SY', 'IQ', 'LB', 'IR', 'AF'];
 const WAR_ZONE_COUNTRIES = ['US', 'IR', 'RU', 'UA'];
+const MAP_VIEWBOX = { width: 800, height: 600 };
 
 const MISSILE_ROUTES = [
   {
     id: 'us-ir',
-    from: [-98, 39] as [number, number],
-    to: [53, 32] as [number, number],
+    from: [-98, 38.5] as [number, number],
+    to: [54.3, 32.1] as [number, number],
     duration: 3.2,
     delay: 1,
   },
   {
     id: 'ru-ua',
-    from: [90, 60] as [number, number],
-    to: [31, 49] as [number, number],
+    from: [89.5, 59.5] as [number, number],
+    to: [31.2, 49.2] as [number, number],
     duration: 2.8,
     delay: 1.4,
   },
+] as const;
+
+const NAVAL_SHIPS = [
+  { coords: [56.0, 26.8] as [number, number], type: 'western', label: 'USN 5th Fleet' },
+  { coords: [56.3, 26.6] as [number, number], type: 'western', label: 'USN 5th Fleet' },
+  { coords: [55.8, 27.0] as [number, number], type: 'western', label: 'USN 5th Fleet' },
+  { coords: [57.0, 26.3] as [number, number], type: 'iranian', label: 'IRGC Navy' },
+  { coords: [56.8, 26.4] as [number, number], type: 'iranian', label: 'IRGC Navy' },
 ] as const;
 
 interface WorldMapProps {
@@ -116,29 +126,55 @@ export default function WorldMap({
     return marker.articles.some((a) => a.isBreaking);
   };
 
+  const projection = useMemo(
+    () =>
+      geoEquirectangular()
+        .scale(147)
+        .translate([MAP_VIEWBOX.width / 2, MAP_VIEWBOX.height / 2])
+        .center([0, 0]),
+    []
+  );
+
   const missileRoutes = useMemo(
     () =>
       MISSILE_ROUTES.map((route) => {
-        const dx = route.to[0] - route.from[0];
-        const dy = route.to[1] - route.from[1];
-        const arcLift = Math.max(10, Math.abs(dx) * 0.18);
-        const controlX = dx / 2;
-        const controlY = dy / 2 - arcLift;
-        const path = `M0,0 Q${controlX},${controlY} ${dx},${dy}`;
-        const heading = (Math.atan2(dy - controlY, dx - controlX) * 180) / Math.PI;
+        const start = projection(route.from);
+        const end = projection(route.to);
+        if (!start || !end) return null;
+
+        const dx = end[0] - start[0];
+        const dy = end[1] - start[1];
+        const arcLift = Math.max(90, Math.abs(dx) * 0.45);
+        const controlX = (start[0] + end[0]) / 2;
+        const controlY = Math.min(start[1], end[1]) - arcLift;
+        const path = `M${start[0]},${start[1]} Q${controlX},${controlY} ${end[0]},${end[1]}`;
+
+        const t = 0.96;
+        const tangentX = 2 * (1 - t) * (controlX - start[0]) + 2 * t * (end[0] - controlX);
+        const tangentY = 2 * (1 - t) * (controlY - start[1]) + 2 * t * (end[1] - controlY);
+        const heading = (Math.atan2(tangentY, tangentX) * 180) / Math.PI;
 
         return {
           ...route,
-          dx,
-          dy,
+          start,
+          end,
           controlX,
           controlY,
           path,
           heading,
         };
       }),
-    []
+    [projection]
   );
+
+  const ships = useMemo(
+    () =>
+      NAVAL_SHIPS.map((ship) => {
+        const point = projection(ship.coords);
+        return point ? { ...ship, point } : null;
+      }).filter(Boolean),
+    [projection]
+  ) as Array<(typeof NAVAL_SHIPS)[number] & { point: [number, number] }>;
 
   return (
     <div className="relative w-full h-full bg-[#0a0a0f] overflow-hidden">
@@ -171,12 +207,14 @@ export default function WorldMap({
         }}
       />
 
-      <ComposableMap
+	      <ComposableMap
         projection="geoEquirectangular"
         projectionConfig={{
           scale: 147,
           center: [0, 0],
         }}
+        width={MAP_VIEWBOX.width}
+        height={MAP_VIEWBOX.height}
         className="w-full h-full"
         style={{
           background: 'transparent',
@@ -297,129 +335,6 @@ export default function WorldMap({
             }
           </Geographies>
 
-          {/* Conflict Lines - Missile Trajectories */}
-          {isConflictFilter && (
-            <>
-              {missileRoutes.map((route) => (
-                <Marker key={route.id} coordinates={route.from}>
-                  <g>
-                    <path
-                      d={route.path}
-                      stroke="#22c55e"
-                      strokeWidth={2 / zoom}
-                      strokeDasharray={`${5 / zoom},${5 / zoom}`}
-                      strokeLinecap="round"
-                      fill="none"
-                      opacity={0.8}
-                    />
-                    <motion.g
-                      animate={{
-                        x: [0, route.controlX, route.dx],
-                        y: [0, route.controlY, route.dy],
-                      }}
-                      transition={{
-                        duration: route.duration,
-                        repeat: Infinity,
-                        ease: 'easeInOut',
-                        repeatDelay: route.delay,
-                      }}
-                    >
-                      <g transform={`rotate(${route.heading}) scale(${1 / zoom})`}>
-                        <path
-                          d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
-                          fill="#22c55e"
-                          stroke="#16a34a"
-                          strokeWidth={0.5}
-                        />
-                        <path
-                          d="M3,0 L6,0"
-                          stroke="#22c55e"
-                          strokeWidth={1.5}
-                        />
-                        <motion.path
-                          d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
-                          fill="#f59e0b"
-                          animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
-                          transition={{ duration: 0.3, repeat: Infinity }}
-                        />
-                      </g>
-                    </motion.g>
-                  </g>
-                </Marker>
-              ))}
-            </>
-          )}
-
-          {/* Naval Forces - Ship Icons in Strait of Hormuz */}
-          {[
-            // Western/US Navy forces (blue ships)
-            { coords: [56.0, 26.8], type: 'western', label: 'USN 5th Fleet' },
-            { coords: [56.3, 26.6], type: 'western', label: 'USN 5th Fleet' },
-            { coords: [55.8, 27.0], type: 'western', label: 'USN 5th Fleet' },
-            // Iranian forces (red ships)
-            { coords: [57.0, 26.3], type: 'iranian', label: 'IRGC Navy' },
-            { coords: [56.8, 26.4], type: 'iranian', label: 'IRGC Navy' },
-          ].map((ship, idx) => (
-            <Marker
-              key={`ship-${idx}`}
-              coordinates={ship.coords as [number, number]}
-            >
-              <motion.g
-                animate={{
-                  y: [0, -2, 0],
-                  x: [0, 1, 0],
-                }}
-                transition={{
-                  duration: 3 + idx * 0.5,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                onMouseEnter={() => setTooltip({
-                  content: ship.label,
-                  x: 0,
-                  y: 0,
-                })}
-                onMouseLeave={() => setTooltip(null)}
-              >
-                <g transform={`scale(${Math.max(0.65, Math.min(1.4, 1 / zoom))})`}>
-                  {/* Glow behind ship */}
-                  <ellipse
-                    cx={0}
-                    cy={0}
-                    rx={10}
-                    ry={6}
-                    fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
-                  />
-                  {/* Ship silhouette - destroyer profile ~24px wide */}
-                  <path
-                    d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
-                    fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
-                    stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
-                    strokeWidth={0.5}
-                    style={{
-                      filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
-                    }}
-                  />
-                  {/* Ship wake effect */}
-                  <ellipse
-                    cx={-14}
-                    cy={1}
-                    rx={5}
-                    ry={1.5}
-                    fill="rgba(255, 255, 255, 0.12)"
-                  />
-                  <ellipse
-                    cx={-18}
-                    cy={1}
-                    rx={3}
-                    ry={1}
-                    fill="rgba(255, 255, 255, 0.06)"
-                  />
-                </g>
-              </motion.g>
-            </Marker>
-          ))}
-
           {/* Article markers */}
           {markers.map((marker) => {
             const color = getMarkerColor(marker);
@@ -489,6 +404,114 @@ export default function WorldMap({
           })}
         </ZoomableGroup>
       </ComposableMap>
+
+      <svg
+        viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
+        className="absolute inset-0 h-full w-full pointer-events-none"
+        style={{
+          transform: `scale(${zoom})`,
+          transformOrigin: 'center center',
+        }}
+        aria-hidden="true"
+      >
+        {isConflictFilter &&
+          missileRoutes.map((route) => {
+            if (!route) return null;
+
+            return (
+              <g key={route.id}>
+                <path
+                  d={route.path}
+                  stroke="#22c55e"
+                  strokeWidth={2 / zoom}
+                  strokeDasharray={`${6 / zoom},${6 / zoom}`}
+                  strokeLinecap="round"
+                  fill="none"
+                  opacity={0.85}
+                  style={{ filter: 'drop-shadow(0 0 8px rgba(34,197,94,0.35))' }}
+                />
+                <motion.g
+                  animate={{
+                    offsetDistance: ['0%', '100%'],
+                  }}
+                  transition={{
+                    duration: route.duration,
+                    repeat: Infinity,
+                    ease: 'linear',
+                    repeatDelay: route.delay,
+                  }}
+                  style={{
+                    offsetPath: `path('${route.path}')`,
+                    offsetRotate: 'auto',
+                  }}
+                >
+                  <g transform={`scale(${1 / zoom})`}>
+                    <path
+                      d="M-5,0 L-2.5,-3.5 L2.5,-3.5 L4,0 L2.5,3.5 L-2.5,3.5 Z"
+                      fill="#22c55e"
+                      stroke="#16a34a"
+                      strokeWidth={0.6}
+                    />
+                    <path d="M4,0 L8,0" stroke="#22c55e" strokeWidth={1.7} />
+                    <motion.path
+                      d="M-5,0 L-9,-2.3 L-7.5,0 L-9,2.3 Z"
+                      fill="#f59e0b"
+                      animate={{ opacity: [1, 0.45, 1], scale: [1, 1.25, 1] }}
+                      transition={{ duration: 0.3, repeat: Infinity }}
+                    />
+                  </g>
+                </motion.g>
+              </g>
+            );
+          })}
+
+        {ships.map((ship, idx) => (
+          <motion.g
+            key={`ship-overlay-${idx}`}
+            animate={{
+              y: [0, -2.5 / zoom, 0],
+              x: [0, 1.5 / zoom, 0],
+            }}
+            transition={{
+              duration: 3 + idx * 0.5,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+            transform={`translate(${ship.point[0]}, ${ship.point[1]}) scale(${Math.max(0.55, Math.min(1.35, 1 / zoom))})`}
+          >
+            <ellipse
+              cx={0}
+              cy={0}
+              rx={10}
+              ry={6}
+              fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
+            />
+            <path
+              d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
+              fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
+              stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
+              strokeWidth={0.5}
+              style={{
+                filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
+              }}
+            />
+            <ellipse
+              cx={-14}
+              cy={1}
+              rx={5}
+              ry={1.5}
+              fill="rgba(255, 255, 255, 0.12)"
+            />
+            <ellipse
+              cx={-18}
+              cy={1}
+              rx={3}
+              ry={1}
+              fill="rgba(255, 255, 255, 0.06)"
+            />
+          </motion.g>
+        ))}
+      </svg>
 
       {/* Tooltip */}
       <AnimatePresence>
