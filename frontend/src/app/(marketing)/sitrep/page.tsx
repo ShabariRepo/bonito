@@ -139,7 +139,7 @@ export default function SitrepPage() {
 
       try {
         const projectsRes = await apiRequest('/api/projects');
-        if (projectsRes.status === 401) {
+        if (projectsRes.status === 401 || projectsRes.status === 403) {
           if (!cancelled) {
             setAgentsError('Sign in to view live Bonito agent telemetry.');
             setAgentsLoading(false);
