@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import Image from 'next/image';
 import { Special_Elite } from 'next/font/google';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
@@ -167,7 +166,7 @@ export default function SitrepPage() {
               <img
                 src="/sitrep-logo.png"
                 alt="SITREP"
-                className="h-12 w-auto object-contain"
+                className="h-20 w-auto object-contain"
               />
             </div>
             <div className="mx-auto w-full max-w-xl lg:mx-0 lg:flex-1 lg:max-w-2xl">
