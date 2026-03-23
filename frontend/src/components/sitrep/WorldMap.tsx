@@ -468,6 +468,27 @@ export default function WorldMap({
                     />
                   </g>
                 </motion.g>
+                <motion.g
+                  initial={{ opacity: 0, scale: 0.3, x: route.end[0], y: route.end[1] }}
+                  animate={{
+                    opacity: [0, 0, 0.95, 0.8, 0],
+                    scale: [0.3, 0.3, 1.1, 1.9, 2.4],
+                  }}
+                  transition={{
+                    duration: route.duration + route.delay,
+                    repeat: Infinity,
+                    ease: 'linear',
+                    times: [0, 0.78, 0.84, 0.9, 1],
+                  }}
+                >
+                  <circle r={5} fill="#fde047" />
+                  <circle r={10} fill="rgba(249, 115, 22, 0.55)" />
+                  <circle r={15} fill="rgba(239, 68, 68, 0.28)" />
+                  <path
+                    d="M0,-13 L3,-3 L13,0 L3,3 L0,13 L-3,3 L-13,0 L-3,-3 Z"
+                    fill="rgba(253, 224, 71, 0.95)"
+                  />
+                </motion.g>
               </g>
             );
           })}
@@ -490,61 +511,6 @@ export default function WorldMap({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Ship icons in Strait of Hormuz - zoom responsive */}
-      <svg
-        viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
-        className="absolute inset-0 h-full w-full pointer-events-none"
-        aria-hidden="true"
-      >
-        {isConflictFilter && (
-          <g transform={`scale(${zoom})`}>
-            {/* Ship 1 - near Strait of Hormuz */}
-            <motion.g
-              initial={{ x: 530, y: 240 }}
-              animate={{ x: [530, 540, 530] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <path
-                d="M-8,-3 L8,-3 L6,5 L-6,5 Z"
-                fill="#3b82f6"
-                stroke="#60a5fa"
-                strokeWidth={0.5}
-              />
-              <rect x={-2} y={-8} width={4} height={5} fill="#3b82f6" />
-              <rect x={-4} y={-6} width={8} height={2} fill="#60a5fa" />
-            </motion.g>
-            {/* Ship 2 */}
-            <motion.g
-              initial={{ x: 550, y: 235 }}
-              animate={{ x: [550, 545, 550] }}
-              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
-            >
-              <path
-                d="M-6,-2 L6,-2 L5,4 L-5,4 Z"
-                fill="#3b82f6"
-                stroke="#60a5fa"
-                strokeWidth={0.5}
-              />
-              <rect x={-1.5} y={-6} width={3} height={4} fill="#3b82f6" />
-            </motion.g>
-            {/* Ship 3 */}
-            <motion.g
-              initial={{ x: 520, y: 250 }}
-              animate={{ x: [520, 535, 520] }}
-              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-            >
-              <path
-                d="M-10,-4 L10,-4 L7,6 L-7,6 Z"
-                fill="#1e40af"
-                stroke="#3b82f6"
-                strokeWidth={0.5}
-              />
-              <rect x={-3} y={-10} width={6} height={6} fill="#1e40af" />
-            </motion.g>
-          </g>
-        )}
-      </svg>
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-[#0a0a0f]/90 backdrop-blur border border-[#2a2a3a] rounded-lg p-4">
