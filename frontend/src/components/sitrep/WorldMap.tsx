@@ -156,21 +156,27 @@ export default function WorldMap({
                 const isConflictCountry = CONFLICT_COUNTRIES.includes(countryCode);
                 
                 return (
-                  <motion.g 
-                    key={geo.rsmKey}
-                    animate={isConflictCountry ? {
-                      opacity: [0.4, 1.0, 0.4],
-                    } : undefined}
-                    transition={isConflictCountry ? {
-                      duration: 2,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    } : undefined}
-                  >
+                  <g key={geo.rsmKey}>
+                    {/* Glow border behind conflict countries */}
+                    {isConflictCountry && (
+                      <Geography
+                        geography={geo}
+                        fill="none"
+                        stroke="rgba(255, 68, 68, 0.35)"
+                        strokeWidth={6}
+                        style={{
+                          default: { outline: 'none', pointerEvents: 'none' },
+                          hover: { outline: 'none', pointerEvents: 'none' },
+                          pressed: { outline: 'none', pointerEvents: 'none' },
+                        }}
+                      />
+                    )}
                     <Geography
                       geography={geo}
                       fill={
-                        showHeatmap && sentiment !== undefined
+                        isConflictCountry
+                          ? 'rgba(255, 68, 68, 0.12)'
+                          : showHeatmap && sentiment !== undefined
                           ? sentiment < -0.3
                             ? 'rgba(239, 68, 68, 0.3)'
                             : sentiment > 0.3
@@ -182,8 +188,8 @@ export default function WorldMap({
                           ? 'rgba(6, 182, 212, 0.1)'
                           : '#1a1a24'
                       }
-                      stroke={isConflictCountry ? '#ef4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
-                      strokeWidth={isConflictCountry ? 1.5 : isSelected ? 1 : 0.5}
+                      stroke={isConflictCountry ? '#ff4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
+                      strokeWidth={isConflictCountry ? 2.5 : isSelected ? 1 : 0.5}
                       style={{
                         default: {
                           outline: 'none',
@@ -217,7 +223,7 @@ export default function WorldMap({
                       }}
                       onMouseLeave={() => setTooltip(null)}
                     />
-                  </motion.g>
+                  </g>
                 );
               })
             }
@@ -254,23 +260,38 @@ export default function WorldMap({
                 })}
                 onMouseLeave={() => setTooltip(null)}
               >
-                {/* Ship SVG - Simple triangle pointing northeast */}
-                <polygon
-                  points="0,-4 6,2 -6,2"
+                {/* Glow behind ship */}
+                <ellipse
+                  cx={0}
+                  cy={0}
+                  rx={10}
+                  ry={6}
+                  fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
+                />
+                {/* Ship silhouette - destroyer profile ~24px wide */}
+                <path
+                  d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
                   fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
-                  stroke="#0a0a0f"
-                  strokeWidth={1}
+                  stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
+                  strokeWidth={0.5}
                   style={{
-                    filter: `drop-shadow(0 0 3px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
+                    filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
                   }}
                 />
                 {/* Ship wake effect */}
                 <ellipse
-                  cx={0}
-                  cy={4}
+                  cx={-14}
+                  cy={1}
+                  rx={5}
+                  ry={1.5}
+                  fill="rgba(255, 255, 255, 0.12)"
+                />
+                <ellipse
+                  cx={-18}
+                  cy={1}
                   rx={3}
                   ry={1}
-                  fill="rgba(255, 255, 255, 0.1)"
+                  fill="rgba(255, 255, 255, 0.06)"
                 />
               </motion.g>
             </Marker>
@@ -402,19 +423,23 @@ export default function WorldMap({
                 <span className="text-xs text-gray-300">{label}</span>
               </div>
             ))}
-            <div className="mt-2 pt-2 border-t border-[#2a2a3a]">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Naval Forces</div>
+            <div className="mt-2 pt-2 border-t border-[#2a2a3a] space-y-1">
               <div className="flex items-center gap-2">
-                <svg width="12" height="8" className="flex-shrink-0">
-                  <polygon points="0,4 6,0 6,8" fill="#3b82f6" />
+                <div className="w-3 h-3 rounded-sm border-2 border-[#ff4444] bg-[rgba(255,68,68,0.12)]" />
+                <span className="text-xs text-gray-300">War Zone</span>
+              </div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-1 mb-0.5">Naval Forces</div>
+              <div className="flex items-center gap-2">
+                <svg width="16" height="10" viewBox="-12 -7 24 10" className="flex-shrink-0">
+                  <path d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z" fill="#3b82f6" />
                 </svg>
-                <span className="text-xs text-gray-300">Western</span>
+                <span className="text-xs text-gray-300">Western Naval</span>
               </div>
               <div className="flex items-center gap-2">
-                <svg width="12" height="8" className="flex-shrink-0">
-                  <polygon points="0,4 6,0 6,8" fill="#ef4444" />
+                <svg width="16" height="10" viewBox="-12 -7 24 10" className="flex-shrink-0">
+                  <path d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z" fill="#ef4444" />
                 </svg>
-                <span className="text-xs text-gray-300">Iranian</span>
+                <span className="text-xs text-gray-300">Iranian Naval</span>
               </div>
             </div>
           </div>
