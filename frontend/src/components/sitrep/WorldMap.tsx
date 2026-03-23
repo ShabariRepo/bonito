@@ -7,7 +7,6 @@ import {
   Geography,
   Marker,
   ZoomableGroup,
-  Line,
 } from 'react-simple-maps';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Article, NewsCategory, CATEGORY_COLORS } from '@/lib/sitrep/types';
@@ -18,6 +17,24 @@ const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 // Countries with active conflicts
 const CONFLICT_COUNTRIES = ['UA', 'RU', 'IL', 'PS', 'YE', 'SD', 'MM', 'SY', 'IQ', 'LB', 'IR', 'AF'];
+const WAR_ZONE_COUNTRIES = ['US', 'IR', 'RU', 'UA'];
+
+const MISSILE_ROUTES = [
+  {
+    id: 'us-ir',
+    from: [-98, 39] as [number, number],
+    to: [53, 32] as [number, number],
+    duration: 3.2,
+    delay: 1,
+  },
+  {
+    id: 'ru-ua',
+    from: [90, 60] as [number, number],
+    to: [31, 49] as [number, number],
+    duration: 2.8,
+    delay: 1.4,
+  },
+] as const;
 
 interface WorldMapProps {
   articles: Article[];
@@ -99,6 +116,30 @@ export default function WorldMap({
     return marker.articles.some((a) => a.isBreaking);
   };
 
+  const missileRoutes = useMemo(
+    () =>
+      MISSILE_ROUTES.map((route) => {
+        const dx = route.to[0] - route.from[0];
+        const dy = route.to[1] - route.from[1];
+        const arcLift = Math.max(10, Math.abs(dx) * 0.18);
+        const controlX = dx / 2;
+        const controlY = dy / 2 - arcLift;
+        const path = `M0,0 Q${controlX},${controlY} ${dx},${dy}`;
+        const heading = (Math.atan2(dy - controlY, dx - controlX) * 180) / Math.PI;
+
+        return {
+          ...route,
+          dx,
+          dy,
+          controlX,
+          controlY,
+          path,
+          heading,
+        };
+      }),
+    []
+  );
+
   return (
     <div className="relative w-full h-full bg-[#0a0a0f] overflow-hidden">
       {/* Grid overlay effect */}
@@ -158,10 +199,7 @@ export default function WorldMap({
                 const hasArticles = markers.some((m) => m.countryCode === countryCode);
                 const sentiment = sentimentData.get(countryCode);
                 const isConflictCountry = CONFLICT_COUNTRIES.includes(countryCode);
-                
-                // Conflict mode highlighting
-                const isWarZoneBlue = isConflictFilter && (countryCode === 'US' || countryCode === 'UA');
-                const isWarZoneRed = isConflictFilter && (countryCode === 'RU' || countryCode === 'IR');
+                const isWarZoneCountry = isConflictFilter && WAR_ZONE_COUNTRIES.includes(countryCode);
                 
                 return (
                   <g key={geo.rsmKey}>
@@ -179,38 +217,18 @@ export default function WorldMap({
                         }}
                       />
                     )}
-                    {/* War zone blue border (USA & Ukraine) - pulsing */}
-                    {isWarZoneBlue && (
+                    {/* War zone red border (USA, Iran, Russia, Ukraine) - pulsing */}
+                    {isWarZoneCountry && (
                       <motion.g
                         initial={{ opacity: 0.5 }}
                         animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      >
-                        <Geography
-                          geography={geo}
-                          fill="none"
-                          stroke="#60a5fa"
-                          strokeWidth={3 / zoom}
-                          style={{
-                            default: { outline: 'none', pointerEvents: 'none' },
-                            hover: { outline: 'none', pointerEvents: 'none' },
-                            pressed: { outline: 'none', pointerEvents: 'none' },
-                          }}
-                        />
-                      </motion.g>
-                    )}
-                    {/* War zone red border (Russia & Iran) - pulsing */}
-                    {isWarZoneRed && (
-                      <motion.g
-                        initial={{ opacity: 0.5 }}
-                        animate={{ opacity: [0.5, 1, 0.5] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.25 }}
                       >
                         <Geography
                           geography={geo}
                           fill="none"
                           stroke="#f87171"
-                          strokeWidth={3 / zoom}
+                          strokeWidth={3.2 / zoom}
                           style={{
                             default: { outline: 'none', pointerEvents: 'none' },
                             hover: { outline: 'none', pointerEvents: 'none' },
@@ -222,7 +240,9 @@ export default function WorldMap({
                     <Geography
                       geography={geo}
                       fill={
-                        isConflictCountry
+                        isWarZoneCountry
+                          ? 'rgba(248, 113, 113, 0.16)'
+                          : isConflictCountry
                           ? 'rgba(255, 68, 68, 0.12)'
                           : showHeatmap && sentiment !== undefined
                           ? sentiment < -0.3
@@ -236,8 +256,8 @@ export default function WorldMap({
                           ? 'rgba(6, 182, 212, 0.1)'
                           : '#1a1a24'
                       }
-                      stroke={isWarZoneBlue ? '#60a5fa' : isWarZoneRed ? '#f87171' : isConflictCountry ? '#ff4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
-                      strokeWidth={isWarZoneBlue || isWarZoneRed ? 3 : isConflictCountry ? 2.5 : isSelected ? 1 : 0.5}
+                      stroke={isWarZoneCountry ? '#f87171' : isConflictCountry ? '#ff4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
+                      strokeWidth={isWarZoneCountry ? 2.8 / zoom : isConflictCountry ? 2.5 : isSelected ? 1 : 0.5}
                       style={{
                         default: {
                           outline: 'none',
@@ -280,93 +300,53 @@ export default function WorldMap({
           {/* Conflict Lines - Missile Trajectories */}
           {isConflictFilter && (
             <>
-              {/* USA to Iran missile line */}
-              <Marker coordinates={[-98, 39]}>
-                <g>
-                  {/* Dashed line from USA to Iran */}
-                  <path
-                    d="M0,0 L151,-7"
-                    stroke="#22c55e"
-                    strokeWidth={2 / zoom}
-                    strokeDasharray="5,5"
-                    fill="none"
-                    opacity={0.8}
-                  />
-                  {/* Rocket icon at midpoint */}
-                  <motion.g
-                    initial={{ x: 0, y: 0 }}
-                    animate={{ x: [0, 75.5], y: [0, -3.5] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
-                  >
-                    <g transform={`rotate(${Math.atan2(-3.5, 75.5) * 180 / Math.PI})`}>
-                      {/* Rocket body */}
-                      <path
-                        d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
-                        fill="#22c55e"
-                        stroke="#16a34a"
-                        strokeWidth={0.5}
-                      />
-                      {/* Rocket tip */}
-                      <path
-                        d="M3,0 L6,0"
-                        stroke="#22c55e"
-                        strokeWidth={1.5}
-                      />
-                      {/* Flame */}
-                      <motion.path
-                        d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
-                        fill="#f59e0b"
-                        animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
-                        transition={{ duration: 0.3, repeat: Infinity }}
-                      />
-                    </g>
-                  </motion.g>
-                </g>
-              </Marker>
-
-              {/* Russia to Ukraine missile line */}
-              <Marker coordinates={[90, 60]}>
-                <g>
-                  {/* Dashed line from Russia to Ukraine */}
-                  <path
-                    d="M0,0 L-59,-11"
-                    stroke="#22c55e"
-                    strokeWidth={2 / zoom}
-                    strokeDasharray="5,5"
-                    fill="none"
-                    opacity={0.8}
-                  />
-                  {/* Rocket icon at midpoint */}
-                  <motion.g
-                    initial={{ x: 0, y: 0 }}
-                    animate={{ x: [0, -29.5], y: [0, -5.5] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
-                  >
-                    <g transform={`rotate(${Math.atan2(-5.5, -29.5) * 180 / Math.PI})`}>
-                      {/* Rocket body */}
-                      <path
-                        d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
-                        fill="#22c55e"
-                        stroke="#16a34a"
-                        strokeWidth={0.5}
-                      />
-                      {/* Rocket tip */}
-                      <path
-                        d="M3,0 L6,0"
-                        stroke="#22c55e"
-                        strokeWidth={1.5}
-                      />
-                      {/* Flame */}
-                      <motion.path
-                        d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
-                        fill="#f59e0b"
-                        animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
-                        transition={{ duration: 0.3, repeat: Infinity }}
-                      />
-                    </g>
-                  </motion.g>
-                </g>
-              </Marker>
+              {missileRoutes.map((route) => (
+                <Marker key={route.id} coordinates={route.from}>
+                  <g>
+                    <path
+                      d={route.path}
+                      stroke="#22c55e"
+                      strokeWidth={2 / zoom}
+                      strokeDasharray={`${5 / zoom},${5 / zoom}`}
+                      strokeLinecap="round"
+                      fill="none"
+                      opacity={0.8}
+                    />
+                    <motion.g
+                      animate={{
+                        x: [0, route.controlX, route.dx],
+                        y: [0, route.controlY, route.dy],
+                      }}
+                      transition={{
+                        duration: route.duration,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        repeatDelay: route.delay,
+                      }}
+                    >
+                      <g transform={`rotate(${route.heading}) scale(${1 / zoom})`}>
+                        <path
+                          d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
+                          fill="#22c55e"
+                          stroke="#16a34a"
+                          strokeWidth={0.5}
+                        />
+                        <path
+                          d="M3,0 L6,0"
+                          stroke="#22c55e"
+                          strokeWidth={1.5}
+                        />
+                        <motion.path
+                          d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
+                          fill="#f59e0b"
+                          animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.3, repeat: Infinity }}
+                        />
+                      </g>
+                    </motion.g>
+                  </g>
+                </Marker>
+              ))}
             </>
           )}
 
@@ -394,10 +374,6 @@ export default function WorldMap({
                   repeat: Infinity,
                   ease: 'easeInOut',
                 }}
-                style={{
-                  transform: `scale(${Math.max(0.5, Math.min(1.5, 1 / zoom))})`,
-                  transformOrigin: 'center',
-                }}
                 onMouseEnter={() => setTooltip({
                   content: ship.label,
                   x: 0,
@@ -405,39 +381,41 @@ export default function WorldMap({
                 })}
                 onMouseLeave={() => setTooltip(null)}
               >
-                {/* Glow behind ship */}
-                <ellipse
-                  cx={0}
-                  cy={0}
-                  rx={10}
-                  ry={6}
-                  fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
-                />
-                {/* Ship silhouette - destroyer profile ~24px wide */}
-                <path
-                  d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
-                  fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
-                  stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
-                  strokeWidth={0.5}
-                  style={{
-                    filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
-                  }}
-                />
-                {/* Ship wake effect */}
-                <ellipse
-                  cx={-14}
-                  cy={1}
-                  rx={5}
-                  ry={1.5}
-                  fill="rgba(255, 255, 255, 0.12)"
-                />
-                <ellipse
-                  cx={-18}
-                  cy={1}
-                  rx={3}
-                  ry={1}
-                  fill="rgba(255, 255, 255, 0.06)"
-                />
+                <g transform={`scale(${Math.max(0.65, Math.min(1.4, 1 / zoom))})`}>
+                  {/* Glow behind ship */}
+                  <ellipse
+                    cx={0}
+                    cy={0}
+                    rx={10}
+                    ry={6}
+                    fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
+                  />
+                  {/* Ship silhouette - destroyer profile ~24px wide */}
+                  <path
+                    d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
+                    fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
+                    stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
+                    strokeWidth={0.5}
+                    style={{
+                      filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
+                    }}
+                  />
+                  {/* Ship wake effect */}
+                  <ellipse
+                    cx={-14}
+                    cy={1}
+                    rx={5}
+                    ry={1.5}
+                    fill="rgba(255, 255, 255, 0.12)"
+                  />
+                  <ellipse
+                    cx={-18}
+                    cy={1}
+                    rx={3}
+                    ry={1}
+                    fill="rgba(255, 255, 255, 0.06)"
+                  />
+                </g>
               </motion.g>
             </Marker>
           ))}

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { Special_Elite } from 'next/font/google';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import {
-  Shield,
   Map,
   FileText,
   Scale,
@@ -101,22 +101,21 @@ export default function SitrepPage() {
       {/* Header */}
       <header className="border-b border-[#2a2a3a] bg-[#0a0a0f]/95 backdrop-blur sticky top-0 z-40">
         <div className="max-w-[1800px] mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col items-center gap-3">
             {/* Logo */}
-            <div className="flex items-center gap-3">
-              <Shield className="w-6 h-6 text-cyan-400" />
-              <div>
-                <h1 className="text-lg font-bold tracking-wider font-mono text-white">
-                  SITREP
-                </h1>
-                <p className="text-[10px] text-gray-500 font-mono tracking-widest">
-                  GLOBAL SITUATION ROOM
-                </p>
-              </div>
+            <div className="flex justify-center w-full">
+              <Image
+                src="/sitrep/logo.png"
+                alt="SITREP"
+                width={838}
+                height={302}
+                priority
+                className="h-auto w-full max-w-[420px] object-contain"
+              />
             </div>
 
             {/* Stats */}
-            <div className="hidden md:flex items-center gap-4 text-xs font-mono text-gray-500">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-mono text-gray-500">
               <span>
                 <span className="text-cyan-400">{filteredArticles.length}</span> /{' '}
                 {articles.length} ARTICLES
@@ -136,9 +135,21 @@ export default function SitrepPage() {
             </div>
           </div>
 
-          {/* Bias slider */}
-          <div className="mt-3 max-w-xl">
-            <BiasSlider value={biasValue} onChange={setBiasValue} />
+          {/* Bias slider + search */}
+          <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-center">
+            <div className="w-full lg:max-w-xl">
+              <BiasSlider value={biasValue} onChange={setBiasValue} />
+            </div>
+            <div className="relative lg:w-72 lg:shrink-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search articles, sources, countries..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[#2a2a3a] bg-[#111118] pl-8 pr-3 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -316,17 +327,6 @@ export default function SitrepPage() {
               <Thermometer className="w-4 h-4" />
               Heatmap
             </button>
-            {/* Search - inline with controls */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-44 pl-8 pr-3 py-2 bg-[#111118] border border-[#2a2a3a] rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
-              />
-            </div>
           </div>
 
           <div className="flex items-center gap-3">
