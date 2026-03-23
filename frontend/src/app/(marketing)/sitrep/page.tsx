@@ -286,13 +286,10 @@ export default function SitrepPage() {
           {/* Bias slider */}
           <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-center">
             <div className="flex justify-center lg:justify-start lg:w-[320px] lg:flex-none">
-              <Image
-                src="/sitrep/logo.png"
+              <img
+                src="/sitrep-logo.png"
                 alt="SITREP"
-                width={838}
-                height={302}
-                priority
-                className="h-auto w-full max-w-[280px] object-contain"
+                className="h-12 w-auto object-contain"
               />
             </div>
             <div className="mx-auto w-full max-w-xl lg:mx-0 lg:flex-1 lg:max-w-2xl">
@@ -319,20 +316,6 @@ export default function SitrepPage() {
 
           {/* Sidebar */}
           <div className="w-full lg:h-full lg:w-[420px] border-l border-[#2a2a3a] bg-[#0a0a0f] flex flex-col overflow-hidden">
-            {/* Search */}
-            <div className="p-3 border-b border-[#2a2a3a]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search articles, sources, countries..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-lg border border-[#2a2a3a] bg-[#111118] pl-9 pr-3 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
-                />
-              </div>
-            </div>
-
             {/* Category filters */}
             <div className="p-3 border-b border-[#2a2a3a]">
               <div className="flex items-center gap-2 mb-2">
@@ -613,6 +596,17 @@ export default function SitrepPage() {
               <Thermometer className="w-4 h-4" />
               Heatmap
             </button>
+            <div className="h-6 w-px bg-[#2a2a3a] mx-1" />
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-48 rounded-lg border border-[#2a2a3a] bg-[#111118] pl-9 pr-3 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

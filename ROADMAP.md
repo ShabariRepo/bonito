@@ -759,7 +759,7 @@ This is what makes Bonito unique. Example scenario:
 ### 🖥️ CLI Finalization
 - [x] Core commands: auth, providers, models, deployments, chat, gateway, policies, analytics
 - [x] All CLI field mappings tested + fixed against prod (9 bugs, commit 75f7a86)
-- [ ] Publish to PyPI as `bonito-cli` (name available)
+- [x] Publish to PyPI as `bonito-cli` (v0.5.1 live)
 - [ ] `bonito doctor` command — diagnose connectivity, auth, provider health
 - [ ] Shell completions (bash/zsh/fish) via `bonito completion install`
 - [ ] `--quiet` flag for CI/CD automation
@@ -1311,7 +1311,7 @@ _Agents that remember across sessions -- auto-extract facts from conversations, 
 - [ ] Vault client cache TTL (currently no expiry — stale reads possible)
 - [ ] GCP model aliasing (friendly names for Vertex AI models)
 - [ ] CLI `plan show` endpoint (subscription info via API)
-- [ ] CLI merge `feature/bonito-cli` branch → `main`
+- [x] CLI merge `feature/bonito-cli` branch → `main`
 - [ ] Azure deployment auto-creation on provider connect (skip manual step)
 
 ## Long-Term (3-6 months)

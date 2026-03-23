@@ -24,15 +24,15 @@ const MAP_VIEWBOX = { width: 800, height: 600 };
 const MISSILE_ROUTES = [
   {
     id: 'us-ir',
-    from: [-98, 38.5] as [number, number],
-    to: [54.3, 32.1] as [number, number],
+    from: [-98, 39] as [number, number],
+    to: [53, 32] as [number, number],
     duration: 3.2,
     delay: 1,
   },
   {
     id: 'ru-ua',
-    from: [89.5, 59.5] as [number, number],
-    to: [31.2, 49.2] as [number, number],
+    from: [90, 60] as [number, number],
+    to: [31, 49] as [number, number],
     duration: 2.8,
     delay: 1.4,
   },
@@ -155,17 +155,21 @@ export default function WorldMap({
       const end = projection(route.to);
       if (!start || !end) return null;
 
-      const arcLift = Math.max(90, Math.abs(end[0] - start[0]) * 0.45);
-      const control: [number, number] = [
-        (start[0] + end[0]) / 2,
-        Math.min(start[1], end[1]) - arcLift,
-      ];
+      // Calculate ballistic arc control point - arc upward (negative Y in SVG)
+      const midX = (start[0] + end[0]) / 2;
+      const midY = (start[1] + end[1]) / 2;
+      // Arc height depends on distance - longer distance = higher arc
+      const distance = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
+      const arcHeight = distance * 0.35; // Arc peaks at 35% of the distance
+      const control: [number, number] = [midX, midY - arcHeight];
+      
       const path = `M${start[0]},${start[1]} Q${control[0]},${control[1]} ${end[0]},${end[1]}`;
 
-      const sampleSteps = Array.from({ length: 25 }, (_, index) => index / 24);
+      // Generate rocket frames along the full path (0 to 1)
+      const sampleSteps = Array.from({ length: 51 }, (_, index) => index / 50);
       const rocketFrames = sampleSteps.map((step) => {
         const [x, y] = getQuadraticPoint(start as [number, number], control, end as [number, number], step);
-        const angle = getQuadraticAngle(start as [number, number], control, end as [number, number], Math.min(step + 0.015, 1));
+        const angle = getQuadraticAngle(start as [number, number], control, end as [number, number], Math.min(step + 0.01, 1));
         return { x, y, angle };
       });
 
@@ -251,18 +255,18 @@ export default function WorldMap({
                         }}
                       />
                     )}
-                    {/* War zone red border (USA, Iran, Russia, Ukraine) - pulsing */}
+                    {/* War zone border highlights - pulsing with specific colors */}
                     {isWarZoneCountry && (
                       <motion.g
                         initial={{ opacity: 0.5 }}
-                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        animate={{ opacity: [0.5, 1.0, 0.5] }}
                         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.25 }}
                       >
                         <Geography
                           geography={geo}
                           fill="none"
-                          stroke="#f87171"
-                          strokeWidth={3.2 / zoom}
+                          stroke={countryCode === 'US' || countryCode === 'UA' ? '#60a5fa' : '#f87171'}
+                          strokeWidth={3}
                           style={{
                             default: { outline: 'none', pointerEvents: 'none' },
                             hover: { outline: 'none', pointerEvents: 'none' },
@@ -410,6 +414,11 @@ export default function WorldMap({
           missileRoutes.map((route) => {
             if (!route) return null;
 
+            // Create keyframes for the full animation path
+            const keyframes = route.rocketFrames.map(
+              (frame) => ({ x: frame.x, y: frame.y, rotate: frame.angle })
+            );
+
             return (
               <g key={route.id}>
                 <path
@@ -423,16 +432,18 @@ export default function WorldMap({
                   style={{ filter: 'drop-shadow(0 0 8px rgba(34,197,94,0.35))' }}
                 />
                 <motion.g
+                  initial={{ x: route.start[0], y: route.start[1], rotate: 0 }}
                   animate={{
-                    transform: route.rocketFrames.map(
-                      (frame) => `translate(${frame.x}px, ${frame.y}px) rotate(${frame.angle}deg)`
-                    ),
+                    x: keyframes.map(k => k.x),
+                    y: keyframes.map(k => k.y),
+                    rotate: keyframes.map(k => k.rotate),
                   }}
                   transition={{
                     duration: route.duration,
                     repeat: Infinity,
                     ease: 'linear',
                     repeatDelay: route.delay,
+                    times: keyframes.map((_, i) => i / (keyframes.length - 1)),
                   }}
                 >
                   <g style={{ filter: 'drop-shadow(0 0 10px rgba(34,197,94,0.6))' }}>
@@ -479,6 +490,61 @@ export default function WorldMap({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Ship icons in Strait of Hormuz - zoom responsive */}
+      <svg
+        viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
+        className="absolute inset-0 h-full w-full pointer-events-none"
+        aria-hidden="true"
+      >
+        {isConflictFilter && (
+          <g transform={`scale(${zoom})`}>
+            {/* Ship 1 - near Strait of Hormuz */}
+            <motion.g
+              initial={{ x: 530, y: 240 }}
+              animate={{ x: [530, 540, 530] }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <path
+                d="M-8,-3 L8,-3 L6,5 L-6,5 Z"
+                fill="#3b82f6"
+                stroke="#60a5fa"
+                strokeWidth={0.5}
+              />
+              <rect x={-2} y={-8} width={4} height={5} fill="#3b82f6" />
+              <rect x={-4} y={-6} width={8} height={2} fill="#60a5fa" />
+            </motion.g>
+            {/* Ship 2 */}
+            <motion.g
+              initial={{ x: 550, y: 235 }}
+              animate={{ x: [550, 545, 550] }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+            >
+              <path
+                d="M-6,-2 L6,-2 L5,4 L-5,4 Z"
+                fill="#3b82f6"
+                stroke="#60a5fa"
+                strokeWidth={0.5}
+              />
+              <rect x={-1.5} y={-6} width={3} height={4} fill="#3b82f6" />
+            </motion.g>
+            {/* Ship 3 */}
+            <motion.g
+              initial={{ x: 520, y: 250 }}
+              animate={{ x: [520, 535, 520] }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+            >
+              <path
+                d="M-10,-4 L10,-4 L7,6 L-7,6 Z"
+                fill="#1e40af"
+                stroke="#3b82f6"
+                strokeWidth={0.5}
+              />
+              <rect x={-3} y={-10} width={6} height={6} fill="#1e40af" />
+            </motion.g>
+          </g>
+        )}
+      </svg>
 
       {/* Legend */}
       <div className="absolute bottom-4 left-4 bg-[#0a0a0f]/90 backdrop-blur border border-[#2a2a3a] rounded-lg p-4">
