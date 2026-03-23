@@ -424,9 +424,9 @@ export default function WorldMap({
                 />
                 <motion.g
                   animate={{
-                    x: route.rocketFrames.map((frame) => frame.x),
-                    y: route.rocketFrames.map((frame) => frame.y),
-                    rotate: route.rocketFrames.map((frame) => frame.angle),
+                    transform: route.rocketFrames.map(
+                      (frame) => `translate(${frame.x}px, ${frame.y}px) rotate(${frame.angle}deg)`
+                    ),
                   }}
                   transition={{
                     duration: route.duration,
@@ -435,19 +435,27 @@ export default function WorldMap({
                     repeatDelay: route.delay,
                   }}
                 >
-                  <path
-                    d="M-5,0 L-2.5,-3.5 L2.5,-3.5 L4,0 L2.5,3.5 L-2.5,3.5 Z"
-                    fill="#22c55e"
-                    stroke="#16a34a"
-                    strokeWidth={0.6}
-                  />
-                  <path d="M4,0 L8,0" stroke="#22c55e" strokeWidth={1.7} />
-                  <motion.path
-                    d="M-5,0 L-9,-2.3 L-7.5,0 L-9,2.3 Z"
-                    fill="#f59e0b"
-                    animate={{ opacity: [1, 0.45, 1], scale: [1, 1.25, 1] }}
-                    transition={{ duration: 0.3, repeat: Infinity }}
-                  />
+                  <g style={{ filter: 'drop-shadow(0 0 10px rgba(34,197,94,0.6))' }}>
+                    <path
+                      d="M-7,0 L-3.5,-4.2 L3.5,-4.2 L6,0 L3.5,4.2 L-3.5,4.2 Z"
+                      fill="#22c55e"
+                      stroke="#14532d"
+                      strokeWidth={0.8}
+                    />
+                    <path
+                      d="M6,0 L11,0"
+                      stroke="#86efac"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                    />
+                    <circle cx={-1.5} cy={0} r={1.2} fill="#d9f99d" opacity={0.9} />
+                    <motion.path
+                      d="M-7,0 L-12,-3 L-10,0 L-12,3 Z"
+                      fill="#f59e0b"
+                      animate={{ opacity: [1, 0.35, 1] }}
+                      transition={{ duration: 0.25, repeat: Infinity }}
+                    />
+                  </g>
                 </motion.g>
               </g>
             );
