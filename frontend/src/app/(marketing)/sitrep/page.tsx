@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { Special_Elite } from 'next/font/google';
 import dynamic from 'next/dynamic';
@@ -17,6 +17,7 @@ import {
   BrainCircuit,
   ServerCog,
   ShieldCheck,
+  Loader2,
   ExternalLink,
 } from 'lucide-react';
 
@@ -33,6 +34,7 @@ import ArticleCard from '@/components/sitrep/ArticleCard';
 import BiasSlider from '@/components/sitrep/BiasSlider';
 import BriefingModal from '@/components/sitrep/BriefingModal';
 import ComparisonModal from '@/components/sitrep/ComparisonModal';
+import { apiRequest } from '@/lib/auth';
 
 // Dynamic import for map (SSR breaks react-simple-maps)
 const WorldMap = dynamic(() => import('@/components/sitrep/WorldMap'), {
@@ -47,6 +49,29 @@ const WorldMap = dynamic(() => import('@/components/sitrep/WorldMap'), {
 });
 
 export default function SitrepPage() {
+  interface BonitoProject {
+    id: string;
+    name: string;
+    description: string | null;
+    status: string;
+    settings: Record<string, unknown>;
+    agent_count?: number | null;
+  }
+
+  interface BonitoAgent {
+    id: string;
+    name: string;
+    description: string | null;
+    status: string;
+    model_id: string;
+    knowledge_base_ids: string[];
+    total_runs: number;
+    total_tokens: number;
+    total_cost: string | number;
+    last_active_at: string | null;
+    updated_at: string;
+  }
+
   // State
   const [biasValue, setBiasValue] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<NewsCategory | 'all'>('all');
@@ -56,6 +81,10 @@ export default function SitrepPage() {
   const [selectedArticles, setSelectedArticles] = useState<string[]>([]);
   const [briefingOpen, setBriefingOpen] = useState(false);
   const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [sitrepProject, setSitrepProject] = useState<BonitoProject | null>(null);
+  const [sitrepAgents, setSitrepAgents] = useState<BonitoAgent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
 
   // Filtered articles
   const filteredArticles = useMemo(() => {
@@ -101,6 +130,75 @@ export default function SitrepPage() {
     'culture',
   ];
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSitrepAgents() {
+      setAgentsLoading(true);
+      setAgentsError(null);
+
+      try {
+        const projectsRes = await apiRequest('/api/projects');
+        if (projectsRes.status === 401) {
+          if (!cancelled) {
+            setAgentsError('Sign in to view live Bonito agent telemetry.');
+            setAgentsLoading(false);
+          }
+          return;
+        }
+
+        if (!projectsRes.ok) {
+          throw new Error('Failed to load projects');
+        }
+
+        const projects: BonitoProject[] = await projectsRes.json();
+        const matchingProject =
+          projects.find((project) => project.name.trim().toLowerCase() === 'sitrep') ||
+          projects.find((project) => {
+            const haystack = `${project.name} ${project.description || ''} ${JSON.stringify(project.settings || {})}`.toLowerCase();
+            return haystack.includes('sitrep');
+          }) ||
+          null;
+
+        if (!matchingProject) {
+          if (!cancelled) {
+            setSitrepProject(null);
+            setSitrepAgents([]);
+            setAgentsError('No Bonito project tagged or named for SITREP was found.');
+            setAgentsLoading(false);
+          }
+          return;
+        }
+
+        const agentsRes = await apiRequest(`/api/projects/${matchingProject.id}/agents`);
+        if (!agentsRes.ok) {
+          throw new Error('Failed to load SITREP agents');
+        }
+
+        const liveAgents: BonitoAgent[] = await agentsRes.json();
+
+        if (!cancelled) {
+          setSitrepProject(matchingProject);
+          setSitrepAgents(liveAgents);
+          setAgentsLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSitrepProject(null);
+          setSitrepAgents([]);
+          setAgentsError(error instanceof Error ? error.message : 'Failed to load SITREP telemetry.');
+          setAgentsLoading(false);
+        }
+      }
+    }
+
+    loadSitrepAgents();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const sitrepHighlights = [
     {
       title: 'What SITREP Is',
@@ -116,72 +214,90 @@ export default function SitrepPage() {
     },
   ];
 
-  const agentCards = [
-    {
-      title: 'Ingestion Agent',
-      role: 'Pulls sources, normalizes metadata, and keeps the map/article feed current.',
-      health: 'Healthy',
-      stat: '72 sources',
-      icon: Bot,
-    },
-    {
-      title: 'Conflict Analyst',
-      role: 'Scores hotspots, tracks escalation signals, and powers missile/naval overlays.',
-      health: 'Monitoring',
-      stat: '4 active theaters',
-      icon: BrainCircuit,
-    },
-    {
-      title: 'Trust Agent',
-      role: 'Applies credibility checks, bias alignment, and source-level article comparisons.',
-      health: 'Healthy',
-      stat: '94% coverage',
-      icon: ShieldCheck,
-    },
-  ];
+  const liveAgentCards = useMemo(() => {
+    const icons = [Bot, BrainCircuit, ShieldCheck, ServerCog];
+
+    return sitrepAgents.map((agent, index) => {
+      const lastActive = agent.last_active_at ? new Date(agent.last_active_at) : null;
+      const minutesSinceActive = lastActive ? (Date.now() - lastActive.getTime()) / 60000 : Number.POSITIVE_INFINITY;
+      const health =
+        agent.status !== 'active'
+          ? 'Paused'
+          : minutesSinceActive <= 60
+          ? 'Healthy'
+          : minutesSinceActive <= 24 * 60
+          ? 'Monitoring'
+          : 'Idle';
+
+      const metric =
+        agent.total_runs > 0
+          ? `${agent.total_runs.toLocaleString()} runs`
+          : `${agent.knowledge_base_ids?.length || 0} knowledge bases`;
+
+      return {
+        id: agent.id,
+        title: agent.name,
+        role: agent.description || `Model: ${agent.model_id}`,
+        health,
+        stat: metric,
+        icon: icons[index % icons.length],
+      };
+    });
+  }, [sitrepAgents]);
+
+  const liveSummary = useMemo(() => {
+    const totalCost = sitrepAgents.reduce((sum, agent) => sum + Number(agent.total_cost || 0), 0);
+    const healthyAgents = liveAgentCards.filter((agent) => agent.health === 'Healthy').length;
+    const healthPercent = sitrepAgents.length > 0 ? (healthyAgents / sitrepAgents.length) * 100 : 0;
+    const activeStatuses = sitrepAgents.filter((agent) => agent.status === 'active').length;
+
+    return {
+      healthPercent,
+      agentCount: sitrepProject?.agent_count ?? sitrepAgents.length,
+      activeStatuses,
+      totalCost,
+    };
+  }, [sitrepAgents, sitrepProject, liveAgentCards]);
 
   return (
     <div className={`min-h-screen bg-[#0a0a0f] text-white ${specialElite.variable}`} style={{ fontFamily: 'var(--font-typewriter), "Courier New", monospace' }}>
       {/* Header */}
       <header className="border-b border-[#2a2a3a] bg-[#0a0a0f]/95 backdrop-blur sticky top-0 z-40">
         <div className="max-w-[1800px] mx-auto px-4 py-3">
-          <div className="flex flex-col items-center gap-3">
-            {/* Logo */}
-            <div className="flex justify-center w-full">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-mono text-gray-500">
+            <span>
+              <span className="text-cyan-400">{filteredArticles.length}</span> /{' '}
+              {articles.length} ARTICLES
+            </span>
+            <span>
+              <span className="text-cyan-400">
+                {new Set(articles.map((a) => a.countryCode)).size}
+              </span>{' '}
+              COUNTRIES
+            </span>
+            <span>
+              <span className="text-cyan-400">
+                {new Set(articles.map((a) => a.source)).size}
+              </span>{' '}
+              SOURCES
+            </span>
+          </div>
+
+          {/* Bias slider */}
+          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-center">
+            <div className="flex justify-center lg:justify-start lg:w-[320px] lg:flex-none">
               <Image
                 src="/sitrep/logo.png"
                 alt="SITREP"
                 width={838}
                 height={302}
                 priority
-                className="h-auto w-full max-w-[420px] object-contain"
+                className="h-auto w-full max-w-[280px] object-contain"
               />
             </div>
-
-            {/* Stats */}
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-mono text-gray-500">
-              <span>
-                <span className="text-cyan-400">{filteredArticles.length}</span> /{' '}
-                {articles.length} ARTICLES
-              </span>
-              <span>
-                <span className="text-cyan-400">
-                  {new Set(articles.map((a) => a.countryCode)).size}
-                </span>{' '}
-                COUNTRIES
-              </span>
-              <span>
-                <span className="text-cyan-400">
-                  {new Set(articles.map((a) => a.source)).size}
-                </span>{' '}
-                SOURCES
-              </span>
+            <div className="mx-auto w-full max-w-xl lg:mx-0 lg:flex-1 lg:max-w-2xl">
+              <BiasSlider value={biasValue} onChange={setBiasValue} />
             </div>
-          </div>
-
-          {/* Bias slider */}
-          <div className="mt-3 mx-auto w-full max-w-xl">
-            <BiasSlider value={biasValue} onChange={setBiasValue} />
           </div>
         </div>
       </header>
@@ -374,15 +490,21 @@ export default function SitrepPage() {
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">Health</div>
-                  <div className="mt-2 text-2xl font-semibold text-white">98.6%</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {agentsLoading ? '...' : `${liveSummary.healthPercent.toFixed(0)}%`}
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-4">
                   <div className="text-[10px] font-mono uppercase tracking-wider text-cyan-300">Agents</div>
-                  <div className="mt-2 text-2xl font-semibold text-white">12</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {agentsLoading ? '...' : liveSummary.agentCount}
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-amber-300">Latency</div>
-                  <div className="mt-2 text-2xl font-semibold text-white">1.4s</div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-amber-300">Spend</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {agentsLoading ? '...' : `$${liveSummary.totalCost.toFixed(2)}`}
+                  </div>
                 </div>
               </div>
             </div>
@@ -394,13 +516,34 @@ export default function SitrepPage() {
                   Agent Grid
                 </h2>
               </div>
+              {sitrepProject && (
+                <div className="rounded-2xl border border-[#2a2a3a] bg-[#111118] p-4 text-xs text-gray-400">
+                  <span className="font-mono uppercase tracking-[0.16em] text-cyan-400">Live Project</span>
+                  <div className="mt-2 text-sm font-semibold text-white">{sitrepProject.name}</div>
+                  {sitrepProject.description && (
+                    <div className="mt-1 leading-6 text-gray-400">{sitrepProject.description}</div>
+                  )}
+                </div>
+              )}
+              {agentsLoading && (
+                <div className="rounded-2xl border border-[#2a2a3a] bg-[#111118] p-5 text-sm text-gray-400 flex items-center gap-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-cyan-400" />
+                  Loading live SITREP agents from Bonito...
+                </div>
+              )}
+              {!agentsLoading && agentsError && (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5 text-sm text-amber-200">
+                  {agentsError}
+                </div>
+              )}
               <div className="grid gap-3">
-                {agentCards.map((agent) => {
+                {liveAgentCards.map((agent) => {
                   const Icon = agent.icon;
                   const isHealthy = agent.health === 'Healthy';
+                  const isMonitoring = agent.health === 'Monitoring';
 
                   return (
-                    <div key={agent.title} className="rounded-2xl border border-[#2a2a3a] bg-[#111118] p-4">
+                    <div key={agent.id} className="rounded-2xl border border-[#2a2a3a] bg-[#111118] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex gap-3">
                           <div className="mt-0.5 rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2.5">
@@ -415,6 +558,8 @@ export default function SitrepPage() {
                           className={`rounded-full px-2 py-1 text-[10px] font-mono uppercase tracking-wider ${
                             isHealthy
                               ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                              : isMonitoring
+                              ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
                               : 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
                           }`}
                         >
@@ -427,6 +572,11 @@ export default function SitrepPage() {
                     </div>
                   );
                 })}
+                {!agentsLoading && !agentsError && liveAgentCards.length === 0 && (
+                  <div className="rounded-2xl border border-[#2a2a3a] bg-[#111118] p-5 text-sm text-gray-400">
+                    No live agents were found for the SITREP Bonito project.
+                  </div>
+                )}
               </div>
             </div>
           </div>
