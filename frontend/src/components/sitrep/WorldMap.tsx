@@ -38,14 +38,6 @@ const MISSILE_ROUTES = [
   },
 ] as const;
 
-const NAVAL_SHIPS = [
-  { coords: [56.0, 26.8] as [number, number], type: 'western', label: 'USN 5th Fleet' },
-  { coords: [56.3, 26.6] as [number, number], type: 'western', label: 'USN 5th Fleet' },
-  { coords: [55.8, 27.0] as [number, number], type: 'western', label: 'USN 5th Fleet' },
-  { coords: [57.0, 26.3] as [number, number], type: 'iranian', label: 'IRGC Navy' },
-  { coords: [56.8, 26.4] as [number, number], type: 'iranian', label: 'IRGC Navy' },
-] as const;
-
 interface WorldMapProps {
   articles: Article[];
   selectedCountry: string | null;
@@ -63,6 +55,28 @@ interface MapMarker {
   dominantCategory: NewsCategory;
 }
 
+function getQuadraticPoint(
+  start: [number, number],
+  control: [number, number],
+  end: [number, number],
+  t: number
+): [number, number] {
+  const x = (1 - t) * (1 - t) * start[0] + 2 * (1 - t) * t * control[0] + t * t * end[0];
+  const y = (1 - t) * (1 - t) * start[1] + 2 * (1 - t) * t * control[1] + t * t * end[1];
+  return [x, y];
+}
+
+function getQuadraticAngle(
+  start: [number, number],
+  control: [number, number],
+  end: [number, number],
+  t: number
+): number {
+  const dx = 2 * (1 - t) * (control[0] - start[0]) + 2 * t * (end[0] - control[0]);
+  const dy = 2 * (1 - t) * (control[1] - start[1]) + 2 * t * (end[1] - control[1]);
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
+}
+
 export default function WorldMap({
   articles,
   selectedCountry,
@@ -72,7 +86,7 @@ export default function WorldMap({
   selectedCategory,
 }: WorldMapProps) {
   const [tooltip, setTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const zoom = 1;
   const isConflictFilter = selectedCategory === 'conflict';
 
   const markers = useMemo((): MapMarker[] => {
@@ -135,46 +149,36 @@ export default function WorldMap({
     []
   );
 
-  const missileRoutes = useMemo(
-    () =>
-      MISSILE_ROUTES.map((route) => {
-        const start = projection(route.from);
-        const end = projection(route.to);
-        if (!start || !end) return null;
+  const missileRoutes = useMemo(() => {
+    return MISSILE_ROUTES.map((route) => {
+      const start = projection(route.from);
+      const end = projection(route.to);
+      if (!start || !end) return null;
 
-        const dx = end[0] - start[0];
-        const dy = end[1] - start[1];
-        const arcLift = Math.max(90, Math.abs(dx) * 0.45);
-        const controlX = (start[0] + end[0]) / 2;
-        const controlY = Math.min(start[1], end[1]) - arcLift;
-        const path = `M${start[0]},${start[1]} Q${controlX},${controlY} ${end[0]},${end[1]}`;
+      const arcLift = Math.max(90, Math.abs(end[0] - start[0]) * 0.45);
+      const control: [number, number] = [
+        (start[0] + end[0]) / 2,
+        Math.min(start[1], end[1]) - arcLift,
+      ];
+      const path = `M${start[0]},${start[1]} Q${control[0]},${control[1]} ${end[0]},${end[1]}`;
 
-        const t = 0.96;
-        const tangentX = 2 * (1 - t) * (controlX - start[0]) + 2 * t * (end[0] - controlX);
-        const tangentY = 2 * (1 - t) * (controlY - start[1]) + 2 * t * (end[1] - controlY);
-        const heading = (Math.atan2(tangentY, tangentX) * 180) / Math.PI;
+      const sampleSteps = Array.from({ length: 25 }, (_, index) => index / 24);
+      const rocketFrames = sampleSteps.map((step) => {
+        const [x, y] = getQuadraticPoint(start as [number, number], control, end as [number, number], step);
+        const angle = getQuadraticAngle(start as [number, number], control, end as [number, number], Math.min(step + 0.015, 1));
+        return { x, y, angle };
+      });
 
-        return {
-          ...route,
-          start,
-          end,
-          controlX,
-          controlY,
-          path,
-          heading,
-        };
-      }),
-    [projection]
-  );
-
-  const ships = useMemo(
-    () =>
-      NAVAL_SHIPS.map((ship) => {
-        const point = projection(ship.coords);
-        return point ? { ...ship, point } : null;
-      }).filter(Boolean),
-    [projection]
-  ) as Array<(typeof NAVAL_SHIPS)[number] & { point: [number, number] }>;
+      return {
+        ...route,
+        start: start as [number, number],
+        end: end as [number, number],
+        control,
+        path,
+        rocketFrames,
+      };
+    });
+  }, [projection]);
 
   return (
     <div className="relative w-full h-full bg-[#0a0a0f] overflow-hidden">
@@ -220,15 +224,7 @@ export default function WorldMap({
           background: 'transparent',
         }}
       >
-        <ZoomableGroup
-          zoom={zoom}
-          minZoom={1}
-          maxZoom={4}
-          translateExtent={[
-            [0, 0],
-            [800, 400],
-          ]}
-        >
+        <ZoomableGroup zoom={1} minZoom={1} maxZoom={1} translateExtent={[[0, 0], [800, 400]]}>
           <Geographies geography={geoUrl}>
             {({ geographies }) =>
               geographies.map((geo) => {
@@ -408,10 +404,6 @@ export default function WorldMap({
       <svg
         viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
         className="absolute inset-0 h-full w-full pointer-events-none"
-        style={{
-          transform: `scale(${zoom})`,
-          transformOrigin: 'center center',
-        }}
         aria-hidden="true"
       >
         {isConflictFilter &&
@@ -432,7 +424,9 @@ export default function WorldMap({
                 />
                 <motion.g
                   animate={{
-                    offsetDistance: ['0%', '100%'],
+                    x: route.rocketFrames.map((frame) => frame.x),
+                    y: route.rocketFrames.map((frame) => frame.y),
+                    rotate: route.rocketFrames.map((frame) => frame.angle),
                   }}
                   transition={{
                     duration: route.duration,
@@ -440,77 +434,24 @@ export default function WorldMap({
                     ease: 'linear',
                     repeatDelay: route.delay,
                   }}
-                  style={{
-                    offsetPath: `path('${route.path}')`,
-                    offsetRotate: 'auto',
-                  }}
                 >
-                  <g transform={`scale(${1 / zoom})`}>
-                    <path
-                      d="M-5,0 L-2.5,-3.5 L2.5,-3.5 L4,0 L2.5,3.5 L-2.5,3.5 Z"
-                      fill="#22c55e"
-                      stroke="#16a34a"
-                      strokeWidth={0.6}
-                    />
-                    <path d="M4,0 L8,0" stroke="#22c55e" strokeWidth={1.7} />
-                    <motion.path
-                      d="M-5,0 L-9,-2.3 L-7.5,0 L-9,2.3 Z"
-                      fill="#f59e0b"
-                      animate={{ opacity: [1, 0.45, 1], scale: [1, 1.25, 1] }}
-                      transition={{ duration: 0.3, repeat: Infinity }}
-                    />
-                  </g>
+                  <path
+                    d="M-5,0 L-2.5,-3.5 L2.5,-3.5 L4,0 L2.5,3.5 L-2.5,3.5 Z"
+                    fill="#22c55e"
+                    stroke="#16a34a"
+                    strokeWidth={0.6}
+                  />
+                  <path d="M4,0 L8,0" stroke="#22c55e" strokeWidth={1.7} />
+                  <motion.path
+                    d="M-5,0 L-9,-2.3 L-7.5,0 L-9,2.3 Z"
+                    fill="#f59e0b"
+                    animate={{ opacity: [1, 0.45, 1], scale: [1, 1.25, 1] }}
+                    transition={{ duration: 0.3, repeat: Infinity }}
+                  />
                 </motion.g>
               </g>
             );
           })}
-
-        {ships.map((ship, idx) => (
-          <motion.g
-            key={`ship-overlay-${idx}`}
-            animate={{
-              y: [0, -2.5 / zoom, 0],
-              x: [0, 1.5 / zoom, 0],
-            }}
-            transition={{
-              duration: 3 + idx * 0.5,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-            transform={`translate(${ship.point[0]}, ${ship.point[1]}) scale(${Math.max(0.55, Math.min(1.35, 1 / zoom))})`}
-          >
-            <ellipse
-              cx={0}
-              cy={0}
-              rx={10}
-              ry={6}
-              fill={ship.type === 'western' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 68, 68, 0.25)'}
-            />
-            <path
-              d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z"
-              fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
-              stroke={ship.type === 'western' ? '#60a5fa' : '#ff6666'}
-              strokeWidth={0.5}
-              style={{
-                filter: `drop-shadow(0 0 6px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
-              }}
-            />
-            <ellipse
-              cx={-14}
-              cy={1}
-              rx={5}
-              ry={1.5}
-              fill="rgba(255, 255, 255, 0.12)"
-            />
-            <ellipse
-              cx={-18}
-              cy={1}
-              rx={3}
-              ry={1}
-              fill="rgba(255, 255, 255, 0.06)"
-            />
-          </motion.g>
-        ))}
       </svg>
 
       {/* Tooltip */}
@@ -574,38 +515,9 @@ export default function WorldMap({
                 <div className="w-3 h-3 rounded-sm border-2 border-[#ff4444] bg-[rgba(255,68,68,0.12)]" />
                 <span className="text-xs text-gray-300">War Zone</span>
               </div>
-              <div className="text-[9px] text-gray-500 uppercase tracking-wider mt-1 mb-0.5">Naval Forces</div>
-              <div className="flex items-center gap-2">
-                <svg width="16" height="10" viewBox="-12 -7 24 10" className="flex-shrink-0">
-                  <path d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z" fill="#3b82f6" />
-                </svg>
-                <span className="text-xs text-gray-300">Western Naval</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <svg width="16" height="10" viewBox="-12 -7 24 10" className="flex-shrink-0">
-                  <path d="M-12,0 L-10,-3 L-6,-3 L-5,-6 L-3,-6 L-3,-4 L3,-4 L3,-7 L5,-7 L5,-4 L8,-3 L12,0 L10,2 L-10,2 Z" fill="#ef4444" />
-                </svg>
-                <span className="text-xs text-gray-300">Iranian Naval</span>
-              </div>
             </div>
           </div>
         )}
-      </div>
-
-      {/* Zoom controls */}
-      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-        <button
-          onClick={() => setZoom((z) => Math.min(z * 1.5, 4))}
-          className="w-8 h-8 bg-[#1a1a24] border border-[#2a2a3a] rounded flex items-center justify-center text-gray-400 hover:text-white hover:border-cyan-500/50 transition"
-        >
-          +
-        </button>
-        <button
-          onClick={() => setZoom((z) => Math.max(z / 1.5, 1))}
-          className="w-8 h-8 bg-[#1a1a24] border border-[#2a2a3a] rounded flex items-center justify-center text-gray-400 hover:text-white hover:border-cyan-500/50 transition"
-        >
-          −
-        </button>
       </div>
     </div>
   );
