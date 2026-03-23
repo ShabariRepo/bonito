@@ -90,7 +90,7 @@ export default function BiasSlider({
     <div className="w-full">
       {/* Label */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-gray-400">POLITICAL BIAS FILTER</span>
+        <span className="text-xs font-mono text-gray-400">💩 POLITICAL BS METER</span>
         <motion.span
           key={value}
           initial={{ opacity: 0, y: -10 }}

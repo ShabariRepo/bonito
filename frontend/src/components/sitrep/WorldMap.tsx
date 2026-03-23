@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { geoEquirectangular } from 'd3-geo';
 import {
   ComposableMap,
@@ -86,8 +86,19 @@ export default function WorldMap({
   selectedCategory,
 }: WorldMapProps) {
   const [tooltip, setTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
   const zoom = 1;
   const isConflictFilter = selectedCategory === 'conflict';
+
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
+  const mapScale = isDesktop ? 180 : 147;
+  const mapCenter: [number, number] = isDesktop ? [20, 15] : [0, 0];
 
   const markers = useMemo((): MapMarker[] => {
     const grouped = groupArticlesByCountry(articles);
@@ -143,10 +154,10 @@ export default function WorldMap({
   const projection = useMemo(
     () =>
       geoEquirectangular()
-        .scale(147)
+        .scale(mapScale)
         .translate([MAP_VIEWBOX.width / 2, MAP_VIEWBOX.height / 2])
-        .center([0, 0]),
-    []
+        .center(mapCenter),
+    [mapScale, mapCenter]
   );
 
   const missileRoutes = useMemo(() => {
@@ -218,8 +229,8 @@ export default function WorldMap({
 	      <ComposableMap
         projection="geoEquirectangular"
         projectionConfig={{
-          scale: 147,
-          center: [0, 0],
+          scale: mapScale,
+          center: mapCenter,
         }}
         width={MAP_VIEWBOX.width}
         height={MAP_VIEWBOX.height}
