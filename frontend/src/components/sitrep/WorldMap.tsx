@@ -15,6 +15,9 @@ import { groupArticlesByCountry } from '@/lib/sitrep/utils';
 // World TopoJSON - using a reliable CDN
 const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
+// Countries with active conflicts
+const CONFLICT_COUNTRIES = ['UA', 'RU', 'IL', 'PS', 'YE', 'SD', 'MM', 'SY', 'IQ', 'LB', 'IR', 'AF'];
+
 interface WorldMapProps {
   articles: Article[];
   selectedCountry: string | null;
@@ -150,63 +153,128 @@ export default function WorldMap({
                 const isSelected = selectedCountry === countryCode;
                 const hasArticles = markers.some((m) => m.countryCode === countryCode);
                 const sentiment = sentimentData.get(countryCode);
+                const isConflictCountry = CONFLICT_COUNTRIES.includes(countryCode);
                 
                 return (
-                  <Geography
+                  <motion.g 
                     key={geo.rsmKey}
-                    geography={geo}
-                    fill={
-                      showHeatmap && sentiment !== undefined
-                        ? sentiment < -0.3
-                          ? 'rgba(239, 68, 68, 0.3)'
-                          : sentiment > 0.3
-                          ? 'rgba(34, 197, 94, 0.3)'
-                          : 'rgba(245, 158, 11, 0.2)'
-                        : isSelected
-                        ? 'rgba(6, 182, 212, 0.3)'
-                        : hasArticles
-                        ? 'rgba(6, 182, 212, 0.1)'
-                        : '#1a1a24'
-                    }
-                    stroke={isSelected ? '#06b6d4' : '#2a2a3a'}
-                    strokeWidth={isSelected ? 1 : 0.5}
-                    style={{
-                      default: {
-                        outline: 'none',
-                        transition: 'all 0.3s',
-                      },
-                      hover: {
-                        fill: hasArticles ? 'rgba(6, 182, 212, 0.2)' : '#252530',
-                        outline: 'none',
-                        cursor: hasArticles ? 'pointer' : 'default',
-                      },
-                      pressed: {
-                        outline: 'none',
-                      },
-                    }}
-                    onClick={() => {
-                      if (hasArticles) {
-                        onCountrySelect(isSelected ? null : countryCode);
+                    animate={isConflictCountry ? {
+                      opacity: [0.4, 1.0, 0.4],
+                    } : undefined}
+                    transition={isConflictCountry ? {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    } : undefined}
+                  >
+                    <Geography
+                      geography={geo}
+                      fill={
+                        showHeatmap && sentiment !== undefined
+                          ? sentiment < -0.3
+                            ? 'rgba(239, 68, 68, 0.3)'
+                            : sentiment > 0.3
+                            ? 'rgba(34, 197, 94, 0.3)'
+                            : 'rgba(245, 158, 11, 0.2)'
+                          : isSelected
+                          ? 'rgba(6, 182, 212, 0.3)'
+                          : hasArticles
+                          ? 'rgba(6, 182, 212, 0.1)'
+                          : '#1a1a24'
                       }
-                    }}
-                    onMouseEnter={() => {
-                      if (hasArticles) {
-                        const marker = markers.find((m) => m.countryCode === countryCode);
-                        if (marker) {
-                          setTooltip({
-                            content: `${marker.name}: ${marker.articles.length} articles`,
-                            x: 0,
-                            y: 0,
-                          });
+                      stroke={isConflictCountry ? '#ef4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
+                      strokeWidth={isConflictCountry ? 1.5 : isSelected ? 1 : 0.5}
+                      style={{
+                        default: {
+                          outline: 'none',
+                          transition: 'all 0.3s',
+                        },
+                        hover: {
+                          fill: hasArticles ? 'rgba(6, 182, 212, 0.2)' : '#252530',
+                          outline: 'none',
+                          cursor: hasArticles ? 'pointer' : 'default',
+                        },
+                        pressed: {
+                          outline: 'none',
+                        },
+                      }}
+                      onClick={() => {
+                        if (hasArticles) {
+                          onCountrySelect(isSelected ? null : countryCode);
                         }
-                      }
-                    }}
-                    onMouseLeave={() => setTooltip(null)}
-                  />
+                      }}
+                      onMouseEnter={() => {
+                        if (hasArticles) {
+                          const marker = markers.find((m) => m.countryCode === countryCode);
+                          if (marker) {
+                            setTooltip({
+                              content: `${marker.name}: ${marker.articles.length} articles`,
+                              x: 0,
+                              y: 0,
+                            });
+                          }
+                        }
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                    />
+                  </motion.g>
                 );
               })
             }
           </Geographies>
+
+          {/* Naval Forces - Ship Icons in Strait of Hormuz */}
+          {[
+            // Western/US Navy forces (blue ships)
+            { coords: [56.0, 26.8], type: 'western', label: 'USN 5th Fleet' },
+            { coords: [56.3, 26.6], type: 'western', label: 'USN 5th Fleet' },
+            { coords: [55.8, 27.0], type: 'western', label: 'USN 5th Fleet' },
+            // Iranian forces (red ships)
+            { coords: [57.0, 26.3], type: 'iranian', label: 'IRGC Navy' },
+            { coords: [56.8, 26.4], type: 'iranian', label: 'IRGC Navy' },
+          ].map((ship, idx) => (
+            <Marker
+              key={`ship-${idx}`}
+              coordinates={ship.coords as [number, number]}
+            >
+              <motion.g
+                animate={{
+                  y: [0, -2, 0],
+                  x: [0, 1, 0],
+                }}
+                transition={{
+                  duration: 3 + idx * 0.5,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                onMouseEnter={() => setTooltip({
+                  content: ship.label,
+                  x: 0,
+                  y: 0,
+                })}
+                onMouseLeave={() => setTooltip(null)}
+              >
+                {/* Ship SVG - Simple triangle pointing northeast */}
+                <polygon
+                  points="0,-4 6,2 -6,2"
+                  fill={ship.type === 'western' ? '#3b82f6' : '#ef4444'}
+                  stroke="#0a0a0f"
+                  strokeWidth={1}
+                  style={{
+                    filter: `drop-shadow(0 0 3px ${ship.type === 'western' ? '#3b82f6' : '#ef4444'})`,
+                  }}
+                />
+                {/* Ship wake effect */}
+                <ellipse
+                  cx={0}
+                  cy={4}
+                  rx={3}
+                  ry={1}
+                  fill="rgba(255, 255, 255, 0.1)"
+                />
+              </motion.g>
+            </Marker>
+          ))}
 
           {/* Article markers */}
           {markers.map((marker) => {
@@ -334,6 +402,21 @@ export default function WorldMap({
                 <span className="text-xs text-gray-300">{label}</span>
               </div>
             ))}
+            <div className="mt-2 pt-2 border-t border-[#2a2a3a]">
+              <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1">Naval Forces</div>
+              <div className="flex items-center gap-2">
+                <svg width="12" height="8" className="flex-shrink-0">
+                  <polygon points="0,4 6,0 6,8" fill="#3b82f6" />
+                </svg>
+                <span className="text-xs text-gray-300">Western</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg width="12" height="8" className="flex-shrink-0">
+                  <polygon points="0,4 6,0 6,8" fill="#ef4444" />
+                </svg>
+                <span className="text-xs text-gray-300">Iranian</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

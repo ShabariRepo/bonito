@@ -173,28 +173,41 @@ export default function SitrepPage() {
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border transition ${
-                    selectedCategory === cat
-                      ? 'text-white border-cyan-500/50 bg-cyan-500/20'
-                      : 'text-gray-500 border-[#2a2a3a] hover:border-gray-500'
-                  }`}
-                  style={
-                    selectedCategory === cat && cat !== 'all'
-                      ? {
-                          borderColor: `${CATEGORY_COLORS[cat as NewsCategory]}80`,
-                          backgroundColor: `${CATEGORY_COLORS[cat as NewsCategory]}20`,
-                          color: CATEGORY_COLORS[cat as NewsCategory],
-                        }
-                      : undefined
-                  }
-                >
-                  {cat === 'all' ? 'All' : CATEGORY_LABELS[cat as NewsCategory]}
-                </button>
-              ))}
+              {categories.map((cat) => {
+                const isConflict = cat === 'conflict';
+                const isSelected = selectedCategory === cat;
+                
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`relative text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border transition ${
+                      isSelected
+                        ? 'text-white border-cyan-500/50 bg-cyan-500/20'
+                        : isConflict
+                        ? 'text-red-400 border-red-500/40 bg-red-500/10 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+                        : 'text-gray-500 border-[#2a2a3a] hover:border-gray-500'
+                    }`}
+                    style={
+                      isSelected && cat !== 'all'
+                        ? {
+                            borderColor: `${CATEGORY_COLORS[cat as NewsCategory]}80`,
+                            backgroundColor: `${CATEGORY_COLORS[cat as NewsCategory]}20`,
+                            color: CATEGORY_COLORS[cat as NewsCategory],
+                          }
+                        : undefined
+                    }
+                  >
+                    {cat === 'all' ? 'All' : CATEGORY_LABELS[cat as NewsCategory]}
+                    {isConflict && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                    )}
+                    {isConflict && (
+                      <span className="ml-1 text-[8px] text-red-400 font-bold">LIVE</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             {selectedCountry && (
               <button
