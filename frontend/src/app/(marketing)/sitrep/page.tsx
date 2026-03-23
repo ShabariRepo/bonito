@@ -187,10 +187,10 @@ export default function SitrepPage() {
       </header>
 
       {/* Main content */}
-      <div className="max-w-[1800px] mx-auto">
-        <div className="flex flex-col lg:flex-row" style={{ minHeight: 'calc(100vh - 240px)' }}>
+      <div className="max-w-[1800px] mx-auto pb-20">
+        <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-280px)]">
           {/* Map area */}
-          <div className="flex-1 relative min-h-[520px]">
+          <div className="relative min-h-[520px] flex-1 lg:h-full">
             <WorldMap
               articles={filteredArticles}
               selectedCountry={selectedCountry}
@@ -202,7 +202,7 @@ export default function SitrepPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="w-full lg:w-[420px] border-l border-[#2a2a3a] bg-[#0a0a0f] flex flex-col overflow-hidden">
+          <div className="w-full lg:h-full lg:w-[420px] border-l border-[#2a2a3a] bg-[#0a0a0f] flex flex-col overflow-hidden">
             {/* Search */}
             <div className="p-3 border-b border-[#2a2a3a]">
               <div className="relative">
