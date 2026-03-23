@@ -7,6 +7,7 @@ import {
   Geography,
   Marker,
   ZoomableGroup,
+  Line,
 } from 'react-simple-maps';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Article, NewsCategory, CATEGORY_COLORS } from '@/lib/sitrep/types';
@@ -24,6 +25,7 @@ interface WorldMapProps {
   onCountrySelect: (countryCode: string | null) => void;
   showHeatmap: boolean;
   sentimentData: Map<string, number>;
+  selectedCategory: NewsCategory | 'all';
 }
 
 interface MapMarker {
@@ -40,9 +42,11 @@ export default function WorldMap({
   onCountrySelect,
   showHeatmap,
   sentimentData,
+  selectedCategory,
 }: WorldMapProps) {
   const [tooltip, setTooltip] = useState<{ content: string; x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
+  const isConflictFilter = selectedCategory === 'conflict';
 
   const markers = useMemo((): MapMarker[] => {
     const grouped = groupArticlesByCountry(articles);
@@ -155,10 +159,14 @@ export default function WorldMap({
                 const sentiment = sentimentData.get(countryCode);
                 const isConflictCountry = CONFLICT_COUNTRIES.includes(countryCode);
                 
+                // Conflict mode highlighting
+                const isWarZoneBlue = isConflictFilter && (countryCode === 'US' || countryCode === 'UA');
+                const isWarZoneRed = isConflictFilter && (countryCode === 'RU' || countryCode === 'IR');
+                
                 return (
                   <g key={geo.rsmKey}>
-                    {/* Glow border behind conflict countries */}
-                    {isConflictCountry && (
+                    {/* Glow border behind conflict countries - only show base conflict glow when NOT in conflict filter mode */}
+                    {isConflictCountry && !isConflictFilter && (
                       <Geography
                         geography={geo}
                         fill="none"
@@ -170,6 +178,46 @@ export default function WorldMap({
                           pressed: { outline: 'none', pointerEvents: 'none' },
                         }}
                       />
+                    )}
+                    {/* War zone blue border (USA & Ukraine) - pulsing */}
+                    {isWarZoneBlue && (
+                      <motion.g
+                        initial={{ opacity: 0.5 }}
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                      >
+                        <Geography
+                          geography={geo}
+                          fill="none"
+                          stroke="#60a5fa"
+                          strokeWidth={3 / zoom}
+                          style={{
+                            default: { outline: 'none', pointerEvents: 'none' },
+                            hover: { outline: 'none', pointerEvents: 'none' },
+                            pressed: { outline: 'none', pointerEvents: 'none' },
+                          }}
+                        />
+                      </motion.g>
+                    )}
+                    {/* War zone red border (Russia & Iran) - pulsing */}
+                    {isWarZoneRed && (
+                      <motion.g
+                        initial={{ opacity: 0.5 }}
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+                      >
+                        <Geography
+                          geography={geo}
+                          fill="none"
+                          stroke="#f87171"
+                          strokeWidth={3 / zoom}
+                          style={{
+                            default: { outline: 'none', pointerEvents: 'none' },
+                            hover: { outline: 'none', pointerEvents: 'none' },
+                            pressed: { outline: 'none', pointerEvents: 'none' },
+                          }}
+                        />
+                      </motion.g>
                     )}
                     <Geography
                       geography={geo}
@@ -188,8 +236,8 @@ export default function WorldMap({
                           ? 'rgba(6, 182, 212, 0.1)'
                           : '#1a1a24'
                       }
-                      stroke={isConflictCountry ? '#ff4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
-                      strokeWidth={isConflictCountry ? 2.5 : isSelected ? 1 : 0.5}
+                      stroke={isWarZoneBlue ? '#60a5fa' : isWarZoneRed ? '#f87171' : isConflictCountry ? '#ff4444' : isSelected ? '#06b6d4' : '#2a2a3a'}
+                      strokeWidth={isWarZoneBlue || isWarZoneRed ? 3 : isConflictCountry ? 2.5 : isSelected ? 1 : 0.5}
                       style={{
                         default: {
                           outline: 'none',
@@ -229,6 +277,99 @@ export default function WorldMap({
             }
           </Geographies>
 
+          {/* Conflict Lines - Missile Trajectories */}
+          {isConflictFilter && (
+            <>
+              {/* USA to Iran missile line */}
+              <Marker coordinates={[-98, 39]}>
+                <g>
+                  {/* Dashed line from USA to Iran */}
+                  <path
+                    d="M0,0 L151,-7"
+                    stroke="#22c55e"
+                    strokeWidth={2 / zoom}
+                    strokeDasharray="5,5"
+                    fill="none"
+                    opacity={0.8}
+                  />
+                  {/* Rocket icon at midpoint */}
+                  <motion.g
+                    initial={{ x: 0, y: 0 }}
+                    animate={{ x: [0, 75.5], y: [0, -3.5] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
+                  >
+                    <g transform={`rotate(${Math.atan2(-3.5, 75.5) * 180 / Math.PI})`}>
+                      {/* Rocket body */}
+                      <path
+                        d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
+                        fill="#22c55e"
+                        stroke="#16a34a"
+                        strokeWidth={0.5}
+                      />
+                      {/* Rocket tip */}
+                      <path
+                        d="M3,0 L6,0"
+                        stroke="#22c55e"
+                        strokeWidth={1.5}
+                      />
+                      {/* Flame */}
+                      <motion.path
+                        d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
+                        fill="#f59e0b"
+                        animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
+                        transition={{ duration: 0.3, repeat: Infinity }}
+                      />
+                    </g>
+                  </motion.g>
+                </g>
+              </Marker>
+
+              {/* Russia to Ukraine missile line */}
+              <Marker coordinates={[90, 60]}>
+                <g>
+                  {/* Dashed line from Russia to Ukraine */}
+                  <path
+                    d="M0,0 L-59,-11"
+                    stroke="#22c55e"
+                    strokeWidth={2 / zoom}
+                    strokeDasharray="5,5"
+                    fill="none"
+                    opacity={0.8}
+                  />
+                  {/* Rocket icon at midpoint */}
+                  <motion.g
+                    initial={{ x: 0, y: 0 }}
+                    animate={{ x: [0, -29.5], y: [0, -5.5] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 1.5 }}
+                  >
+                    <g transform={`rotate(${Math.atan2(-5.5, -29.5) * 180 / Math.PI})`}>
+                      {/* Rocket body */}
+                      <path
+                        d="M-4,0 L-2,-3 L2,-3 L3,0 L2,3 L-2,3 Z"
+                        fill="#22c55e"
+                        stroke="#16a34a"
+                        strokeWidth={0.5}
+                      />
+                      {/* Rocket tip */}
+                      <path
+                        d="M3,0 L6,0"
+                        stroke="#22c55e"
+                        strokeWidth={1.5}
+                      />
+                      {/* Flame */}
+                      <motion.path
+                        d="M-4,0 L-7,-2 L-6,0 L-7,2 Z"
+                        fill="#f59e0b"
+                        animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
+                        transition={{ duration: 0.3, repeat: Infinity }}
+                      />
+                    </g>
+                  </motion.g>
+                </g>
+              </Marker>
+            </>
+          )}
+
           {/* Naval Forces - Ship Icons in Strait of Hormuz */}
           {[
             // Western/US Navy forces (blue ships)
@@ -252,6 +393,10 @@ export default function WorldMap({
                   duration: 3 + idx * 0.5,
                   repeat: Infinity,
                   ease: 'easeInOut',
+                }}
+                style={{
+                  transform: `scale(${Math.max(0.5, Math.min(1.5, 1 / zoom))})`,
+                  transformOrigin: 'center',
                 }}
                 onMouseEnter={() => setTooltip({
                   content: ship.label,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { Special_Elite } from 'next/font/google';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import {
@@ -13,6 +14,13 @@ import {
   Thermometer,
   ExternalLink,
 } from 'lucide-react';
+
+const specialElite = Special_Elite({
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-typewriter',
+});
 import { articles } from '@/lib/sitrep/seed-data';
 import { Article, NewsCategory, CATEGORY_COLORS, CATEGORY_LABELS } from '@/lib/sitrep/types';
 import { filterArticles, calculateSentimentByRegion } from '@/lib/sitrep/utils';
@@ -89,7 +97,7 @@ export default function SitrepPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className={`min-h-screen bg-[#0a0a0f] text-white ${specialElite.variable}`} style={{ fontFamily: 'var(--font-typewriter), "Courier New", monospace' }}>
       {/* Header */}
       <header className="border-b border-[#2a2a3a] bg-[#0a0a0f]/95 backdrop-blur sticky top-0 z-40">
         <div className="max-w-[1800px] mx-auto px-4 py-3">
@@ -104,20 +112,6 @@ export default function SitrepPage() {
                 <p className="text-[10px] text-gray-500 font-mono tracking-widest">
                   GLOBAL SITUATION ROOM
                 </p>
-              </div>
-            </div>
-
-            {/* Search */}
-            <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <input
-                  type="text"
-                  placeholder="Search articles, sources, countries..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[#111118] border border-[#2a2a3a] rounded-lg text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
-                />
               </div>
             </div>
 
@@ -159,6 +153,7 @@ export default function SitrepPage() {
             onCountrySelect={setSelectedCountry}
             showHeatmap={showHeatmap}
             sentimentData={sentimentData}
+            selectedCategory={selectedCategory}
           />
         </div>
 
@@ -178,14 +173,26 @@ export default function SitrepPage() {
                 const isSelected = selectedCategory === cat;
                 
                 return (
-                  <button
+                  <motion.button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
+                    animate={isConflict && !isSelected ? {
+                      boxShadow: [
+                        '0 0 8px rgba(239,68,68,0.4), 0 0 16px rgba(239,68,68,0.2)',
+                        '0 0 12px rgba(239,68,68,0.6), 0 0 24px rgba(239,68,68,0.3)',
+                        '0 0 8px rgba(239,68,68,0.4), 0 0 16px rgba(239,68,68,0.2)'
+                      ]
+                    } : undefined}
+                    transition={isConflict && !isSelected ? {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut'
+                    } : undefined}
                     className={`relative text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full border transition ${
                       isSelected
                         ? 'text-white border-cyan-500/50 bg-cyan-500/20'
                         : isConflict
-                        ? 'text-red-400 border-red-500/40 bg-red-500/10 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+                        ? 'text-red-300 border-red-500/60 bg-red-500/15 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
                         : 'text-gray-500 border-[#2a2a3a] hover:border-gray-500'
                     }`}
                     style={
@@ -200,12 +207,35 @@ export default function SitrepPage() {
                   >
                     {cat === 'all' ? 'All' : CATEGORY_LABELS[cat as NewsCategory]}
                     {isConflict && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                      <motion.span 
+                        className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"
+                        animate={{
+                          scale: [1, 1.3, 1],
+                          opacity: [1, 0.5, 1]
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          ease: 'easeInOut'
+                        }}
+                      />
                     )}
                     {isConflict && (
-                      <span className="ml-1 text-[8px] text-red-400 font-bold">LIVE</span>
+                      <motion.span 
+                        className="ml-1 text-[8px] text-red-300 font-bold"
+                        animate={{
+                          opacity: [0.7, 1, 0.7]
+                        }}
+                        transition={{
+                          duration: 1.8,
+                          repeat: Infinity,
+                          ease: 'easeInOut'
+                        }}
+                      >
+                        LIVE
+                      </motion.span>
                     )}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -286,6 +316,17 @@ export default function SitrepPage() {
               <Thermometer className="w-4 h-4" />
               Heatmap
             </button>
+            {/* Search - inline with controls */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-44 pl-8 pr-3 py-2 bg-[#111118] border border-[#2a2a3a] rounded-lg text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-cyan-500/50 font-mono"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
