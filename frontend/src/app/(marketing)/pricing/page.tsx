@@ -10,11 +10,13 @@ const plans = [
     name: "Free",
     price: "$0",
     period: "forever",
-    description: "For individuals exploring multi-cloud AI management.",
+    description: "For individuals and small teams getting started with multi-cloud AI.",
     features: [
-      "1 cloud provider connection",
-      "5,000 gateway API calls / month",
+      "Up to 3 cloud provider connections",
+      "25,000 gateway API calls / month",
+      "Automatic failover routing",
       "Model catalog & playground",
+      "1 BonBon Simple agent (rate-limited)",
       "Standard request logging",
       "AI Code Review — 6 reviews / month",
       "Community support (Discord)",
@@ -170,16 +172,17 @@ const agentPlans = [
 
 const comparisonFeatures = [
   // ── Core Platform
-  { category: "Core Platform", name: "Cloud Providers", free: "1", pro: "3", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Gateway API Calls / month", free: "5,000", pro: "50,000", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Cloud Providers", free: "3", pro: "3", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Gateway API Calls / month", free: "25,000", pro: "50,000", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Model Catalog & Playground", free: true, pro: true, enterprise: true, scale: true },
   { category: "Core Platform", name: "One-Click Model Activation", free: true, pro: true, enterprise: true, scale: true },
   // ── AI Gateway
   { category: "AI Gateway", name: "Unified API Endpoint (OpenAI-compatible)", free: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Routing Policies (cost, latency, failover)", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Automatic Failover Routing", free: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Advanced Routing (cost, latency, A/B)", free: false, pro: true, enterprise: true, scale: true },
   { category: "AI Gateway", name: "Deployment Provisioning", free: false, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "A/B Testing & Weighted Routing", free: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "A/B Testing & Weighted Routing", free: false, pro: true, enterprise: true, scale: true  },
   { category: "AI Gateway", name: "Per-Key Model Restrictions", free: false, pro: true, enterprise: true, scale: true },
   { category: "AI Gateway", name: "Rate Limiting (per key & org)", free: false, pro: true, enterprise: true, scale: true },
   { category: "AI Gateway", name: "Advanced Load Balancing", free: false, pro: false, enterprise: true, scale: true },
@@ -216,8 +219,8 @@ const comparisonFeatures = [
   { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, pro: false, enterprise: true, scale: true },
   // ── Bonobot (AI Agents)
   // ── BonBon (Managed Agents)
-  { category: "BonBon Agents", name: "Pre-built Agent Templates", free: false, pro: "$49/mo", enterprise: "$49/mo", scale: "Included" },
-  { category: "BonBon Agents", name: "Built-in RAG & Chat Widget", free: false, pro: "Simple+", enterprise: "Simple+", scale: "Included" },
+  { category: "BonBon Agents", name: "Pre-built Agent Templates", free: "1 (rate-limited)", pro: "$49/mo", enterprise: "$49/mo", scale: "Included" },
+  { category: "BonBon Agents", name: "Built-in RAG & Chat Widget", free: "1 agent", pro: "Simple+", enterprise: "Simple+", scale: "Included" },
   { category: "BonBon Agents", name: "MCP Tools & Triggers", free: false, pro: "$99/mo", enterprise: "$99/mo", scale: "Included" },
   // ── Bonobot (Custom Agents)
   { category: "Bonobot Custom Agents", name: "Visual Agent Canvas", free: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
@@ -243,7 +246,7 @@ const faqs = [
   },
   {
     q: "How does billing work?",
-    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card. Pro and Enterprise plans are billed at the start of each billing cycle. BonBon agents start at $49/mo (Simple) or $99/mo (Advanced) per agent. Bonobot custom agents are billed separately as add-ons. Bonito charges for the platform - your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
+    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card and includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon Simple agent. Pro and Enterprise plans are billed at the start of each billing cycle. Additional BonBon agents start at $49/mo (Simple) or $99/mo (Advanced) per agent. Bonobot custom agents are billed separately as add-ons. Bonito charges for the platform — your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
   },
   {
     q: "What is AI Context?",
