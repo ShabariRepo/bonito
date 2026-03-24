@@ -529,7 +529,7 @@ export default function PricingPage() {
                       <tr key={f.name} className="border-b border-[#1a1a1a]/50 hover:bg-[#111] transition">
                         <td className="py-3.5 px-4 text-sm text-[#ccc]">{f.name}</td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.free} /></td>
-                        <td className="py-3.5 px-4 text-center"><CellValue value={f.starter} /></td>
+                        <td className="py-3.5 px-4 text-center"><CellValue value={(f as any).starter} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.pro} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.enterprise} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.scale} /></td>
