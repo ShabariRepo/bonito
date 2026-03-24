@@ -14,6 +14,7 @@ import {
   Shield,
   Bug,
   TrendingUp,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
@@ -22,12 +23,14 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 
 interface ReviewItem {
+  id: string;
   repo: string;
   pr_number: number;
   pr_title: string | null;
   pr_author: string | null;
   status: string;
   created_at: string | null;
+  snapshots_count?: number;
 }
 
 interface CodeReviewStatus {
@@ -381,10 +384,34 @@ export default function CodeReviewPage() {
                         {review.repo} #{review.pr_number}
                         {review.pr_author && ` by ${review.pr_author}`}
                       </p>
+                      {review.snapshots_count && review.snapshots_count > 0 && (
+                        <a
+                          href={`/snapshots/${review.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1 mt-1"
+                        >
+                          <Eye className="h-3 w-3" />
+                          {review.snapshots_count} snapshots
+                        </a>
+                      )}
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {statusLabel(review.status)}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {review.snapshots_count && review.snapshots_count > 0 && (
+                        <a
+                          href={`/snapshots/${review.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded hover:bg-white/5 transition-colors text-emerald-400"
+                          title="View snapshots"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </a>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {statusLabel(review.status)}
+                      </span>
+                    </div>
                   </motion.div>
                 ))}
               </div>

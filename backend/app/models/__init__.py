@@ -36,5 +36,6 @@ from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAgg
 
 # GitHub App models
 from app.models.github_app import GitHubAppInstallation, GitHubReviewUsage
+from app.models.code_snapshot import CodeReviewSnapshot
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage"]
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage", "CodeReviewSnapshot"]

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user, get_db
 from app.models.github_app import GitHubAppInstallation, GitHubReviewUsage
+from app.models.code_snapshot import CodeReviewSnapshot
 from app.models.user import User
 from app.services.github_app_service import (
     get_config,
@@ -242,12 +243,14 @@ async def github_setup():
 # ─── Authenticated Endpoints ───
 
 class ReviewItem(BaseModel):
+    id: str
     repo: str
     pr_number: int
     pr_title: Optional[str] = None
     pr_author: Optional[str] = None
     status: str
     created_at: Optional[str] = None
+    snapshots_count: Optional[int] = 0
 
 
 class CodeReviewStatusResponse(BaseModel):
@@ -262,6 +265,29 @@ class CodeReviewStatusResponse(BaseModel):
 
 class UpdatePersonaRequest(BaseModel):
     persona: str
+
+
+class SnapshotItem(BaseModel):
+    id: str
+    title: str
+    severity: str
+    category: str
+    file_path: str
+    start_line: Optional[int] = None
+    end_line: Optional[int] = None
+    code_block: str
+    annotation: str
+    sort_order: int
+    created_at: str
+
+
+class SnapshotsResponse(BaseModel):
+    review_id: str
+    repo: str
+    pr_number: int
+    pr_title: Optional[str] = None
+    pr_author: Optional[str] = None
+    snapshots: List[SnapshotItem] = []
 
 
 @router.get("/status", response_model=CodeReviewStatusResponse)
@@ -300,7 +326,7 @@ async def github_status(
     usage_result = await db.execute(usage_stmt)
     usage_count = usage_result.scalar() or 0
 
-    # Get recent reviews
+    # Get recent reviews with snapshot counts
     reviews_stmt = (
         select(GitHubReviewUsage)
         .where(GitHubReviewUsage.installation_id == installation.installation_id)
@@ -309,6 +335,26 @@ async def github_status(
     )
     reviews_result = await db.execute(reviews_stmt)
     recent_reviews = reviews_result.scalars().all()
+    
+    # Get snapshot counts for each review
+    review_items = []
+    for r in recent_reviews:
+        snapshots_count_stmt = select(func.count(CodeReviewSnapshot.id)).where(
+            CodeReviewSnapshot.review_id == r.id
+        )
+        snapshots_count_result = await db.execute(snapshots_count_stmt)
+        snapshots_count = snapshots_count_result.scalar() or 0
+        
+        review_items.append(ReviewItem(
+            id=str(r.id),
+            repo=r.repo_full_name,
+            pr_number=r.pr_number,
+            pr_title=r.pr_title,
+            pr_author=r.pr_author,
+            status=r.status,
+            created_at=r.created_at.isoformat() if r.created_at else None,
+            snapshots_count=snapshots_count,
+        ))
 
     limit = FREE_TIER_MONTHLY_LIMIT if installation.tier == "free" else 999999
 
@@ -323,17 +369,7 @@ async def github_status(
         },
         usage=usage_count,
         limit=limit,
-        reviews=[
-            ReviewItem(
-                repo=r.repo_full_name,
-                pr_number=r.pr_number,
-                pr_title=r.pr_title,
-                pr_author=r.pr_author,
-                status=r.status,
-                created_at=r.created_at.isoformat() if r.created_at else None,
-            )
-            for r in recent_reviews
-        ],
+        reviews=review_items,
     )
 
 
@@ -372,6 +408,145 @@ async def update_persona(
     await db.commit()
 
     return {"status": "ok", "persona": body.persona}
+
+
+# ─── Snapshot Endpoints ───
+
+@router.get("/reviews/{review_id}/snapshots", response_model=SnapshotsResponse)
+async def get_review_snapshots(
+    review_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get snapshots for a specific review (authenticated).
+    Verifies the user's org owns the GitHub installation that created the review.
+    """
+    try:
+        import uuid
+        review_uuid = uuid.UUID(review_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid review ID format",
+        )
+
+    # Get the review and verify ownership through installation -> org
+    review_stmt = (
+        select(GitHubReviewUsage)
+        .join(GitHubAppInstallation)
+        .where(
+            and_(
+                GitHubReviewUsage.id == review_uuid,
+                GitHubAppInstallation.org_id == user.org_id,
+            )
+        )
+    )
+    result = await db.execute(review_stmt)
+    review = result.scalar_one_or_none()
+
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found or access denied",
+        )
+
+    # Get snapshots for this review
+    snapshots_stmt = (
+        select(CodeReviewSnapshot)
+        .where(CodeReviewSnapshot.review_id == review_uuid)
+        .order_by(CodeReviewSnapshot.sort_order, CodeReviewSnapshot.created_at)
+    )
+    snapshots_result = await db.execute(snapshots_stmt)
+    snapshots = snapshots_result.scalars().all()
+
+    return SnapshotsResponse(
+        review_id=review_id,
+        repo=review.repo_full_name,
+        pr_number=review.pr_number,
+        pr_title=review.pr_title,
+        pr_author=review.pr_author,
+        snapshots=[
+            SnapshotItem(
+                id=str(s.id),
+                title=s.title,
+                severity=s.severity,
+                category=s.category,
+                file_path=s.file_path,
+                start_line=s.start_line,
+                end_line=s.end_line,
+                code_block=s.code_block,
+                annotation=s.annotation,
+                sort_order=s.sort_order,
+                created_at=s.created_at.isoformat() if s.created_at else "",
+            )
+            for s in snapshots
+        ],
+    )
+
+
+@router.get("/snapshots/{review_id}", response_model=SnapshotsResponse)
+async def get_public_snapshots(
+    review_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get snapshots for a specific review (public endpoint, no auth).
+    Uses security through obscurity - the UUID is unguessable.
+    This is the endpoint used by the public snapshot viewer page.
+    """
+    try:
+        import uuid
+        review_uuid = uuid.UUID(review_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid review ID format",
+        )
+
+    # Get the review
+    review_stmt = select(GitHubReviewUsage).where(GitHubReviewUsage.id == review_uuid)
+    result = await db.execute(review_stmt)
+    review = result.scalar_one_or_none()
+
+    if not review:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Review not found",
+        )
+
+    # Get snapshots for this review
+    snapshots_stmt = (
+        select(CodeReviewSnapshot)
+        .where(CodeReviewSnapshot.review_id == review_uuid)
+        .order_by(CodeReviewSnapshot.sort_order, CodeReviewSnapshot.created_at)
+    )
+    snapshots_result = await db.execute(snapshots_stmt)
+    snapshots = snapshots_result.scalars().all()
+
+    return SnapshotsResponse(
+        review_id=review_id,
+        repo=review.repo_full_name,
+        pr_number=review.pr_number,
+        pr_title=review.pr_title,
+        pr_author=review.pr_author,
+        snapshots=[
+            SnapshotItem(
+                id=str(s.id),
+                title=s.title,
+                severity=s.severity,
+                category=s.category,
+                file_path=s.file_path,
+                start_line=s.start_line,
+                end_line=s.end_line,
+                code_block=s.code_block,
+                annotation=s.annotation,
+                sort_order=s.sort_order,
+                created_at=s.created_at.isoformat() if s.created_at else "",
+            )
+            for s in snapshots
+        ],
+    )
 
 
 # ─── Helpers ───

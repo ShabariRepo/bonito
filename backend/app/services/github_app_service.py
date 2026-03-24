@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.models.github_app import GitHubAppInstallation, GitHubReviewUsage
+from app.models.code_snapshot import CodeReviewSnapshot
 from app.services.bonbon_templates import get_template, render_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -369,11 +370,12 @@ async def _record_review(
 
 # ─── AI Review ───
 
-async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: list, persona_id: str = "default") -> str:
+async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: list, persona_id: str = "default") -> dict:
     """
     Send the diff to the BonBon Code Reviewer template for review.
     Uses litellm directly with Groq for fast, cost-effective reviews.
     Falls back to any available provider if Groq is unavailable.
+    Returns structured JSON with review text and snapshots.
     """
     import os
     import litellm
@@ -406,14 +408,32 @@ async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: lis
 {diff}
 ```
 
-Please review this pull request. Provide:
-1. A summary of what the PR does
-2. Any critical issues (security, bugs, correctness)
-3. Warnings (performance, maintainability)
-4. Suggestions for improvement
-5. An overall verdict: APPROVE, REQUEST_CHANGES, or COMMENT
+Please review this pull request and respond with valid JSON in this exact format:
 
-Format your review clearly with sections and severity markers (🔴 Critical, 🟡 Warning, 🔵 Suggestion, 💭 Question)."""
+{{
+  "review_text": "Your complete markdown review with sections and severity markers (🔴 Critical, 🟡 Warning, 🔵 Suggestion, 💭 Question)",
+  "snapshots": [
+    {{
+      "title": "Brief description of the issue",
+      "severity": "critical|warning|suggestion|info",
+      "category": "security|performance|logic|architecture|style",
+      "file_path": "path/to/file.ext",
+      "start_line": 45,
+      "end_line": 58,
+      "code_block": "actual code snippet from the diff",
+      "annotation": "Why this code block is important and what the issue is"
+    }}
+  ]
+}}
+
+Extract 3-8 key snapshots - the most critical code blocks that matter most in this PR. Include:
+1. Security vulnerabilities (SQL injection, XSS, auth bypass, etc.)
+2. Critical bugs (null pointer, race conditions, logic errors)
+3. Performance issues (N+1 queries, unbounded loops, memory leaks)
+4. Architectural problems (tight coupling, violation of principles)
+5. Important improvements or good patterns worth highlighting
+
+For each snapshot, extract the exact code from the diff and explain why it matters."""
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -443,7 +463,21 @@ Format your review clearly with sections and severity markers (🔴 Critical, �
             )
             content = response.choices[0].message.content
             if content:
-                return content
+                try:
+                    # Try to parse as JSON
+                    result = json.loads(content)
+                    # Validate required fields
+                    if "review_text" in result and "snapshots" in result:
+                        # Ensure snapshots is a list
+                        if not isinstance(result["snapshots"], list):
+                            result["snapshots"] = []
+                        return result
+                    else:
+                        # Fallback to plain text format
+                        return {"review_text": content, "snapshots": []}
+                except json.JSONDecodeError:
+                    # Fallback to plain text format
+                    return {"review_text": content, "snapshots": []}
         except Exception as e:
             last_error = e
             logger.warning(f"Code review model {model_id} failed: {e}")
@@ -596,7 +630,7 @@ def _get_persona(persona_id: str) -> dict:
     return PERSONAS.get(persona_id, PERSONAS["default"])
 
 
-def _format_review_comment(review_text: str, pr_url: str, persona_id: str = "default") -> str:
+def _format_review_comment(review_text: str, pr_url: str, persona_id: str = "default", snapshots_count: int = 0, review_id: Optional[str] = None) -> str:
     """Format the AI review into a GitHub-friendly comment."""
     persona = _get_persona(persona_id)
     name = persona["name"]
@@ -609,8 +643,13 @@ def _format_review_comment(review_text: str, pr_url: str, persona_id: str = "def
         header = f"## {emoji} Bonito AI Code Review (as {name})"
         footer_label = f"Bonito AI Code Review -- {name} Mode"
 
+    # Add snapshot link if we have snapshots
+    snapshot_link = ""
+    if snapshots_count > 0 and review_id:
+        snapshot_link = f"\n🔍 **{snapshots_count} Key Snapshots** - [View on Bonito](https://getbonito.com/snapshots/{review_id})\n"
+    
     return f"""{header}
-
+{snapshot_link}
 {review_text}
 
 ---
@@ -743,13 +782,26 @@ async def handle_pull_request_event(payload: dict) -> dict:
             return {"status": "skipped", "reason": "empty_diff"}
 
         # 6. Run AI review (with persona)
-        review_text = await _run_code_review(filtered_diff, pr_title, pr_url, file_list, persona_id=persona_id)
+        review_result = await _run_code_review(filtered_diff, pr_title, pr_url, file_list, persona_id=persona_id)
+        review_text = review_result.get("review_text", "")
+        snapshots = review_result.get("snapshots", [])
 
-        # 7. Post comment on PR
-        comment_body = _format_review_comment(review_text, pr_url, persona_id=persona_id)
+        # 7. Save snapshots to database
+        snapshots_count = 0
+        async with get_db_session() as db:
+            if snapshots:
+                await _save_snapshots(db, review.id, snapshots)
+                snapshots_count = len([s for s in snapshots if isinstance(s, dict) and s.get("title")])
+                await db.commit()
+
+        # 8. Post comment on PR
+        comment_body = _format_review_comment(
+            review_text, pr_url, persona_id=persona_id, 
+            snapshots_count=snapshots_count, review_id=str(review.id)
+        )
         comment_id = await _post_pr_comment(token, repo_full_name, pr_number, comment_body)
 
-        # 8. Update review record
+        # 9. Update review record
         async with get_db_session() as db:
             stmt = select(GitHubReviewUsage).where(GitHubReviewUsage.id == review.id)
             result = await db.execute(stmt)
@@ -759,6 +811,7 @@ async def handle_pull_request_event(payload: dict) -> dict:
                 r.comment_id = comment_id
                 r.review_summary = review_text[:500] if review_text else None
                 r.completed_at = datetime.now(timezone.utc)
+                await db.commit()
 
         logger.info(
             f"Review posted on PR #{pr_number} ({repo_full_name}), "
@@ -835,6 +888,41 @@ async def handle_installation_event(payload: dict) -> dict:
 
         else:
             return {"status": "ignored", "reason": f"installation action '{action}' not handled"}
+
+
+async def _save_snapshots(db: AsyncSession, review_id: uuid.UUID, snapshots_data: list) -> None:
+    """Save extracted snapshots to the database."""
+    severity_order = {"critical": 0, "warning": 1, "suggestion": 2, "info": 3}
+    
+    for i, snapshot in enumerate(snapshots_data[:8]):  # Limit to 8 snapshots max
+        try:
+            # Validate snapshot data
+            if not all(key in snapshot for key in ["title", "severity", "category", "file_path", "code_block", "annotation"]):
+                continue
+                
+            # Calculate sort order (critical first, then by index)
+            base_order = severity_order.get(snapshot.get("severity", "info"), 3)
+            sort_order = base_order * 100 + i
+            
+            code_snapshot = CodeReviewSnapshot(
+                review_id=review_id,
+                title=str(snapshot["title"])[:500],  # Truncate to fit
+                severity=str(snapshot["severity"]) if snapshot["severity"] in ["critical", "warning", "suggestion", "info"] else "info",
+                category=str(snapshot["category"]) if snapshot["category"] in ["security", "performance", "logic", "architecture", "style"] else "style",
+                file_path=str(snapshot["file_path"])[:1000],  # Truncate to fit
+                start_line=snapshot.get("start_line") if isinstance(snapshot.get("start_line"), int) else None,
+                end_line=snapshot.get("end_line") if isinstance(snapshot.get("end_line"), int) else None,
+                code_block=str(snapshot["code_block"]),
+                annotation=str(snapshot["annotation"]),
+                sort_order=sort_order
+            )
+            db.add(code_snapshot)
+        except Exception as e:
+            logger.warning(f"Failed to save snapshot {i}: {e}")
+            continue
+    
+    # Flush to ensure snapshots are saved
+    await db.flush()
 
 
 def _get_limit_for_tier(tier: str) -> Optional[int]:

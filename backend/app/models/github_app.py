@@ -92,3 +92,4 @@ class GitHubReviewUsage(Base):
 
     # Relationships
     installation = relationship("GitHubAppInstallation", back_populates="reviews")
+    snapshots = relationship("CodeReviewSnapshot", back_populates="review", cascade="all, delete-orphan")
