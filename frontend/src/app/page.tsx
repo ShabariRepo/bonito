@@ -65,12 +65,20 @@ export default function LandingPage() {
       highlighted: false,
     },
     {
+      name: "Starter",
+      price: "$99",
+      period: "/mo",
+      features: ["100K API calls / month", "Intelligent routing (cost, A/B)", "Cost analytics & alerts", "2 BonBon agents", "CLI access", "Email support"],
+      cta: "Start Free Trial",
+      highlighted: true,
+    },
+    {
       name: "Pro",
       price: "$499",
       period: "/mo",
-      features: ["Unlimited providers", "Advanced analytics", "Priority support", "Unlimited team", "API gateway", "Cost optimization"],
+      features: ["500K calls, 5 providers", "RAG knowledge bases", "5 BonBon agents", "Audit trail & compliance", "Advanced load balancing", "Unlimited team"],
       cta: "Start Free Trial",
-      highlighted: true,
+      highlighted: false,
     },
     {
       name: "Enterprise",
@@ -253,7 +261,7 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-bold">Simple, transparent pricing</h2>
           <p className="mt-4 text-[#888] text-lg">Start free. Scale when you&apos;re ready.</p>
         </FadeInSection>
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
           {plans.map((plan, i) => (
             <FadeInSection key={plan.name} delay={i * 0.1}>
               <div
