@@ -74,7 +74,7 @@ export function filterArticles(
     search?: string;
   }
 ): Article[] {
-  return articles.filter((article) => {
+  const filtered = articles.filter((article) => {
     if (options.category && options.category !== 'all' && article.category !== options.category) {
       return false;
     }
@@ -101,6 +101,9 @@ export function filterArticles(
     }
     return true;
   });
+
+  // Sort newest first
+  return filtered.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 }
 
 export function groupArticlesByCountry(articles: Article[]): Map<string, Article[]> {
