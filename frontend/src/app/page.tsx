@@ -60,7 +60,7 @@ export default function LandingPage() {
       name: "Free",
       price: "$0",
       period: "forever",
-      features: ["Up to 3 providers", "Basic analytics", "Community support", "1 team member"],
+      features: ["Up to 3 providers", "25K API calls / month", "Automatic failover", "1 BonBon agent", "Basic analytics", "Community support"],
       cta: "Get Started",
       highlighted: false,
     },

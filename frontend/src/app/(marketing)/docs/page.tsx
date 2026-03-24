@@ -1321,7 +1321,7 @@ bonito bonobot classify --id bot_abc123 \\
           />
 
           <Callout variant="info">
-            Free tier includes 5 code reviews per month per repo. Upgrade for unlimited reviews and priority processing.
+            Free tier includes 6 code reviews per month, up to 3 provider connections, 25K gateway calls, automatic failover routing, and 1 BonBon Simple agent. Upgrade for unlimited reviews and priority processing.
           </Callout>
 
           {/* ── MCP Integration ── */}

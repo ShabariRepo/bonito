@@ -62,13 +62,13 @@ class TierLimits:
     
     TIER_CONFIG = {
         SubscriptionTier.FREE: {
-            "providers": 1,
-            "gateway_calls_per_month": 5000,
+            "providers": 3,
+            "gateway_calls_per_month": 25000,
             "members": 1,
             "features": {
                 "models": True,
                 "playground": True,
-                "routing": False,
+                "routing": True,  # basic failover routing
                 "ai_context": False,
                 "analytics": False,
                 "cli": False,
@@ -82,6 +82,7 @@ class TierLimits:
                 "on_premise": False,
                 "custom_integrations": False,
                 "dedicated_support": False,
+                "bonbon_agents": 1,  # 1 rate-limited BonBon Simple agent
             }
         },
         SubscriptionTier.PRO: {
