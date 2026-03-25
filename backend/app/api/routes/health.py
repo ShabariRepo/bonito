@@ -39,10 +39,12 @@ async def check_vault() -> dict:
         return {"status": "unhealthy", "error": str(e)}
 
 
+BUILD_VERSION = "2026.03.25.1"
+
 @router.get("/health")
 async def health_check_basic():
     """Simple health check - just return alive status."""
-    return {"status": "alive", "service": "bonito-api"}
+    return {"status": "alive", "service": "bonito-api", "version": BUILD_VERSION}
 
 
 @router.get("/health/live")
