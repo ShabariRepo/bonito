@@ -549,26 +549,6 @@ async def get_public_snapshots(
     )
 
 
-# ─── Admin (temporary) ───
-
-@router.post("/admin/upgrade/{installation_id}")
-async def admin_upgrade_installation(
-    installation_id: int,
-    db: AsyncSession = Depends(get_db),
-):
-    """Temporary: upgrade an installation to pro tier. Remove after use."""
-    stmt = select(GitHubAppInstallation).where(
-        GitHubAppInstallation.installation_id == installation_id
-    )
-    result = await db.execute(stmt)
-    inst = result.scalar_one_or_none()
-    if not inst:
-        raise HTTPException(status_code=404, detail="Installation not found")
-    inst.tier = "pro"
-    await db.commit()
-    return {"status": "upgraded", "installation_id": installation_id, "tier": "pro"}
-
-
 # ─── Helpers ───
 
 async def _safe_handle_pr(payload: dict, delivery_id: str):
