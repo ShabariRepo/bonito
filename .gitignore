@@ -11,3 +11,4 @@ secrets/age-key.txt
 secrets/*.yaml
 !secrets/*.enc.yaml
 benchmarks/locomo-repo
+bonito-kb-sa-key.json

@@ -211,6 +211,16 @@ async def delete_knowledge_base(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
 
     kb_name = kb.name
+
+    # Delete all files from GCS for this KB
+    try:
+        from app.services.gcs_storage import delete_kb_folder
+        deleted_count = await delete_kb_folder(user.org_id, kb_id)
+        if deleted_count:
+            logger.info(f"Deleted {deleted_count} files from GCS for KB {kb_id}")
+    except Exception as e:
+        logger.warning(f"GCS cleanup failed for KB {kb_id} (continuing with DB delete): {e}")
+
     await db.delete(kb)
     await db.flush()
     
@@ -359,6 +369,17 @@ async def upload_document(
     await db.flush()
     await db.refresh(doc)
 
+    # Persist original file to GCS (tenant-isolated: org_id/kb_id/file_id_name)
+    try:
+        from app.services.gcs_storage import upload_file as gcs_upload
+        content_type = file.content_type or "application/octet-stream"
+        gcs_uri = await gcs_upload(user.org_id, kb_id, doc.id, file.filename, content, content_type)
+        doc.file_path = gcs_uri
+        await db.flush()
+        logger.info(f"Persisted {file.filename} to GCS: {gcs_uri}")
+    except Exception as e:
+        logger.warning(f"GCS upload failed (processing will continue without file persistence): {e}")
+
     # Schedule background processing using the real ingestion pipeline
     from app.services.kb_ingestion import process_document
     background_tasks.add_task(process_document, doc.id, content, kb_id)
@@ -374,6 +395,67 @@ async def upload_document(
     )
 
 
+@router.get("/{kb_id}/documents/{doc_id}/download")
+async def download_document(
+    kb_id: uuid.UUID,
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download the original uploaded document from GCS."""
+    await _require_ai_context(db, user)
+    # Verify KB exists and belongs to user's org
+    kb_result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = kb_result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    result = await db.execute(
+        select(KBDocument).where(
+            and_(KBDocument.id == doc_id, KBDocument.knowledge_base_id == kb_id)
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    if not doc.file_path or not doc.file_path.startswith("gs://"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Original file not available (uploaded before GCS storage was enabled)"
+        )
+
+    try:
+        from app.services.gcs_storage import download_file as gcs_download
+        content = await gcs_download(user.org_id, kb_id, doc.id, doc.file_name)
+
+        from fastapi.responses import Response
+        # Map file types to MIME types
+        mime_map = {
+            "pdf": "application/pdf",
+            "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "txt": "text/plain",
+            "md": "text/markdown",
+            "html": "text/html",
+            "csv": "text/csv",
+            "json": "application/json",
+        }
+        content_type = mime_map.get(doc.file_type, "application/octet-stream")
+
+        return Response(
+            content=content,
+            media_type=content_type,
+            headers={"Content-Disposition": f'attachment; filename="{doc.file_name}"'},
+        )
+    except Exception as e:
+        logger.error(f"GCS download failed for doc {doc_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to download file")
+
+
 @router.delete("/{kb_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     kb_id: uuid.UUID,
@@ -381,7 +463,7 @@ async def delete_document(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete a document and all its chunks."""
+    """Delete a document and all its chunks (also removes from GCS)."""
     await _require_ai_context(db, user)
     # Verify KB exists and belongs to user's org
     kb_result = await db.execute(
@@ -404,6 +486,14 @@ async def delete_document(
 
     doc_name = doc.file_name
     chunk_count = doc.chunk_count
+
+    # Delete from GCS if file was stored there
+    if doc.file_path and doc.file_path.startswith("gs://"):
+        try:
+            from app.services.gcs_storage import delete_file as gcs_delete
+            await gcs_delete(user.org_id, kb_id, doc.id, doc.file_name)
+        except Exception as e:
+            logger.warning(f"GCS delete failed for doc {doc_id} (continuing with DB delete): {e}")
     
     await db.delete(doc)
     await db.flush()
