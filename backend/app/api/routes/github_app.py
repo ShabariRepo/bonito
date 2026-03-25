@@ -336,14 +336,20 @@ async def github_status(
     reviews_result = await db.execute(reviews_stmt)
     recent_reviews = reviews_result.scalars().all()
     
-    # Get snapshot counts for each review
+    # Get snapshot counts for each review (graceful if table doesn't exist yet)
     review_items = []
     for r in recent_reviews:
-        snapshots_count_stmt = select(func.count(CodeReviewSnapshot.id)).where(
-            CodeReviewSnapshot.review_id == r.id
-        )
-        snapshots_count_result = await db.execute(snapshots_count_stmt)
-        snapshots_count = snapshots_count_result.scalar() or 0
+        snapshots_count = 0
+        try:
+            snapshots_count_stmt = select(func.count(CodeReviewSnapshot.id)).where(
+                CodeReviewSnapshot.review_id == r.id
+            )
+            snapshots_count_result = await db.execute(snapshots_count_stmt)
+            snapshots_count = snapshots_count_result.scalar() or 0
+        except Exception:
+            # Table may not exist yet (migration not run)
+            await db.rollback()
+            snapshots_count = 0
         
         review_items.append(ReviewItem(
             id=str(r.id),
