@@ -370,6 +370,90 @@ async def _record_review(
 
 # ─── AI Review ───
 
+def _parse_review_json(content: str) -> Optional[dict]:
+    """Parse LLM response into structured review dict.
+    
+    Handles: markdown code fences, literal newlines in JSON strings,
+    and various LLM formatting quirks.
+    """
+    import re
+    
+    cleaned = content.strip()
+    
+    # Strip markdown code fences
+    if cleaned.startswith("```"):
+        try:
+            first_newline = cleaned.index("\n")
+            cleaned = cleaned[first_newline + 1:]
+            if cleaned.rstrip().endswith("```"):
+                cleaned = cleaned.rstrip()[:-3].rstrip()
+        except ValueError:
+            pass
+    
+    # Try direct parse first (works if LLM produced valid JSON)
+    try:
+        result = json.loads(cleaned)
+        if isinstance(result, dict) and "review_text" in result:
+            if not isinstance(result.get("snapshots"), list):
+                result["snapshots"] = []
+            return result
+    except json.JSONDecodeError:
+        pass
+    
+    # LLMs often put literal newlines in JSON strings. Extract fields with regex.
+    try:
+        # Find review_text value (everything between first "review_text": " and the snapshots key)
+        rt_match = re.search(r'"review_text"\s*:\s*"', cleaned)
+        sn_match = re.search(r'",\s*"snapshots"\s*:\s*\[', cleaned)
+        
+        if rt_match and sn_match:
+            review_text = cleaned[rt_match.end():sn_match.start()]
+            # Unescape any JSON escapes
+            review_text = review_text.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
+            
+            # Extract snapshots array
+            snap_start = cleaned.index('"snapshots"')
+            snap_json = cleaned[snap_start:]
+            # Find the array: everything from [ to the matching ]
+            arr_start = snap_json.index("[")
+            bracket_depth = 0
+            arr_end = arr_start
+            for i, ch in enumerate(snap_json[arr_start:], arr_start):
+                if ch == "[":
+                    bracket_depth += 1
+                elif ch == "]":
+                    bracket_depth -= 1
+                    if bracket_depth == 0:
+                        arr_end = i + 1
+                        break
+            
+            snapshots_str = snap_json[arr_start:arr_end]
+            # Fix literal newlines in snapshot strings for JSON parsing
+            # Replace unescaped newlines inside strings
+            snapshots_str = re.sub(r'(?<=\w)\n(?=\s)', '\\n', snapshots_str)
+            
+            try:
+                snapshots = json.loads(snapshots_str)
+            except json.JSONDecodeError:
+                # Try more aggressive newline escaping
+                fixed = snapshots_str.replace('\n', '\\n').replace('\t', '\\t')
+                # But restore structural newlines (between JSON elements)
+                fixed = re.sub(r'\\n(\s*["\[\]\{\},])', lambda m: '\n' + m.group(1), fixed)
+                try:
+                    snapshots = json.loads(fixed)
+                except json.JSONDecodeError:
+                    snapshots = []
+            
+            if not isinstance(snapshots, list):
+                snapshots = []
+            
+            return {"review_text": review_text, "snapshots": snapshots}
+    except (ValueError, IndexError):
+        pass
+    
+    return None
+
+
 async def _run_code_review(diff: str, pr_title: str, pr_url: str, file_list: list, persona_id: str = "default") -> dict:
     """
     Send the diff to the BonBon Code Reviewer template for review.
@@ -464,28 +548,11 @@ For each snapshot, extract the exact code from the diff and explain why it matte
             content = response.choices[0].message.content
             if content:
                 try:
-                    # Strip markdown code fences if present (LLMs often wrap JSON in ```json ... ```)
-                    cleaned = content.strip()
-                    if cleaned.startswith("```"):
-                        # Remove opening fence (```json or ```)
-                        first_newline = cleaned.index("\n")
-                        cleaned = cleaned[first_newline + 1:]
-                        # Remove closing fence
-                        if cleaned.rstrip().endswith("```"):
-                            cleaned = cleaned.rstrip()[:-3].rstrip()
-
-                    result = json.loads(cleaned)
-                    # Validate required fields
-                    if "review_text" in result and "snapshots" in result:
-                        # Ensure snapshots is a list
-                        if not isinstance(result["snapshots"], list):
-                            result["snapshots"] = []
+                    result = _parse_review_json(content)
+                    if result:
                         return result
-                    else:
-                        # Fallback to plain text format
-                        return {"review_text": content, "snapshots": []}
-                except (json.JSONDecodeError, ValueError):
-                    # Fallback to plain text format
+                    return {"review_text": content, "snapshots": []}
+                except Exception:
                     return {"review_text": content, "snapshots": []}
         except Exception as e:
             last_error = e
