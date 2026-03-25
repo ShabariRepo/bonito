@@ -64,7 +64,7 @@ const statusColors = {
   error: "text-red-400",
 };
 
-const statusDotColors = {
+const statusDotColors: Record<string, string> = {
   pending: "bg-yellow-400",
   syncing: "bg-blue-400", 
   ready: "bg-green-400",
