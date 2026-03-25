@@ -46,6 +46,7 @@ const navigation = [
   { name: "Costs", href: "/costs", icon: DollarSign },
   { name: "Team", href: "/team", icon: Users },
   { name: "Governance", href: "/governance", icon: Shield },
+  { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
   { name: "API Gateway", href: "/gateway", icon: Radio },
   { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
   { name: "Code Review", href: "/code-review", icon: GitPullRequest },

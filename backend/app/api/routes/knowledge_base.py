@@ -675,6 +675,139 @@ async def get_knowledge_base_stats(
     )
 
 
+# ─── Agent Access Management ───
+
+@router.get("/{kb_id}/linked-agents", response_model=List[dict])
+async def get_linked_agents(
+    kb_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all agents that have access to this knowledge base."""
+    await _require_ai_context(db, user)
+    # Verify KB exists and belongs to user's org
+    result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    # Find all agents that reference this KB
+    from app.models.agent import Agent
+    from sqlalchemy.dialects.postgresql import ARRAY
+    from sqlalchemy import cast, Text
+    
+    # Query agents where knowledge_base_ids JSON array contains our KB ID
+    result = await db.execute(
+        select(Agent.id, Agent.name, Agent.description, Agent.status)
+        .where(
+            and_(
+                Agent.org_id == user.org_id,
+                cast(Agent.knowledge_base_ids, ARRAY(Text)).contains([str(kb_id)])
+            )
+        )
+        .order_by(Agent.name)
+    )
+    agents = result.all()
+    
+    return [
+        {
+            "id": str(agent.id),
+            "name": agent.name,
+            "description": agent.description,
+            "status": agent.status,
+        }
+        for agent in agents
+    ]
+
+
+@router.post("/{kb_id}/link-agent/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def link_agent_to_kb(
+    kb_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Link an agent to this knowledge base."""
+    await _require_ai_context(db, user)
+    
+    # Verify KB exists and belongs to user's org
+    result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    # Verify agent exists and belongs to user's org
+    from app.models.agent import Agent
+    result = await db.execute(
+        select(Agent).where(
+            and_(Agent.id == agent_id, Agent.org_id == user.org_id)
+        )
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    # Add KB ID to agent's knowledge_base_ids if not already present
+    kb_ids = agent.knowledge_base_ids or []
+    kb_id_str = str(kb_id)
+    if kb_id_str not in kb_ids:
+        kb_ids.append(kb_id_str)
+        agent.knowledge_base_ids = kb_ids
+        await db.commit()
+
+    logger.info(f"Linked agent {agent_id} to KB {kb_id}")
+
+
+@router.delete("/{kb_id}/unlink-agent/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_agent_from_kb(
+    kb_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Unlink an agent from this knowledge base."""
+    await _require_ai_context(db, user)
+    
+    # Verify KB exists and belongs to user's org
+    result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
+
+    # Verify agent exists and belongs to user's org
+    from app.models.agent import Agent
+    result = await db.execute(
+        select(Agent).where(
+            and_(Agent.id == agent_id, Agent.org_id == user.org_id)
+        )
+    )
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    # Remove KB ID from agent's knowledge_base_ids
+    kb_ids = agent.knowledge_base_ids or []
+    kb_id_str = str(kb_id)
+    if kb_id_str in kb_ids:
+        kb_ids.remove(kb_id_str)
+        agent.knowledge_base_ids = kb_ids
+        await db.commit()
+
+    logger.info(f"Unlinked agent {agent_id} from KB {kb_id}")
+
+
 # ─── Background Tasks (Placeholder implementations) ───
 
 async def _process_uploaded_document(doc_id: uuid.UUID, content: bytes, kb_id: uuid.UUID):
