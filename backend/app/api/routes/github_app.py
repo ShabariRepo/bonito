@@ -549,42 +549,6 @@ async def get_public_snapshots(
     )
 
 
-# ─── Debug (temporary) ───
-
-@router.get("/debug/installations")
-async def debug_installations(db: AsyncSession = Depends(get_db)):
-    """Temporary debug: list all installations and their org links. Remove after fixing."""
-    stmt = select(GitHubAppInstallation)
-    result = await db.execute(stmt)
-    installations = result.scalars().all()
-
-    # Also get all users with their org_ids for cross-reference
-    from app.models.user import User as UserModel
-    users_stmt = select(UserModel)
-    users_result = await db.execute(users_stmt)
-    users = users_result.scalars().all()
-
-    return {
-        "installations": [
-            {
-                "installation_id": inst.installation_id,
-                "github_account": inst.github_account_login,
-                "org_id": str(inst.org_id) if inst.org_id else None,
-                "tier": inst.tier,
-                "is_active": inst.is_active,
-            }
-            for inst in installations
-        ],
-        "users": [
-            {
-                "email": u.email,
-                "org_id": str(u.org_id) if u.org_id else None,
-            }
-            for u in users
-        ],
-    }
-
-
 # ─── Helpers ───
 
 async def _safe_handle_pr(payload: dict, delivery_id: str):
