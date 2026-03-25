@@ -464,8 +464,17 @@ For each snapshot, extract the exact code from the diff and explain why it matte
             content = response.choices[0].message.content
             if content:
                 try:
-                    # Try to parse as JSON
-                    result = json.loads(content)
+                    # Strip markdown code fences if present (LLMs often wrap JSON in ```json ... ```)
+                    cleaned = content.strip()
+                    if cleaned.startswith("```"):
+                        # Remove opening fence (```json or ```)
+                        first_newline = cleaned.index("\n")
+                        cleaned = cleaned[first_newline + 1:]
+                        # Remove closing fence
+                        if cleaned.rstrip().endswith("```"):
+                            cleaned = cleaned.rstrip()[:-3].rstrip()
+
+                    result = json.loads(cleaned)
                     # Validate required fields
                     if "review_text" in result and "snapshots" in result:
                         # Ensure snapshots is a list
@@ -475,7 +484,7 @@ For each snapshot, extract the exact code from the diff and explain why it matte
                     else:
                         # Fallback to plain text format
                         return {"review_text": content, "snapshots": []}
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError):
                     # Fallback to plain text format
                     return {"review_text": content, "snapshots": []}
         except Exception as e:
