@@ -117,6 +117,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, "clarity", "script", "vewxqe9ey4");`,
           }}
         />
+        {/* Friend's tracking pixel - temporary */}
+        <Script
+          id="friend-pixel"
+          src="https://receiver-production-25a0.up.railway.app/px/247155d84684d4df/pixel.js"
+          strategy="afterInteractive"
+        />
       </head>
       <body className={inter.className}>
         <Providers>
