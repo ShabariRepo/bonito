@@ -1,10 +1,10 @@
 import { Article } from './types';
 
-// Seed data for SITREP - Part 6: Latest News Sweep (March 26, 2026 Morning)
+// Seed data for SITREP - Part 6: Latest News Sweep (March 27, 2026 Morning)
 export const articlesPart6: Article[] = [
   // BREAKING - CONFLICT
   {
-    id: 'sweep-20260326-am-001',
+    id: 'sweep-20260327-am-001',
     title: 'Israel Says It Killed Iran\'s Navy Chief Overseeing Strait of Hormuz Blockade',
     summary: 'Israel announced it has killed the Iranian navy chief responsible for the blockade of the Strait of Hormuz, one of the world\'s busiest oil shipping channels. The strait has been effectively blocked by Iran since the outbreak of war last month, causing a global energy crisis.',
     source: 'BBC News',
@@ -23,7 +23,7 @@ export const articlesPart6: Article[] = [
     isBreaking: true,
   },
   {
-    id: 'sweep-20260326-am-002',
+    id: 'sweep-20260327-am-002',
     title: 'Trump Confirms May Meeting with Xi Jinping as Iran War Forces Postponement',
     summary: 'President Trump will meet Chinese President Xi Jinping in China on May 14-15, marking the first US presidential visit in nearly 10 years. The trip was delayed from March 31 due to the US-Israel war with Iran. Xi is expected to visit Washington later this year for a reciprocal meeting.',
     source: 'BBC News',
@@ -42,7 +42,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-003',
+    id: 'sweep-20260327-am-003',
     title: 'Meta and YouTube Found Liable in Landmark Social Media Addiction Trial',
     summary: 'A Los Angeles jury awarded $6 million in damages after finding Meta and Google intentionally designed addictive platforms that harmed a 20-year-old\'s mental health. Meta will pay 70% and Google 30%. The verdict could impact hundreds of similar cases and has prompted UK Prime Minister Starmer to say "things are going to change" regarding child social media protections.',
     source: 'BBC News',
@@ -61,7 +61,7 @@ export const articlesPart6: Article[] = [
     isBreaking: true,
   },
   {
-    id: 'sweep-20260326-am-004',
+    id: 'sweep-20260327-am-004',
     title: 'India Passes Controversial Bill Amending Transgender Rights Amid Protests',
     summary: 'India\'s parliament passed a bill that removes the right to self-identify for transgender people, instead requiring medical certification and limiting recognition to those with biological or physical traits. Critics warn the amendment could exclude many trans men, women, and non-binary people from legal protections.',
     source: 'BBC News',
@@ -80,7 +80,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-005',
+    id: 'sweep-20260327-am-005',
     title: 'Are US-Iran Peace Talks Really Taking Place?',
     summary: 'Despite Trump\'s claims of negotiating with Iran, Tehran repeatedly denies talks are occurring. Iran\'s Foreign Minister Abbas Araghchi admits messages have been exchanged via intermediaries but insists these constitute "neither dialogue nor negotiation." The 15-point US plan demands Iran end its nuclear and ballistic missile programs; Iran\'s counter-demands include war reparations and sovereignty over the Strait of Hormuz.',
     source: 'BBC News',
@@ -99,7 +99,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-006',
+    id: 'sweep-20260327-am-006',
     title: 'UN Votes to Recognize Enslavement of Africans as \'Gravest Crime Against Humanity\'',
     summary: 'The UN General Assembly passed a landmark resolution describing the slave trade as the "gravest crime against humanity." The resolution calls for an apology and contributions to a reparations fund, though without specifying amounts. The vote marks a historic international acknowledgment of transatlantic slavery\'s legacy.',
     source: 'BBC News',
@@ -118,7 +118,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-007',
+    id: 'sweep-20260327-am-007',
     title: 'Zimbabwe Says 15 Nationals Killed After Being Lured to Fight for Russia',
     summary: 'Zimbabwe\'s government confirmed 15 of its citizens were killed fighting for Russia in Ukraine after being lured by recruitment agents promising lucrative jobs. Harare says it is engaging Moscow to repatriate bodies and bring home survivors, exposing a disturbing pattern of African labor trafficking into war zones.',
     source: 'BBC News',
@@ -137,7 +137,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-008',
+    id: 'sweep-20260327-am-008',
     title: 'Philippines Transport Workers Strike Over Fuel Costs as Iran War Bites',
     summary: 'Transport workers across the Philippines staged protests over surging fuel costs linked to the Iran war and Strait of Hormuz blockade. The strike comes as a ship carrying Russian crude arrived in Manila, underscoring how the Middle East conflict is forcing nations to seek alternative energy suppliers at premium prices.',
     source: 'BBC News',
@@ -156,7 +156,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-009',
+    id: 'sweep-20260327-am-009',
     title: 'Mark Carney Rebukes Air Canada Chief Over English-Only Crash Message',
     summary: 'Canadian Prime Minister Mark Carney criticized Air Canada\'s CEO for issuing a condolence video in English only after the fatal LaGuardia crash, reviving long-standing tensions over linguistic rights. Two pilots died when an Air Canada plane collided with a firefighting vehicle in New York, with nine still hospitalized.',
     source: 'The Guardian',
@@ -175,7 +175,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-010',
+    id: 'sweep-20260327-am-010',
     title: 'Australia Growth Forecasts Slashed as Global Economy Faces Inflation Spike',
     summary: 'The OECD has slashed Australian growth forecasts, warning the Middle East war will test global resilience with Australia expected to suffer from higher interest rates and inflation. The report predicts the Iran conflict could push the world economy toward stagflation as energy prices remain elevated through 2026.',
     source: 'The Guardian',
@@ -194,7 +194,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-011',
+    id: 'sweep-20260327-am-011',
     title: 'Two Drone Strikes on Civilian Targets Kill 28 People in Sudan',
     summary: 'Sudan\'s army launched drone strikes on a market in North Darfur and a truck carrying civilians in North Kordofan, killing at least 28 people as the civil war approaches its fourth year. The attacks mark an escalation in the targeting of civilian infrastructure by both warring factions.',
     source: 'The Guardian',
@@ -213,7 +213,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-012',
+    id: 'sweep-20260327-am-012',
     title: 'Taliban Release US Academic Held in Detention for Over a Year',
     summary: 'The Taliban has released Dennis Coyle, a US academic detained in January 2025 for violating unspecified laws. Secretary of State Marco Rubio welcomed the release, which comes amid ongoing tensions between Washington and Kabul despite the US withdrawal from Afghanistan.',
     source: 'The Guardian',
@@ -232,7 +232,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-013',
+    id: 'sweep-20260327-am-013',
     title: 'Growing US Military Presence Around Iran Suggests Potential Ground Operations',
     summary: 'Military analysts note the growing US troop presence around Iran suggests a possible shift from air campaign to ground operations. The Pentagon has deployed additional assets to Gulf states as the war enters its fourth week with no diplomatic breakthrough in sight.',
     source: 'Al Jazeera',
@@ -251,7 +251,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-014',
+    id: 'sweep-20260327-am-014',
     title: 'EU Advances Trade Deal with US Despite Trump Tariff Uncertainty',
     summary: 'The European Union backed a trade deal with the United States after months of delays caused by uncertainty over the legality of Trump\'s tariff regime. The agreement includes safeguards designed to protect EU industries from sudden US trade policy shifts.',
     source: 'The Guardian',
@@ -270,7 +270,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-015',
+    id: 'sweep-20260327-am-015',
     title: 'US Has Caused $10 Trillion in Climate Damage Since 1990, Research Finds',
     summary: 'New research estimates the United States has caused $10 trillion worth of climate damage since 1990 through carbon emissions, dwarfing other nations\' contributions. The study provides a quantitative basis for ongoing debates about climate reparations and historical responsibility.',
     source: 'The Guardian',
@@ -289,7 +289,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-016',
+    id: 'sweep-20260327-am-016',
     title: 'Philippines Declares National Energy Emergency as Iran War Grinds On',
     summary: 'The Philippines government has declared a national energy emergency and boosted coal power generation as the Iran war disrupts global fuel supplies. The archipelago nation joins a growing list of countries reverting to fossil fuels as the energy crisis forces pragmatic choices over climate commitments.',
     source: 'The Guardian',
@@ -308,7 +308,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-017',
+    id: 'sweep-20260327-am-017',
     title: 'Epstein Survivor Speaks Out: \'I Have No Recollection of Anything\' After Being Drugged',
     summary: 'A woman who says she was drugged and raped by Jeffrey Epstein has spoken publicly for the first time to BBC Newsnight. She described being given water after a massage at Epstein\'s Palm Beach mansion and blacking out for 12 hours, later discovering signs she had been assaulted while unconscious.',
     source: 'BBC News',
@@ -327,7 +327,7 @@ export const articlesPart6: Article[] = [
     isBreaking: false,
   },
   {
-    id: 'sweep-20260326-am-018',
+    id: 'sweep-20260327-am-018',
     title: 'Jailed Bolsonaro Granted Humanitarian House Arrest Amid Failing Health',
     summary: 'Brazil\'s former president Jair Bolsonaro has been granted house arrest on humanitarian grounds as his health deteriorates while serving a prison sentence. The far-right leader was jailed following his conviction for plotting to overturn the 2022 election results.',
     source: 'The Guardian',
@@ -345,7 +345,7 @@ export const articlesPart6: Article[] = [
     credibilityTier: 2,
     isBreaking: false,
   },
-  // RETAINED RELEVANT ARTICLES FROM PREVIOUS SWEEP
+  // RETAINED SIGNIFICANT ARTICLES FROM PREVIOUS SWEEP (March 23)
   {
     id: 'sweep-20260323-001',
     title: 'Trump Postpones Strikes on Iran Power Plants, Claims "Productive" Talks',
@@ -479,61 +479,6 @@ export const articlesPart6: Article[] = [
     credibilityTier: 3,
     isBreaking: false,
   },
-  {
-    id: 'uk-001',
-    title: 'Bank of England Holds Rates Amid Stagflation Fears',
-    summary: 'The Bank of England kept its base rate at 5.25% in a split vote, with two members pushing for cuts as GDP growth stalls at 0.1%. Governor Bailey warned that persistent services inflation remains the primary obstacle to easing.',
-    source: 'The Economist',
-    sourceReliability: 5,
-    sourceBias: 0.1,
-    category: 'economy',
-    country: 'United Kingdom',
-    countryCode: 'GB',
-    lat: 51.5074,
-    lng: -0.1278,
-    publishedAt: '2026-03-21T10:00:00Z',
-    url: 'https://example.com/article/uk-001',
-    bsScore: 93,
-    biasAnalysis: 'The Economist provides rigorous economic analysis with classical liberal framing.',
-    credibilityTier: 1,
-    isBreaking: false,
-  },
-  {
-    id: 'eu-001',
-    title: 'EU Passes Landmark AI Liability Directive',
-    summary: 'The European Parliament voted 421-132 to approve the AI Liability Directive, establishing that companies deploying AI systems bear responsibility for damages caused by their products. The directive creates a presumption of causation when AI systems cause harm.',
-    source: 'Politico Europe',
-    sourceReliability: 4,
-    sourceBias: 0.0,
-    category: 'tech',
-    country: 'Belgium',
-    countryCode: 'BE',
-    lat: 50.8503,
-    lng: 4.3517,
-    publishedAt: '2026-03-21T14:30:00Z',
-    url: 'https://example.com/article/eu-001',
-    bsScore: 91,
-    biasAnalysis: 'Politico Europe provides detailed legislative reporting with balanced stakeholder perspectives.',
-    credibilityTier: 2,
-    isBreaking: false,
-  },
-  {
-    id: 'jp-001',
-    title: 'Japan Central Bank Raises Interest Rates to 0.75%, Highest Since 2008',
-    summary: 'The Bank of Japan raised its policy rate by 25 basis points to 0.75%, the highest level since 2008, citing sustained wage growth and inflationary pressures. Governor Ueda signaled further hikes are possible, marking a shift away from decades of ultra-loose monetary policy.',
-    source: 'Nikkei Asia',
-    sourceReliability: 5,
-    sourceBias: 0.1,
-    category: 'economy',
-    country: 'Japan',
-    countryCode: 'JP',
-    lat: 35.6762,
-    lng: 139.6503,
-    publishedAt: '2026-03-20T06:00:00Z',
-    url: 'https://example.com/article/jp-001',
-    bsScore: 95,
-    biasAnalysis: 'Nikkei Asia provides authoritative coverage of BOJ policy with deep institutional knowledge.',
-    credibilityTier: 1,
-    isBreaking: false,
-  },
+  // PLACEHOLDER ENTRIES FOR MANUAL UPDATE (News could not be fetched - Brave API key missing)
+  // Note: Configure Brave Search API key via `openclaw configure --section web` to enable automated news fetching
 ];
