@@ -571,6 +571,190 @@ async def get_public_snapshots(
     )
 
 
+# ─── Test/Debug Endpoints ───
+
+class TestSnapshotRequest(BaseModel):
+    persona: str = "default"
+    repo: str = "test-org/test-repo"
+    pr_number: int = 42
+    pr_title: str = "Test PR for snapshot debugging"
+
+
+class TestSnapshotResponse(BaseModel):
+    status: str
+    review_id: str
+    message: str
+
+
+@router.post("/reviews/test-snapshot", response_model=TestSnapshotResponse)
+async def create_test_snapshot(
+    body: TestSnapshotRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a mock review with sample snapshots for testing the snapshot pipeline.
+    This allows testing without needing Bedrock access or actual PR webhooks.
+    """
+    import uuid
+    from datetime import datetime, timezone
+    
+    # Create or get a mock installation for this org
+    stmt = select(GitHubAppInstallation).where(
+        GitHubAppInstallation.org_id == user.org_id
+    )
+    result = await db.execute(stmt)
+    installation = result.scalar_one_or_none()
+    
+    if not installation:
+        # Create a mock installation
+        installation = GitHubAppInstallation(
+            installation_id=999999,  # Mock installation ID
+            github_account_login=user.email.split("@")[0] if user.email else "test-user",
+            github_account_id=999999,
+            github_account_type="User",
+            org_id=user.org_id,
+            tier="free",
+            review_persona=body.persona,
+            is_active=True,
+        )
+        db.add(installation)
+        await db.flush()
+    
+    # Create a mock review record
+    billing_period = datetime.now(timezone.utc).strftime("%Y-%m")
+    review = GitHubReviewUsage(
+        installation_id=installation.installation_id,
+        installation_ref=installation.id,
+        repo_full_name=body.repo,
+        pr_number=body.pr_number,
+        pr_title=body.pr_title,
+        pr_author=user.email or "test@example.com",
+        commit_sha="abc123def456",
+        billing_period=billing_period,
+        status="completed",
+        completed_at=datetime.now(timezone.utc),
+        review_summary="Mock review for testing snapshots feature",
+    )
+    db.add(review)
+    await db.flush()
+    
+    # Create sample snapshots
+    mock_snapshots = [
+        {
+            "title": "SQL Injection Vulnerability in User Query",
+            "severity": "critical",
+            "category": "security",
+            "file_path": "src/auth/login.py",
+            "start_line": 45,
+            "end_line": 52,
+            "code_block": 'def authenticate_user(username, password):\n    query = f"SELECT * FROM users WHERE username = \'{username}\'"\n    result = db.execute(query)\n    return result.fetchone()',
+            "annotation": "This code is vulnerable to SQL injection. The username parameter is directly interpolated into the SQL query without sanitization. An attacker could input username: admin' OR '1'='1 to bypass authentication.",
+        },
+        {
+            "title": "Inefficient N+1 Query Pattern",
+            "severity": "warning",
+            "category": "performance",
+            "file_path": "src/api/users.py",
+            "start_line": 120,
+            "end_line": 135,
+            "code_block": "def get_users_with_orders():\n    users = User.query.all()\n    for user in users:\n        # This triggers a new query for each user!\n        orders = Order.query.filter_by(user_id=user.id).all()\n        user.orders_count = len(orders)\n    return users",
+            "annotation": "This is a classic N+1 query problem. For each of N users, an additional query is executed to fetch orders. With 100 users, this results in 101 database queries. Consider using joinedload() or a single aggregated query.",
+        },
+        {
+            "title": "Hardcoded API Key",
+            "severity": "critical",
+            "category": "security",
+            "file_path": "src/config/settings.py",
+            "start_line": 15,
+            "end_line": 18,
+            "code_block": '# Production API key\nSTRIPE_API_KEY = "REDACTED"\n\n# Database config\nDB_HOST = "localhost"',
+            "annotation": "Hardcoded API keys in source code are a security risk. This Stripe live key should be moved to environment variables and the current key should be rotated immediately.",
+        },
+        {
+            "title": "Missing Error Handling in Async Function",
+            "severity": "suggestion",
+            "category": "logic",
+            "file_path": "src/services/payment.py",
+            "start_line": 88,
+            "end_line": 98,
+            "code_block": "async def process_payment(order_id):\n    order = await get_order(order_id)\n    result = await stripe.charge(order.total)\n    order.payment_id = result.id\n    await order.save()\n    return result",
+            "annotation": "This async function lacks error handling. If the Stripe charge fails or the order doesn't exist, the function will raise an unhandled exception. Consider wrapping external API calls in try-except blocks and handling specific error cases.",
+        },
+        {
+            "title": "Large Component Without Memoization",
+            "severity": "suggestion",
+            "category": "performance",
+            "file_path": "frontend/src/components/DataTable.tsx",
+            "start_line": 24,
+            "end_line": 78,
+            "code_block": "function DataTable({ data, columns }) {\n  // Expensive filtering on every render\n  const filteredData = data\n    .filter(row => row.isActive)\n    .map(row => ({\n      ...row,\n      computed: expensiveCalculation(row.value)\n    }));\n\n  return (\n    <table>\n      {filteredData.map(row => <Row key={row.id} {...row} />)}\n    </table>\n  );\n}",
+            "annotation": "The expensive filtering and computation runs on every render. Consider using useMemo to cache the filtered results and prevent unnecessary recalculation when data hasn't changed.",
+        },
+        {
+            "title": "Race Condition in State Update",
+            "severity": "warning",
+            "category": "logic",
+            "file_path": "src/hooks/useCounter.ts",
+            "start_line": 8,
+            "end_line": 14,
+            "code_block": "const increment = () => {\n  setCount(count + 1);\n};\n\nconst handleDoubleClick = () => {\n  increment();\n  increment();\n};",
+            "annotation": "React state updates are batched and asynchronous. When increment() is called twice, both calls use the same stale value of count. Use the functional update form: setCount(c => c + 1) to ensure atomic updates.",
+        },
+        {
+            "title": "Good Practice: Input Validation",
+            "severity": "info",
+            "category": "architecture",
+            "file_path": "src/validators/user.py",
+            "start_line": 10,
+            "end_line": 28,
+            "code_block": "class UserValidator:\n    @staticmethod\n    def validate_email(email: str) -> bool:\n        \"\"\"Validate email format and domain.\"\"\"\n        if not email or '@' not in email:\n            return False\n        _, domain = email.split('@')\n        return domain in ALLOWED_DOMAINS",
+            "annotation": "Good example of defensive programming! The validator checks for empty strings, proper format, and restricts to allowed domains. Consider also adding length limits and normalization (lowercase, strip whitespace).",
+        },
+    ]
+    
+    # Filter to 3-5 snapshots based on requested persona
+    if body.persona == "gilfoyle":
+        # Gilfoyle focuses on security issues and critical bugs
+        filtered = [s for s in mock_snapshots if s["severity"] in ["critical", "warning"]]
+    elif body.persona == "dinesh":
+        # Dinesh focuses on everything to show off
+        filtered = mock_snapshots[:5]
+    else:
+        filtered = mock_snapshots[:4]
+    
+    # Save snapshots to database
+    severity_order = {"critical": 0, "warning": 1, "suggestion": 2, "info": 3}
+    
+    for i, snapshot_data in enumerate(filtered):
+        base_order = severity_order.get(snapshot_data["severity"], 3)
+        sort_order = base_order * 100 + i
+        
+        snapshot = CodeReviewSnapshot(
+            review_id=review.id,
+            title=snapshot_data["title"],
+            severity=snapshot_data["severity"],
+            category=snapshot_data["category"],
+            file_path=snapshot_data["file_path"],
+            start_line=snapshot_data["start_line"],
+            end_line=snapshot_data["end_line"],
+            code_block=snapshot_data["code_block"],
+            annotation=snapshot_data["annotation"],
+            sort_order=sort_order,
+        )
+        db.add(snapshot)
+    
+    await db.commit()
+    
+    logger.info(f"Created test snapshot review {review.id} with {len(filtered)} snapshots")
+    
+    return TestSnapshotResponse(
+        status="success",
+        review_id=str(review.id),
+        message=f"Created mock review with {len(filtered)} snapshots. View at /snapshots/{review.id}",
+    )
+
+
 # ─── Helpers ───
 
 async def _safe_handle_pr(payload: dict, delivery_id: str):

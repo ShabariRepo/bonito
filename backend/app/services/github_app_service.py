@@ -380,15 +380,12 @@ def _parse_review_json(content: str) -> Optional[dict]:
     
     cleaned = content.strip()
     
-    # Strip markdown code fences
+    # Strip markdown code fences (handle various formats)
     if cleaned.startswith("```"):
-        try:
-            first_newline = cleaned.index("\n")
-            cleaned = cleaned[first_newline + 1:]
-            if cleaned.rstrip().endswith("```"):
-                cleaned = cleaned.rstrip()[:-3].rstrip()
-        except ValueError:
-            pass
+        # Handle ```json, ```JSON, ```, etc.
+        cleaned = re.sub(r'^```(?:json|JSON)?\s*\n?', '', cleaned)
+        cleaned = re.sub(r'\n?```\s*$', '', cleaned)
+        cleaned = cleaned.strip()
     
     # Try direct parse first (works if LLM produced valid JSON)
     try:
@@ -400,55 +397,191 @@ def _parse_review_json(content: str) -> Optional[dict]:
     except json.JSONDecodeError:
         pass
     
-    # LLMs often put literal newlines in JSON strings. Extract fields with regex.
+    # Method 2: Try to fix common JSON issues and parse again
     try:
-        # Find review_text value (everything between first "review_text": " and the snapshots key)
-        rt_match = re.search(r'"review_text"\s*:\s*"', cleaned)
-        sn_match = re.search(r'",\s*"snapshots"\s*:\s*\[', cleaned)
+        # Fix literal newlines and tabs in JSON strings by escaping them
+        # This regex finds content between quotes and escapes unescaped newlines/tabs
+        def escape_string_content(match):
+            s = match.group(1)
+            # Escape unescaped newlines and tabs
+            s = s.replace('\\n', '\x00NEWLINE\x00')  # protect already-escaped
+            s = s.replace('\\t', '\x00TAB\x00')      # protect already-escaped
+            s = s.replace('\\"', '\x00QUOTE\x00')    # protect already-escaped
+            s = s.replace('\n', '\\n')
+            s = s.replace('\t', '\\t')
+            s = s.replace('"', '\\"')
+            # Restore protected sequences
+            s = s.replace('\x00NEWLINE\x00', '\\n')
+            s = s.replace('\x00TAB\x00', '\\t')
+            s = s.replace('\x00QUOTE\x00', '\\"')
+            return f'"{s}"'
         
-        if rt_match and sn_match:
-            review_text = cleaned[rt_match.end():sn_match.start()]
-            # Unescape any JSON escapes
-            review_text = review_text.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
+        # Match JSON string values (content between unescaped quotes)
+        fixed = re.sub(r'"((?:[^"\\]|\\.)*?)"', escape_string_content, cleaned)
+        
+        result = json.loads(fixed)
+        if isinstance(result, dict) and "review_text" in result:
+            if not isinstance(result.get("snapshots"), list):
+                result["snapshots"] = []
+            return result
+    except (json.JSONDecodeError, re.error):
+        pass
+    
+    # Method 3: Extract fields using more robust regex patterns
+    try:
+        result = {"review_text": "", "snapshots": []}
+        
+        # Extract review_text - handle both string and potentially malformed content
+        # Look for "review_text" key and capture value until we hit "snapshots" or end
+        rt_pattern = r'"review_text"\s*:\s*"'
+        rt_match = re.search(rt_pattern, cleaned)
+        
+        if rt_match:
+            start_idx = rt_match.end()
+            # Find where review_text ends - look for snapshots key or closing brace
+            # We need to handle escaped quotes in the content
+            end_patterns = [
+                r'"\s*,\s*"snapshots"',  # Normal case: ", "snapshots"
+                r'"\s*}',                  # End of object
+            ]
             
-            # Extract snapshots array
-            snap_start = cleaned.index('"snapshots"')
-            snap_json = cleaned[snap_start:]
-            # Find the array: everything from [ to the matching ]
-            arr_start = snap_json.index("[")
+            review_text = ""
+            pos = start_idx
+            while pos < len(cleaned):
+                char = cleaned[pos]
+                if char == '\\' and pos + 1 < len(cleaned):
+                    # Handle escape sequences
+                    next_char = cleaned[pos + 1]
+                    if next_char == '"':
+                        review_text += '"'
+                    elif next_char == 'n':
+                        review_text += '\n'
+                    elif next_char == 't':
+                        review_text += '\t'
+                    elif next_char == '\\':
+                        review_text += '\\'
+                    else:
+                        review_text += next_char
+                    pos += 2
+                elif char == '"':
+                    # Check if this is followed by end pattern
+                    remaining = cleaned[pos:]
+                    for end_pat in end_patterns:
+                        if re.match(end_pat, remaining):
+                            break
+                    else:
+                        # Not an end pattern, just an escaped quote or content
+                        review_text += char
+                        pos += 1
+                        continue
+                    break
+                else:
+                    review_text += char
+                    pos += 1
+            
+            result["review_text"] = review_text
+        
+        # Extract snapshots array using proper bracket matching
+        snap_pattern = r'"snapshots"\s*:\s*\['
+        snap_match = re.search(snap_pattern, cleaned)
+        
+        if snap_match:
+            start_idx = snap_match.end() - 1  # Include the opening [
             bracket_depth = 0
-            arr_end = arr_start
-            for i, ch in enumerate(snap_json[arr_start:], arr_start):
-                if ch == "[":
-                    bracket_depth += 1
-                elif ch == "]":
-                    bracket_depth -= 1
-                    if bracket_depth == 0:
-                        arr_end = i + 1
-                        break
+            in_string = False
+            escape_next = False
+            arr_start = None
+            arr_end = None
             
-            snapshots_str = snap_json[arr_start:arr_end]
-            # Fix literal newlines in snapshot strings for JSON parsing
-            # Replace unescaped newlines inside strings
-            snapshots_str = re.sub(r'(?<=\w)\n(?=\s)', '\\n', snapshots_str)
+            for i in range(start_idx, len(cleaned)):
+                char = cleaned[i]
+                
+                if escape_next:
+                    escape_next = False
+                    continue
+                    
+                if char == '\\':
+                    escape_next = True
+                    continue
+                    
+                if char == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                    
+                if not in_string:
+                    if char == '[':
+                        if bracket_depth == 0:
+                            arr_start = i
+                        bracket_depth += 1
+                    elif char == ']':
+                        bracket_depth -= 1
+                        if bracket_depth == 0:
+                            arr_end = i + 1
+                            break
             
-            try:
-                snapshots = json.loads(snapshots_str)
-            except json.JSONDecodeError:
-                # Try more aggressive newline escaping
-                fixed = snapshots_str.replace('\n', '\\n').replace('\t', '\\t')
-                # But restore structural newlines (between JSON elements)
-                fixed = re.sub(r'\\n(\s*["\[\]\{\},])', lambda m: '\n' + m.group(1), fixed)
+            if arr_start is not None and arr_end is not None:
+                snapshots_str = cleaned[arr_start:arr_end]
+                
+                # Fix literal newlines in the snapshots array
+                def fix_snapshots_string(s):
+                    result = []
+                    in_str = False
+                    escape = False
+                    for char in s:
+                        if escape:
+                            result.append(char)
+                            escape = False
+                        elif char == '\\':
+                            result.append(char)
+                            escape = True
+                        elif char == '"':
+                            result.append(char)
+                            in_str = not in_str
+                        elif char == '\n' and in_str:
+                            result.append('\\n')
+                        elif char == '\t' and in_str:
+                            result.append('\\t')
+                        else:
+                            result.append(char)
+                    return ''.join(result)
+                
                 try:
-                    snapshots = json.loads(fixed)
+                    fixed_snapshots = fix_snapshots_string(snapshots_str)
+                    snapshots = json.loads(fixed_snapshots)
+                    if isinstance(snapshots, list):
+                        result["snapshots"] = snapshots
                 except json.JSONDecodeError:
-                    snapshots = []
+                    # Try one more time with aggressive escaping
+                    try:
+                        aggressive = snapshots_str.replace('\n', '\\n').replace('\t', '\\t')
+                        snapshots = json.loads(aggressive)
+                        if isinstance(snapshots, list):
+                            result["snapshots"] = snapshots
+                    except json.JSONDecodeError:
+                        pass
+        
+        if result["review_text"] or result["snapshots"]:
+            return result
             
-            if not isinstance(snapshots, list):
-                snapshots = []
-            
-            return {"review_text": review_text, "snapshots": snapshots}
-    except (ValueError, IndexError):
+    except Exception:
+        pass
+    
+    # Method 4: Last resort - try to extract anything useful
+    # Look for JSON-like structure with review_text field
+    try:
+        # Find the outermost JSON object
+        obj_start = cleaned.find('{')
+        obj_end = cleaned.rfind('}')
+        if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+            json_candidate = cleaned[obj_start:obj_end+1]
+            # Replace all literal newlines with escaped ones
+            fixed = json_candidate.replace('\n', '\\n').replace('\t', '\\t')
+            result = json.loads(fixed)
+            if isinstance(result, dict) and "review_text" in result:
+                if not isinstance(result.get("snapshots"), list):
+                    result["snapshots"] = []
+                return result
+    except json.JSONDecodeError:
         pass
     
     return None
