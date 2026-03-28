@@ -1,22 +1,8 @@
 import { Article } from './types';
-import { articles as articlesPart1 } from './seed-data-part1';
-import { articlesPart2 } from './seed-data-part2';
-import { articlesPart3 } from './seed-data-part3';
-import { articlesPart4 } from './seed-data-part4';
-import { articlesPart5 } from './seed-data-part5';
 import { articlesPart6 } from './seed-data-part6';
 
-// Combine all seed data and filter out articles older than 4 days
-const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
-
-export const articles: Article[] = [
-  ...articlesPart1,
-  ...articlesPart2,
-  ...articlesPart3,
-  ...articlesPart4,
-  ...articlesPart5,
-  ...articlesPart6,
-].filter((a) => new Date().getTime() - new Date(a.publishedAt).getTime() <= FOUR_DAYS_MS)
+// Use only the most recent news sweep (Part 6 - March 27, 2026)
+export const articles: Article[] = [...articlesPart6]
   .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
 // Helper functions

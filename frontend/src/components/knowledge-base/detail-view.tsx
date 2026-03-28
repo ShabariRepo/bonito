@@ -68,7 +68,7 @@ const fileTypeIcons = {
   default: File,
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pending: "text-yellow-400",
   processing: "text-blue-400",
   ready: "text-green-400",

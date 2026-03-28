@@ -57,7 +57,7 @@ const storageTypes = {
   azure_blob: { name: "Azure Blob", icon: Cloud, color: "text-blue-400", bgColor: "bg-blue-500/10" },
 };
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pending: "text-yellow-400",
   syncing: "text-blue-400",
   ready: "text-green-400",
