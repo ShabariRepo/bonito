@@ -122,16 +122,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(retry_after)},
                 )
         except Exception as e:
-            # Redis down — fail closed (return 429) in production for security
-            logger.error(f"Rate limiter: Redis unavailable: {e}")
-            if not _is_dev():
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": "Rate limiting service unavailable. Please try again later."},
-                    headers={"Retry-After": "60"},
-                )
-            # In dev mode, log warning but continue
-            logger.warning("Rate limiter: Redis unavailable in dev mode, passing through")
+            # Redis down — fail OPEN (allow requests through)
+            # A dead cache shouldn't take down the whole app
+            logger.warning(f"Rate limiter: Redis unavailable, failing open: {e}")
 
         return await call_next(request)
 

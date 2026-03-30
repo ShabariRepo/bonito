@@ -18,7 +18,7 @@ class Settings(BaseSettings):
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         return url
     redis_url: str = "redis://localhost:6379/0"
-    cors_origins: str = "http://localhost:3000,http://localhost:3001,https://getbonito.com"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,https://getbonito.com,https://www.getbonito.com,https://app.getbonito.com"
     
     # Production mode flag
     production_mode: bool = False
