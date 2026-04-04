@@ -68,7 +68,7 @@ def _find_unresolved(value: Any, path: str = "") -> List[str]:
 
 _REQUIRED_TOP_KEYS = {"version", "name"}
 _KNOWN_TOP_KEYS = {"version", "name", "description", "gateway", "mcp_servers",
-                    "knowledge_bases", "agents", "observability"}
+                    "knowledge_bases", "agents", "observability", "secrets"}
 
 
 def _validate(cfg: Dict[str, Any]) -> List[str]:
@@ -306,6 +306,19 @@ def _deploy_knowledge_bases(
             kb_id = resp.get("id", "")
             kb_id_map[name] = kb_id
 
+            # Configure compression if specified
+            compression_cfg = cfg.get("compression")
+            if compression_cfg:
+                method = compression_cfg.get("method")
+                if method:
+                    try:
+                        api.put(f"/knowledge-bases/{kb_id}/config", json={"compression": {"method": method}})
+                        if verbose:
+                            console.print(f"    [dim]-> Compression set to {method}[/dim]")
+                    except APIError as compress_exc:
+                        if verbose:
+                            console.print(f"    [dim yellow]! Failed to set compression: {compress_exc}[/dim yellow]")
+
             # Upload directory sources
             sources = cfg.get("sources", [])
             uploaded = 0
@@ -477,6 +490,11 @@ def _deploy_agents(
                     payload["knowledge_base_ids"] = [kb_id]
                 elif verbose:
                     console.print(f"    [dim yellow]! KB '{kb_name}' not found - skipping[/dim yellow]")
+
+            # Attach secrets if specified
+            agent_secrets = cfg.get("secrets", [])
+            if agent_secrets:
+                payload["secrets"] = agent_secrets
 
             # Create the agent via POST /api/projects/{project_id}/agents
             with console.status(f"  [cyan]Creating {display_name}...[/cyan]"):
@@ -860,6 +878,19 @@ def deploy(
     # -- 5. Knowledge Bases --------------------------------------------------
     kbs = cfg.get("knowledge_bases", {})
     kb_id_map = _deploy_knowledge_bases(kbs, result, dry_run, verbose, yaml_dir)
+
+    # -- 5.5. Validate secrets (warn if missing, don't fail) ----------------
+    secrets_list = cfg.get("secrets", [])
+    if secrets_list and not dry_run:
+        try:
+            existing_secrets = api.get("/secrets")
+            existing_names = {s.get("name") for s in existing_secrets}
+            missing = [s for s in secrets_list if s not in existing_names]
+            if missing:
+                print_warning(f"Missing secrets (create with 'bonito secrets set'): {', '.join(missing)}")
+        except APIError:
+            if verbose:
+                console.print("[dim yellow]Could not validate secrets[/dim yellow]")
 
     # -- 6. Find or create project -------------------------------------------
     project_id = ""
