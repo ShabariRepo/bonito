@@ -38,4 +38,8 @@ from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAgg
 from app.models.github_app import GitHubAppInstallation, GitHubReviewUsage
 from app.models.code_snapshot import CodeReviewSnapshot
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage", "CodeReviewSnapshot"]
+# Secrets and KB models
+from app.models.org_secret import OrgSecret
+from app.models.knowledge_base import KnowledgeBase, KBDocument, KBChunk
+
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage", "CodeReviewSnapshot", "OrgSecret", "KnowledgeBase", "KBDocument", "KBChunk"]
