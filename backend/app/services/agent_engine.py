@@ -372,7 +372,13 @@ class AgentEngine:
         
         # Build system prompt with tool info
         system_prompt = self._build_system_prompt(agent, tools, connected_agents)
-        
+
+        # Inject secrets if agent has secrets configured
+        if agent.secrets:
+            secrets_context = await self._resolve_secrets(agent, db)
+            if secrets_context:
+                system_prompt += f"\n\n## Secrets\nYou have access to these secrets:\n{secrets_context}"
+
         # Inject RAG context if agent has knowledge bases
         if agent.knowledge_base_ids:
             rag_context = await self._get_rag_context(agent, user_message, db)
@@ -452,7 +458,48 @@ class AgentEngine:
         
         if context_chunks:
             return "\n\n".join(context_chunks[:10])  # Limit to 10 chunks total
-        
+
+        return None
+
+    async def _resolve_secrets(self, agent: Agent, db: AsyncSession) -> Optional[str]:
+        """Resolve agent secrets from Vault and format them for the system prompt."""
+        if not agent.secrets:
+            return None
+
+        from app.core.vault import vault_client
+        from app.models.org_secret import OrgSecret
+
+        secret_lines = []
+
+        for secret_name in agent.secrets:
+            try:
+                # Get metadata from Postgres
+                result = await db.execute(
+                    select(OrgSecret).where(
+                        and_(OrgSecret.org_id == agent.org_id, OrgSecret.name == secret_name)
+                    )
+                )
+                org_secret = result.scalar_one_or_none()
+
+                if not org_secret:
+                    logger.warning(f"Secret '{secret_name}' not found for agent {agent.id}")
+                    continue
+
+                # Get value from Vault
+                vault_data = await vault_client.get_secrets(org_secret.vault_ref)
+                value = vault_data.get("value", "")
+
+                if value:
+                    secret_lines.append(f"- {secret_name}: {value}")
+                else:
+                    logger.warning(f"Secret '{secret_name}' has no value in Vault for agent {agent.id}")
+
+            except Exception as e:
+                logger.error(f"Failed to resolve secret '{secret_name}' for agent {agent.id}: {e}")
+
+        if secret_lines:
+            return "\n".join(secret_lines)
+
         return None
 
     async def _get_session_history(self, session: AgentSession, db: AsyncSession) -> List[Dict[str, Any]]:
