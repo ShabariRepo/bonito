@@ -99,6 +99,20 @@ class VaultClient:
                 return True
             raise Exception(f"Vault write error ({resp.status_code}): {resp.text}")
 
+    async def delete_secret(self, path: str) -> bool:
+        """Delete a secret at a path."""
+        url = f"{self.addr}/v1/{self.mount}/metadata/{path}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.delete(
+                url,
+                headers={"X-Vault-Token": self.token},
+                timeout=5.0,
+            )
+            if resp.status_code in (200, 204):
+                self._cache.pop(path, None)  # Invalidate cache
+                return True
+            raise Exception(f"Vault delete error ({resp.status_code}): {resp.text}")
+
     def clear_cache(self):
         """Clear the in-memory cache."""
         self._cache.clear()
