@@ -918,3 +918,110 @@ async def _sync_from_cloud_storage(kb_id: uuid.UUID):
         logger.info(f"Storage sync complete for KB {kb_id}: {summary}")
     except Exception as e:
         logger.error(f"Storage sync failed for KB {kb_id}: {e}")
+
+
+# ─── VectorPack (Compression Config) ───
+
+@router.get("/{kb_id}/config")
+async def get_kb_config(
+    kb_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get knowledge base configuration including compression settings."""
+    await _require_ai_context(db, user)
+
+    result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    # Calculate compression stats if enabled
+    stats = {}
+    if kb.compression_method:
+        # Calculate actual storage savings
+        result = await db.execute(
+            select(func.count(KBChunk.id)).where(KBChunk.knowledge_base_id == kb_id)
+        )
+        total_chunks = result.scalar() or 0
+
+        # Compression ratios (from research benchmarks)
+        compression_ratios = {
+            "scalar-8bit": 3.9,
+            "polar-4bit": 8.0,
+            "polar-8bit": 3.9,
+        }
+        ratio = compression_ratios.get(kb.compression_method, 1.0)
+
+        stats = {
+            "total_chunks": total_chunks,
+            "compression_ratio": ratio,
+            "estimated_savings_percent": int((1 - 1/ratio) * 100) if ratio > 1 else 0,
+        }
+
+    return {
+        "compression": {
+            "method": kb.compression_method or "off",
+            "stats": stats,
+        }
+    }
+
+
+@router.put("/{kb_id}/config")
+async def update_kb_config(
+    kb_id: uuid.UUID,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update knowledge base configuration.
+
+    Body format:
+    {
+        "compression": {
+            "method": "scalar-8bit" | "polar-4bit" | "polar-8bit" | "off"
+        }
+    }
+
+    Note: Changing compression method does NOT automatically re-process existing documents.
+    New documents ingested after this change will use the new compression method.
+    """
+    await _require_ai_context(db, user)
+
+    result = await db.execute(
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
+    )
+    kb = result.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+
+    # Update compression method
+    if "compression" in body:
+        method = body["compression"].get("method")
+        if method == "off":
+            kb.compression_method = None
+        elif method in ["scalar-8bit", "polar-4bit", "polar-8bit"]:
+            kb.compression_method = method
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid compression method. Must be one of: scalar-8bit, polar-4bit, polar-8bit, off"
+            )
+
+    await db.flush()
+    await db.refresh(kb)
+
+    logger.info(f"Updated KB {kb_id} compression config: {kb.compression_method}")
+
+    return {
+        "compression": {
+            "method": kb.compression_method or "off",
+        }
+    }
