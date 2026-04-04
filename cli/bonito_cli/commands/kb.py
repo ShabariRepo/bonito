@@ -622,3 +622,91 @@ def kb_stats(
 
     except APIError as exc:
         print_error(f"Failed to get stats: {exc}")
+
+
+# ── config (VectorPack compression) ─────────────────────────────
+
+
+@app.command("config")
+def kb_config(
+    kb_name_or_id: str = typer.Argument(..., help="Knowledge base name or ID"),
+    compression: Optional[str] = typer.Option(
+        None,
+        "--compression",
+        "-c",
+        help="Compression method: scalar-8bit, polar-4bit, polar-8bit, off"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON"),
+):
+    """
+    Get or update knowledge base configuration (VectorPack compression).
+
+    Examples:
+        bonito kb config my-kb                           # Show current config
+        bonito kb config my-kb --compression scalar-8bit # Enable scalar quantization
+        bonito kb config my-kb --compression off         # Disable compression
+    """
+    fmt = get_output_format(json_output)
+    ensure_authenticated()
+
+    try:
+        # Resolve KB name to ID if needed
+        kb_id = kb_name_or_id
+        if not kb_name_or_id.startswith(("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f")):
+            # Looks like a name, need to resolve it
+            with console.status("[cyan]Looking up knowledge base…[/cyan]"):
+                kbs = api.get(f"{_KB}")
+                matching = [kb for kb in kbs if kb.get("name") == kb_name_or_id]
+                if not matching:
+                    print_error(f"Knowledge base '{kb_name_or_id}' not found")
+                    raise typer.Exit(1)
+                kb_id = str(matching[0]["id"])
+
+        # If --compression is provided, update config
+        if compression is not None:
+            valid_methods = ["scalar-8bit", "polar-4bit", "polar-8bit", "off"]
+            if compression not in valid_methods:
+                print_error(f"Invalid compression method. Choose from: {', '.join(valid_methods)}")
+                raise typer.Exit(1)
+
+            with console.status(f"[cyan]Updating configuration…[/cyan]"):
+                api.put(
+                    f"{_KB}/{kb_id}/config",
+                    json={"compression": {"method": compression}}
+                )
+
+            print_success(f"Compression set to '{compression}'")
+
+            # Show updated config
+            config = api.get(f"{_KB}/{kb_id}/config")
+        else:
+            # Just show current config
+            with console.status(f"[cyan]Fetching configuration…[/cyan]"):
+                config = api.get(f"{_KB}/{kb_id}/config")
+
+        if fmt == "json":
+            console.print_json(_json.dumps(config, default=str))
+            return
+
+        # Display config
+        compression_config = config.get("compression", {})
+        method = compression_config.get("method", "off")
+        stats = compression_config.get("stats", {})
+
+        info = {
+            "Compression Method": method if method != "off" else "Disabled"
+        }
+
+        if stats:
+            info["Total Chunks"] = str(stats.get("total_chunks", 0))
+            info["Compression Ratio"] = f"{stats.get('compression_ratio', 1.0)}x"
+            info["Est. Savings"] = f"{stats.get('estimated_savings_percent', 0)}%"
+
+        print_dict_as_table(info, title="⚙️  VectorPack Configuration")
+
+        if method == "off":
+            console.print("\n[dim]Tip: Enable compression to reduce storage costs:[/dim]")
+            console.print(f"[dim]  bonito kb config {kb_name_or_id} --compression scalar-8bit[/dim]")
+
+    except APIError as exc:
+        print_error(f"Failed to manage config: {exc}")
