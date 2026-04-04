@@ -28,6 +28,7 @@ class Agent(Base):
     # Knowledge & Tools
     knowledge_base_ids: Mapped[list] = mapped_column(JSON, default=list)  # list of KB UUIDs this agent can access
     tool_policy: Mapped[dict] = mapped_column(JSON, default=lambda: {"mode": "none", "allowed": [], "denied": [], "http_allowlist": []})
+    secrets: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, default=None)  # list of secret names this agent can access
     
     # Runtime settings
     max_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=25)  # max tool call loops per run

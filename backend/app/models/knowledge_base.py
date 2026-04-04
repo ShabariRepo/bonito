@@ -27,6 +27,9 @@ class KnowledgeBase(Base):
     embedding_dimensions: Mapped[int] = mapped_column(Integer, default=1024)
     chunk_size: Mapped[int] = mapped_column(Integer, default=512)
     chunk_overlap: Mapped[int] = mapped_column(Integer, default=50)
+
+    # Compression configuration (VectorPack)
+    compression_method: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)  # null/None = off, "scalar-8bit", "polar-4bit", "polar-8bit"
     
     # Status
     status: Mapped[str] = mapped_column(String(20), default='pending')  # pending, syncing, ready, error
