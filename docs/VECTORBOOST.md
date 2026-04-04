@@ -1,12 +1,12 @@
-# VectorPack: Adaptive Vector Compression for Knowledge Bases
+# VectorBoost: Adaptive Vector Compression for Knowledge Bases
 
-VectorPack is Bonito's adaptive vector compression system for knowledge base embeddings, providing 3.9x to 8x storage reduction with minimal recall loss.
+VectorBoost is Bonito's adaptive vector compression system for knowledge base embeddings, providing 3.9x to 8x storage reduction with minimal recall loss.
 
 ## Overview
 
-**What is VectorPack?**
+**What is VectorBoost?**
 
-VectorPack compresses high-dimensional embedding vectors (typically 1024 or 1536 dimensions) to reduce storage costs and improve retrieval performance. It uses quantization techniques to represent floating-point vectors with fewer bits per dimension.
+VectorBoost compresses high-dimensional embedding vectors (typically 1024 or 1536 dimensions) to reduce storage costs and improve retrieval performance. It uses quantization techniques to represent floating-point vectors with fewer bits per dimension.
 
 **Why Compress Embeddings?**
 
@@ -16,7 +16,7 @@ VectorPack compresses high-dimensional embedding vectors (typically 1024 or 1536
 
 **Research Foundation**
 
-VectorPack implements three compression methods based on research into scalar quantization and PolarQuant:
+VectorBoost implements three compression methods based on research into scalar quantization and PolarQuant:
 
 1. **Scalar 8-bit**: Naive per-dimension quantization
 2. **Polar 8-bit**: PolarQuant with Lloyd-Max quantizer
@@ -97,7 +97,7 @@ Uses 4 bits per dimension in polar space with Lloyd-Max quantization.
 
 ## Benchmark Results
 
-From the VectorPack research benchmarks:
+From the VectorBoost research benchmarks:
 
 | Method                     | Compression | Recall | IP Distortion |
 |---------------------------|-------------|--------|---------------|
@@ -193,7 +193,7 @@ bonito kb config my-kb
 
 **Example Output:**
 ```
-╭──────── ⚙️  VectorPack Configuration ────────╮
+╭──────── ⚙️  VectorBoost Configuration ────────╮
 │ Compression Method:  scalar-8bit            │
 │ Total Chunks:        15000                  │
 │ Compression Ratio:   3.9x                   │
@@ -529,7 +529,7 @@ A: No. Quantization is lossy. To revert, change config and re-upload documents.
 
 **Q: Does compression work with all embedding models?**
 
-A: Yes. VectorPack works with any embedding model (OpenAI, Cohere, etc.).
+A: Yes. VectorBoost works with any embedding model (OpenAI, Cohere, etc.).
 
 **Q: How much RAM does compression save?**
 
@@ -548,7 +548,7 @@ diff results1.json results2.json
 
 ## Research References
 
-VectorPack is based on:
+VectorBoost is based on:
 
 1. **Scalar Quantization**: Industry-standard per-dimension quantization
 2. **PolarQuant**: "PolarQuant: Embedding Quantization via Polar Coordinates" (2024)
