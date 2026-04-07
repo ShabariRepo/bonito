@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-04-07
+
+### Added - Shared Conversational Memory (Memwright)
+- **Memwright Integration** — Persistent per-session conversational memory for Bonobot agents
+  - Automatic recall before inference (injected into system prompt as `## Conversation Memory`)
+  - Automatic store after each response (user question + assistant reply)
+  - Resolves referential follow-ups: "the third one", "from the list above", "those campaigns"
+  - Per-session isolation: memories scoped to `{org_id}/{agent_id}/{session_id}`
+  - Storage: SQLite + ChromaDB (standalone, not Bonito's Postgres — evaluated for Phase 3)
+  - Pre-warms sentence-transformers model at startup to avoid first-request latency
+- **Model Tier Gating** — Memory budget scales by model capability
+  - Zero budget (no memory): flash, mini, haiku, kimi, gemma models + `auto` routing
+  - Full budget (1000 tokens): opus, sonnet, gpt-4o, and other large models
+  - Prevents small models from hallucinating on injected memory context
+- **Non-Fatal Design** — All Memwright operations wrapped in try/except
+  - Recall failure returns empty string (no memory section in prompt)
+  - Store failure is logged but does not block response delivery
+  - Async wrappers via `asyncio.to_thread` prevent blocking the event loop
+- **New file**: `backend/app/services/memwright_service.py`
+- **23 new tests**: `backend/tests/test_memwright_integration.py` covering regression, recall, store, tier gating, session isolation, and performance
+
+### Added - Org Secrets Store
+- **Secure Key-Value Storage** — Org-scoped secrets backed by HashiCorp Vault
+  - 5 API endpoints: create, list, get, update, delete
+  - 4 CLI commands: `bonito secrets list/get/set/delete`
+  - YAML support in `bonito deploy` with validation warnings
+  - Runtime injection into agent system prompts via `_resolve_secrets()`
+  - Full documentation: `docs/SECRETS.md`
+
+### Added - VectorBoost (KB Compression)
+- **Adaptive Vector Compression** — 3.9x to 8x storage reduction for knowledge base embeddings
+  - 3 compression methods: scalar-8bit (recommended), polar-8bit, polar-4bit
+  - API endpoints: GET/PUT `/api/kb/{kb_id}/config`
+  - CLI: `bonito kb config <kb> [--compression <method>]`
+  - YAML support in knowledge base declarations
+  - Research benchmarks: PolarQuant vs TurboQuant vs Lloyd-Max quantizer
+  - Full documentation: `docs/VECTORBOOST.md`
+
+### Technical Implementation
+- **Database**: Migrations 034 (org_secrets table) and 035 (agent secrets + KB compression columns)
+- **Dependencies**: Added `memwright>=0.1.0` to requirements
+- **No breaking changes**: Existing agent memory service, delegation, background tasks, and approval workflows untouched
+
 ## [2.3.0] - 2026-03-21
 
 ### Added - Documentation & Integrations
