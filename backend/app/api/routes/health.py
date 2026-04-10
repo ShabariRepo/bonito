@@ -39,7 +39,7 @@ async def check_vault() -> dict:
         return {"status": "unhealthy", "error": str(e)}
 
 
-BUILD_VERSION = "2026.03.25.2"
+BUILD_VERSION = "2026.04.10.1"
 
 @router.get("/health")
 async def health_check_basic():
