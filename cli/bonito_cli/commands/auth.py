@@ -162,9 +162,10 @@ def login(
         api._client = None
 
     try:
+        login_url = f"{api.base_url}/api/auth/login"
         with console.status("[cyan]Authenticating…[/cyan]"):
             resp = httpx.post(
-                f"{api.base_url}/api/auth/login",
+                login_url,
                 json={"email": email, "password": password},
                 timeout=15,
             )
@@ -172,9 +173,10 @@ def login(
         if resp.status_code != 200:
             detail = "Login failed"
             try:
-                detail = resp.json().get("detail", detail)
+                body = resp.json()
+                detail = body.get("detail") or body.get("message") or body.get("error", {}).get("message", detail)
             except Exception:
-                pass
+                detail = f"HTTP {resp.status_code}: {resp.text[:200]}"
             console.print(f"[red]✗ {detail}[/red]")
             raise typer.Exit(1)
 
@@ -185,6 +187,12 @@ def login(
             "email": email,
         }
         save_credentials(creds)
+
+        # Reset the HTTP client so it picks up the fresh token
+        # (otherwise the client keeps using the old expired token)
+        if api._client and not api._client.is_closed:
+            api._client.close()
+        api._client = None
 
         # Fetch user profile
         try:
