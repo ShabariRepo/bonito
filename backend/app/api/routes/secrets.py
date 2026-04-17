@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.org_secret import OrgSecret
 from app.schemas.secret import SecretCreate, SecretUpdate, SecretListItem, SecretDetail
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.core.vault import vault_client
 
@@ -33,7 +33,7 @@ def _vault_path(org_id: uuid.UUID, secret_name: str) -> str:
 async def create_secret(
     secret: SecretCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(require_admin)
 ):
     """
     Create a new org secret.
@@ -108,7 +108,7 @@ async def list_secrets(
 async def get_secret(
     name: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(require_admin)
 ):
     """
     Get a specific secret including its value.
@@ -146,7 +146,7 @@ async def update_secret(
     name: str,
     secret: SecretUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(require_admin)
 ):
     """
     Update an existing secret's value and/or description.
@@ -187,7 +187,7 @@ async def update_secret(
 async def delete_secret(
     name: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(require_admin)
 ):
     """
     Delete a secret (from both Vault and Postgres).
