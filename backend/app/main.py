@@ -34,6 +34,10 @@ async def lifespan(app: FastAPI):
     from app.services.log_service import log_service
     await log_service.start()
     
+    # Start the GCS structured log sink
+    from app.core.gcs_log_sink import start_gcs_sink
+    await start_gcs_sink()
+    
     # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
     # Don't run them again here — with multiple workers they'd race each other.
     
@@ -46,15 +50,21 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    from app.core.gcs_log_sink import stop_gcs_sink
+    try:
+        await stop_gcs_sink()
+    except Exception:
+        pass
+
     from app.core.database import database
     from app.core.redis import close_redis
-    
+
     try:
         if database:
             await database.disconnect()
     except Exception:
         pass
-    
+
     try:
         await close_redis()
     except Exception:
@@ -94,6 +104,10 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # Request ID (outermost — ensures all responses get an ID)
 app.add_middleware(RequestIDMiddleware)
+
+# Structured log emit to GCS (after RequestIDMiddleware so request_id is available)
+from app.middleware.log_emit import LogEmitMiddleware
+app.add_middleware(LogEmitMiddleware)
 
 # GZip compression (very outer layer)
 app.add_middleware(GZipMiddleware, minimum_size=1000)

@@ -1,7 +1,7 @@
 """add org secrets table
 
 Revision ID: 034_add_org_secrets_table
-Revises: 033_update_copilot_system_prompt
+Revises: 033_update_copilot
 Create Date: 2026-04-04 00:00:00.000000
 """
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision: str = '034_add_org_secrets_table'
-down_revision: Union[str, None] = '033_update_copilot_system_prompt'
+down_revision: Union[str, None] = '033_update_copilot'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
