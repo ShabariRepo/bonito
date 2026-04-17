@@ -71,7 +71,7 @@ const plans = [
   },
   {
     name: "Enterprise",
-    price: "$2K–$5K",
+    price: "$10K–$20K",
     period: "/mo",
     description: "For organizations with complex AI infrastructure and governance needs.",
     features: [

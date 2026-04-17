@@ -62,7 +62,7 @@ The core value proposition is provider independence. Bonobots routes requests ac
 
 Agents can delegate to other agents, forming orchestration chains. An orchestrator agent can spin up specialist agents for code review, data analysis, or customer support, each potentially using different models optimized for their task. Everything is API-first. Customers build their own products on top of Bonito's infrastructure.
 
-**Pricing:** Free tier for experimentation, Pro at $499/month, Enterprise at $2K to $5K/month.
+**Pricing:** Free tier for experimentation, Pro at $499/month, Enterprise at $10K to $20K/month.
 
 ### OpenClaw
 
@@ -106,7 +106,7 @@ Here is how the three platforms stack up across 20 enterprise-relevant dimension
 | **Code review** | GitHub App with persona reviewers | No | No |
 | **Embeddable widget** | BonBon | No | No |
 | **Open source** | No | Yes | Yes |
-| **Pricing** | Free / $499 Pro / $2K-$5K Enterprise | Free (self-hosted + API costs) | Free (self-hosted + hardware) |
+| **Pricing** | Free / $499 Pro / $10K-$20K Enterprise | Free (self-hosted + API costs) | Free (self-hosted + hardware) |
 | **Maturity** | Production, actively shipping | Production, established community | Early preview |
 
 ## Benchmark Scenarios

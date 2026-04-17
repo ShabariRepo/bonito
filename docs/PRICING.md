@@ -39,7 +39,7 @@ For teams adopting AI across multiple providers who need visibility, routing, an
 
 ---
 
-### Enterprise — $2,000–$5,000/month (annual contract)
+### Enterprise — $10,000–$20,000/month (annual contract)
 
 For organizations that need advanced governance, compliance, and unlimited scale. Priced based on usage volume and support level.
 
@@ -59,7 +59,7 @@ For organizations that need advanced governance, compliance, and unlimited scale
 
 ---
 
-### Scale — Custom pricing (starting $50K/year)
+### Scale — Custom pricing (starting $200K/year)
 
 For large enterprises with dedicated infrastructure and compliance requirements.
 
@@ -95,4 +95,4 @@ Yes — we offer 50% off Pro for the first year for startups with <$5M in fundin
 
 ---
 
-*Pricing effective February 2026. Subject to change with 30 days notice for existing customers.*
+*Pricing effective April 2026. Subject to change with 30 days notice for existing customers.*

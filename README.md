@@ -19,7 +19,10 @@ Bonito solves this with:
 - **AI copilot** — An intelligent assistant that helps with onboarding, configuration, troubleshooting, and infrastructure-as-code generation.
 - **Multi-cloud gateway** — OpenAI-compatible API proxy with intelligent routing, automatic cross-region inference profiles (AWS Bedrock `us.` prefix handled transparently), and multi-provider failover that catches rate limits, timeouts, 5xx errors, and model unavailability to automatically route to equivalent models on other providers.
 - **Bonobot — AI Agents** — Enterprise AI agent framework with visual canvas (React Flow), project-based organization, built-in tools (KB search, HTTP requests, agent-to-agent invocation), and enterprise security (default deny, budget enforcement, rate limiting, SSRF protection, full audit trail). All agent inference routes through the Bonito gateway for cost tracking and governance.
+  - **Shared Conversational Memory (Memwright)** — Automatic per-session memory using SQLite + ChromaDB. Agents recall relevant context before inference and store conversation turns after responding. Enables referential follow-ups ("the third one", "from the list above"). Model tier gating prevents small models from hallucinating on memory context.
   - **Persistent Agent Memory** — Long-term memory system with pgvector similarity search. Agents store and retrieve facts, patterns, interactions, preferences, and contextual information across sessions. AI-powered memory extraction from conversations.
+  - **Org Secrets Store** — Secure org-scoped key-value storage backed by HashiCorp Vault. Secrets are injected into agent system prompts at runtime. Full API, CLI, and YAML deploy support.
+  - **VectorBoost (KB Compression)** — Adaptive vector compression for knowledge base embeddings. 3.9x to 8x storage reduction with 95-99.5% recall preservation. Three compression methods with API/CLI/YAML configuration.
   - **Scheduled Autonomous Execution** — Cron-based task scheduling with timezone support. Agents run tasks automatically, deliver results via webhook/email/Slack, with full execution history and retry logic.
   - **Approval Queue / Human-in-the-Loop** — Configurable approval workflows for sensitive agent actions. Risk assessment, timeout handling, auto-approval conditions, and comprehensive audit trails for enterprise compliance.
 
@@ -180,6 +183,9 @@ All 18 core phases are complete. Bonito is live at [getbonito.com](https://getbo
 - ✅ One-click model activation across all 3 clouds
 
 ### Completed (Recent)
+- ✅ **Shared Conversational Memory (Memwright)** — Automatic per-session memory for Bonobot agents. Recalls relevant context before inference, stores conversation turns after response. Model tier gating (zero memory for small/fast models). 23 tests across 6 groups.
+- ✅ **Org Secrets Store** — Secure org-scoped key-value storage backed by HashiCorp Vault. API, CLI, YAML deploy support. Runtime injection into agent system prompts.
+- ✅ **VectorBoost (KB Compression)** — Adaptive vector compression (3.9-8x reduction, 95-99.5% recall). Scalar 8-bit, Polar 8-bit, Polar 4-bit methods. API, CLI, YAML support.
 - ✅ **Auto Cross-Region Inference Profiles** — Gateway automatically detects newer Bedrock models (Claude Sonnet 4, Opus 4, Llama 3.3/4, Mistral Large 2) and routes via `us.` cross-region inference profiles. Customers register canonical model IDs; the platform handles routing transparently.
 - ✅ **Intelligent Multi-Provider Failover** — Gateway detects rate limits, timeouts, server errors (500/502/503), model unavailability, and capacity issues, then automatically retries on equivalent models across different providers (e.g. Anthropic Direct -> AWS Bedrock). Model equivalence mapping covers Claude, Llama, Mixtral, and Gemma families.
 - ✅ **SAML SSO** — Enterprise SSO with SAML 2.0 (Okta, Azure AD, Google Workspace, Custom SAML), SSO enforcement, break-glass admin, JIT provisioning
@@ -207,11 +213,15 @@ Exposes 18 tools covering providers, models, gateway, agents, knowledge bases, a
 ## Documentation
 
 - [AI Context / Knowledge Base](ROADMAP.md) — Architecture, API design, and RAG pipeline details
+- [Secrets Store](docs/SECRETS.md) — Org secrets API, CLI, YAML, and security guide
+- [VectorBoost](docs/VECTORBOOST.md) — KB compression methods, benchmarks, and configuration
+- [Bonobot Architecture](docs/BONOBOT-ARCHITECTURE.md) — Agent framework design and build plan
 - [Known Issues](docs/KNOWN-ISSUES.md) — Tracking document for known issues and fixes
 - [Pricing](docs/PRICING.md) — Plans and pricing structure
 - [SOC-2 Roadmap](docs/SOC2-ROADMAP.md) — Path to SOC-2 Type II certification
 - [SSO Scoping](docs/SSO-SCOPE.md) — SSO/SAML implementation plan
 - [Vault Production](docs/VAULT-PRODUCTION.md) — Vault hardening guide
+- [Architectural Patterns](ARCHITECTURAL_PATTERNS.md) — 7 core codebase patterns reference
 
 ---
 

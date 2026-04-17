@@ -55,6 +55,7 @@ from app.services.mcp_client import MCPClientManager, make_namespaced_tool_name
 # Enterprise feature services
 from app.services.agent_memory_service import AgentMemoryService
 from app.services.agent_approval_service import AgentApprovalService
+from app.services.memwright_service import MemwrightService
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class AgentEngine:
         # Enterprise feature services
         self._memory_service = AgentMemoryService()
         self._approval_service = AgentApprovalService()
+        self._memwright = MemwrightService()
         
         # Security patterns for input sanitization
         self.prompt_injection_patterns = [
@@ -159,10 +161,21 @@ class AgentEngine:
             
             # 5. Agent loop (with tool execution and security)
             result = await self._run_agent_loop(agent, session, messages, tools, db, redis, audit_id)
-            
+
             # Update security metadata with input sanitization flag
             result.security.input_sanitized = input_sanitized
-            
+
+            # 5b. Store conversation turn in Memwright
+            if result.content:
+                await self._memwright.store(
+                    session_id=str(session.id),
+                    agent_id=str(agent.id),
+                    org_id=str(agent.org_id),
+                    user_msg=sanitized_message,
+                    assistant_msg=result.content,
+                    model_id=agent.model_id,
+                )
+
             # 6. Update metrics
             await self._update_metrics(agent, session, result, db)
             
@@ -384,7 +397,18 @@ class AgentEngine:
             rag_context = await self._get_rag_context(agent, user_message, db)
             if rag_context:
                 system_prompt += f"\n\n## Knowledge Context\n{rag_context}"
-        
+
+        # Inject Memwright conversational memory
+        memory_context = await self._memwright.recall(
+            session_id=str(session.id),
+            agent_id=str(agent.id),
+            org_id=str(agent.org_id),
+            message=user_message,
+            model_id=agent.model_id,
+        )
+        if memory_context:
+            system_prompt += f"\n\n## Conversation Memory\n{memory_context}"
+
         # Build message history
         messages = [{"role": "system", "content": system_prompt}]
         
