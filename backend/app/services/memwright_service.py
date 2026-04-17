@@ -15,6 +15,7 @@ import asyncio
 import logging
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -38,6 +39,11 @@ class MemwrightService:
 
     def __init__(self):
         self._instances: dict[str, AgentMemory] = {}
+        # Single-thread executor — SQLite connections are thread-bound, so all
+        # operations for a session must run on the same thread. Using a
+        # ThreadPoolExecutor(max_workers=1) ensures SQLite always sees the
+        # same thread it was created on.
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="memwright")
         Path(MEMWRIGHT_DATA_DIR).mkdir(parents=True, exist_ok=True)
         # Pre-warm sentence-transformers model at startup
         try:
@@ -84,7 +90,7 @@ class MemwrightService:
 
         try:
             mem = self._get_instance(session_id, agent_id, org_id)
-            results = await asyncio.to_thread(mem.recall, message, budget=budget)
+            results = await asyncio.get_running_loop().run_in_executor(self._executor, lambda: mem.recall(message, budget=budget))
             if not results:
                 return ""
 
@@ -119,23 +125,27 @@ class MemwrightService:
             mem = self._get_instance(session_id, agent_id, org_id)
 
             # Store user question + context
-            await asyncio.to_thread(
-                mem.add,
-                f"User asked: {user_msg}",
-                tags=tags or [],
-                category="conversation",
-                confidence=0.9,
+            await asyncio.get_running_loop().run_in_executor(
+                self._executor,
+                lambda: mem.add(
+                    f"User asked: {user_msg}",
+                    tags=tags or [],
+                    category="conversation",
+                    confidence=0.9,
+                ),
             )
 
             # Store assistant response (truncated to key info)
             if assistant_msg and len(assistant_msg) > 20:
                 summary = assistant_msg[:500]
-                await asyncio.to_thread(
-                    mem.add,
-                    f"Assistant responded to '{user_msg[:100]}': {summary}",
-                    tags=tags or [],
-                    category="conversation",
-                    confidence=0.8,
+                await asyncio.get_running_loop().run_in_executor(
+                    self._executor,
+                    lambda: mem.add(
+                        f"Assistant responded to '{user_msg[:100]}': {summary}",
+                        tags=tags or [],
+                        category="conversation",
+                        confidence=0.8,
+                    ),
                 )
         except Exception as e:
             logger.warning(f"Memwright store error (non-fatal): {e}")
@@ -149,7 +159,7 @@ class MemwrightService:
         mem_path = os.path.join(MEMWRIGHT_DATA_DIR, org_id, agent_id, session_id)
         try:
             if os.path.exists(mem_path):
-                await asyncio.to_thread(shutil.rmtree, mem_path)
+                await asyncio.get_running_loop().run_in_executor(self._executor, lambda: shutil.rmtree, mem_path)
                 logger.info(f"Cleared Memwright memory at {mem_path}")
         except Exception as e:
             logger.warning(f"Memwright clear error (non-fatal): {e}")
