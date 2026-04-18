@@ -50,9 +50,9 @@ def _client_ip(request: Request) -> str:
 # ---------------------------------------------------------------------------
 # Request Body Size Limit Middleware
 # ---------------------------------------------------------------------------
-# Maximum body size for /v1/* gateway endpoints (1 MB).
-# Other endpoints (dashboard API) are not restricted here.
-GATEWAY_MAX_BODY_BYTES = 1 * 1024 * 1024
+# Maximum body size for /v1/* gateway endpoints (10 MB).
+# Supports enterprise RAG pipelines, multi-document ingestion, code review snapshots.
+GATEWAY_MAX_BODY_BYTES = 10 * 1024 * 1024
 
 
 class RequestBodySizeLimitMiddleware(BaseHTTPMiddleware):
@@ -122,9 +122,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     headers={"Retry-After": str(retry_after)},
                 )
         except Exception as e:
-            # Redis down — fail OPEN (allow requests through)
-            # A dead cache shouldn't take down the whole app
-            logger.warning(f"Rate limiter: Redis unavailable, failing open: {e}")
+            # Redis down — fail CLOSED (conservative enterprise default).
+            # Deny the request rather than risk unbounded abuse while the cache is unavailable.
+            logger.error(f"Rate limiter: Redis unavailable, failing closed: {e}")
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Service temporarily unavailable. Please try again."},
+                headers={"Retry-After": "5"},
+            )
 
         return await call_next(request)
 

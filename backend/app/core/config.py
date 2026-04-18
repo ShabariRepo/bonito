@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     admin_emails: str = ""
 
     # Database connection pool settings
-    db_pool_size: int = 10
-    db_max_overflow: int = 20
+    db_pool_size: int = 50
+    db_max_overflow: int = 50
     db_pool_timeout: int = 30
 
     # Redis connection pool
