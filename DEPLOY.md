@@ -49,6 +49,17 @@ railway init    # creates a new project
    - Mount volume at `/vault/data`
    - Upload `vault/config-prod.hcl` as `/vault/config/config.hcl`
 
+### Persistent Volume (Memwright)
+
+Memwright (conversational memory) stores per-session SQLite + ChromaDB data on disk. Attach a Railway persistent volume to the backend service so this data survives redeploys:
+
+1. Railway dashboard → `Cmd+K` → "volume" → create
+2. Attach to `bonito-backend` service
+3. Mount path: `/data/memwright`
+4. Add service variable: `RAILWAY_RUN_UID=0` (volume mounts as root; needed for non-root container user)
+
+**Limitations:** No horizontal replicas when a volume is attached. Brief downtime (~seconds) on redeploy. The backend already sets `MEMWRIGHT_DATA_DIR=/data/memwright` in `railway.json`.
+
 ### Backend Environment Variables
 
 Set in Railway dashboard for the backend service:
