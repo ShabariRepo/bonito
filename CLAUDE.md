@@ -160,6 +160,15 @@ cd frontend && vercel --prod
 - `docs/KNOWN-ISSUES.md` — Tracking known issues
 - `docs/SOC2-ROADMAP.md` — Path to SOC-2 Type II certification
 
+## Recent Changes (2026-04-20)
+
+- **Invite-only registration:** Access request flow (submit → admin approve → invite code → register). Controlled by `INVITE_REQUIRED` env var (default: true). Rate limited at 5 req/60s.
+- **Memwright hardening:** Fixed `clear()` lambda bug, added LRU eviction (256 max instances), graceful degradation when `agent_memory` not installed, removed startup pre-warm (caused SQLite locking with multi-worker uvicorn).
+- **Dockerfile fixes:** `HOME=/app`, `HF_HOME`/`TRANSFORMERS_CACHE` set, sentence-transformers model pre-downloaded at build time. Fixes ChromaDB vector_similarity layer in production.
+- **VectorBoost gated:** KB config endpoints require Enterprise+ tier. Note: compression pipeline is NOT wired into ingestion yet — gating prevents customers from configuring a feature that doesn't fully work.
+- **AdVan integration:** Uses memwright standalone (ChromaDB + SQLite) in their own app.py. Bonito is their LLM gateway only. Changes to Bonito's MemwrightService do NOT affect them. Do not break this.
+- **Free tier:** 25K gateway requests/month (up from 10K).
+
 ## What's Planned
 
 - SOC-2 Type II certification
@@ -167,3 +176,4 @@ cd frontend && vercel --prod
 - VPC Gateway Agent (enterprise self-hosted data plane)
 - Additional provider integrations (Cohere, Mistral, custom endpoints)
 - Advanced audit log export & SIEM integration
+- VectorBoost: Wire compression pipeline into KB ingestion (currently endpoint-only, not functional)
