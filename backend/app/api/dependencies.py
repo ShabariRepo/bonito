@@ -90,7 +90,7 @@ def require_tier(min_tier: str):
         required_tier_level = tier_hierarchy.get(min_tier, 3)
         
         if current_tier_level < required_tier_level:
-            tier_names = {"free": "Free", "starter": "Starter", "pro": "Pro", "enterprise": "Enterprise"}
+            tier_names = {"free": "Free", "pro": "Pro", "enterprise": "Enterprise"}
             required_name = tier_names.get(min_tier, "Enterprise")
             message = f"This feature requires a {required_name} plan. Upgrade at getbonito.com/pricing"
             

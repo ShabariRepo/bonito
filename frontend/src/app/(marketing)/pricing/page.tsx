@@ -489,7 +489,6 @@ export default function PricingPage() {
               <tr className="border-b border-[#1a1a1a]">
                 <th className="text-left py-4 px-4 text-sm font-semibold text-[#999]">Feature</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Free</th>
-                
                 <th className="text-center py-4 px-4 text-sm font-semibold">Pro</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Enterprise</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Scale</th>
@@ -499,7 +498,7 @@ export default function PricingPage() {
               {categories.map((category) => (
                 <Fragment key={`cat-${category}`}>
                   <tr className="border-b border-[#1a1a1a]">
-                    <td colSpan={6} className="pt-6 pb-2 px-4 text-xs font-bold uppercase tracking-wider text-[#7c3aed]">
+                    <td colSpan={5} className="pt-6 pb-2 px-4 text-xs font-bold uppercase tracking-wider text-[#7c3aed]">
                       {category}
                     </td>
                   </tr>
@@ -509,7 +508,6 @@ export default function PricingPage() {
                       <tr key={f.name} className="border-b border-[#1a1a1a]/50 hover:bg-[#111] transition">
                         <td className="py-3.5 px-4 text-sm text-[#ccc]">{f.name}</td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.free} /></td>
-                        <td className="py-3.5 px-4 text-center"><CellValue value={(f as any).starter} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.pro} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.enterprise} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.scale} /></td>

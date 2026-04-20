@@ -339,7 +339,7 @@ async def update_org_tier(
     tier = body.get("tier")
     bonobot_plan = body.get("bonobot_plan")
 
-    if tier and tier in ("free", "starter", "pro", "enterprise", "scale"):
+    if tier and tier in ("free", "pro", "enterprise", "scale"):
         org.subscription_tier = tier
     if bonobot_plan and bonobot_plan in ("none", "pro", "enterprise"):
         org.bonobot_plan = bonobot_plan
@@ -362,7 +362,7 @@ async def patch_org_tier(
     _admin: User = Depends(require_superadmin),
 ):
     """Admin: change an organization's subscription tier."""
-    valid_tiers = ("free", "starter", "pro", "enterprise", "scale")
+    valid_tiers = ("free", "pro", "enterprise", "scale")
     if body.tier not in valid_tiers:
         raise HTTPException(
             status_code=422,
