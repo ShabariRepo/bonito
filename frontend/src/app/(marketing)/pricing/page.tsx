@@ -24,7 +24,7 @@ const plans = [
     ],
     cta: "Request Access",
     highlighted: true,
-  }
+  },
   {
     name: "Pro",
     price: "$999",
