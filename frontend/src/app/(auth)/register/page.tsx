@@ -8,7 +8,9 @@ import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { Suspense } from "react";
 
-function InviteCodeField({ prefill }: { prefill: string }) {
+function InviteCodeField() {
+  const searchParams = useSearchParams();
+  const prefill = searchParams.get("code") || "";
   const [inviteCode, setInviteCode] = useState(prefill);
   return (
     <div>
@@ -29,10 +31,8 @@ function InviteCodeField({ prefill }: { prefill: string }) {
   );
 }
 
-function RegisterForm() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const prefillCode = searchParams.get("code") || "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +53,7 @@ function RegisterForm() {
     }
     setLoading(true);
     try {
-      await register(email, password, name, prefillCode || undefined);
+      await register(email, password, name, undefined);
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
@@ -64,81 +64,6 @@ function RegisterForm() {
   };
 
   return (
-    <div className="bg-[#111] border border-[#222] rounded-xl p-8">
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
-            {error}
-          </div>
-        )}
-        <Suspense fallback={<div className="h-[85px]" />}>
-          <InviteCodeField prefill={prefillCode} />
-        </Suspense>
-        <div>
-          <label className="block text-sm font-medium text-[#999] mb-2">Name</label>
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
-            placeholder="Your name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#999] mb-2">Email</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
-            placeholder="you@company.com"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#999] mb-2">Password</label>
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
-            placeholder="••••••••"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-[#999] mb-2">Confirm Password</label>
-          <input
-            type="password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
-            placeholder="••••••••"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
-        >
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Create Account
-        </button>
-      </form>
-      <p className="text-center text-sm text-[#666] mt-6">
-        Already have an account?{" "}
-        <Link href="/login" className="text-[#7c3aed] hover:text-[#8b5cf6] transition">
-          Sign in
-        </Link>
-      </p>
-    </div>
-  );
-}
-
-export default function RegisterPage() {
-  return (
     <div className="w-full max-w-md mx-auto px-6">
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-4">
@@ -147,7 +72,76 @@ export default function RegisterPage() {
         </div>
         <p className="text-[#888] mt-2">Create your account</p>
       </div>
-      <RegisterForm />
+      <div className="bg-[#111] border border-[#222] rounded-xl p-8">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
+          <Suspense fallback={<div className="h-[85px]" />}>
+            <InviteCodeField />
+          </Suspense>
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Name</label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
+              placeholder="Your name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
+              placeholder="you@company.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Password</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
+              placeholder="••••••••"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Confirm Password</label>
+            <input
+              type="password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition"
+              placeholder="••••••••"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-50 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            Create Account
+          </button>
+        </form>
+        <p className="text-center text-sm text-[#666] mt-6">
+          Already have an account?{" "}
+          <Link href="/login" className="text-[#7c3aed] hover:text-[#8b5cf6] transition">
+            Sign in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
