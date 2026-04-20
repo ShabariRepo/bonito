@@ -11,7 +11,7 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 | Feature | Included |
 |---|---|
 | Cloud provider connections | 1 |
-| Gateway requests | 10,000/month |
+| Gateway requests | 25,000/month |
 | Team seats | 1 |
 | Knowledge Base (AI Context) | 1 KB, 100 documents, 10K chunks, manual sync |
 | Support | Community (GitHub Issues) |

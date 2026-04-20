@@ -930,6 +930,7 @@ async def get_kb_config(
 ):
     """Get knowledge base configuration including compression settings."""
     await _require_ai_context(db, user)
+    await feature_gate.require_feature(db, str(user.org_id), "vectorboost")
 
     result = await db.execute(
         select(KnowledgeBase).where(
@@ -992,6 +993,7 @@ async def update_kb_config(
     New documents ingested after this change will use the new compression method.
     """
     await _require_ai_context(db, user)
+    await feature_gate.require_feature(db, str(user.org_id), "vectorboost")
 
     result = await db.execute(
         select(KnowledgeBase).where(

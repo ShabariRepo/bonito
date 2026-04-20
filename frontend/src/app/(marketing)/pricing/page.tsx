@@ -350,7 +350,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <Link
-              href={plan.name === "Enterprise" ? "/contact" : "/register"}
+              href={plan.name === "Enterprise" || plan.name === "Scale" ? "/contact" : plan.name === "Free" ? "/request-access" : "/register"}
               className={`block text-center py-3 rounded-lg font-semibold transition ${
                 plan.highlighted
                   ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"

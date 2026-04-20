@@ -12,6 +12,7 @@ Key design decisions:
 """
 
 import asyncio
+import collections
 import logging
 import os
 import re
@@ -19,7 +20,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from agent_memory import AgentMemory
+try:
+    from agent_memory import AgentMemory
+    _AGENT_MEMORY_AVAILABLE = True
+except ImportError:
+    AgentMemory = None
+    _AGENT_MEMORY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -36,25 +42,17 @@ class MemwrightService:
     DEFAULT_BUDGET = 500
     # Full budget for large/capable models
     FULL_BUDGET = 1000
+    # Max cached instances before evicting oldest
+    MAX_INSTANCES = 256
 
     def __init__(self):
-        self._instances: dict[str, AgentMemory] = {}
+        self._instances: collections.OrderedDict[str, "AgentMemory"] = collections.OrderedDict()
         # Single-thread executor — SQLite connections are thread-bound, so all
         # operations for a session must run on the same thread. Using a
         # ThreadPoolExecutor(max_workers=1) ensures SQLite always sees the
         # same thread it was created on.
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="memwright")
         Path(MEMWRIGHT_DATA_DIR).mkdir(parents=True, exist_ok=True)
-        # Pre-warm sentence-transformers model at startup
-        try:
-            warmup_path = os.path.join(MEMWRIGHT_DATA_DIR, "_warmup")
-            Path(warmup_path).mkdir(parents=True, exist_ok=True)
-            warmup = AgentMemory(warmup_path)
-            warmup.recall("warmup", budget=10)
-            del warmup
-            logger.info("Memwright sentence-transformers model pre-warmed")
-        except Exception as e:
-            logger.warning(f"Memwright pre-warm failed (non-fatal): {e}")
 
     def _get_budget(self, model_id: str) -> int:
         """Determine memory token budget based on model tier."""
@@ -66,10 +64,17 @@ class MemwrightService:
                 return 0
         return self.FULL_BUDGET
 
-    def _get_instance(self, session_id: str, agent_id: str, org_id: str) -> AgentMemory:
+    def _get_instance(self, session_id: str, agent_id: str, org_id: str) -> "AgentMemory":
         """Get or create a Memwright instance for a specific session."""
+        if not _AGENT_MEMORY_AVAILABLE:
+            raise RuntimeError("agent_memory package is not installed")
         cache_key = f"{org_id}/{agent_id}/{session_id}"
-        if cache_key not in self._instances:
+        if cache_key in self._instances:
+            self._instances.move_to_end(cache_key)
+        else:
+            # Evict oldest if at capacity
+            while len(self._instances) >= self.MAX_INSTANCES:
+                self._instances.popitem(last=False)
             mem_path = os.path.join(MEMWRIGHT_DATA_DIR, org_id, agent_id, session_id)
             Path(mem_path).mkdir(parents=True, exist_ok=True)
             self._instances[cache_key] = AgentMemory(mem_path)
@@ -84,6 +89,8 @@ class MemwrightService:
         model_id: str,
     ) -> str:
         """Recall relevant memories for this session. Returns formatted context string."""
+        if not _AGENT_MEMORY_AVAILABLE:
+            return ""
         budget = self._get_budget(model_id)
         if budget == 0:
             return ""
@@ -117,6 +124,8 @@ class MemwrightService:
         tags: Optional[list[str]] = None,
     ) -> None:
         """Store a conversation turn as memory."""
+        if not _AGENT_MEMORY_AVAILABLE:
+            return
         budget = self._get_budget(model_id)
         if budget == 0:
             return
@@ -159,7 +168,7 @@ class MemwrightService:
         mem_path = os.path.join(MEMWRIGHT_DATA_DIR, org_id, agent_id, session_id)
         try:
             if os.path.exists(mem_path):
-                await asyncio.get_running_loop().run_in_executor(self._executor, lambda: shutil.rmtree, mem_path)
+                await asyncio.get_running_loop().run_in_executor(self._executor, lambda: shutil.rmtree(mem_path))
                 logger.info(f"Cleared Memwright memory at {mem_path}")
         except Exception as e:
             logger.warning(f"Memwright clear error (non-fatal): {e}")

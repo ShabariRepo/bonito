@@ -98,7 +98,7 @@ bonito/
 
 ## Pricing Tiers
 
-- **Free** — 1 provider, 10K requests/mo, 1 seat, invite-only
+- **Free** — 1 provider, 25K requests/mo, 1 seat, invite-only
 - **Pro** — $499/mo, 3 providers, 250K requests/mo, 10 seats, smart routing + failover
 - **Enterprise** — $10K-$20K/mo (annual), unlimited everything, SSO/SAML, advanced compliance
 - **Scale** — Custom ($200K+/yr), dedicated infra, SOC-2 support, named account manager

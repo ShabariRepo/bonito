@@ -113,15 +113,17 @@ export async function apiRequest(path: string, options: RequestInit = {}) {
   return res;
 }
 
-export async function register(email: string, password: string, name: string) {
+export async function register(email: string, password: string, name: string, inviteCode?: string) {
   let res!: Response;
   const maxRetries = 2;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      const payload: Record<string, string> = { email, password, name };
+      if (inviteCode) payload.invite_code = inviteCode;
       res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify(payload),
       });
       break;
     } catch {

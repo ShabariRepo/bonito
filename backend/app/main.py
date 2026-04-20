@@ -163,6 +163,11 @@ app.include_router(widget.router, prefix="/api")
 # GitHub App routes
 app.include_router(github_app.router, prefix="/api/v1")
 
+# Access requests (lazy-loaded to avoid import chain issues)
+from app.api.routes import access_requests
+app.include_router(access_requests.public_router, prefix="/api")
+app.include_router(access_requests.admin_router, prefix="/api")
+
 # Contact form
 from app.api.routes import contact
 app.include_router(contact.router, prefix="/api")

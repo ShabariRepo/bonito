@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Rate-limit tiers: (prefix_match, requests, window_seconds)
 # ---------------------------------------------------------------------------
 RATE_LIMIT_TIERS = [
+    ("/api/access-requests", 5, 60),
     ("/api/auth/", 10, 60),
     ("/api/providers/connect", 10, 60),
     ("/api/routing/invoke", 20, 60),

@@ -67,6 +67,7 @@ class RegisterRequest(BaseModel):
     password: str
     name: str
     org_id: uuid.UUID | None = None
+    invite_code: str | None = None
 
 
 class LoginRequest(BaseModel):
@@ -121,6 +122,29 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if os.environ.get("REGISTRATION_DISABLED", "").lower() in ("true", "1", "yes"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration is currently closed")
 
+    # Invite-only gate: require a valid invite code unless INVITE_REQUIRED=false
+    invite_required = os.environ.get("INVITE_REQUIRED", "true").lower() not in ("false", "0", "no")
+    access_request = None
+    if invite_required:
+        if not body.invite_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="An invite code is required to register. Request access at /request-access.",
+            )
+        from app.models.access_request import AccessRequest
+        result = await db.execute(
+            select(AccessRequest).where(
+                AccessRequest.invite_code == body.invite_code,
+                AccessRequest.status == "approved",
+            )
+        )
+        access_request = result.scalar_one_or_none()
+        if not access_request:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or already-used invite code.",
+            )
+
     _validate_password(body.password)
 
     existing = await auth_service.get_user_by_email(db, body.email)
@@ -136,6 +160,10 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         org_id = org.id
 
     user = await auth_service.create_user(db, body.email, body.password, body.name, org_id, role="admin")
+
+    # Mark invite code as redeemed
+    if access_request:
+        access_request.status = "redeemed"
 
     # Generate verification token and store it (expires in 24 hours)
     token = secrets.token_urlsafe(48)

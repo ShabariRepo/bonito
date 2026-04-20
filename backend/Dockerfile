@@ -33,13 +33,23 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip cache purge 2>/dev/null || true
 
+# Pre-download sentence-transformers model so it's cached in the image
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" 2>/dev/null || true
+
 # Remove build-only deps to keep image slim
 RUN apt-get update && apt-get remove -y gcc libpq-dev pkg-config libxmlsec1-dev && \
     apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 COPY . .
-RUN chmod +x entrypoint.sh && chown -R app:app /app
+
+# Writable dirs for app user: HF cache, memwright data
+RUN mkdir -p /app/data/memwright /app/.cache && \
+    chmod +x entrypoint.sh && chown -R app:app /app
 USER app
+
+ENV HOME=/app
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 
 EXPOSE 8000
 

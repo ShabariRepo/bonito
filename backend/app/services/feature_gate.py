@@ -75,6 +75,7 @@ class TierLimits:
                 "audit": False,
                 "notifications": False,
                 "budget_alerts": False,
+                "vectorboost": False,
                 "sso": False,
                 "rbac": False,
                 "iac_templates": False,
@@ -85,7 +86,7 @@ class TierLimits:
                 "bonbon_agents": 1,  # 1 rate-limited BonBon Simple agent
             }
         },
-        
+
         SubscriptionTier.PRO: {
             "providers": 5,
             "gateway_calls_per_month": 500000,
@@ -100,6 +101,7 @@ class TierLimits:
                 "audit": True,
                 "notifications": True,
                 "budget_alerts": True,
+                "vectorboost": False,
                 "sso": False,
                 "rbac": False,
                 "iac_templates": False,
@@ -124,6 +126,7 @@ class TierLimits:
                 "audit": True,
                 "notifications": True,
                 "budget_alerts": True,
+                "vectorboost": True,
                 "sso": True,
                 "rbac": True,
                 "iac_templates": True,
@@ -147,6 +150,7 @@ class TierLimits:
                 "audit": True,
                 "notifications": True,
                 "budget_alerts": True,
+                "vectorboost": True,
                 "sso": True,
                 "rbac": True,
                 "iac_templates": True,

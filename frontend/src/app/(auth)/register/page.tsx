@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/lib/auth";
 import Image from "next/image";
@@ -9,10 +9,13 @@ import { Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillCode = searchParams.get("code") || "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState(prefillCode);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -29,7 +32,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await register(email, password, name);
+      await register(email, password, name, inviteCode || undefined);
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
@@ -55,6 +58,21 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Invite Code</label>
+            <input
+              type="text"
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition font-mono tracking-wider"
+              placeholder="XXXXXXXX"
+              maxLength={8}
+            />
+            <p className="text-xs text-[#555] mt-1">
+              Don&apos;t have one? <Link href="/request-access" className="text-[#7c3aed] hover:text-[#8b5cf6]">Request access</Link>
+            </p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-[#999] mb-2">Name</label>
             <input
