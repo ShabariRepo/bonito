@@ -85,12 +85,12 @@ def require_tier(min_tier: str):
     ) -> User:
         subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
         
-        tier_hierarchy = {"free": 0, "pro": 1, "enterprise": 2}
+        tier_hierarchy = {"free": 0, "starter": 1, "pro": 2, "enterprise": 3}
         current_tier_level = tier_hierarchy.get(subscription["tier"].value, 0)
-        required_tier_level = tier_hierarchy.get(min_tier, 2)
+        required_tier_level = tier_hierarchy.get(min_tier, 3)
         
         if current_tier_level < required_tier_level:
-            tier_names = {"free": "Free", "pro": "Pro", "enterprise": "Enterprise"}
+            tier_names = {"free": "Free", "starter": "Starter", "pro": "Pro", "enterprise": "Enterprise"}
             required_name = tier_names.get(min_tier, "Enterprise")
             message = f"This feature requires a {required_name} plan. Upgrade at getbonito.com/pricing"
             

@@ -8,9 +8,9 @@ import { Fragment, useState } from "react";
 const plans = [
   {
     name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "For individuals and small teams getting started with multi-cloud AI.",
+    price: "Invite Only",
+    period: "",
+    description: "For teams evaluating Bonito before committing to a paid plan.",
     features: [
       "Up to 3 cloud provider connections",
       "25,000 gateway API calls / month",
@@ -22,7 +22,7 @@ const plans = [
       "Community support (Discord)",
       "1 team member",
     ],
-    cta: "Get Started Free",
+    cta: "Request Access",
     highlighted: false,
   },
   {
@@ -47,7 +47,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "$499",
+    price: "$999",
     period: "/mo",
     description: "For teams shipping AI products across multiple providers.",
     features: [
@@ -264,7 +264,7 @@ const faqs = [
   },
   {
     q: "How does billing work?",
-    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card and includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon Simple agent. Starter ($99/mo) adds intelligent routing, cost analytics, 100K calls, and 2 BonBon agents. Pro ($499/mo) adds RAG, deployment provisioning, 500K calls, and 5 BonBon agents. Additional BonBon agents are $49/mo (Simple) or $99/mo (Advanced). Bonobot custom agents are billed separately as add-ons. Your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
+    a: "You are billed monthly based on your plan tier. The Free plan requires no credit card and includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon Simple agent. Starter ($99/mo) adds intelligent routing, cost analytics, 100K calls, and 2 BonBon agents. Pro ($999/mo) adds RAG, deployment provisioning, 500K calls, and 5 BonBon agents. Additional BonBon agents are $49/mo (Simple) or $99/mo (Advanced). Bonobot custom agents are billed separately as add-ons. Your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
   },
   {
     q: "What is AI Context?",
