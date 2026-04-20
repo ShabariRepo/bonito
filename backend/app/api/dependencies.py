@@ -85,7 +85,7 @@ def require_tier(min_tier: str):
     ) -> User:
         subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
         
-        tier_hierarchy = {"free": 0, "starter": 1, "pro": 2, "enterprise": 3}
+        tier_hierarchy = {"free": 0, "pro": 2, "enterprise": 3}
         current_tier_level = tier_hierarchy.get(subscription["tier"].value, 0)
         required_tier_level = tier_hierarchy.get(min_tier, 3)
         

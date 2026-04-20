@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 # Platform subscription pricing by tier (monthly)
 TIER_PRICING = {
     "free": Decimal("0"),
-    "starter": Decimal("99"),
     "pro": Decimal("999"),
     "enterprise": Decimal("2000"),
     "scale": Decimal("0"),  # custom pricing, tracked separately
@@ -34,7 +33,6 @@ TIER_PRICING = {
 # BonBon pricing per agent per month by tier
 BONBON_PRICING = {
     "free": Decimal("0"),
-    "starter": Decimal("99"),
     "pro": Decimal("499"),
     "enterprise": Decimal("999"),
     "scale": Decimal("999"),

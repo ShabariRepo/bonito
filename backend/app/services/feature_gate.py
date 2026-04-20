@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionTier(str, Enum):
     FREE = "free"
-    STARTER = "starter"
     PRO = "pro"
     ENTERPRISE = "enterprise"
     SCALE = "scale"
@@ -63,7 +62,7 @@ class TierLimits:
     
     TIER_CONFIG = {
         SubscriptionTier.FREE: {
-            "providers": 3,
+            "providers": 1,
             "gateway_calls_per_month": 25000,
             "members": 1,
             "features": {
@@ -86,30 +85,7 @@ class TierLimits:
                 "bonbon_agents": 1,  # 1 rate-limited BonBon Simple agent
             }
         },
-        SubscriptionTier.STARTER: {
-            "providers": 3,
-            "gateway_calls_per_month": 100000,
-            "members": 3,
-            "features": {
-                "models": True,
-                "playground": True,
-                "routing": True,  # full routing incl. cost, latency, A/B
-                "ai_context": False,
-                "analytics": True,
-                "cli": True,
-                "audit": False,
-                "notifications": True,
-                "budget_alerts": True,
-                "sso": False,
-                "rbac": False,
-                "iac_templates": False,
-                "compliance": False,
-                "on_premise": False,
-                "custom_integrations": False,
-                "dedicated_support": False,
-                "bonbon_agents": 2,
-            }
-        },
+        
         SubscriptionTier.PRO: {
             "providers": 5,
             "gateway_calls_per_month": 500000,
