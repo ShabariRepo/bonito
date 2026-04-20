@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
+# Fix ownership on Railway persistent volume (mounted as root)
+if [ -d "/data/memwright" ]; then
+    chown -R app:app /data/memwright
+fi
+
 echo "Running database migrations..."
-alembic upgrade head || echo "WARNING: Alembic migration failed, continuing anyway"
+gosu app alembic upgrade head || echo "WARNING: Alembic migration failed, continuing anyway"
 
 echo "Starting application..."
-exec "$@"
+exec gosu app "$@"

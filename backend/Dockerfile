@@ -27,7 +27,8 @@ RUN apt-get update && \
         gcc libpq-dev pkg-config \
         libxmlsec1-dev libxmlsec1-openssl \
     && rm -rf /var/lib/apt/lists/* && \
-    addgroup --system app && adduser --system --group app
+    addgroup --system app && adduser --system --group app && \
+    apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
@@ -45,7 +46,6 @@ COPY . .
 # Writable dirs for app user: HF cache, memwright data
 RUN mkdir -p /app/data/memwright /app/.cache && \
     chmod +x entrypoint.sh && chown -R app:app /app
-USER app
 
 ENV HOME=/app
 ENV HF_HOME=/app/.cache/huggingface
