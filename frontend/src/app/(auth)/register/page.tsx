@@ -1,34 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/lib/auth";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
-import { Suspense } from "react";
 
-function InviteCodeField() {
+function InviteCodePrefill({ onCode }: { onCode: (code: string) => void }) {
   const searchParams = useSearchParams();
   const prefill = searchParams.get("code") || "";
-  const [inviteCode, setInviteCode] = useState(prefill);
-  return (
-    <div>
-      <label className="block text-sm font-medium text-[#999] mb-2">Invite Code</label>
-      <input
-        type="text"
-        required
-        value={inviteCode}
-        onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-        className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition font-mono tracking-wider"
-        placeholder="XXXXXXXX"
-        maxLength={8}
-      />
-      <p className="text-xs text-[#555] mt-1">
-        Don&apos;t have one? <Link href="/request-access" className="text-[#7c3aed] hover:text-[#8b5cf6]">Request access</Link>
-      </p>
-    </div>
-  );
+  if (prefill) {
+    // Set the parent state on first render
+    setTimeout(() => onCode(prefill), 0);
+  }
+  return null;
 }
 
 export default function RegisterPage() {
@@ -37,6 +23,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +40,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      await register(email, password, name, undefined);
+      await register(email, password, name, inviteCode || undefined);
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
@@ -65,6 +52,9 @@ export default function RegisterPage() {
 
   return (
     <div className="w-full max-w-md mx-auto px-6">
+      <Suspense>
+        <InviteCodePrefill onCode={(code) => setInviteCode((prev) => prev || code)} />
+      </Suspense>
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-3 mb-4">
           <Image src="/bonito-icon.png" alt="Bonito" width={80} height={40} className="object-contain" />
@@ -79,9 +69,21 @@ export default function RegisterPage() {
               {error}
             </div>
           )}
-          <Suspense fallback={<div className="h-[85px]" />}>
-            <InviteCodeField />
-          </Suspense>
+          <div>
+            <label className="block text-sm font-medium text-[#999] mb-2">Invite Code</label>
+            <input
+              type="text"
+              required
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              className="w-full px-4 py-3 bg-[#0a0a0a] border border-[#222] rounded-lg text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/50 focus:border-[#7c3aed] transition font-mono tracking-wider"
+              placeholder="XXXXXXXX"
+              maxLength={8}
+            />
+            <p className="text-xs text-[#555] mt-1">
+              Don&apos;t have one? <Link href="/request-access" className="text-[#7c3aed] hover:text-[#8b5cf6]">Request access</Link>
+            </p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-[#999] mb-2">Name</label>
             <input
