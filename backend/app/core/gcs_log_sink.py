@@ -13,6 +13,7 @@ format so existing Sentry-style tooling can ingest them.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -73,6 +74,7 @@ class GCSLogSink:
         self._last_flush = datetime.now(timezone.utc)
         self._current_hour = self._hour_key()
         self._client: Optional[httpx.AsyncClient] = None
+        self._flush_task: Optional[asyncio.Task] = None
 
         # Service account auth state
         self._sa_credentials: Optional[Dict[str, Any]] = None
@@ -82,9 +84,10 @@ class GCSLogSink:
     # ── Public API ───────────────────────────────────────────────────────────
 
     async def start(self) -> None:
-        """Start the sink (token resolved lazily at first event)."""
+        """Start the sink with periodic flush timer."""
         self._client = httpx.AsyncClient(timeout=30.0)
         self._sa_credentials = self._load_service_account()
+        self._flush_task = asyncio.create_task(self._periodic_flush())
         auth_method = "service_account" if self._sa_credentials else "metadata_server"
         logger.info(
             "GCSLogSink started",
@@ -98,6 +101,12 @@ class GCSLogSink:
 
     async def stop(self) -> None:
         """Flush remaining buffer and close."""
+        if self._flush_task:
+            self._flush_task.cancel()
+            try:
+                await self._flush_task
+            except asyncio.CancelledError:
+                pass
         await self.flush()
         if self._client:
             await self._client.aclose()
@@ -161,8 +170,14 @@ class GCSLogSink:
 
         if should_flush:
             # Fire-and-forget flush — don't block the request
-            import asyncio
             asyncio.create_task(self.flush())
+
+    async def _periodic_flush(self) -> None:
+        """Background task that flushes the buffer every flush_interval seconds."""
+        while True:
+            await asyncio.sleep(self.flush_interval)
+            if self._buffer:
+                await self.flush()
 
     # ── Private ─────────────────────────────────────────────────────────────
 
