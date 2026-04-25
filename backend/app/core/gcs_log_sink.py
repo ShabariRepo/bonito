@@ -17,11 +17,16 @@ import json
 import logging
 import os
 import socket
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import httpx
+
+# Service account JWT auth (for Railway / non-GCP environments)
+_SA_KEY_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+_SA_KEY_JSON = os.getenv("GCS_SERVICE_ACCOUNT_JSON", "")  # inline JSON alternative
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +74,25 @@ class GCSLogSink:
         self._current_hour = self._hour_key()
         self._client: Optional[httpx.AsyncClient] = None
 
+        # Service account auth state
+        self._sa_credentials: Optional[Dict[str, Any]] = None
+        self._sa_token: Optional[str] = None
+        self._sa_token_expiry: float = 0
+
     # ── Public API ───────────────────────────────────────────────────────────
 
     async def start(self) -> None:
         """Start the sink (token resolved lazily at first event)."""
         self._client = httpx.AsyncClient(timeout=30.0)
+        self._sa_credentials = self._load_service_account()
+        auth_method = "service_account" if self._sa_credentials else "metadata_server"
         logger.info(
             "GCSLogSink started",
             extra={
                 "bucket": self.bucket,
                 "server_name": self.server_name,
                 "flush_interval_s": self.flush_interval,
+                "auth_method": auth_method,
             },
         )
 
@@ -342,8 +355,103 @@ class GCSLogSink:
             body = resp.text[:200]
             raise RuntimeError(f"GCS upload failed: {resp.status_code} — {body}")
 
+    def _load_service_account(self) -> Optional[Dict[str, Any]]:
+        """Load GCP service account credentials from file or env var."""
+        sa_json = None
+
+        if _SA_KEY_PATH and os.path.isfile(_SA_KEY_PATH):
+            try:
+                with open(_SA_KEY_PATH) as f:
+                    sa_json = json.load(f)
+                logger.info("GCSLogSink loaded service account from file", extra={"path": _SA_KEY_PATH})
+            except Exception as e:
+                logger.warning("Failed to load service account file", extra={"path": _SA_KEY_PATH, "error": str(e)})
+
+        if not sa_json and _SA_KEY_JSON:
+            try:
+                sa_json = json.loads(_SA_KEY_JSON)
+                logger.info("GCSLogSink loaded service account from GCS_SERVICE_ACCOUNT_JSON env var")
+            except Exception as e:
+                logger.warning("Failed to parse GCS_SERVICE_ACCOUNT_JSON", extra={"error": str(e)})
+
+        if sa_json and sa_json.get("type") == "service_account":
+            return sa_json
+        return None
+
+    def _create_jwt(self, sa: Dict[str, Any]) -> str:
+        """Create a signed JWT for Google OAuth2 token exchange."""
+        import base64
+        import hashlib
+
+        try:
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import padding
+        except ImportError:
+            raise RuntimeError("cryptography package required for service account auth: pip install cryptography")
+
+        now = int(time.time())
+        header = {"alg": "RS256", "typ": "JWT"}
+        payload = {
+            "iss": sa["client_email"],
+            "scope": "https://www.googleapis.com/auth/devstorage.read_write",
+            "aud": "https://oauth2.googleapis.com/token",
+            "iat": now,
+            "exp": now + 3600,
+        }
+
+        def _b64(data: bytes) -> str:
+            return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+        segments = _b64(json.dumps(header).encode()) + "." + _b64(json.dumps(payload).encode())
+
+        private_key = serialization.load_pem_private_key(sa["private_key"].encode(), password=None)
+        signature = private_key.sign(segments.encode(), padding.PKCS1v15(), hashes.SHA256())
+
+        return segments + "." + _b64(signature)
+
+    async def _get_sa_token(self) -> Optional[str]:
+        """Exchange a service account JWT for an access token."""
+        if not self._sa_credentials or not self._client:
+            return None
+
+        # Return cached token if still valid (5 min buffer)
+        if self._sa_token and time.time() < self._sa_token_expiry - 300:
+            return self._sa_token
+
+        try:
+            jwt = self._create_jwt(self._sa_credentials)
+            resp = await self._client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                    "assertion": jwt,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code == 200:
+                token_data = resp.json()
+                self._sa_token = token_data["access_token"]
+                self._sa_token_expiry = time.time() + token_data.get("expires_in", 3600)
+                return self._sa_token
+            else:
+                logger.warning("SA token exchange failed", extra={"status": resp.status_code, "body": resp.text[:200]})
+        except Exception as e:
+            logger.warning("SA token exchange error", extra={"error": str(e)})
+        return None
+
     async def _get_access_token(self) -> Optional[str]:
-        """Fetch a short-lived GCS access token from the metadata server."""
+        """
+        Get a GCS access token.
+
+        Priority: service account JWT → GCP metadata server.
+        """
+        # Try service account first (works on Railway, any non-GCP host)
+        if self._sa_credentials:
+            token = await self._get_sa_token()
+            if token:
+                return token
+
+        # Fall back to metadata server (works on GCP VMs, Cloud Run, GKE)
         try:
             resp = await self._client.get(
                 "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
@@ -354,7 +462,7 @@ class GCSLogSink:
                 token_data = resp.json()
                 return token_data.get("access_token")
         except Exception as e:
-            logger.warning("Failed to get GCS access token", extra={"error": str(e)})
+            logger.warning("Failed to get GCS access token from metadata server", extra={"error": str(e)})
         return None
 
 
