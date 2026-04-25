@@ -650,7 +650,6 @@ async def get_router(
         timeout=30,
         allowed_fails=2,
         cooldown_time=30,
-        max_parallel_requests=50,
     )
     _routers[org_id] = (router, now)
     return router
