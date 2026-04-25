@@ -165,16 +165,19 @@ class AgentEngine:
             # Update security metadata with input sanitization flag
             result.security.input_sanitized = input_sanitized
 
-            # 5b. Store conversation turn in Memwright
+            # 5b. Store conversation turn in Memwright (non-fatal)
             if result.content:
-                await self._memwright.store(
-                    session_id=str(session.id),
-                    agent_id=str(agent.id),
-                    org_id=str(agent.org_id),
-                    user_msg=sanitized_message,
-                    assistant_msg=result.content,
-                    model_id=agent.model_id,
-                )
+                try:
+                    await self._memwright.store(
+                        session_id=str(session.id),
+                        agent_id=str(agent.id),
+                        org_id=str(agent.org_id),
+                        user_msg=sanitized_message,
+                        assistant_msg=result.content,
+                        model_id=agent.model_id,
+                    )
+                except Exception as e:
+                    logger.warning(f"Memwright store failed (non-fatal): {e}")
 
             # 6. Update metrics
             await self._update_metrics(agent, session, result, db)
@@ -398,16 +401,19 @@ class AgentEngine:
             if rag_context:
                 system_prompt += f"\n\n## Knowledge Context\n{rag_context}"
 
-        # Inject Memwright conversational memory
-        memory_context = await self._memwright.recall(
-            session_id=str(session.id),
-            agent_id=str(agent.id),
-            org_id=str(agent.org_id),
-            message=user_message,
-            model_id=agent.model_id,
-        )
-        if memory_context:
-            system_prompt += f"\n\n## Conversation Memory\n{memory_context}"
+        # Inject Memwright conversational memory (non-fatal — never blocks execution)
+        try:
+            memory_context = await self._memwright.recall(
+                session_id=str(session.id),
+                agent_id=str(agent.id),
+                org_id=str(agent.org_id),
+                message=user_message,
+                model_id=agent.model_id,
+            )
+            if memory_context:
+                system_prompt += f"\n\n## Conversation Memory\n{memory_context}"
+        except Exception as e:
+            logger.warning(f"Memwright recall failed (non-fatal): {e}")
 
         # Build message history
         messages = [{"role": "system", "content": system_prompt}]

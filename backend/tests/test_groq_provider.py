@@ -51,8 +51,8 @@ def test_groq_in_provider_type_enum():
 
 
 def test_groq_static_model_catalog_count():
-    """The static GROQ_MODELS catalog should have 11 models."""
-    assert len(GROQ_MODELS) == 11
+    """The static GROQ_MODELS catalog should have 13 models."""
+    assert len(GROQ_MODELS) == 13
 
 
 def test_groq_model_catalog_ids():
@@ -61,6 +61,8 @@ def test_groq_model_catalog_ids():
     expected = {
         "llama-3.3-70b-versatile",
         "llama-3.1-8b-instant",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
         "llama-3.3-70b-specdec",
         "mixtral-8x7b-32768",
         "gemma2-9b-it",
@@ -90,7 +92,7 @@ def test_groq_models_have_pricing():
 def test_groq_in_mock_catalog():
     """Groq should be in the provider_service MOCK_CATALOG."""
     assert "groq" in MOCK_CATALOG
-    assert len(MOCK_CATALOG["groq"]) == 11
+    assert len(MOCK_CATALOG["groq"]) == 13
 
 
 # ── Credential validation (unit) ──────────────────────────────
@@ -238,7 +240,7 @@ async def test_groq_provider_list_models_static_fallback():
             mock_redis.setex = AsyncMock()
             models = await provider.list_models()
 
-    assert len(models) == 11
+    assert len(models) == 13
     model_ids = {m.model_id for m in models}
     assert "llama-3.3-70b-versatile" in model_ids
     assert "deepseek-r1-distill-llama-70b" in model_ids

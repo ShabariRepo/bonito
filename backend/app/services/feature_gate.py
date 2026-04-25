@@ -193,7 +193,10 @@ class FeatureGateService:
     
     async def get_organization_subscription(self, db: AsyncSession, org_id: str) -> Dict[str, Any]:
         """Get organization subscription details"""
-        stmt = select(Organization).where(Organization.id == org_id)
+        import uuid as _uuid
+        # Convert string org_id to UUID for SQLite compatibility
+        _org_id = _uuid.UUID(org_id) if isinstance(org_id, str) else org_id
+        stmt = select(Organization).where(Organization.id == _org_id)
         result = await db.execute(stmt)
         org = result.scalar_one_or_none()
         
@@ -280,13 +283,15 @@ class FeatureGateService:
     
     async def _get_current_usage(self, db: AsyncSession, org_id: str, limit_type: str) -> int:
         """Get current usage for a specific limit type"""
+        import uuid as _uuid
+        _org_id = _uuid.UUID(org_id) if isinstance(org_id, str) else org_id
         if limit_type == "providers":
-            stmt = select(func.count(CloudProvider.id)).where(CloudProvider.org_id == org_id)
+            stmt = select(func.count(CloudProvider.id)).where(CloudProvider.org_id == _org_id)
             result = await db.execute(stmt)
             return result.scalar() or 0
         
         elif limit_type == "members":
-            stmt = select(func.count(User.id)).where(User.org_id == org_id)
+            stmt = select(func.count(User.id)).where(User.org_id == _org_id)
             result = await db.execute(stmt)
             return result.scalar() or 0
         
