@@ -319,7 +319,7 @@ class GCSLogSink:
                 extra={"event_count": len(buffer), "bytes": len(content), "object": object_name},
             )
         except Exception as e:
-            logger.error("GCSLogSink flush failed", extra={"error": str(e), "event_count": len(buffer)})
+            logger.error("GCSLogSink flush failed: %s (events=%d)", str(e), len(buffer))
             # Re-add to buffer on failure (best-effort, don't block)
             if len(self._buffer) == 0:
                 self._buffer = buffer
@@ -454,9 +454,9 @@ class GCSLogSink:
                 self._sa_token_expiry = time.time() + token_data.get("expires_in", 3600)
                 return self._sa_token
             else:
-                logger.warning("SA token exchange failed", extra={"status": resp.status_code, "body": resp.text[:200]})
+                logger.warning("SA token exchange failed: %d — %s", resp.status_code, resp.text[:200])
         except Exception as e:
-            logger.warning("SA token exchange error", extra={"error": str(e)})
+            logger.warning("SA token exchange error: %s", str(e))
         return None
 
     async def _get_access_token(self) -> Optional[str]:
