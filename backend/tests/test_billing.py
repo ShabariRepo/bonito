@@ -58,7 +58,7 @@ class TestTierPricing:
         assert TIER_PRICING["free"] == Decimal("0")
 
     def test_pro_tier_pricing(self):
-        assert TIER_PRICING["pro"] == Decimal("499")
+        assert TIER_PRICING["pro"] == Decimal("999")
 
     def test_enterprise_tier_pricing(self):
         assert TIER_PRICING["enterprise"] == Decimal("2000")
@@ -69,10 +69,10 @@ class TestTierPricing:
 
 class TestBonBonPricing:
     def test_pro_bonbon_pricing(self):
-        assert BONBON_PRICING["pro"] == Decimal("199")
+        assert BONBON_PRICING["pro"] == Decimal("499")
 
     def test_enterprise_bonbon_pricing(self):
-        assert BONBON_PRICING["enterprise"] == Decimal("399")
+        assert BONBON_PRICING["enterprise"] == Decimal("999")
 
 
 # ── Billing service tests with DB ──
@@ -88,7 +88,7 @@ async def billing_org(test_engine) -> Organization:
             subscription_tier="pro",
             active_bonbon_count=2,
             active_bonobot_count=3,
-            bonbon_monthly_cost=Decimal("398"),
+            bonbon_monthly_cost=Decimal("998"),
         )
         session.add(org)
         await session.commit()
@@ -181,7 +181,7 @@ class TestGetOrgBilling:
         factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             billing = await get_org_billing(session, billing_org.id)
-            assert billing["platform_subscription"]["monthly_cost"] == 499.0
+            assert billing["platform_subscription"]["monthly_cost"] == 999.0
 
     @pytest.mark.asyncio
     async def test_managed_inference_tracked(self, test_engine, billing_org, billing_requests):
@@ -215,15 +215,15 @@ class TestGetOrgBilling:
             billing = await get_org_billing(session, billing_org.id)
             agents = billing["agents"]
             assert agents["active_bonbon_count"] == 2
-            assert agents["bonbon_unit_price"] == 199.0
-            assert agents["bonbon_cost"] == 398.0
+            assert agents["bonbon_unit_price"] == 499.0
+            assert agents["bonbon_cost"] == 998.0
 
     @pytest.mark.asyncio
     async def test_total_bill_calculation(self, test_engine, billing_org, billing_requests):
         factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             billing = await get_org_billing(session, billing_org.id)
-            expected_min = 499.0 + 398.0  # platform + bonbon (managed cost adds on top)
+            expected_min = 999.0 + 998.0  # platform + bonbon (managed cost adds on top)
             assert billing["total_bill"] >= expected_min
 
     @pytest.mark.asyncio
@@ -250,8 +250,8 @@ class TestGetAllOrgsBillingSummary:
         factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
         async with factory() as session:
             summary = await get_all_orgs_billing_summary(session)
-            # At least the pro org's $499
-            assert summary["total_platform_mrr"] >= 499.0
+            # At least the pro org's $999
+            assert summary["total_platform_mrr"] >= 999.0
 
 
 class TestEnhancedAdminStats:

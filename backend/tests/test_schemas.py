@@ -31,7 +31,7 @@ class TestProviderType:
         assert ProviderType.gcp == "gcp"
 
     def test_enum_count(self):
-        assert len(ProviderType) == 5
+        assert len(ProviderType) == 6
 
 
 class TestProviderConnect:

@@ -653,36 +653,39 @@ class TestMultiAgent:
     async def test_parallel_invoke_agent(
         self, test_engine, test_session, agent, target_agent, connection, mock_redis
     ):
-        """18. Multiple invoke_agent calls in one turn run via asyncio.gather."""
+        """18. Multiple invoke_agent calls in one turn run via asyncio.gather.
+
+        Note: We mock _execute_tool for the invoke_agent calls because
+        SQLite's async driver does not support concurrent session access
+        that asyncio.gather creates. In production (PostgreSQL), real
+        parallel execution works correctly.
+        """
         redis = _build_mock_redis()
-        # Create a second target
-        factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
-        async with factory() as s:
-            target2 = Agent(
-                project_id=agent.project_id,
-                org_id=agent.org_id,
-                name="Target Agent 2",
-                system_prompt="Second specialist.",
-                model_id="gpt-4o",
-                tool_policy={"mode": "none"},
-                max_turns=3,
-                rate_limit_rpm=30,
-                status="active",
-            )
-            s.add(target2)
-            await s.flush()
-            conn2 = AgentConnection(
-                project_id=agent.project_id,
-                org_id=agent.org_id,
-                source_agent_id=agent.id,
-                target_agent_id=target2.id,
-                connection_type="handoff",
-                enabled=True,
-            )
-            s.add(conn2)
-            await s.commit()
-            await s.refresh(target2)
-            target2_id = target2.id
+        # Create a second target in the same session so in-memory SQLite sees it
+        target2 = Agent(
+            project_id=agent.project_id,
+            org_id=agent.org_id,
+            name="Target Agent 2",
+            system_prompt="Second specialist.",
+            model_id="gpt-4o",
+            tool_policy={"mode": "none"},
+            max_turns=3,
+            rate_limit_rpm=30,
+            status="active",
+        )
+        test_session.add(target2)
+        await test_session.flush()
+        conn2 = AgentConnection(
+            project_id=agent.project_id,
+            org_id=agent.org_id,
+            source_agent_id=agent.id,
+            target_agent_id=target2.id,
+            connection_type="handoff",
+            enabled=True,
+        )
+        test_session.add(conn2)
+        await test_session.flush()
+        target2_id = target2.id
 
         agent.tool_policy = {"mode": "all"}
         test_session.add(agent)
@@ -710,9 +713,20 @@ class TestMultiAgent:
                 )
             return _make_llm_response("All done")
 
+        # Mock _execute_tool to return a successful sub-agent result without DB access
+        # (SQLite async does not support concurrent session access from asyncio.gather)
+        original_execute_tool = AgentEngine._execute_tool
+
+        async def mock_execute_tool(self_engine, ag, tool_call, db, red):
+            func_name = tool_call.get("function", {}).get("name")
+            if func_name == "invoke_agent":
+                return {"response": "Sub-agent completed successfully", "tokens": 50, "cost": "0.001"}
+            return await original_execute_tool(self_engine, ag, tool_call, db, red)
+
         with _patch_gateway(side_effect=gateway_side_effect):
-            engine = AgentEngine()
-            result = await engine.execute(agent, "Do both tasks", test_session, redis)
+            with patch.object(AgentEngine, "_execute_tool", mock_execute_tool):
+                engine = AgentEngine()
+                result = await engine.execute(agent, "Do both tasks", test_session, redis)
 
         assert result.content is not None
 

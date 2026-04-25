@@ -334,7 +334,10 @@ async def _handle_streaming_completion(
                         model=model_used, messages=messages
                     )
                 except Exception:
-                    logger.debug(f"Prompt token estimation failed for model {model_used}", exc_info=True)
+                    logger.warning(
+                        "Prompt token estimation failed for model %s — billing data may be incomplete",
+                        model_used, exc_info=True,
+                    )
             if not total_completion_tokens and streamed_content:
                 try:
                     full_output = "".join(streamed_content)
@@ -343,7 +346,10 @@ async def _handle_streaming_completion(
                         text=full_output,
                     )
                 except Exception:
-                    logger.debug(f"Completion token estimation failed for model {model_used}", exc_info=True)
+                    logger.warning(
+                        "Completion token estimation failed for model %s — billing data may be incomplete",
+                        model_used, exc_info=True,
+                    )
 
             cost = 0.0
             try:
@@ -362,7 +368,11 @@ async def _handle_streaming_completion(
                     )
                     cost = (prompt_cost + compl_cost) or 0.0
             except Exception:
-                logger.debug(f"Cost calculation failed for model {model_used}", exc_info=True)
+                logger.warning(
+                    "Cost calculation failed for model %s (tokens: %d/%d) — cost will be recorded as $0",
+                    model_used, total_prompt_tokens, total_completion_tokens,
+                    exc_info=True,
+                )
 
             try:
                 async with get_db_session() as log_db:

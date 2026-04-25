@@ -210,6 +210,11 @@ class GCSLogSink:
             tags["endpoint"] = endpoint
         if method:
             tags["method"] = method
+        # Enrich with log_type, model, provider, trace_id from extra (Phase 5)
+        if extra:
+            for tag_key in ("log_type", "event_type", "model", "provider", "trace_id"):
+                if extra.get(tag_key):
+                    tags[tag_key] = str(extra[tag_key])
         if status_code:
             tags["status_code"] = str(status_code)
             # Sentry uses this for grouping

@@ -1,5 +1,8 @@
 """
-Platform Log Service — async, batched, non-blocking.
+Platform Log Service — async, batched, crash-safe.
+
+Uses a file-backed WAL (write-ahead log) to prevent event loss on crash.
+On startup, replays any unflushed entries from the WAL file.
 
 Usage:
     from app.services.log_service import log_service
@@ -22,13 +25,16 @@ Usage:
 """
 
 import asyncio
+import json
 import logging
+import os
 import uuid
 from collections import deque
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert, update, delete
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.database import get_db_session
@@ -43,6 +49,9 @@ logger = logging.getLogger("bonito.log_service")
 FLUSH_INTERVAL_SECONDS = 2
 FLUSH_BATCH_SIZE = 100
 MAX_BUFFER_SIZE = 10_000
+LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
+WAL_PATH = Path(os.getenv("LOG_WAL_PATH", "/tmp/bonito_log_wal.ndjson"))
+INTEGRATION_MAX_RETRIES = 3
 
 
 class LogService:
@@ -51,30 +60,97 @@ class LogService:
     def __init__(self):
         self._buffer: deque[Dict[str, Any]] = deque(maxlen=MAX_BUFFER_SIZE)
         self._flush_task: Optional[asyncio.Task] = None
+        self._retention_task: Optional[asyncio.Task] = None
         self._running = False
         self._lock = asyncio.Lock()
         self._db_warned = False
 
     async def start(self):
-        """Start the background flush loop."""
+        """Start the background flush loop and replay any WAL entries."""
         if self._running:
             return
         self._running = True
+
+        # Replay WAL from previous crash (if any)
+        replayed = self._replay_wal()
+        if replayed:
+            logger.info("Replayed %d entries from WAL file", replayed)
+
         self._flush_task = asyncio.create_task(self._flush_loop())
-        logger.info("Log service started (flush every %ds or %d events)", FLUSH_INTERVAL_SECONDS, FLUSH_BATCH_SIZE)
+        self._retention_task = asyncio.create_task(self._retention_loop())
+        logger.info(
+            "Log service started (flush every %ds or %d events, retention %dd)",
+            FLUSH_INTERVAL_SECONDS, FLUSH_BATCH_SIZE, LOG_RETENTION_DAYS,
+        )
 
     async def stop(self):
         """Stop the flush loop and drain remaining logs."""
         self._running = False
-        if self._flush_task:
-            self._flush_task.cancel()
-            try:
-                await self._flush_task
-            except asyncio.CancelledError:
-                pass
+        for task in (self._flush_task, self._retention_task):
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
         # Final flush
         await self._flush()
         logger.info("Log service stopped")
+
+    # ── WAL (Write-Ahead Log) ──
+
+    def _write_wal(self, entry: Dict[str, Any]) -> None:
+        """Append a log entry to the WAL file for crash safety."""
+        try:
+            serialized = dict(entry)
+            for key, val in serialized.items():
+                if isinstance(val, uuid.UUID):
+                    serialized[key] = str(val)
+                elif isinstance(val, datetime):
+                    serialized[key] = val.isoformat()
+            with open(WAL_PATH, "a") as f:
+                f.write(json.dumps(serialized) + "\n")
+        except Exception:
+            pass  # WAL write failure is non-fatal; entry is still in memory buffer
+
+    def _replay_wal(self) -> int:
+        """Replay unflushed entries from the WAL file on startup."""
+        if not WAL_PATH.exists():
+            return 0
+        count = 0
+        try:
+            with open(WAL_PATH, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        # Restore UUID and datetime types
+                        for key in ("id", "org_id", "user_id", "resource_id", "trace_id"):
+                            if entry.get(key):
+                                try:
+                                    entry[key] = uuid.UUID(entry[key])
+                                except (ValueError, AttributeError):
+                                    pass
+                        if entry.get("created_at"):
+                            entry["created_at"] = datetime.fromisoformat(entry["created_at"])
+                        self._buffer.append(entry)
+                        count += 1
+                    except (json.JSONDecodeError, KeyError):
+                        continue
+            # Clear WAL after successful replay
+            WAL_PATH.unlink(missing_ok=True)
+        except Exception as e:
+            logger.warning("WAL replay failed: %s", e)
+        return count
+
+    def _truncate_wal(self) -> None:
+        """Clear the WAL after a successful flush."""
+        try:
+            WAL_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     async def emit(
         self,
@@ -113,6 +189,8 @@ class LogService:
             "trace_id": trace_id,
             "created_at": datetime.now(timezone.utc),
         }
+        # Write to WAL first for crash safety
+        self._write_wal(entry)
         self._buffer.append(entry)
 
         # If buffer is full enough, trigger immediate flush
@@ -147,6 +225,8 @@ class LogService:
         # Write to DB
         try:
             await self._write_to_db(batch)
+            # Truncate WAL after successful DB write
+            self._truncate_wal()
         except Exception as e:
             if not self._db_warned:
                 logger.warning(f"Log DB write failed (will suppress further): {e}")
@@ -236,27 +316,45 @@ class LogService:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_to_integration(self, integration: LogIntegration, logs: List[Dict[str, Any]]):
-        """Send logs to a single integration."""
+        """Send logs to a single integration with exponential backoff retry."""
+        credentials = None
         try:
-            # Load credentials from Vault
             credentials = await vault_client.get_secrets(integration.credentials_path)
-
-            provider = get_integration(
-                integration.integration_type,
-                integration.config or {},
-                credentials,
-            )
-            if provider is None:
-                return
-
-            success = await provider.send_logs(logs)
-            if not success:
-                logger.warning(
-                    f"Integration {integration.name} ({integration.integration_type}) "
-                    f"failed to send {len(logs)} logs"
-                )
         except Exception as e:
-            logger.error(f"Integration {integration.name} error: {e}")
+            logger.warning("Failed to load credentials for integration %s: %s", integration.name, e)
+            return
+
+        provider = get_integration(
+            integration.integration_type,
+            integration.config or {},
+            credentials,
+        )
+        if provider is None:
+            return
+
+        for attempt in range(INTEGRATION_MAX_RETRIES):
+            try:
+                success = await provider.send_logs(logs)
+                if success:
+                    return
+                logger.warning(
+                    "Integration %s (%s) failed to send %d logs (attempt %d/%d)",
+                    integration.name, integration.integration_type,
+                    len(logs), attempt + 1, INTEGRATION_MAX_RETRIES,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Integration %s error (attempt %d/%d): %s",
+                    integration.name, attempt + 1, INTEGRATION_MAX_RETRIES, e,
+                )
+            if attempt < INTEGRATION_MAX_RETRIES - 1:
+                await asyncio.sleep(2 ** attempt)  # 1s, 2s backoff
+
+        logger.error(
+            "Integration %s (%s) failed after %d retries for %d logs",
+            integration.name, integration.integration_type,
+            INTEGRATION_MAX_RETRIES, len(logs),
+        )
 
     async def _update_aggregations(self, batch: List[Dict[str, Any]]):
         """Update pre-computed aggregation buckets."""
@@ -326,6 +424,45 @@ class LogService:
 
         except Exception as e:
             logger.error(f"Aggregation update error: {e}", exc_info=True)
+
+    # ── Log Retention (SOC2 CC7.2) ──
+
+    async def _retention_loop(self):
+        """Daily cleanup of logs older than LOG_RETENTION_DAYS."""
+        while self._running:
+            try:
+                # Run once per day
+                await asyncio.sleep(86400)
+                await self._cleanup_old_logs()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Retention cleanup error: %s", e, exc_info=True)
+
+    async def _cleanup_old_logs(self):
+        """Delete platform_logs and log_aggregations older than retention period."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=LOG_RETENTION_DAYS)
+        try:
+            async with get_db_session() as session:
+                # Delete old platform logs
+                result = await session.execute(
+                    delete(PlatformLog).where(PlatformLog.created_at < cutoff)
+                )
+                log_count = result.rowcount
+
+                # Delete old aggregations
+                result = await session.execute(
+                    delete(LogAggregation).where(LogAggregation.date_bucket < cutoff.date())
+                )
+                agg_count = result.rowcount
+
+            if log_count or agg_count:
+                logger.info(
+                    "Retention cleanup: deleted %d logs, %d aggregations older than %d days",
+                    log_count, agg_count, LOG_RETENTION_DAYS,
+                )
+        except Exception as e:
+            logger.error("Retention cleanup failed: %s", e)
 
 
 # Singleton instance

@@ -31,15 +31,21 @@ class TestTemplateRegistry:
 
     def test_all_templates_load(self):
         templates = get_all_templates()
-        assert len(templates) == 4
+        assert len(templates) == 8
 
     def test_template_ids(self):
-        expected_ids = {"customer_service", "knowledge_assistant", "sales_qualifier", "content_assistant"}
+        expected_ids = {
+            "customer_service", "knowledge_assistant", "sales_qualifier", "content_assistant",
+            "incident_responder", "code_reviewer", "deploy_monitor", "devops_docs",
+        }
         actual_ids = set(TEMPLATES.keys())
         assert actual_ids == expected_ids
 
     def test_get_template_by_id(self):
-        for template_id in ["customer_service", "knowledge_assistant", "sales_qualifier", "content_assistant"]:
+        for template_id in [
+            "customer_service", "knowledge_assistant", "sales_qualifier", "content_assistant",
+            "incident_responder", "code_reviewer", "deploy_monitor", "devops_docs",
+        ]:
             template = get_template(template_id)
             assert template is not None
             assert template.id == template_id

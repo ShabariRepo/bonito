@@ -142,6 +142,7 @@ app.include_router(admin.router, prefix="/api")
 # Logging & observability routes
 app.include_router(logging_routes.router, prefix="/api")
 app.include_router(logging_routes.integration_router, prefix="/api")
+app.include_router(logging_routes.audit_router, prefix="/api")
 
 # Bonobot routes
 app.include_router(bonobot_projects.router, prefix="/api")

@@ -39,6 +39,7 @@ if not getattr(_STC, "_pg_compat_patched", False):
 
 # Mark the test environment so middleware (e.g. rate limiter) can skip
 os.environ["TESTING"] = "1"
+os.environ["INVITE_REQUIRED"] = "false"
 
 # Ensure required secrets are available for tests (vault isn't running locally)
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests")
@@ -180,7 +181,7 @@ async def test_org(test_engine) -> Organization:
     """Create a test organization and return it."""
     session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
-        org = Organization(name="Test Organization")
+        org = Organization(name="Test Organization", subscription_tier="pro")
         session.add(org)
         await session.commit()
         await session.refresh(org)
@@ -192,7 +193,7 @@ async def test_org_b(test_engine) -> Organization:
     """Create a second test organization for multi-tenancy tests."""
     session_factory = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
-        org = Organization(name="Other Organization")
+        org = Organization(name="Other Organization", subscription_tier="pro")
         session.add(org)
         await session.commit()
         await session.refresh(org)

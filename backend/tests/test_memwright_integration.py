@@ -11,6 +11,7 @@ Covers:
 """
 
 import asyncio
+import collections
 import os
 import shutil
 import tempfile
@@ -180,7 +181,7 @@ class TestRegressionNoMemoryInterference:
                 result = await engine.execute(agent_opus, "Hello", db, redis)
 
                 assert result.content == "Test response"
-                assert result.tokens_used > 0
+                assert result.tokens > 0
 
     @pytest.mark.asyncio
     async def test_zero_budget_model_skips_memory(self, test_engine, agent_flash):
@@ -223,7 +224,9 @@ class TestMemoryRecall:
             captured_messages = []
 
             async def capture_gateway(*args, **kwargs):
-                captured_messages.extend(kwargs.get("messages", args[1] if len(args) > 1 else []))
+                request_data = kwargs.get("request_data", {})
+                msgs = request_data.get("messages", [])
+                captured_messages.extend(msgs)
                 return _make_llm_response("Remembered!")
 
             with patch("app.services.agent_engine.gateway_chat_completion", new_callable=AsyncMock) as mock_gateway:
@@ -252,7 +255,9 @@ class TestMemoryRecall:
             captured_messages = []
 
             async def capture_gateway(*args, **kwargs):
-                captured_messages.extend(kwargs.get("messages", args[1] if len(args) > 1 else []))
+                request_data = kwargs.get("request_data", {})
+                msgs = request_data.get("messages", [])
+                captured_messages.extend(msgs)
                 return _make_llm_response("No memory")
 
             with patch("app.services.agent_engine.gateway_chat_completion", new_callable=AsyncMock) as mock_gateway:
@@ -412,33 +417,46 @@ class TestSessionIsolation:
 
     def test_different_sessions_different_instances(self):
         svc = MemwrightService.__new__(MemwrightService)
-        svc._instances = {}
+        svc._instances = collections.OrderedDict()
+
+        # Each call to AgentMemory() returns a unique mock instance
+        mock_agent_memory = MagicMock(side_effect=lambda path: MagicMock())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.memwright_service.MEMWRIGHT_DATA_DIR", tmpdir):
-                inst_a = svc._get_instance("session-a", "agent-1", "org-1")
-                inst_b = svc._get_instance("session-b", "agent-1", "org-1")
-                assert inst_a is not inst_b
+                with patch("app.services.memwright_service._AGENT_MEMORY_AVAILABLE", True):
+                    with patch("app.services.memwright_service.AgentMemory", mock_agent_memory):
+                        inst_a = svc._get_instance("session-a", "agent-1", "org-1")
+                        inst_b = svc._get_instance("session-b", "agent-1", "org-1")
+                        assert inst_a is not inst_b
 
     def test_same_session_reuses_instance(self):
         svc = MemwrightService.__new__(MemwrightService)
-        svc._instances = {}
+        svc._instances = collections.OrderedDict()
+
+        mock_agent_memory = MagicMock(side_effect=lambda path: MagicMock())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.memwright_service.MEMWRIGHT_DATA_DIR", tmpdir):
-                inst_a = svc._get_instance("session-x", "agent-1", "org-1")
-                inst_b = svc._get_instance("session-x", "agent-1", "org-1")
-                assert inst_a is inst_b
+                with patch("app.services.memwright_service._AGENT_MEMORY_AVAILABLE", True):
+                    with patch("app.services.memwright_service.AgentMemory", mock_agent_memory):
+                        inst_a = svc._get_instance("session-x", "agent-1", "org-1")
+                        inst_b = svc._get_instance("session-x", "agent-1", "org-1")
+                        assert inst_a is inst_b
 
     def test_different_agents_different_instances(self):
         svc = MemwrightService.__new__(MemwrightService)
-        svc._instances = {}
+        svc._instances = collections.OrderedDict()
+
+        mock_agent_memory = MagicMock(side_effect=lambda path: MagicMock())
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("app.services.memwright_service.MEMWRIGHT_DATA_DIR", tmpdir):
-                inst_a = svc._get_instance("session-1", "agent-a", "org-1")
-                inst_b = svc._get_instance("session-1", "agent-b", "org-1")
-                assert inst_a is not inst_b
+                with patch("app.services.memwright_service._AGENT_MEMORY_AVAILABLE", True):
+                    with patch("app.services.memwright_service.AgentMemory", mock_agent_memory):
+                        inst_a = svc._get_instance("session-1", "agent-a", "org-1")
+                        inst_b = svc._get_instance("session-1", "agent-b", "org-1")
+                        assert inst_a is not inst_b
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -449,33 +467,42 @@ class TestPerformance:
     """Verify memory operations use async wrappers."""
 
     @pytest.mark.asyncio
-    async def test_recall_uses_asyncio_to_thread(self):
-        """Recall should run Memwright in a thread to avoid blocking."""
+    async def test_recall_uses_executor(self):
+        """Recall should run Memwright in an executor to avoid blocking."""
         svc = MemwrightService.__new__(MemwrightService)
-        svc._instances = {}
+        svc._instances = collections.OrderedDict()
+        svc._executor = MagicMock()
 
         mock_mem = MagicMock()
         mock_mem.recall.return_value = []
 
-        with patch.object(svc, "_get_instance", return_value=mock_mem):
-            with patch.object(svc, "_get_budget", return_value=1000):
-                with patch("app.services.memwright_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-                    mock_thread.return_value = []
-                    await svc.recall("s1", "a1", "o1", "test query", "claude-opus-4-20250514")
-                    mock_thread.assert_called_once()
+        mock_loop = MagicMock()
+        mock_loop.run_in_executor = AsyncMock(return_value=[])
+
+        with patch("app.services.memwright_service._AGENT_MEMORY_AVAILABLE", True):
+            with patch.object(svc, "_get_instance", return_value=mock_mem):
+                with patch.object(svc, "_get_budget", return_value=1000):
+                    with patch("asyncio.get_running_loop", return_value=mock_loop):
+                        await svc.recall("s1", "a1", "o1", "test query", "claude-opus-4-20250514")
+                        mock_loop.run_in_executor.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_store_uses_asyncio_to_thread(self):
-        """Store should run Memwright in a thread to avoid blocking."""
+    async def test_store_uses_executor(self):
+        """Store should run Memwright in an executor to avoid blocking."""
         svc = MemwrightService.__new__(MemwrightService)
-        svc._instances = {}
+        svc._instances = collections.OrderedDict()
+        svc._executor = MagicMock()
 
         mock_mem = MagicMock()
 
-        with patch.object(svc, "_get_instance", return_value=mock_mem):
-            with patch.object(svc, "_get_budget", return_value=1000):
-                with patch("app.services.memwright_service.asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
-                    mock_thread.return_value = None
-                    await svc.store("s1", "a1", "o1", "user msg", "assistant msg", "claude-opus-4-20250514")
-                    # Should be called twice: once for user msg, once for assistant msg
-                    assert mock_thread.call_count == 2
+        mock_loop = MagicMock()
+        mock_loop.run_in_executor = AsyncMock(return_value=None)
+
+        with patch("app.services.memwright_service._AGENT_MEMORY_AVAILABLE", True):
+            with patch.object(svc, "_get_instance", return_value=mock_mem):
+                with patch.object(svc, "_get_budget", return_value=1000):
+                    with patch("asyncio.get_running_loop", return_value=mock_loop):
+                        # Assistant msg must be >20 chars for both user+assistant stores to fire
+                        await svc.store("s1", "a1", "o1", "user msg", "This is a sufficiently long assistant response for testing", "claude-opus-4-20250514")
+                        # Should be called twice: once for user msg, once for assistant msg
+                        assert mock_loop.run_in_executor.call_count == 2
