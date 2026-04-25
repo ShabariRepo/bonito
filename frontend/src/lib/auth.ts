@@ -79,8 +79,13 @@ async function refreshAccessToken(): Promise<boolean> {
 
 export async function apiRequest(path: string, options: RequestInit = {}) {
   const token = getAccessToken();
+  const requestId = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    "X-Request-ID": requestId,
     ...(options.headers as Record<string, string> || {}),
   };
   if (token) {

@@ -2,18 +2,23 @@
 API routes for platform logging and observability.
 
 Provides:
-  - Log querying with hierarchical filters
+  - Log querying with hierarchical + deep filters (model, provider, endpoint, IP)
+  - Audit log querying with hash chain verification (SOC2 CC9.2)
   - Log export (async CSV/JSON)
   - Log statistics for dashboards
   - Log integration CRUD and connectivity testing
+  - Frontend event ingestion proxy for Helios
 """
 
+import hashlib
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, func, and_, delete
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select, func, and_, delete, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -21,6 +26,7 @@ from app.core.vault import vault_client
 from app.api.dependencies import get_current_user, require_admin
 from app.models.user import User
 from app.models.logging import PlatformLog, LogIntegration, LogExportJob, LogAggregation
+from app.models.audit import AuditLog
 from app.schemas.logging import (
     PlatformLogResponse,
     PlatformLogListResponse,
@@ -40,6 +46,7 @@ from app.services.log_integrations import get_integration
 
 router = APIRouter(tags=["logs"])
 integration_router = APIRouter(tags=["log-integrations"])
+audit_router = APIRouter(tags=["audit-logs"])
 
 
 # ═══════════════════════════════════════════
@@ -60,10 +67,18 @@ async def list_logs(
     search: Optional[str] = None,
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
+    # Deep filters (Phase 3) — query JSONB metadata fields
+    model: Optional[str] = Query(None, description="Filter by AI model name"),
+    provider: Optional[str] = Query(None, description="Filter by provider (bedrock, azure, openai, etc.)"),
+    agent_id: Optional[uuid.UUID] = Query(None, description="Filter by agent resource_id"),
+    endpoint: Optional[str] = Query(None, description="Filter by API endpoint path"),
+    ip_address: Optional[str] = Query(None, description="Filter by client IP address"),
+    request_id: Optional[str] = Query(None, description="Filter by X-Request-ID"),
+    action: Optional[str] = Query(None, description="Filter by action (create, read, update, delete, execute)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Query platform logs with hierarchical filtering. Scoped to user's org."""
+    """Query platform logs with hierarchical + deep filtering. Scoped to user's org."""
     base = select(PlatformLog).where(PlatformLog.org_id == user.org_id)
 
     if log_type:
@@ -86,6 +101,22 @@ async def list_logs(
         base = base.where(PlatformLog.created_at >= date_from)
     if date_to:
         base = base.where(PlatformLog.created_at <= date_to)
+    if action:
+        base = base.where(PlatformLog.action == action)
+
+    # Deep filters — JSONB metadata queries
+    if model:
+        base = base.where(PlatformLog.event_metadata["model"].astext == model)
+    if provider:
+        base = base.where(PlatformLog.event_metadata["provider"].astext == provider)
+    if agent_id:
+        base = base.where(PlatformLog.resource_id == agent_id, PlatformLog.resource_type == "agent")
+    if endpoint:
+        base = base.where(PlatformLog.event_metadata["endpoint"].astext == endpoint)
+    if ip_address:
+        base = base.where(PlatformLog.event_metadata["ip"].astext == ip_address)
+    if request_id:
+        base = base.where(PlatformLog.event_metadata["request_id"].astext == request_id)
 
     # Total count
     count_q = select(func.count()).select_from(base.subquery())
@@ -355,3 +386,214 @@ async def test_integration(
     await db.flush()
 
     return LogIntegrationTestResult(success=success, message=message, tested_at=now)
+
+
+# ═══════════════════════════════════════════
+# Audit Logs (SOC2 CC7.2 / CC9.2)
+# ═══════════════════════════════════════════
+
+class AuditLogResponse(BaseModel):
+    id: uuid.UUID
+    org_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    details_json: Optional[dict] = None
+    ip_address: Optional[str] = None
+    user_name: Optional[str] = None
+    entry_hash: str = ""
+    prev_hash: Optional[str] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AuditLogListResponse(BaseModel):
+    items: List[AuditLogResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class HashChainVerifyResponse(BaseModel):
+    valid: bool
+    total_entries: int
+    broken_at_index: Optional[int] = None
+    broken_entry_id: Optional[uuid.UUID] = None
+    message: str
+
+
+@audit_router.get("/audit-logs", response_model=AuditLogListResponse)
+async def list_audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    user_id: Optional[uuid.UUID] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    ip_address: Optional[str] = None,
+    request_id: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    status_code: Optional[int] = Query(None, description="Filter by response status code"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    """Query audit logs with deep filtering. Admin only. Scoped to user's org."""
+    base = select(AuditLog).where(AuditLog.org_id == user.org_id)
+
+    if user_id:
+        base = base.where(AuditLog.user_id == user_id)
+    if action:
+        base = base.where(AuditLog.action == action)
+    if resource_type:
+        base = base.where(AuditLog.resource_type == resource_type)
+    if ip_address:
+        base = base.where(AuditLog.ip_address == ip_address)
+    if date_from:
+        base = base.where(AuditLog.created_at >= date_from)
+    if date_to:
+        base = base.where(AuditLog.created_at <= date_to)
+    if request_id:
+        base = base.where(AuditLog.details_json["request_id"].astext == request_id)
+    if status_code is not None:
+        base = base.where(AuditLog.details_json["status_code"].as_integer() == status_code)
+
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await db.execute(count_q)).scalar_one()
+
+    items_q = base.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(items_q)
+    items = result.scalars().all()
+
+    return AuditLogListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@audit_router.post("/audit-logs/verify", response_model=HashChainVerifyResponse)
+async def verify_audit_chain(
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_admin),
+):
+    """Verify the tamper-evident hash chain for audit logs. SOC2 CC9.2 evidence."""
+    base = (
+        select(AuditLog)
+        .where(AuditLog.org_id == user.org_id)
+        .order_by(AuditLog.created_at.asc())
+    )
+    if date_from:
+        base = base.where(AuditLog.created_at >= date_from)
+    if date_to:
+        base = base.where(AuditLog.created_at <= date_to)
+
+    result = await db.execute(base)
+    entries = result.scalars().all()
+
+    if not entries:
+        return HashChainVerifyResponse(
+            valid=True, total_entries=0, message="No audit entries in range"
+        )
+
+    prev_hash = ""
+    for idx, entry in enumerate(entries):
+        # Skip entries without hash (pre-migration)
+        if not entry.entry_hash:
+            prev_hash = ""
+            continue
+
+        # Recompute the expected hash
+        hash_input = "|".join([
+            entry.prev_hash or "",
+            str(entry.org_id or ""),
+            str(entry.user_id or ""),
+            entry.action,
+            entry.resource_type,
+            (entry.details_json or {}).get("path", ""),
+            str((entry.details_json or {}).get("status_code", "")),
+            entry.created_at.isoformat(),
+        ])
+        expected_hash = hashlib.sha256(hash_input.encode()).hexdigest()
+
+        if entry.entry_hash != expected_hash:
+            return HashChainVerifyResponse(
+                valid=False,
+                total_entries=len(entries),
+                broken_at_index=idx,
+                broken_entry_id=entry.id,
+                message=f"Hash chain broken at entry {idx} (id={entry.id}): expected {expected_hash[:16]}..., got {entry.entry_hash[:16]}...",
+            )
+
+        # Verify chain linkage
+        if entry.prev_hash != prev_hash and prev_hash and entry.prev_hash:
+            return HashChainVerifyResponse(
+                valid=False,
+                total_entries=len(entries),
+                broken_at_index=idx,
+                broken_entry_id=entry.id,
+                message=f"Chain linkage broken at entry {idx}: prev_hash mismatch",
+            )
+
+        prev_hash = entry.entry_hash
+
+    return HashChainVerifyResponse(
+        valid=True,
+        total_entries=len(entries),
+        message=f"Hash chain verified: {len(entries)} entries, all valid",
+    )
+
+
+# ═══════════════════════════════════════════
+# Frontend Event Ingestion (Phase 4)
+# ═══════════════════════════════════════════
+
+class FrontendEvent(BaseModel):
+    level: str = Field(pattern="^(info|warning|error|critical)$")
+    message: str = Field(max_length=2000)
+    logger: str = Field(default="bonito.frontend", max_length=200)
+    request_id: Optional[str] = None
+    exception: Optional[dict] = None
+    extra: Optional[dict] = None
+
+
+class FrontendEventBatch(BaseModel):
+    events: List[FrontendEvent] = Field(max_length=50)
+
+
+@router.post("/frontend-events", status_code=status.HTTP_202_ACCEPTED)
+async def ingest_frontend_events(
+    batch: FrontendEventBatch,
+    user: User = Depends(get_current_user),
+):
+    """
+    Ingest structured frontend events and forward to GCS sink for Helios.
+
+    Rate limited to 50 events per request. Events are tagged with the
+    authenticated user's org_id for multi-tenant isolation in Helios.
+    """
+    try:
+        from app.core.gcs_log_sink import get_gcs_sink
+        sink = get_gcs_sink()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="GCS log sink not available",
+        )
+
+    for event in batch.events:
+        sink.emit(
+            level=event.level,
+            message=event.message,
+            logger_name=event.logger,
+            request_id=event.request_id,
+            user_id=str(user.id),
+            org_id=str(user.org_id),
+            exception=event.exception,
+            extra={
+                "source": "frontend",
+                "log_type": "frontend",
+                **(event.extra or {}),
+            },
+        )
+
+    return {"accepted": len(batch.events)}

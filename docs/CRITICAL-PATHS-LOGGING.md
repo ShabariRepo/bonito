@@ -8,16 +8,18 @@ Maps every critical request path in Bonito, identifies logging gaps, and priorit
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| LogService (async buffer) | **Live** | 2s/100-event flush, 10K buffer, fan-out to integrations |
-| Log emitters (gateway/auth/agent/kb) | **Live** | `emit_gateway_event()`, `emit_auth_event()`, etc. |
-| AuditMiddleware | **Live** | Fires on sensitive paths, records user/org/action/latency |
+| LogService (crash-safe WAL) | **Live** | File-backed WAL + 2s/100-event flush, retry on integration dispatch, 90-day retention |
+| Log emitters (gateway/auth/agent/kb) | **Live** | Dual-write: PostgreSQL + GCS sink for Helios |
+| AuditMiddleware (SOC2 hardened) | **Live** | Logs auth failures, sensitive GETs, tamper-evident SHA256 hash chain |
 | JSONFormatter | **Live** | Structured JSON with request_id, UTC timestamps |
-| GCS Log Sink (`gcs_log_sink.py`) | **Live** | NDJSON output, Helios-compatible, object finalize notifications |
+| GCS Log Sink (`gcs_log_sink.py`) | **Live** | NDJSON output, SA auth for Railway, enriched tags (log_type/model/provider) |
 | Log Emit Middleware (`log_emit.py`) | **Live** | HTTP request/response events in Sentry-compatible format |
 | Request ID Middleware | **Live** | UUID per request, propagated in X-Request-ID header |
-| Frontend ErrorBoundary | **Stub** | TODO: wire to error monitoring (no Sentry/Helios SDK) |
-| Frontend structured logging | **Missing** | Only `console.error()` calls |
-| Distributed tracing (frontend→backend) | **Missing** | No request ID propagation from frontend |
+| Frontend ErrorBoundary | **Live** | Wired to Helios via `reportError()` |
+| Frontend Helios client (`helios.ts`) | **Live** | Buffered event batching, global error handlers |
+| Frontend X-Request-ID | **Live** | `apiRequest()` generates UUID, sent in every request |
+| Audit log query API | **Live** | `GET /audit-logs` with deep filters, `POST /audit-logs/verify` hash chain validation |
+| Frontend event proxy | **Live** | `POST /api/frontend-events` → GCS sink for Helios ingestion |
 
 ## Helios Touchpoints (Existing)
 

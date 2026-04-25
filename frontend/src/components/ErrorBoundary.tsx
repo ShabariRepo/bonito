@@ -7,6 +7,7 @@
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { reportError } from '@/lib/helios';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -44,9 +45,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-    
-    // TODO: Send to error monitoring service (Sentry, LogRocket, etc.)
-    // sendErrorToService(error, errorInfo);
+
+    // Send to Helios via GCS sink for self-healing observability
+    reportError(error, {
+      componentStack: errorInfo.componentStack || undefined,
+      route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+    });
     
     this.setState({
       error,
