@@ -19,7 +19,7 @@ class RoutingStrategy(str, Enum):
 
 class ChatMessage(BaseModel):
     role: str
-    content: Optional[str] = None
+    content: Optional[Any] = None  # str or list of content parts (text + image_url) for multimodal
     name: Optional[str] = None
     function_call: Optional[dict] = None
     tool_calls: Optional[List[dict]] = None
