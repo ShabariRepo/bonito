@@ -388,10 +388,93 @@ Use the model identifiers shown on the **Models** page in Bonito. These are the 
 
 ---
 
-## 7. Getting Help
+## 7. Pricing & Plans
+
+Bonito offers four plans. Here's what each includes:
+
+### Free — $0/month
+
+Best for individual developers exploring multi-cloud AI.
+
+- 1 cloud provider connection
+- 25,000 gateway requests/month
+- 1 team seat
+- 1 Knowledge Base, 100 documents, 10K chunks, manual sync
+- Basic analytics (7-day retention)
+- **Support:** Community only (GitHub Issues)
+
+### Pro — $499/month
+
+For teams adopting AI across multiple providers who need visibility, routing, and governance.
+
+- 3 cloud provider connections
+- 250,000 gateway requests/month (overage: $0.001/request)
+- 10 team seats included ($25/seat/mo additional)
+- 5 Knowledge Bases, unlimited documents, 500K chunks, scheduled sync
+- Full analytics (90-day retention)
+- Basic governance policies + cost alerts
+- API gateway with smart routing, auto cross-region inference, multi-provider failover
+- **Support:** Email support during business hours (typically within 24 hours)
+
+Annual billing available at $4,990/year (2 months free).
+
+### Enterprise — $10,000–$20,000/month (annual contract)
+
+For organizations that need advanced governance, compliance, and unlimited scale.
+
+- Unlimited cloud provider connections
+- Unlimited gateway requests (usage-based overage pricing)
+- Unlimited team seats
+- Unlimited Knowledge Bases, unlimited everything, webhook sync, custom embedding models
+- SSO/SAML integration
+- Full analytics (unlimited retention)
+- Advanced compliance & policy engine
+- Custom routing policies + intelligent multi-provider failover + cross-region inference
+- Audit log export
+- Dedicated onboarding session
+- **Support:** Priority support with SLA — dedicated support engineer, response within 4 hours during business hours, 8 hours off-hours
+
+### Scale — Custom pricing (starting $200K/year)
+
+Everything in Enterprise, plus:
+
+- Dedicated / single-tenant infrastructure
+- Custom integrations (ServiceNow, Jira, PagerDuty)
+- Quarterly executive business reviews
+- SOC-2 compliance support
+- Multi-region deployment
+- **Support:** Named account manager, 24/7 premium support, 1-hour critical issue response time
+
+### Support Summary by Plan
+
+| Plan | Support Channel | Response Time | Dedicated Contact |
+|------|----------------|---------------|-------------------|
+| **Free** | GitHub Issues (community) | Best-effort | No |
+| **Pro** | Email (support@getbonito.com) | Within 24 hours (business hours) | No |
+| **Enterprise** | Priority email + Slack | Within 4 hours (business hours) | Dedicated support engineer |
+| **Scale** | 24/7 premium | Within 1 hour (critical), 4 hours (standard) | Named account manager |
+
+### FAQ
+
+**Can I switch plans?**
+Yes. Upgrade anytime; downgrades take effect at the next billing cycle. No long-term commitment on Free or Pro.
+
+**What happens if I exceed my gateway request limit?**
+On Free, requests are throttled. On Pro, overage is billed at $0.001/request. On Enterprise, usage-based pricing is agreed during contracting.
+
+**Is there a startup discount?**
+Yes — 50% off Pro for the first year for startups with less than $5M in funding. Contact us.
+
+**Do you offer annual discounts?**
+Enterprise is annual by default. For Pro, annual billing is $4,990/year (2 months free).
+
+---
+
+## 8. Getting Help
 
 If you're stuck or something isn't working as expected:
 
 - Check the [Common Issues & Fixes](#3-common-issues--fixes) section above
 - Contact support at **support@getbonito.com**
 - Visit our documentation at **docs.getbonito.com**
+- See [Pricing & Plans](#7-pricing--plans) above for details on what support is included with your plan
