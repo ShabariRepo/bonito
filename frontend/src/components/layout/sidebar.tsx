@@ -32,6 +32,7 @@ import {
   Bot,
   Package,
   FileText,
+  UserPlus,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -66,6 +67,7 @@ const bonobotNavigation = [
 const adminNavigation = [
   { name: "Organizations", href: "/admin/organizations", icon: Building2 },
   { name: "All Users", href: "/admin/users", icon: UsersRound },
+  { name: "Access Requests", href: "/admin/access-requests", icon: UserPlus },
   { name: "System", href: "/admin/system", icon: Server },
   { name: "Knowledge Base", href: "/admin/kb", icon: BookOpen },
 ];
