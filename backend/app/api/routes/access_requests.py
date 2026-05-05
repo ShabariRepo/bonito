@@ -198,6 +198,17 @@ async def process_access_request(
     )
     updated = result.scalar_one()
 
+    # Send invite code email on approval
+    if updated.status == "approved" and updated.invite_code:
+        try:
+            from app.services import email_service
+            await email_service.send_invite_code_email(
+                updated.email, updated.name, updated.invite_code
+            )
+            logger.info(f"[ACCESS REQUEST] Invite code email sent to {updated.email}")
+        except Exception:
+            logger.exception(f"[ACCESS REQUEST] Failed to send invite code email to {updated.email}")
+
     return AccessRequestProcessedResponse(
         id=str(updated.id),
         status=updated.status,

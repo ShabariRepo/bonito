@@ -150,6 +150,30 @@ async def send_contact_notification(name: str, email: str, company: str, message
     })
 
 
+async def send_invite_code_email(to: str, name: str, invite_code: str):
+    await _ensure_initialized()
+    register_url = f"{FRONTEND_URL}/register?code={invite_code}"
+    html = _base_template(f"""
+    <h2 style="color:#f5f0e8;margin:0 0 12px;font-size:22px;font-weight:600;">You're in, {name}!</h2>
+    <p style="color:#999;font-size:15px;line-height:1.7;margin:0 0 24px;">
+      Your access request has been approved. Use the invite code below to create your Bonito account.
+    </p>
+    <div style="margin:24px 0;text-align:center;">
+      <div style="display:inline-block;padding:16px 32px;background:#0a0a0a;border:2px solid #7c3aed;border-radius:10px;">
+        <span style="font-family:monospace;font-size:28px;font-weight:700;color:#7c3aed;letter-spacing:4px;">{invite_code}</span>
+      </div>
+    </div>
+    <div style="margin:28px 0;text-align:center;">{_button(register_url, "Register Now →")}</div>
+    <p style="color:#555;font-size:13px;margin:16px 0 0;">Or go to {FRONTEND_URL}/register and enter the code manually.</p>
+    """)
+    resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to],
+        "subject": "Your Bonito invite code is ready",
+        "html": html,
+    })
+
+
 async def send_welcome_email(to: str, name: str):
     await _ensure_initialized()
     html = _base_template(f"""
