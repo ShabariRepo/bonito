@@ -4,6 +4,7 @@ Platform admin API routes.
 All endpoints require superadmin access (email in ADMIN_EMAILS env var).
 """
 
+import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -19,6 +20,7 @@ from app.models.user import User
 from app.models.organization import Organization
 from app.models.cloud_provider import CloudProvider
 from app.services.log_emitters import emit_admin_event
+from app.services import email_service
 from app.services.billing import (
     get_org_billing,
     get_all_orgs_billing_summary,
@@ -453,6 +455,42 @@ async def verify_user_email(
     await db.flush()
 
     return {"id": str(user.id), "email": user.email, "email_verified": True}
+
+
+@router.post("/users/{user_id}/reset-password", response_model=dict)
+async def admin_reset_password(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    """Admin: trigger a password reset email for a user (same flow as forgot-password)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    token = secrets.token_urlsafe(48)
+    user.reset_token = token
+    user.reset_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    await db.flush()
+
+    try:
+        await email_service.send_password_reset_email(user.email, token)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Failed to send admin-triggered password reset email")
+
+    try:
+        await emit_admin_event(
+            user.org_id, "password_reset", user_id=admin.id,
+            resource_id=user.id, resource_type="user", action="reset_password",
+            message=f"Admin triggered password reset for {user.email}",
+            metadata={"target_email": user.email},
+        )
+    except Exception:
+        pass
+
+    return {"id": str(user.id), "email": user.email, "message": "Password reset email sent."}
 
 
 @router.post("/users/verify-by-email", response_model=dict)

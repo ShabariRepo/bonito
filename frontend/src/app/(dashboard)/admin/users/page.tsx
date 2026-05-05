@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   XCircle,
   ChevronDown,
+  KeyRound,
 } from "lucide-react";
 
 interface AdminUser {
@@ -40,6 +41,23 @@ export default function AdminUsersPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editingRole, setEditingRole] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
+
+  const handleResetPassword = async (userId: string) => {
+    setResettingPassword(userId);
+    try {
+      const res = await apiRequest(`/api/admin/users/${userId}/reset-password`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to send reset email");
+      const data = await res.json();
+      alert(`Password reset email sent to ${data.email}`);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setResettingPassword(null);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -230,13 +248,23 @@ export default function AdminUsersPage() {
                 <span className="text-sm text-muted-foreground">{formatDate(user.created_at)}</span>
 
                 {/* Actions */}
-                <button
-                  onClick={() => setDeleteConfirm(user.id)}
-                  className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  title="Delete user"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleResetPassword(user.id)}
+                    disabled={resettingPassword === user.id}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-violet-400 hover:bg-violet-500/10 transition-colors disabled:opacity-50"
+                    title="Send password reset email"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(user.id)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Delete user"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </motion.div>
             ))}
           </div>
