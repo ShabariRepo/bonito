@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { StepWizard } from "@/components/ui/step-wizard";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import { API_URL } from "@/lib/utils";
+import { apiRequest } from "@/lib/auth";
 
 type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic";
 
@@ -102,9 +103,8 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
     setStep(2);
 
     try {
-      const res = await fetch(`${API_URL}/api/providers/connect`, {
+      const res = await apiRequest("/api/providers/connect", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider_type: selectedProvider, credentials }),
       });
 
