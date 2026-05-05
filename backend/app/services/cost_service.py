@@ -382,6 +382,11 @@ async def _get_provider_costs(provider: CloudProvider, start: date, end: date):
     except Exception:
         pass
 
+    # Direct API providers (anthropic, openai, groq) don't have cloud billing
+    # APIs — their costs are tracked from gateway usage logs, not pulled here.
+    if provider.provider_type in ("anthropic", "openai", "groq"):
+        return CostData(total=0, currency="USD", start_date=str(start), end_date=str(end), daily_costs=[])
+
     if provider.provider_type == "aws":
         prov = await get_aws_provider(str(provider.id))
     elif provider.provider_type == "azure":
