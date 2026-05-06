@@ -26,6 +26,14 @@ from .commands.sso import app as sso_app
 from .commands.plan import app as plan_app
 from .commands.deploy import app as deploy_app
 from .commands.secrets import app as secrets_app
+from .commands.rbac import app as rbac_app
+from .commands.compliance import app as compliance_app
+from .commands.approval import app as approval_app
+from .commands.scheduler import app as scheduler_app
+from .commands.audit import app as audit_app
+from .commands.memory import app as memory_app
+from .commands.mcp import app as mcp_app
+from .commands.routing import app as routing_app
 
 console = Console()
 
@@ -88,6 +96,14 @@ app.add_typer(sso_app,         name="sso",         help="🔐 SAML Single Sign-O
 app.add_typer(plan_app,        name="plan",        help="💎 Subscription plans & usage")
 app.add_typer(deploy_app,      name="deploy",      help="📦 Deploy from bonito.yaml")
 app.add_typer(secrets_app,     name="secrets",     help="🔐 Org secrets management")
+app.add_typer(rbac_app,        name="rbac",        help="🛡️  Role-based access control")
+app.add_typer(compliance_app,  name="compliance",  help="📋 Compliance checks & reports")
+app.add_typer(approval_app,    name="approval",    help="✅ Agent approval workflows")
+app.add_typer(scheduler_app,   name="scheduler",   help="⏰ Agent scheduling")
+app.add_typer(audit_app,       name="audit",       help="📝 Audit logs")
+app.add_typer(memory_app,      name="memory",      help="🧠 Agent persistent memory")
+app.add_typer(mcp_app,         name="mcp",         help="🔌 MCP server management")
+app.add_typer(routing_app,     name="routing",     help="🔀 Routing rule management")
 
 
 # ── Callbacks ──────────────────────────────────────────────────
