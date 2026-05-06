@@ -86,11 +86,15 @@ MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
 # ─── Gateway API key auth dependency ───
 
 async def get_gateway_key(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> GatewayKey:
     """Authenticate a gateway request via API key."""
     if not credentials:
+        client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+        user_agent = request.headers.get("user-agent", "unknown")
+        logger.warning("Missing API key — ip=%s ua=%s path=%s", client_ip, user_agent, request.url.path)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key")
 
     raw_key = credentials.credentials
@@ -111,11 +115,15 @@ async def get_gateway_key(
 
 # Custom auth dependency that handles both gateway keys and routing policies
 async def get_auth_context(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[Optional[GatewayKey], Optional[RoutingPolicy]]:
     """Get authentication context - either a gateway key or routing policy."""
     if not credentials:
+        client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown")
+        user_agent = request.headers.get("user-agent", "unknown")
+        logger.warning("Missing API key — ip=%s ua=%s path=%s", client_ip, user_agent, request.url.path)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing API key")
 
     raw_key = credentials.credentials
