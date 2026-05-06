@@ -259,6 +259,34 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Fix**: (a) Changed `/costs/all` to sequential calls. (b) `trigger_background_refresh` now creates its own session via `async_session()`. (commit on `fix/cli-p0-bugs`)
 **Impact**: Intermittent 500 errors on cost and gateway key endpoints.
 
+### 30. Redis still None after deploy — feature_gate.py stale import
+**Date**: 2026-05-06
+**Symptom**: `AttributeError: 'NoneType' object has no attribute 'get'` on Redis operations in feature gate checks, even after deploy.
+**Cause**: `feature_gate.py` had `from app.core.redis import redis_client` at module level, which captures `None` at import time. The `@property` returned this stale reference instead of the live client. `usage_tracker.py` had the same bug.
+**Fix**: Changed both to deferred imports inside the `@property`: `from app.core.redis import redis_client as _rc; return _rc`. This re-reads the module attribute each time, picking up the initialized client.
+**Impact**: All feature gate checks (tier limits, usage tracking) silently failed, defaulting to no enforcement.
+
+### 31. Memwright SQLite thread-safety — recall/store silently fail
+**Date**: 2026-05-06
+**Symptom**: `SQLite objects created in a thread can only be used in that same thread` during agent execution. Memory recall and store both fail silently (non-fatal).
+**Cause**: `_get_instance()` created the `AgentMemory` (SQLite connection) on the async event loop thread, but `recall()`/`add()` ran on the executor thread via `run_in_executor()`.
+**Fix**: Moved `_get_instance()` call inside the executor lambdas so SQLite connections are created on the same thread that uses them.
+**Impact**: Agent conversational memory (Memwright) was completely non-functional — recall returned empty, store was silently dropped.
+
+### 32. Embedding hard-fallback to text-embedding-005 for orgs without GCP
+**Date**: 2026-05-06
+**Symptom**: `litellm.BadRequestError: You passed in model=text-embedding-005. There are no healthy deployments for this model` when storing agent persistent memory.
+**Cause**: `EmbeddingGenerator.get_cheapest_embedding_model()` hard-fell-back to `text-embedding-005` (GCP) when no preferred model was found in the org's router — even if the org had no GCP provider.
+**Fix**: Returns `None` instead; `generate_embeddings()` raises a clear error. Agent memory service catches this and stores without embedding (text-only search still works).
+**Impact**: Agent persistent memory storage failed for orgs without GCP. Now degrades gracefully.
+
+### 33. Admin tier change didn't sync bonobot_agent_limit
+**Date**: 2026-05-06
+**Symptom**: Enterprise orgs get `403: Agent limit reached (0)` when creating agents via API.
+**Cause**: `POST /admin/organizations/{id}/tier` updated `subscription_tier` but didn't sync `bonobot_plan` or `bonobot_agent_limit`. Orgs set to Enterprise via admin had `bonobot_agent_limit=0` (the default).
+**Fix**: Admin tier endpoints now auto-sync: free→(none,0), pro→(pro,25), enterprise→(enterprise,-1). Also added `bonobot_agent_limit` display in admin panel UI.
+**Impact**: All orgs upgraded via admin panel had broken agent creation until manually fixed via subscriptions API.
+
 ### 16. Alembic multiple migration heads — deploy fails
 **Date**: 2026-02-23
 **Symptom**: Railway deploy fails with `Multiple head revisions are present for given argument 'head'` followed by `DuplicateColumn: column "subscription_tier" of relation "organizations" already exists`.
