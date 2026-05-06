@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     secret_key: Optional[str] = None
     encryption_key: Optional[str] = None
     groq_api_key: Optional[str] = None
+    platform_embedding_api_key: Optional[str] = None  # OpenAI key for KB embeddings when org has no embedding provider
     notion_api_key: Optional[str] = None
     notion_page_id: Optional[str] = None
     notion_changelog_id: Optional[str] = None
@@ -68,6 +69,7 @@ class Settings(BaseSettings):
             self.secret_key = app_secrets.get("secret_key") or self.secret_key
             self.encryption_key = app_secrets.get("encryption_key") or self.encryption_key
             self.groq_api_key = api_secrets.get("groq_api_key") or self.groq_api_key
+            self.platform_embedding_api_key = api_secrets.get("platform_embedding_api_key") or self.platform_embedding_api_key
             self.notion_api_key = notion_secrets.get("api_key") or self.notion_api_key
             self.notion_page_id = notion_secrets.get("page_id") or self.notion_page_id
             self.notion_changelog_id = notion_secrets.get("changelog_id") or self.notion_changelog_id
@@ -81,6 +83,7 @@ class Settings(BaseSettings):
         self.secret_key = self.secret_key or os.getenv("SECRET_KEY")
         self.encryption_key = self.encryption_key or os.getenv("ENCRYPTION_KEY")
         self.groq_api_key = self.groq_api_key or os.getenv("GROQ_API_KEY")
+        self.platform_embedding_api_key = self.platform_embedding_api_key or os.getenv("PLATFORM_EMBEDDING_API_KEY")
         self.notion_api_key = self.notion_api_key or os.getenv("NOTION_API_KEY")
         self.notion_page_id = self.notion_page_id or os.getenv("NOTION_PAGE_ID")
         self.notion_changelog_id = self.notion_changelog_id or os.getenv("NOTION_CHANGELOG_ID")
