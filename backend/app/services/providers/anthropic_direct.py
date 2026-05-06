@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 MODELS_CACHE_TTL = 300  # 5 minutes
 
-# Static model catalog with pricing (as of 2025)
+# Static model catalog with pricing — used as fallback if API is down,
+# and for pricing lookup (Anthropic API doesn't return pricing info).
 ANTHROPIC_MODELS = [
     {
         "model_id": "claude-3-5-sonnet-20241022",
@@ -57,10 +58,18 @@ ANTHROPIC_MODELS = [
         "capabilities": ["text", "vision", "code", "streaming"],
     },
     {
-        "model_id": "claude-3-haiku-20240307",
-        "model_name": "Claude 3 Haiku",
-        "input_price_per_1m": 0.25,
-        "output_price_per_1m": 1.25,
+        "model_id": "claude-sonnet-4-20250514",
+        "model_name": "Claude Sonnet 4",
+        "input_price_per_1m": 3.00,
+        "output_price_per_1m": 15.00,
+        "context_window": 200000,
+        "capabilities": ["text", "vision", "code", "function_calling", "streaming"],
+    },
+    {
+        "model_id": "claude-haiku-4-20250414",
+        "model_name": "Claude Haiku 4",
+        "input_price_per_1m": 0.80,
+        "output_price_per_1m": 4.00,
         "context_window": 200000,
         "capabilities": ["text", "vision", "code", "streaming"],
     },
@@ -83,21 +92,14 @@ class AnthropicDirectProvider(CloudProvider):
 
     async def validate_credentials(self) -> CredentialInfo:
         try:
-            # Test with a minimal completion request since Anthropic doesn't have a models endpoint
+            # Validate key by listing models — no hardcoded model dependency
             async with httpx.AsyncClient() as client:
-                test_body = {
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 10,
-                    "messages": [{"role": "user", "content": "Hi"}]
-                }
-                
-                resp = await client.post(
-                    f"{self._base_url}/messages",
+                resp = await client.get(
+                    f"{self._base_url}/models",
                     headers=self._headers,
-                    json=test_body,
                     timeout=10.0,
                 )
-                
+
                 if resp.status_code == 200:
                     return CredentialInfo(
                         valid=True,
@@ -144,23 +146,56 @@ class AnthropicDirectProvider(CloudProvider):
         except Exception:
             pass  # Redis down — continue without cache
 
-        # Anthropic doesn't have a models endpoint, so we use static catalog
+        # Build pricing lookup from static catalog (API doesn't return pricing)
+        pricing_lookup = {m["model_id"]: m for m in ANTHROPIC_MODELS}
+
         try:
-            models = []
-            for model_def in ANTHROPIC_MODELS:
-                models.append(ModelInfo(
-                    model_id=model_def["model_id"],
-                    model_name=model_def["model_name"],
+            # Fetch live model list from Anthropic API, fall back to static catalog
+            api_models = []
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self._base_url}/models",
+                    headers=self._headers,
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    api_models = resp.json().get("data", [])
+
+            if api_models:
+                models = []
+                for am in api_models:
+                    model_id = am.get("id", "")
+                    display_name = am.get("display_name", model_id)
+                    # Look up pricing from static catalog; default to 0 for unknown models
+                    pricing = pricing_lookup.get(model_id, {})
+                    models.append(ModelInfo(
+                        model_id=model_id,
+                        model_name=display_name,
+                        provider_name="Anthropic",
+                        input_modalities=["TEXT", "IMAGE"],
+                        output_modalities=["TEXT"],
+                        streaming_supported=True,
+                        context_window=pricing.get("context_window", 200000),
+                        input_price_per_1m_tokens=pricing.get("input_price_per_1m", 0),
+                        output_price_per_1m_tokens=pricing.get("output_price_per_1m", 0),
+                        status="ACTIVE",
+                        capabilities=pricing.get("capabilities", ["text", "vision", "code", "streaming"]),
+                    ))
+            else:
+                # API failed — fall back to static catalog
+                models = [ModelInfo(
+                    model_id=m["model_id"],
+                    model_name=m["model_name"],
                     provider_name="Anthropic",
-                    input_modalities=["TEXT"] + (["IMAGE"] if "vision" in model_def["capabilities"] else []),
+                    input_modalities=["TEXT"] + (["IMAGE"] if "vision" in m["capabilities"] else []),
                     output_modalities=["TEXT"],
-                    streaming_supported="streaming" in model_def["capabilities"],
-                    context_window=model_def["context_window"],
-                    input_price_per_1m_tokens=model_def["input_price_per_1m"],
-                    output_price_per_1m_tokens=model_def["output_price_per_1m"],
+                    streaming_supported="streaming" in m["capabilities"],
+                    context_window=m["context_window"],
+                    input_price_per_1m_tokens=m["input_price_per_1m"],
+                    output_price_per_1m_tokens=m["output_price_per_1m"],
                     status="ACTIVE",
-                    capabilities=model_def["capabilities"],
-                ))
+                    capabilities=m["capabilities"],
+                ) for m in ANTHROPIC_MODELS]
 
             # Cache in Redis
             try:
@@ -190,18 +225,18 @@ class AnthropicDirectProvider(CloudProvider):
             logger.error(f"Anthropic list_models error: {e}")
             # Return static catalog as fallback
             return [ModelInfo(
-                model_id=model_def["model_id"],
-                model_name=model_def["model_name"],
+                model_id=m["model_id"],
+                model_name=m["model_name"],
                 provider_name="Anthropic",
-                input_modalities=["TEXT"] + (["IMAGE"] if "vision" in model_def["capabilities"] else []),
+                input_modalities=["TEXT"] + (["IMAGE"] if "vision" in m["capabilities"] else []),
                 output_modalities=["TEXT"],
-                streaming_supported="streaming" in model_def["capabilities"],
-                context_window=model_def["context_window"],
-                input_price_per_1m_tokens=model_def["input_price_per_1m"],
-                output_price_per_1m_tokens=model_def["output_price_per_1m"],
+                streaming_supported="streaming" in m["capabilities"],
+                context_window=m["context_window"],
+                input_price_per_1m_tokens=m["input_price_per_1m"],
+                output_price_per_1m_tokens=m["output_price_per_1m"],
                 status="ACTIVE",
-                capabilities=model_def["capabilities"],
-            ) for model_def in ANTHROPIC_MODELS]
+                capabilities=m["capabilities"],
+            ) for m in ANTHROPIC_MODELS]
 
     async def get_model(self, model_id: str) -> Optional[ModelInfo]:
         models = await self.list_models()
@@ -318,18 +353,11 @@ class AnthropicDirectProvider(CloudProvider):
     async def health_check(self) -> HealthStatus:
         start = time.monotonic()
         try:
-            # Use a minimal completion request for health check
+            # List models to verify connectivity — no token cost
             async with httpx.AsyncClient() as client:
-                test_body = {
-                    "model": "claude-3-haiku-20240307",
-                    "max_tokens": 5,
-                    "messages": [{"role": "user", "content": "Hi"}]
-                }
-                
-                resp = await client.post(
-                    f"{self._base_url}/messages",
+                resp = await client.get(
+                    f"{self._base_url}/models",
                     headers=self._headers,
-                    json=test_body,
                     timeout=10.0,
                 )
                 latency = (time.monotonic() - start) * 1000
