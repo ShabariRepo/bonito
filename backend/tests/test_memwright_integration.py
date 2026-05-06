@@ -504,5 +504,5 @@ class TestPerformance:
                     with patch("asyncio.get_running_loop", return_value=mock_loop):
                         # Assistant msg must be >20 chars for both user+assistant stores to fire
                         await svc.store("s1", "a1", "o1", "user msg", "This is a sufficiently long assistant response for testing", "claude-opus-4-20250514")
-                        # Should be called twice: once for user msg, once for assistant msg
-                        assert mock_loop.run_in_executor.call_count == 2
+                        # Both user + assistant msgs are batched in a single executor call
+                        assert mock_loop.run_in_executor.call_count == 1

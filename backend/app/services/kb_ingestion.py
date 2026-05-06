@@ -361,8 +361,10 @@ class EmbeddingGenerator:
         except Exception as e:
             logger.warning(f"Failed to query available models: {e}")
         
-        # Last resort — GCP is most likely to work serverlessly
-        return "text-embedding-005"
+        # No embedding model available — return None so callers can degrade gracefully
+        logger.warning(f"No embedding model available for org {self.org_id}. "
+                       f"Connect a provider with embedding support (OpenAI, GCP, or AWS).")
+        return None
     
     async def generate_embeddings(self, texts: List[str], model: str = None, dimensions: int = None) -> List[List[float]]:
         """
@@ -383,7 +385,13 @@ class EmbeddingGenerator:
         if model is None:
             async with get_db_session() as db:
                 model = await self.get_cheapest_embedding_model(db)
-        
+
+        if model is None:
+            raise RuntimeError(
+                f"No embedding model available for org {self.org_id}. "
+                f"Connect a provider with embedding support (OpenAI, GCP Vertex AI, or AWS Bedrock)."
+            )
+
         logger.info(f"Generating embeddings for {len(texts)} texts using model {model} (dims={dimensions})")
         
         from app.services.gateway import get_router

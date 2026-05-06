@@ -96,8 +96,11 @@ class MemwrightService:
             return ""
 
         try:
-            mem = self._get_instance(session_id, agent_id, org_id)
-            results = await asyncio.get_running_loop().run_in_executor(self._executor, lambda: mem.recall(message, budget=budget))
+            def _recall():
+                mem = self._get_instance(session_id, agent_id, org_id)
+                return mem.recall(message, budget=budget)
+
+            results = await asyncio.get_running_loop().run_in_executor(self._executor, _recall)
             if not results:
                 return ""
 
@@ -131,31 +134,24 @@ class MemwrightService:
             return
 
         try:
-            mem = self._get_instance(session_id, agent_id, org_id)
-
-            # Store user question + context
-            await asyncio.get_running_loop().run_in_executor(
-                self._executor,
-                lambda: mem.add(
+            def _store():
+                mem = self._get_instance(session_id, agent_id, org_id)
+                mem.add(
                     f"User asked: {user_msg}",
                     tags=tags or [],
                     category="conversation",
                     confidence=0.9,
-                ),
-            )
-
-            # Store assistant response (truncated to key info)
-            if assistant_msg and len(assistant_msg) > 20:
-                summary = assistant_msg[:500]
-                await asyncio.get_running_loop().run_in_executor(
-                    self._executor,
-                    lambda: mem.add(
+                )
+                if assistant_msg and len(assistant_msg) > 20:
+                    summary = assistant_msg[:500]
+                    mem.add(
                         f"Assistant responded to '{user_msg[:100]}': {summary}",
                         tags=tags or [],
                         category="conversation",
                         confidence=0.8,
-                    ),
-                )
+                    )
+
+            await asyncio.get_running_loop().run_in_executor(self._executor, _store)
         except Exception as e:
             logger.warning(f"Memwright store error (non-fatal): {e}")
 
