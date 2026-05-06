@@ -68,7 +68,7 @@ class GenerateIaCResponse(BaseModel):
 
 
 class ValidateCredentialsRequest(BaseModel):
-    provider: str = Field(..., pattern="^(aws|azure|gcp)$")
+    provider: str = Field(..., pattern="^(aws|azure|gcp|openai|anthropic|groq)$")
     credentials: dict
 
 

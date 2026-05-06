@@ -9,7 +9,7 @@ import { LoadingDots } from "@/components/ui/loading-dots";
 import { API_URL } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
 
-type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic";
+type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq";
 
 interface ConnectModalProps {
   open: boolean;
@@ -23,6 +23,7 @@ const providers: { type: ProviderType; name: string; description: string; color:
   { type: "gcp", name: "GCP Vertex AI", description: "Gemini, PaLM, Imagen and more", color: "text-red-500", bgColor: "bg-red-500/10", icon: "🔺" },
   { type: "openai", name: "OpenAI", description: "GPT-4o, o1, o3-mini — direct API", color: "text-green-500", bgColor: "bg-green-500/10", icon: "🤖" },
   { type: "anthropic", name: "Anthropic", description: "Claude 3.5 Sonnet, Opus — direct API", color: "text-purple-500", bgColor: "bg-purple-500/10", icon: "🧠" },
+  { type: "groq", name: "Groq", description: "Llama, GPT OSS — ultra-fast inference", color: "text-orange-500", bgColor: "bg-orange-500/10", icon: "⚡" },
 ];
 
 const AWS_BEDROCK_REGIONS = [
@@ -140,6 +141,7 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
     if (selectedProvider === "gcp") return (credentials.project_id?.length || 0) > 0 && (credentials.service_account_json?.length || 0) > 10;
     if (selectedProvider === "openai") return (credentials.api_key?.length || 0) >= 20;
     if (selectedProvider === "anthropic") return (credentials.api_key?.length || 0) >= 20;
+    if (selectedProvider === "groq") return (credentials.api_key?.length || 0) >= 20;
     return false;
   };
 
@@ -282,6 +284,16 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
                     <p className="text-xs text-muted-foreground">Get your API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">console.anthropic.com</a></p>
                   </div>
                   <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="sk-ant-api03-..." type="password" />
+                </>
+              )}
+
+              {selectedProvider === "groq" && (
+                <>
+                  <div className="rounded-lg border border-orange-500/20 bg-orange-500/5 p-3 space-y-1">
+                    <p className="text-sm text-orange-400 font-medium">⚡ Groq — Ultra-fast Inference</p>
+                    <p className="text-xs text-muted-foreground">Get your API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">console.groq.com</a></p>
+                  </div>
+                  <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="gsk_..." type="password" />
                 </>
               )}
 
