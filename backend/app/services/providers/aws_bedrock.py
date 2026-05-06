@@ -169,34 +169,28 @@ class AWSBedrockProvider(CloudProvider):
     async def _check_model_access(self, bedrock_client, model_id: str) -> str:
         """Check if the account has access to invoke a specific model."""
         try:
-            # Use GetFoundationModelAvailability to check access
-            availability = await bedrock_client.get_foundation_model_availability(modelId=model_id)
-            
-            # Check the model lifecycle status and access
-            status = availability.get("availability", {}).get("status", "UNAVAILABLE")
-            
-            if status == "AVAILABLE":
+            response = await bedrock_client.get_foundation_model(modelIdentifier=model_id)
+            model_details = response.get("modelDetails", {})
+            lifecycle = model_details.get("modelLifecycle", {}).get("status", "")
+
+            if lifecycle == "ACTIVE":
                 return "available"
-            elif status in ["AVAILABLE_WITH_ACCESS_REQUEST", "PENDING_ACCESS"]:
-                return "access_required"
+            elif lifecycle == "LEGACY":
+                return "available"
             else:
                 return "unavailable"
-                
+
         except ClientError as e:
             error_code = e.response["Error"]["Code"]
-            
-            # If the model is not available to the account, it needs access request
+
             if error_code in ["AccessDeniedException", "ValidationException"]:
-                # Try to determine if this model requires access approval
                 if any(provider in model_id.lower() for provider in ["anthropic", "meta", "ai21", "cohere"]):
                     return "access_required"
-                else:
-                    return "unavailable"
-            
-            # Other errors - assume unavailable
+                return "unavailable"
+
             logger.warning(f"Error checking model access for {model_id}: {e}")
             return "unavailable"
-        
+
         except Exception as e:
             logger.warning(f"Unexpected error checking model access for {model_id}: {e}")
             return "unavailable"

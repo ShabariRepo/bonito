@@ -678,15 +678,37 @@ async def provision_azure_resource(
 
 @router.post("", response_model=ProviderResponse, status_code=201)
 async def create_provider(data: ProviderCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    import os
+    from app.core.encryption import encrypt_credentials
+
+    encrypted_creds = None
+    if data.credentials:
+        creds_dict = dict(data.credentials)
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key:
+            encrypted_creds = encrypt_credentials(creds_dict, secret_key)
+        else:
+            logger.warning("No SECRET_KEY — credentials will not be stored in DB")
+
+    provider_id = uuid.uuid4()
     provider = CloudProvider(
+        id=provider_id,
         org_id=data.org_id,
         provider_type=data.provider_type,
-        credentials_encrypted=json.dumps(dict(data.credentials)) if data.credentials else None,
+        credentials_encrypted=encrypted_creds,
         status="pending",
     )
     db.add(provider)
     await db.flush()
     await db.refresh(provider)
+
+    # Also store in Vault for fast access
+    if data.credentials:
+        try:
+            await store_credentials_in_vault(str(provider_id), dict(data.credentials))
+        except Exception as e:
+            logger.warning(f"Vault storage failed (DB fallback will be used): {e}")
+
     return _to_response(provider)
 
 
@@ -701,7 +723,22 @@ async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSess
     if data.status is not None:
         provider.status = data.status
     if data.credentials is not None:
-        provider.credentials_encrypted = json.dumps(dict(data.credentials))
+        import os
+        from app.core.encryption import encrypt_credentials
+
+        creds_dict = dict(data.credentials)
+        secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
+        if secret_key:
+            provider.credentials_encrypted = encrypt_credentials(creds_dict, secret_key)
+        else:
+            logger.warning("No SECRET_KEY — credentials will not be stored in DB")
+
+        # Also update Vault
+        try:
+            await store_credentials_in_vault(str(provider_id), creds_dict)
+        except Exception as e:
+            logger.warning(f"Vault storage failed (DB fallback will be used): {e}")
+
     await db.flush()
     await db.refresh(provider)
     return _to_response(provider)
