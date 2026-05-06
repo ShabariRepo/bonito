@@ -22,6 +22,8 @@ import {
   X,
   Crown,
   Sparkles,
+  Pencil,
+  Check,
 } from "lucide-react";
 
 const TIER_COLORS: Record<string, string> = {
@@ -81,6 +83,8 @@ export default function AdminOrganizationsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameInput, setNameInput] = useState("");
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -266,7 +270,52 @@ export default function AdminOrganizationsPage() {
                           </div>
                         ) : orgDetail ? (
                           <div className="space-y-4">
-                            {/* Tier Management */}
+                            {/* Org Name & Tier Management */}
+                            <div className="flex flex-wrap items-center gap-4 p-3 rounded-lg bg-accent/20 border border-border">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Name:</span>
+                                {editingName === org.id ? (
+                                  <form
+                                    className="flex items-center gap-1.5"
+                                    onSubmit={async (e) => {
+                                      e.preventDefault();
+                                      if (!nameInput.trim()) return;
+                                      try {
+                                        const res = await apiRequest(`/api/admin/organizations/${org.id}/name`, {
+                                          method: "PATCH",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ name: nameInput.trim() }),
+                                        });
+                                        if (res.ok) {
+                                          setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, name: nameInput.trim() } : o));
+                                          setEditingName(null);
+                                        }
+                                      } catch {}
+                                    }}
+                                  >
+                                    <input
+                                      autoFocus
+                                      value={nameInput}
+                                      onChange={(e) => setNameInput(e.target.value)}
+                                      className="bg-[#111] border border-[#1a1a1a] rounded-md px-3 py-1.5 text-sm focus:border-violet-500 outline-none w-48"
+                                      onKeyDown={(e) => { if (e.key === "Escape") setEditingName(null); }}
+                                    />
+                                    <button type="submit" className="p-1.5 rounded-md hover:bg-green-500/10 text-green-400"><Check className="h-3.5 w-3.5" /></button>
+                                    <button type="button" onClick={() => setEditingName(null)} className="p-1.5 rounded-md hover:bg-red-500/10 text-red-400"><X className="h-3.5 w-3.5" /></button>
+                                  </form>
+                                ) : (
+                                  <span className="flex items-center gap-1.5 text-sm">
+                                    {org.name}
+                                    <button
+                                      onClick={() => { setEditingName(org.id); setNameInput(org.name); }}
+                                      className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </button>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                             <div className="flex flex-wrap items-center gap-4 p-3 rounded-lg bg-accent/20 border border-border">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium">Subscription Tier:</span>
