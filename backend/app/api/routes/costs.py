@@ -43,12 +43,10 @@ async def get_all_costs(
     All data served from Redis cache when warm.
     """
     await _require_budget_alerts(db, user)
-    import asyncio
-    s, b, f = await asyncio.gather(
-        get_cost_summary_real(period, db, budget, org_id=user.org_id),
-        get_cost_breakdown_real(db, org_id=user.org_id),
-        get_cost_forecast_real(db, org_id=user.org_id),
-    )
+    # Run sequentially — AsyncSession is NOT safe for concurrent use
+    s = await get_cost_summary_real(period, db, budget, org_id=user.org_id)
+    b = await get_cost_breakdown_real(db, org_id=user.org_id)
+    f = await get_cost_forecast_real(db, org_id=user.org_id)
     # Fire background refresh for next load
     await trigger_background_refresh(db, user.org_id)
     return {

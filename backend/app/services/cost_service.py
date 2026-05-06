@@ -478,8 +478,11 @@ async def trigger_background_refresh(db: AsyncSession, org_id) -> None:
         pass
 
     async def _refresh():
+        # Use a fresh session — the request-scoped one may be closed by now
+        from app.core.database import async_session
         try:
-            await preload_costs_for_org(db, org_id)
+            async with async_session() as bg_db:
+                await preload_costs_for_org(bg_db, org_id)
             try:
                 await redis_client.setex(cache_key, COST_CACHE_TTL, str(time.time()))
             except Exception:
