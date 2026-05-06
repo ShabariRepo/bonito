@@ -160,7 +160,7 @@ cd frontend && vercel --prod
 - `docs/KNOWN-ISSUES.md` — Tracking known issues
 - `docs/SOC2-ROADMAP.md` — Path to SOC-2 Type II certification
 
-## Recent Changes (2026-04-20)
+## Recent Changes (2026-05-06)
 
 - **Invite-only registration:** Access request flow (submit → admin approve → invite code → register). Controlled by `INVITE_REQUIRED` env var (default: true). Rate limited at 5 req/60s.
 - **Memwright hardening:** Fixed `clear()` lambda bug, added LRU eviction (256 max instances), graceful degradation when `agent_memory` not installed, removed startup pre-warm (caused SQLite locking with multi-worker uvicorn).
@@ -168,6 +168,10 @@ cd frontend && vercel --prod
 - **VectorBoost gated:** KB config endpoints require Enterprise+ tier. Note: compression pipeline is NOT wired into ingestion yet — gating prevents customers from configuring a feature that doesn't fully work.
 - **AdVan integration:** Uses memwright standalone (ChromaDB + SQLite) in their own app.py. Bonito is their LLM gateway only. Changes to Bonito's MemwrightService do NOT affect them. Do not break this.
 - **Free tier:** 25K gateway requests/month (up from 10K).
+- **Provider connection fixes (2026-05-06):** Fixed all 6 providers connectable via UI (connect modal + onboarding wizard). Anthropic validation uses `/v1/models` instead of hardcoded model. Groq added to connect modal and onboarding. Connect modal uses `apiRequest()` for JWT auth.
+- **Background model sync (2026-05-06):** `model_sync.py` runs every 24h, syncs models for all active providers. Anthropic now uses live API + static pricing fallback. Wired into FastAPI lifespan.
+- **Credential storage fix (2026-05-06):** Legacy `POST/PATCH /api/providers` endpoints now encrypt credentials (were storing plain JSON). DB fallback auto-migrates plain JSON → AES-256-GCM on read. Bedrock `_check_model_access` fixed to use real API.
+- **Admin access requests (2026-05-06):** Admin UI page at `/admin/access-requests` for invite-only registration approval flow.
 
 ## What's Planned
 
@@ -177,3 +181,5 @@ cd frontend && vercel --prod
 - Additional provider integrations (Cohere, Mistral, custom endpoints)
 - Advanced audit log export & SIEM integration
 - VectorBoost: Wire compression pipeline into KB ingestion (currently endpoint-only, not functional)
+- Vault org-namespacing: Move credential paths from `providers/{provider_id}` to `providers/{org_id}/{provider_id}` for proper tenant isolation
+- Gateway Vault fallback: `_get_provider_credentials()` in gateway.py should call `_get_provider_secrets()` instead of Vault directly, so it inherits the DB fallback chain on Vault outage

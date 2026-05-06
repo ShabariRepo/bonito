@@ -194,6 +194,39 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Fix**: Added `?chat_only=true` param to model list API; backend filters out non-chat patterns (embed, sora, dall-e, image, video, tts, whisper, etc.). Playground frontend uses this param. Backend execution endpoint also rejects non-chat models with a clear error.
 **Impact**: UX issue only — selecting a non-chat model would fail with a 500.
 
+### 17. Legacy provider endpoints stored credentials as plaintext
+**Date**: 2026-05-06
+**Symptom**: After Railway restart, Vault loses credentials (dev-mode = in-memory). DB fallback fails with `Incorrect padding` error. Model sync logs `Failed to fetch real [provider] models: No credentials found`. Affected providers: `a1000001-a1000004` (internally created providers).
+**Cause**: `POST /api/providers` and `PATCH /api/providers/{id}` legacy endpoints stored credentials via `json.dumps()` instead of `encrypt_credentials()`. The DB `credentials_encrypted` column contained plain JSON, not AES-256-GCM base64.
+**Fix**:
+1. Legacy endpoints now use `encrypt_credentials()` + store in Vault (PR #43031)
+2. DB fallback auto-detects plain JSON, reads it, re-encrypts the row, and re-seeds Vault
+3. Downgraded "No credentials" log from error to debug (expected for providers without keys)
+**Impact**: Internal providers (BonBon, AI Copilot) were non-functional after Vault restarts until manual re-seeding. Now self-heals automatically.
+
+### 18. Bedrock `get_foundation_model_availability` API does not exist
+**Date**: 2026-05-06
+**Symptom**: ~900 warning lines per model sync cycle: `'Bedrock' object has no attribute 'get_foundation_model_availability'`. All Bedrock models defaulted to "unavailable" status.
+**Cause**: `_check_model_access()` in `aws_bedrock.py` called `get_foundation_model_availability()` which isn't a real boto3 Bedrock API method.
+**Fix**: Replaced with `get_foundation_model(modelIdentifier=model_id)` which returns `modelDetails.modelLifecycle.status` (PR #43031).
+**Impact**: Log noise only — models still synced but all showed "unavailable" status. Now correctly shows "available"/"unavailable" based on lifecycle.
+
+### 19. Provider connection issues — direct API providers (Anthropic, OpenAI, Groq)
+**Date**: 2026-05-06
+**Symptom**: Users couldn't connect Anthropic (422 from deprecated model), Groq (422 from Pydantic regex), or any direct provider through the providers page (redirected to onboarding wizard). Connect modal also missing auth token.
+**Cause**: Multiple issues:
+1. Anthropic validation hardcoded `claude-3-haiku-20240307` which was deprecated
+2. Onboarding `ValidateCredentialsRequest` regex only allowed `aws|azure|gcp`
+3. Providers page "Connect" buttons all linked to `/onboarding` instead of opening connect modal
+4. Connect modal used raw `fetch()` instead of `apiRequest()` (missing JWT)
+**Fix**: PRs #43028, #43029, #43030:
+1. Anthropic validation now uses `/v1/models` endpoint
+2. Onboarding regex accepts all 6 providers + added `_validate_direct_api()` handler
+3. Providers page buttons open ConnectModal with Groq support
+4. Connect modal uses `apiRequest()` for auth
+5. Background model sync (24h) keeps catalogs fresh
+**Impact**: All direct API provider connections were blocked for new users.
+
 ### 16. Alembic multiple migration heads — deploy fails
 **Date**: 2026-02-23
 **Symptom**: Railway deploy fails with `Multiple head revisions are present for given argument 'head'` followed by `DuplicateColumn: column "subscription_tier" of relation "organizations" already exists`.
