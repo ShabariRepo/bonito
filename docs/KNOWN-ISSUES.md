@@ -166,6 +166,14 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Cause**: Gateway reads Vault directly (`vault_client.get_secrets()`) rather than using `_get_provider_secrets()` which has the Vault → DB fallback chain.
 **Status**: Open. Added to roadmap in CLAUDE.md. Active PoCs are fine as long as Vault stays up.
 
+### 34. Refresh token rotation invalidates previous token immediately
+**Date**: 2026-05-06
+**Symptom**: `POST /api/auth/refresh` returns 401 "Session expired" even though the refresh token's JWT `exp` claim is ~7 days out. Happens when caller reuses the **original** refresh token after already refreshing once.
+**Cause**: Redis stores ONE refresh token per user at `session:{user_id}`. Each successful refresh issues a new token and overwrites the old one. If the caller doesn't capture and use the **new** `refresh_token` from the refresh response, the next refresh attempt fails because the old token no longer matches Redis.
+**Impact**: API scripts/agents that cache the initial refresh token and reuse it will get locked out after the first refresh cycle (~1h when access token expires). They must re-login.
+**Workaround**: Always use the `refresh_token` returned by `/api/auth/refresh` for the next refresh call. Never reuse a previous refresh token.
+**TODO**: (a) Return a distinct error code like `REFRESH_TOKEN_ROTATED` vs `SESSION_EXPIRED` so callers can distinguish "use the new token" from "re-login". (b) Consider a short grace period (~60s) where the previous token is still accepted to handle race conditions.
+
 ### 24. send_notification and list_models tools are stubs
 **Date**: 2026-02-19
 **Symptom**: The `send_notification` and `list_models` built-in agent tools return placeholder/stub responses. They don't perform real notification delivery or dynamic model listing.
