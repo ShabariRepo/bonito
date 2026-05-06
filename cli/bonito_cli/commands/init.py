@@ -401,7 +401,7 @@ def init_wizard(
         f"[bold]Available models:[/bold] {len(models)}\n"
         f"[bold]API key:[/bold] {api_key[:8]}••••••••\n\n"
         f"[bold cyan]Try it now:[/bold cyan]\n"
-        f"[white]curl -X POST https://gateway.bonito.ai/v1/chat/completions \\\n"
+        f"[white]curl -X POST https://api.getbonito.com/v1/chat/completions \\\n"
         f"  -H 'Authorization: Bearer {api_key}' \\\n"
         f"  -H 'Content-Type: application/json' \\\n"
         f"  -d '{{\n"

@@ -44,17 +44,16 @@ def list_secrets(
             console.print_json(_json.dumps(secrets, default=str))
         else:
             if secrets:
-                headers = ["Name", "Description", "Created", "Updated"]
-                rows = [
-                    [
-                        s.get("name", "—"),
-                        s.get("description", "")[:50] or "—",
-                        s.get("created_at", "—")[:10] if s.get("created_at") else "—",
-                        s.get("updated_at", "—")[:10] if s.get("updated_at") else "—",
-                    ]
+                data = [
+                    {
+                        "Name": s.get("name", "—"),
+                        "Description": s.get("description", "")[:50] or "—",
+                        "Created": s.get("created_at", "—")[:10] if s.get("created_at") else "—",
+                        "Updated": s.get("updated_at", "—")[:10] if s.get("updated_at") else "—",
+                    }
                     for s in secrets
                 ]
-                print_table(headers, rows, title="🔐 Org Secrets")
+                print_table(data, title="🔐 Org Secrets")
                 print_info(f"{len(secrets)} secret(s)")
             else:
                 print_info("No secrets configured — add one with [cyan]bonito secrets set <name> <value>[/cyan]")
@@ -126,12 +125,12 @@ def set_secret(
                 body = {"value": actual_value}
                 if description is not None:
                     body["description"] = description
-                api.put(f"/secrets/{name}", json=body)
+                api.put(f"/secrets/{name}", body)
             else:
                 body = {"name": name, "value": actual_value}
                 if description:
                     body["description"] = description
-                api.post("/secrets", json=body)
+                api.post("/secrets", body)
 
         print_success(f"Secret '{name}' {'updated' if is_update else 'created'} successfully")
     except APIError as exc:
