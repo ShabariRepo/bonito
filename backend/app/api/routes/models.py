@@ -212,6 +212,19 @@ async def list_models(
                     "gemini-2.5-flash",
                     "gemini-2.5-pro",
                 ],
+                "openai": [
+                    "gpt-4o", "gpt-4o-mini", "gpt-4-turbo",
+                    "o1", "o3-mini", "o4-mini",
+                ],
+                "anthropic": [
+                    "claude-3-5-sonnet", "claude-3-5-haiku",
+                    "claude-3-haiku", "claude-3-opus", "claude-3-sonnet",
+                    "claude-sonnet-4", "claude-haiku-4",
+                ],
+                "groq": [
+                    "llama-3.3-70b", "llama-3.1-8b",
+                    "openai/gpt-oss-120b", "openai/gpt-oss-20b",
+                ],
             }
             if pt in playground_exact:
                 if mid not in playground_exact[pt]:
