@@ -80,6 +80,10 @@ class TierUpdateRequest(BaseModel):
     tier: str  # free, pro, enterprise, scale
 
 
+class OrgRenameRequest(BaseModel):
+    name: str
+
+
 class PlatformStats(BaseModel):
     total_orgs: int
     total_users: int
@@ -397,6 +401,43 @@ async def patch_org_tier(
         "name": org.name,
         "subscription_tier": org.subscription_tier,
         "previous_tier": previous_tier,
+    }
+
+
+@router.patch("/organizations/{org_id}/name", response_model=dict)
+async def patch_org_name(
+    org_id: uuid.UUID,
+    body: OrgRenameRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Admin: rename an organization."""
+    if not body.name or not body.name.strip():
+        raise HTTPException(status_code=422, detail="Name cannot be empty")
+
+    result = await db.execute(select(Organization).where(Organization.id == org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    previous_name = org.name
+    org.name = body.name.strip()
+    await db.flush()
+
+    try:
+        await emit_admin_event(
+            org.id, "org_rename", user_id=_admin.id,
+            resource_id=org.id, resource_type="organization", action="rename",
+            message=f"Organization renamed from '{previous_name}' to '{org.name}'",
+            metadata={"previous_name": previous_name, "new_name": org.name},
+        )
+    except Exception:
+        pass
+
+    return {
+        "id": str(org.id),
+        "name": org.name,
+        "previous_name": previous_name,
     }
 
 
