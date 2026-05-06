@@ -45,6 +45,7 @@ interface OrgSummary {
   total_cost: number;
   subscription_tier: string;
   bonobot_plan: string;
+  bonobot_agent_limit: number;
   created_at: string | null;
 }
 
@@ -330,7 +331,13 @@ export default function AdminOrganizationsPage() {
                                         body: JSON.stringify({ tier: newTier }),
                                       });
                                       if (res.ok) {
-                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, subscription_tier: newTier } : o));
+                                        const data = await res.json();
+                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? {
+                                          ...o,
+                                          subscription_tier: newTier,
+                                          bonobot_plan: data.bonobot_plan || o.bonobot_plan,
+                                          bonobot_agent_limit: data.bonobot_agent_limit ?? o.bonobot_agent_limit,
+                                        } : o));
                                       }
                                     } catch {}
                                   }}
@@ -354,7 +361,12 @@ export default function AdminOrganizationsPage() {
                                         body: JSON.stringify({ bonobot_plan: newPlan }),
                                       });
                                       if (res.ok) {
-                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? { ...o, bonobot_plan: newPlan } : o));
+                                        const data = await res.json();
+                                        setOrgs((prev) => prev.map((o) => o.id === org.id ? {
+                                          ...o,
+                                          bonobot_plan: newPlan,
+                                          bonobot_agent_limit: data.bonobot_agent_limit ?? o.bonobot_agent_limit,
+                                        } : o));
                                       }
                                     } catch {}
                                   }}
@@ -364,6 +376,12 @@ export default function AdminOrganizationsPage() {
                                     <option key={t} value={t}>{t === "none" ? "None" : t.charAt(0).toUpperCase() + t.slice(1)}</option>
                                   ))}
                                 </select>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">Agent Limit:</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {org.bonobot_agent_limit === -1 ? "Unlimited" : org.bonobot_agent_limit}
+                                </span>
                               </div>
                             </div>
 

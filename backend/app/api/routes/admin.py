@@ -141,6 +141,7 @@ async def list_organizations(
             "name": org.name,
             "subscription_tier": getattr(org, "subscription_tier", "free"),
             "bonobot_plan": getattr(org, "bonobot_plan", "none"),
+            "bonobot_agent_limit": getattr(org, "bonobot_agent_limit", 0),
             "user_count": user_count,
             "provider_count": provider_count,
             "deployment_count": deployment_count,
