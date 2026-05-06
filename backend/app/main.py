@@ -37,10 +37,14 @@ async def lifespan(app: FastAPI):
     # Start the GCS structured log sink
     from app.core.gcs_log_sink import start_gcs_sink
     await start_gcs_sink()
-    
+
+    # Start background model sync (refreshes provider model catalogs every 24h)
+    from app.services.model_sync import start_model_sync
+    await start_model_sync()
+
     # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
     # Don't run them again here — with multiple workers they'd race each other.
-    
+
     yield
     
     # Shutdown: Stop log service, clean up connections
@@ -67,6 +71,12 @@ async def lifespan(app: FastAPI):
 
     try:
         await close_redis()
+    except Exception:
+        pass
+
+    from app.services.model_sync import stop_model_sync
+    try:
+        await stop_model_sync()
     except Exception:
         pass
 
