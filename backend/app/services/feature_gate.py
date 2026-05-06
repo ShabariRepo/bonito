@@ -188,8 +188,13 @@ class TierLimits:
 class FeatureGateService:
     """Service for checking subscription tier permissions and usage limits"""
     
-    def __init__(self, redis_client=None):
-        self.redis = redis_client or redis_client
+    def __init__(self):
+        pass
+
+    @property
+    def redis(self):
+        """Read redis_client lazily — it's None at import time, initialized in lifespan."""
+        return redis_client
     
     async def get_organization_subscription(self, db: AsyncSession, org_id: str) -> Dict[str, Any]:
         """Get organization subscription details"""
