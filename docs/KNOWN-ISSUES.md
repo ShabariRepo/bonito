@@ -148,6 +148,24 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Symptom**: Agent sessions accumulate all messages without compaction. Long-running agent sessions will grow context windows unboundedly.
 **Status**: TODO in engine (marked in code). Compaction/summarization strategy needed for sessions exceeding context limits.
 
+### 25. GCP provider a1000004 missing project_id
+**Date**: 2026-05-06
+**Symptom**: `Failed to fetch gcp models (provider=a1000004-0000-0000-0000-000000000004 org=4fdadef3-16cb-4389-9f88-97ef5e5d01c7): 'project_id'` on every model sync cycle.
+**Cause**: Manually inserted GCP provider record has incomplete credentials — missing `project_id` key. Not a code bug; data issue with this specific internal provider.
+**Status**: Open. Need to either fix credentials in DB/Vault or deactivate the provider. Does not affect new users — the connect flow requires `project_id`.
+
+### 26. Unknown caller polling POST /v1/chat/completions → 401 every 30s
+**Date**: 2026-05-06
+**Symptom**: `HTTP 401: Missing API key` + `POST /v1/chat/completions -> 401` every ~30 seconds. No API key provided.
+**Cause**: Unknown. Could be a health check from Railway/Vercel, a misconfigured client, or a stale integration. No request metadata logged to identify the caller.
+**Status**: Open. Not harmful (rejected at auth layer), but adds log noise. Consider logging source IP or User-Agent on 401s to identify the caller.
+
+### 27. Gateway does not fall back to DB when Vault is unavailable
+**Date**: 2026-05-06
+**Symptom**: If Vault restarts or becomes unavailable, the gateway's `_get_provider_credentials()` silently skips providers instead of falling back to the encrypted DB column.
+**Cause**: Gateway reads Vault directly (`vault_client.get_secrets()`) rather than using `_get_provider_secrets()` which has the Vault → DB fallback chain.
+**Status**: Open. Added to roadmap in CLAUDE.md. Active PoCs are fine as long as Vault stays up.
+
 ### 24. send_notification and list_models tools are stubs
 **Date**: 2026-02-19
 **Symptom**: The `send_notification` and `list_models` built-in agent tools return placeholder/stub responses. They don't perform real notification delivery or dynamic model listing.
