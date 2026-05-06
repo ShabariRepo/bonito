@@ -20,8 +20,14 @@ logger = logging.getLogger(__name__)
 class UsageTracker:
     """Service for tracking usage across various resources"""
     
-    def __init__(self, redis_client=None):
-        self.redis = redis_client or redis_client
+    def __init__(self):
+        pass
+
+    @property
+    def redis(self):
+        """Read redis_client lazily — it's None at import time, initialized in lifespan."""
+        from app.core.redis import redis_client as _rc
+        return _rc
         
     async def track_gateway_request(self, db: AsyncSession, org_id: str):
         """Track a gateway API request for an organization"""
