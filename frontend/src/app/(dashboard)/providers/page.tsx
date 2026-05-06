@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadingDots } from "@/components/ui/loading-dots";
 import Link from "next/link";
+import { ConnectModal } from "@/components/providers/connect-modal";
 
 interface Provider {
   id: string;
@@ -131,6 +132,7 @@ export default function ProvidersPage() {
   const [editSuccess, setEditSuccess] = useState(false);
   const [managedAvailability, setManagedAvailability] = useState<Record<string, { supported: boolean; available: boolean }>>({});
   const [editManagedMode, setEditManagedMode] = useState<boolean | null>(null);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
 
   const fetchProviders = useCallback(async () => {
     try {
@@ -331,16 +333,15 @@ export default function ProvidersPage() {
             >
               <RefreshCw className="h-4 w-4" />
             </button>
-            <Link href="/onboarding">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Connect Provider
-              </motion.button>
-            </Link>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setConnectModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Connect Provider
+            </motion.button>
           </div>
         }
       />
@@ -362,21 +363,19 @@ export default function ProvidersPage() {
           >
             ☁️
           </motion.div>
-          <h3 className="text-xl font-semibold">No clouds connected yet</h3>
+          <h3 className="text-xl font-semibold">No providers connected yet</h3>
           <p className="text-muted-foreground mt-2 mb-6 max-w-sm">
-            Connect your AWS, Azure, or GCP account to start managing AI models
-            across clouds.
+            Connect a cloud provider or direct API key to start managing AI models.
           </p>
-          <Link href="/onboarding">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Let&apos;s fix that
-            </motion.button>
-          </Link>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setConnectModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-6 py-3 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Let&apos;s fix that
+          </motion.button>
         </motion.div>
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -556,25 +555,24 @@ export default function ProvidersPage() {
           </AnimatePresence>
 
           {/* Add provider card */}
-          <Link href="/onboarding">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: providers.length * 0.1 }}
-              whileHover={{ y: -4 }}
-              className="flex min-h-[200px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-border p-6 transition-colors hover:border-violet-500/50 hover:bg-accent/30"
-            >
-              <div className="text-center">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent">
-                  <Plus className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="font-medium">Add Provider</p>
-                <p className="text-sm text-muted-foreground">
-                  Connect AWS, Azure, or GCP
-                </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: providers.length * 0.1 }}
+            whileHover={{ y: -4 }}
+            onClick={() => setConnectModalOpen(true)}
+            className="flex min-h-[200px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-border p-6 transition-colors hover:border-violet-500/50 hover:bg-accent/30"
+          >
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-accent">
+                <Plus className="h-6 w-6 text-muted-foreground" />
               </div>
-            </motion.div>
-          </Link>
+              <p className="font-medium">Add Provider</p>
+              <p className="text-sm text-muted-foreground">
+                Connect a cloud or API provider
+              </p>
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -743,6 +741,12 @@ export default function ProvidersPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConnectModal
+        open={connectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
+        onSuccess={() => { setConnectModalOpen(false); fetchProviders(); }}
+      />
     </div>
   );
 }

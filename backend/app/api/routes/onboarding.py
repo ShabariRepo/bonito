@@ -276,6 +276,8 @@ async def validate_credentials(
             identity, permissions, errors, health_checks = await _validate_azure(creds)
         elif provider == "gcp":
             identity, permissions, errors, health_checks = await _validate_gcp(creds)
+        elif provider in ("openai", "anthropic", "groq"):
+            identity, permissions, errors, health_checks = await _validate_direct_api(provider, creds)
         else:
             raise HTTPException(400, f"Unknown provider: {provider}")
     except HTTPException:
@@ -644,3 +646,55 @@ async def _validate_gcp(creds: dict) -> tuple[str | None, list[str] | None, list
 
     except Exception as e:
         return None, None, [f"GCP credential validation failed: {str(e)}"], []
+
+
+async def _validate_direct_api(provider: str, creds: dict) -> tuple[str | None, list[str] | None, list[str], list[dict]]:
+    """Validate direct API keys (OpenAI, Anthropic, Groq) by hitting their models endpoint."""
+    import httpx
+
+    api_key = creds.get("api_key", "")
+    if not api_key or len(api_key) < 20:
+        return None, None, ["API key is missing or too short"], []
+
+    endpoints = {
+        "openai": ("https://api.openai.com/v1/models", "OpenAI"),
+        "anthropic": ("https://api.anthropic.com/v1/models", "Anthropic"),
+        "groq": ("https://api.groq.com/openai/v1/models", "Groq"),
+    }
+
+    url, display_name = endpoints[provider]
+    errors = []
+    health_checks = []
+
+    try:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        if provider == "anthropic":
+            headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+
+        start = time.monotonic()
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url, headers=headers)
+        latency = int((time.monotonic() - start) * 1000)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            model_list = data.get("data", [])
+            model_count = len(model_list)
+            identity = f"{display_name} API key (***{api_key[-4:]})"
+            health_checks.append({
+                "name": f"{display_name} API Authentication",
+                "status": "healthy",
+                "message": f"Authenticated successfully ({latency}ms) — {model_count} models available",
+            })
+            return identity, [f"{display_name} API access ✅"], errors, health_checks
+        else:
+            errors.append(f"{display_name} API returned {resp.status_code} — check your API key")
+            health_checks.append({
+                "name": f"{display_name} API Authentication",
+                "status": "error",
+                "message": f"Authentication failed (HTTP {resp.status_code})",
+            })
+            return None, None, errors, health_checks
+
+    except Exception as e:
+        return None, None, [f"{display_name} validation failed: {str(e)}"], []
