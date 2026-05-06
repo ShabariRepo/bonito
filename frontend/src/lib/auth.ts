@@ -8,6 +8,7 @@ export interface AuthUser {
   role: string;
   email_verified: boolean;
   is_platform_admin?: boolean;
+  org?: { name: string };
 }
 
 export interface AuthTokens {
