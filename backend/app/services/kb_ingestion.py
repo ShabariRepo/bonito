@@ -303,29 +303,37 @@ class TextChunker:
 
 
 class EmbeddingGenerator:
-    """Generate embeddings through Bonito's gateway using customer's models.
-    
-    Automatically selects the cheapest AVAILABLE embedding model from the
-    org's connected providers. Only considers models that are actually
-    routable (have credentials + are serverless or explicitly deployed).
-    Falls back through multiple models with a timeout to avoid hanging.
+    """Generate embeddings for KB and agent memory.
+
+    Routing priority:
+    1. Org's connected providers (via LiteLLM router)
+    2. Platform-level OpenAI key (PLATFORM_EMBEDDING_API_KEY) as fallback
+
+    This ensures every org gets embedding support out of the box, even if
+    they only have Groq or Anthropic (which don't offer embedding endpoints).
     """
-    
+
     EMBEDDING_TIMEOUT = 30  # seconds per batch — fail fast, don't hang
-    
+    PLATFORM_MODEL = "text-embedding-3-small"  # OpenAI, $0.02/1M tokens
+    PLATFORM_DIMENSIONS = 768  # Match pgvector column width
+
     def __init__(self, org_id: uuid.UUID):
         self.org_id = org_id
-    
-    async def get_cheapest_embedding_model(self, db: AsyncSession) -> str:
+        self._use_platform_key = False  # set True when falling back
+
+    async def get_cheapest_embedding_model(self, db: AsyncSession) -> Optional[str]:
         """
         Determine the cheapest available embedding model for the organization.
-        
+
         Only picks models that are actually routable through the gateway.
         Serverless models (GCP Vertex, OpenAI) are preferred because they
         don't require explicit deployment. AWS Bedrock models need activation.
+
+        Returns None if no org model available AND no platform key configured.
+        Sets self._use_platform_key = True when falling back to platform key.
         """
         from app.services.gateway import get_router
-        
+
         # Priority order: serverless-first (GCP/OpenAI always available if API enabled),
         # then AWS (may need model activation), then others
         preferred_models = [
@@ -341,47 +349,83 @@ class EmbeddingGenerator:
             "cohere.embed-english-v3",
             "cohere.embed-v4:0",
         ]
-        
+
         try:
             router = await get_router(db, self.org_id)
             available = {m["model_name"] for m in router.model_list} if router.model_list else set()
-            
+
             for model in preferred_models:
                 if model in available:
                     logger.info(f"Selected embedding model: {model}")
+                    self._use_platform_key = False
                     return model
-            
+
             # If none of our preferred models match, try ANY embedding model in the router
             for m in router.model_list or []:
                 name = m.get("model_name", "").lower()
                 if "embed" in name or "embedding" in name:
                     logger.info(f"Selected fallback embedding model: {m['model_name']}")
+                    self._use_platform_key = False
                     return m["model_name"]
-                    
+
         except Exception as e:
             logger.warning(f"Failed to query available models: {e}")
-        
-        # No embedding model available — return None so callers can degrade gracefully
-        logger.warning(f"No embedding model available for org {self.org_id}. "
-                       f"Connect a provider with embedding support (OpenAI, GCP, or AWS).")
+
+        # No org embedding model — try platform key
+        from app.core.config import settings
+        if settings.platform_embedding_api_key:
+            logger.info(f"No org embedding model for {self.org_id}, using platform embedding key")
+            self._use_platform_key = True
+            return self.PLATFORM_MODEL
+
+        logger.warning(f"No embedding model available for org {self.org_id} and no platform key configured.")
         return None
-    
+
+    async def _embed_via_platform(self, texts: List[str], dimensions: int = None) -> List[List[float]]:
+        """Generate embeddings using the platform-level OpenAI API key."""
+        import litellm
+        from app.core.config import settings
+
+        dims = dimensions or self.PLATFORM_DIMENSIONS
+        embeddings = []
+        batch_size = 20
+
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            try:
+                response = await asyncio.wait_for(
+                    litellm.aembedding(
+                        model=self.PLATFORM_MODEL,
+                        input=batch,
+                        dimensions=dims,
+                        api_key=settings.platform_embedding_api_key,
+                    ),
+                    timeout=self.EMBEDDING_TIMEOUT,
+                )
+                for item in response.data:
+                    embeddings.append(item["embedding"])
+            except asyncio.TimeoutError:
+                logger.error(f"Platform embedding timed out after {self.EMBEDDING_TIMEOUT}s")
+                raise RuntimeError("Platform embedding timed out. Please try again.")
+            except Exception as e:
+                logger.error(f"Platform embedding failed for batch {i//batch_size}: {e}")
+                raise
+
+            if i + batch_size < len(texts):
+                await asyncio.sleep(0.5)
+
+        return embeddings
+
     async def generate_embeddings(self, texts: List[str], model: str = None, dimensions: int = None) -> List[List[float]]:
         """
         Generate embeddings for a list of texts.
-        
-        Routes through the org's LiteLLM router to use their configured
-        embedding models and cloud credentials. Includes timeout to prevent
-        hanging on unresponsive models (e.g., unactivated Bedrock models).
-        
-        Args:
-            dimensions: If set, request reduced-dimension embeddings (supported by
-                        OpenAI text-embedding-3-small/large). Useful when the KB
-                        vector column is smaller than the model's default output.
+
+        Routes through the org's LiteLLM router when they have an embedding-capable
+        provider. Falls back to platform-level OpenAI key when they don't.
         """
         if not texts:
             return []
-        
+
         if model is None:
             async with get_db_session() as db:
                 model = await self.get_cheapest_embedding_model(db)
@@ -392,13 +436,18 @@ class EmbeddingGenerator:
                 f"Connect a provider with embedding support (OpenAI, GCP Vertex AI, or AWS Bedrock)."
             )
 
+        # Platform key fallback — call OpenAI directly, not through org router
+        if self._use_platform_key:
+            logger.info(f"Generating {len(texts)} embeddings via platform key (model={model}, dims={dimensions or self.PLATFORM_DIMENSIONS})")
+            return await self._embed_via_platform(texts, dimensions)
+
         logger.info(f"Generating embeddings for {len(texts)} texts using model {model} (dims={dimensions})")
-        
+
         from app.services.gateway import get_router
-        
+
         embeddings = []
         batch_size = 20  # Process in batches to avoid rate limits
-        
+
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             try:
@@ -424,11 +473,11 @@ class EmbeddingGenerator:
             except Exception as e:
                 logger.error(f"Embedding generation failed for batch {i//batch_size}: {e}")
                 raise
-            
+
             # Small delay between batches to avoid rate limits
             if i + batch_size < len(texts):
                 await asyncio.sleep(0.5)
-        
+
         logger.info(f"Generated {len(embeddings)} embeddings successfully")
         return embeddings
 

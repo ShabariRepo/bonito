@@ -1,19 +1,26 @@
+import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import bcrypt as _bcrypt
 from jose import jwt, JWTError
-from sqlalchemy import select
+from sqlalchemy import select, update, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 
 from app.core.config import settings
 from app.models.user import User
+from app.models.refresh_token import RefreshToken
 from app.services.log_service import log_service
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 ALGORITHM = "HS256"
+
+
+def _hash_token(token: str) -> str:
+    """SHA-256 hash of a refresh token for safe DB storage."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def hash_password(password: str) -> str:
@@ -74,7 +81,7 @@ async def create_enhanced_access_token(db: AsyncSession, user: User) -> str:
 
 def create_refresh_token(user_id: str) -> str:
     return create_token(
-        {"sub": user_id, "type": "refresh"},
+        {"sub": user_id, "type": "refresh", "jti": str(uuid.uuid4())},
         timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
     )
 
@@ -84,18 +91,72 @@ def decode_token(token: str) -> dict:
     return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
 
 
-async def store_session(r: redis.Redis, user_id: str, refresh_token: str) -> None:
-    key = f"session:{user_id}"
-    await r.set(key, refresh_token, ex=REFRESH_TOKEN_EXPIRE_DAYS * 86400)
+async def store_session(
+    db: AsyncSession,
+    user_id: str,
+    refresh_token: str,
+    family_id: uuid.UUID | None = None,
+) -> None:
+    """Store a refresh token in PostgreSQL. Survives deploys and Redis restarts."""
+    _family = family_id or uuid.uuid4()
+    record = RefreshToken(
+        user_id=uuid.UUID(user_id),
+        token_hash=_hash_token(refresh_token),
+        family_id=_family,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+    )
+    db.add(record)
+    await db.flush()
 
 
-async def invalidate_session(r: redis.Redis, user_id: str) -> None:
-    await r.delete(f"session:{user_id}")
+async def invalidate_session(db: AsyncSession, user_id: str) -> None:
+    """Revoke all refresh tokens for a user (logout)."""
+    await db.execute(
+        update(RefreshToken)
+        .where(and_(
+            RefreshToken.user_id == uuid.UUID(user_id),
+            RefreshToken.revoked == False,  # noqa: E712
+        ))
+        .values(revoked=True)
+    )
+    await db.flush()
 
 
-async def is_session_valid(r: redis.Redis, user_id: str, refresh_token: str) -> bool:
-    stored = await r.get(f"session:{user_id}")
-    return stored == refresh_token
+async def is_session_valid(db: AsyncSession, user_id: str, refresh_token: str) -> tuple[bool, uuid.UUID | None]:
+    """
+    Check if a refresh token is valid. Returns (valid, family_id).
+
+    If the token is found but revoked, the entire family is revoked (reuse detection).
+    """
+    token_hash = _hash_token(refresh_token)
+    result = await db.execute(
+        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    )
+    record = result.scalar_one_or_none()
+
+    if not record:
+        return False, None
+
+    if record.revoked:
+        # Reuse detection: revoked token was presented — revoke the entire family
+        await db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.family_id == record.family_id)
+            .values(revoked=True)
+        )
+        await db.flush()
+        return False, None
+
+    expires = record.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
+        return False, None
+
+    # Valid — revoke this token (rotation) and return family_id for the new one
+    record.revoked = True
+    await db.flush()
+    return True, record.family_id
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:

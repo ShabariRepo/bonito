@@ -215,7 +215,6 @@ async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_
 async def login(
     body: LoginRequest,
     db: AsyncSession = Depends(get_db),
-    r: redis_lib.Redis = Depends(get_redis),
 ):
     user = await auth_service.get_user_by_email(db, body.email)
     if not user or not auth_service.verify_password(body.password, user.hashed_password or ""):
@@ -250,7 +249,7 @@ async def login(
 
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh = auth_service.create_refresh_token(str(user.id))
-    await auth_service.store_session(r, str(user.id), refresh)
+    await auth_service.store_session(db, str(user.id), refresh)
 
     # Log successful login (fire-and-forget)
     try:
@@ -322,7 +321,6 @@ async def resend_verification(body: ForgotPasswordRequest, db: AsyncSession = De
 async def refresh(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
-    r: redis_lib.Redis = Depends(get_redis),
 ):
     try:
         payload = auth_service.decode_token(body.refresh_token)
@@ -332,7 +330,8 @@ async def refresh(
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
-    if not await auth_service.is_session_valid(r, user_id, body.refresh_token):
+    valid, family_id = await auth_service.is_session_valid(db, user_id, body.refresh_token)
+    if not valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
     user = await auth_service.get_user_by_id(db, uuid.UUID(user_id))
@@ -343,7 +342,7 @@ async def refresh(
 
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_tok = auth_service.create_refresh_token(str(user.id))
-    await auth_service.store_session(r, str(user.id), refresh_tok)
+    await auth_service.store_session(db, str(user.id), refresh_tok, family_id=family_id)
 
     try:
         await emit_auth_event(user.org_id, user.id, "token_refresh", severity="debug", message="Token refreshed")
@@ -356,9 +355,9 @@ async def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     user: User = Depends(get_current_user),
-    r: redis_lib.Redis = Depends(get_redis),
+    db: AsyncSession = Depends(get_db),
 ):
-    await auth_service.invalidate_session(r, str(user.id))
+    await auth_service.invalidate_session(db, str(user.id))
 
     try:
         await emit_auth_event(user.org_id, user.id, "logout", message=f"User {user.email} logged out")
