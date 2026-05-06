@@ -347,8 +347,21 @@ async def update_org_tier(
 
     if tier and tier in ("free", "pro", "enterprise", "scale"):
         org.subscription_tier = tier
+        # Auto-sync bonobot plan and agent limit with tier
+        bonobot_limits = {
+            "free": ("none", 0),
+            "pro": ("pro", 25),
+            "enterprise": ("enterprise", -1),
+            "scale": ("enterprise", -1),
+        }
+        plan, limit = bonobot_limits.get(tier, ("none", 0))
+        org.bonobot_plan = plan
+        org.bonobot_agent_limit = limit
     if bonobot_plan and bonobot_plan in ("none", "pro", "enterprise"):
         org.bonobot_plan = bonobot_plan
+        # Sync agent limit with bonobot plan
+        plan_limits = {"none": 0, "pro": 25, "enterprise": -1}
+        org.bonobot_agent_limit = plan_limits.get(bonobot_plan, 0)
 
     await db.flush()
 
@@ -357,6 +370,7 @@ async def update_org_tier(
         "name": org.name,
         "subscription_tier": org.subscription_tier,
         "bonobot_plan": getattr(org, "bonobot_plan", "none"),
+        "bonobot_agent_limit": org.bonobot_agent_limit,
     }
 
 
@@ -383,6 +397,18 @@ async def patch_org_tier(
     previous_tier = org.subscription_tier
     org.subscription_tier = body.tier
     org.subscription_updated_at = datetime.now(timezone.utc)
+
+    # Auto-sync bonobot plan and agent limit with tier
+    bonobot_limits = {
+        "free": ("none", 0),
+        "pro": ("pro", 25),
+        "enterprise": ("enterprise", -1),   # -1 = unlimited
+        "scale": ("enterprise", -1),
+    }
+    plan, limit = bonobot_limits.get(body.tier, ("none", 0))
+    org.bonobot_plan = plan
+    org.bonobot_agent_limit = limit
+
     await db.flush()
 
     # Log admin action
