@@ -38,6 +38,9 @@ from app.models.logging import LogIntegration, PlatformLog, LogExportJob, LogAgg
 from app.models.github_app import GitHubAppInstallation, GitHubReviewUsage
 from app.models.code_snapshot import CodeReviewSnapshot
 
+# Auth models
+from app.models.refresh_token import RefreshToken
+
 # Secrets and KB models
 from app.models.org_secret import OrgSecret
 from app.models.knowledge_base import KnowledgeBase, KBDocument, KBChunk

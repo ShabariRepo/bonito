@@ -151,7 +151,7 @@ async def assertion_consumer_service(
     # Generate JWT tokens
     access_token = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_token = auth_service.create_refresh_token(str(user.id))
-    await auth_service.store_session(r, str(user.id), refresh_token)
+    await auth_service.store_session(db, str(user.id), refresh_token)
 
     # Redirect to frontend callback with tokens in URL fragment
     callback_url = f"{FRONTEND_URL}/auth/sso/callback#access_token={access_token}&refresh_token={refresh_token}"
