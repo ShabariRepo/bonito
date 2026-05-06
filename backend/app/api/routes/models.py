@@ -38,7 +38,7 @@ async def sync_provider_models(provider: CloudProvider, db: AsyncSession) -> dic
     """
     from app.models.deployment import Deployment
     try:
-        cloud_models = await get_models_for_provider(provider.provider_type, str(provider.id))
+        cloud_models = await get_models_for_provider(provider.provider_type, str(provider.id), org_id=str(provider.org_id))
 
         if not cloud_models:
             return {"count": 0, "error": None}

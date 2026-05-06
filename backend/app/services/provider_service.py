@@ -394,7 +394,7 @@ async def store_credentials_in_vault(provider_id: str, credentials: dict) -> str
     return await store_credentials(provider_id, credentials)
 
 
-async def get_models_for_provider(provider_type: str, provider_id: str = None) -> list:
+async def get_models_for_provider(provider_type: str, provider_id: str = None, org_id: str = None) -> list:
     """Get models — real integrations for all providers when credentials exist."""
 
     def _convert(models, provider_key):
@@ -436,10 +436,11 @@ async def get_models_for_provider(provider_type: str, provider_id: str = None) -
                 return _convert(await provider.list_models(), "groq")
         except Exception as e:
             # "No credentials" is expected for providers without stored keys — don't alarm
+            ctx = f"provider={provider_id}" + (f" org={org_id}" if org_id else "")
             if "No credentials" in str(e):
-                logger.debug(f"No credentials for {provider_type} provider {provider_id}, using static catalog")
+                logger.debug(f"No credentials for {provider_type} ({ctx}), using static catalog")
             else:
-                logger.error(f"Failed to fetch real {provider_type} models: {e}")
+                logger.error(f"Failed to fetch {provider_type} models ({ctx}): {e}")
             return MOCK_CATALOG.get(provider_type, [])
 
     return MOCK_CATALOG.get(provider_type, [])

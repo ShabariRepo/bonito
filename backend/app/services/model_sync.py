@@ -49,7 +49,7 @@ async def _sync_all_providers():
                         errors.append(f"{p.provider_type}: {sync_result['error']}")
             except Exception as e:
                 errors.append(f"{p.provider_type} ({p.id}): {e}")
-                logger.warning(f"[MODEL SYNC] Failed for {p.provider_type} ({p.id}): {e}")
+                logger.warning(f"[MODEL SYNC] Failed for {p.provider_type} (provider={p.id} org={p.org_id}): {e}")
 
         await db.commit()
 

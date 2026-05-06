@@ -1,5 +1,6 @@
 """AWS Bedrock provider — real boto3 integration."""
 
+import asyncio
 import json
 import time
 import logging
@@ -121,8 +122,9 @@ class AWSBedrockProvider(CloudProvider):
                     if streaming:
                         caps.append("streaming")
 
-                    # Check actual model access using GetFoundationModelAvailability
+                    # Check actual model access — small delay to avoid AWS throttling
                     access_status = await self._check_model_access(bedrock, model_id)
+                    await asyncio.sleep(0.1)  # 100ms between GetFoundationModel calls
 
                     models.append(ModelInfo(
                         model_id=model_id,
