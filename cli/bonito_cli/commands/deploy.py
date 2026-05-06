@@ -706,7 +706,7 @@ def _print_next_steps(
         lines.append("[bold green]Providers[/bold green]")
         lines.append("  List models:    [cyan]bonito models list[/cyan]")
         lines.append(
-            "  Test gateway:   [white]curl -X POST https://gateway.bonito.ai/v1/chat/completions \\\n"
+            "  Test gateway:   [white]curl -X POST https://api.getbonito.com/v1/chat/completions \\\n"
             "                    -H 'Authorization: Bearer $BONITO_API_KEY' \\\n"
             "                    -H 'Content-Type: application/json' \\\n"
             '                    -d \'{"model":"gpt-4","messages":[{"role":"user","content":"Hello!"}]}\'[/white]'
@@ -729,7 +729,7 @@ def _print_next_steps(
             agent_cfg = agents_cfg.get(agent_name, {})
             display = agent_cfg.get("display_name", agent_name)
 
-            lines.append(f"  API endpoint:   [white]POST https://api.getbonito.com/api/agents/{agent_id}/chat[/white]")
+            lines.append(f"  API endpoint:   [white]POST https://api.getbonito.com/api/agents/{agent_id}/execute[/white]")
 
             if agent_cfg.get("widget_enabled"):
                 lines.append(f"  BonBon widget ({display}):")

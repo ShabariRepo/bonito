@@ -34,7 +34,7 @@ interface GatewayKey {
 }
 
 export default function SettingsPage() {
-  const [orgName, setOrgName] = useState("Bonito Enterprise");
+  const [orgName, setOrgName] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -60,6 +60,16 @@ export default function SettingsPage() {
     ipAllowlist: false,
   });
   const [retention, setRetention] = useState("90");
+
+  // Load org name from auth profile
+  useEffect(() => {
+    apiRequest("/api/auth/me")
+      .then(r => r.json())
+      .then(me => {
+        if (me?.org?.name) setOrgName(me.org.name);
+      })
+      .catch(() => {});
+  }, []);
 
   // Load notification preferences from backend
   useEffect(() => {

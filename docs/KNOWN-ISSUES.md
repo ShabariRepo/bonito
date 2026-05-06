@@ -245,6 +245,20 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 5. Background model sync (24h) keeps catalogs fresh
 **Impact**: All direct API provider connections were blocked for new users.
 
+### 28. Model sync runs on all uvicorn workers (4x API spam)
+**Date**: 2026-05-06
+**Symptom**: `[MODEL SYNC] Completed` appears 4 times per cycle. Bedrock ThrottlingException on stability/openai models. GCP `project_id` error logged 4x.
+**Cause**: `start_model_sync()` is called in FastAPI lifespan which runs on every uvicorn worker (4 workers = 4 concurrent syncs).
+**Fix**: Added `pg_try_advisory_lock` so only one worker acquires the lock and runs the sync; others skip. (commit on `fix/cli-p0-bugs`)
+**Impact**: 4x unnecessary provider API calls, Bedrock throttling, noisy logs.
+
+### 29. AsyncSession shared across concurrent coroutines — InterfaceError crash
+**Date**: 2026-05-06
+**Symptom**: `InterfaceError: cannot perform operation: another operation is in progress` on costs/preload. `cannot use Connection.transaction() in a manually started transaction` on gateway/keys.
+**Cause**: `/costs/all` used `asyncio.gather()` with a single `db` session across 3 service functions. `trigger_background_refresh()` captured the request-scoped session in a fire-and-forget `asyncio.create_task()` — session closed after request ended.
+**Fix**: (a) Changed `/costs/all` to sequential calls. (b) `trigger_background_refresh` now creates its own session via `async_session()`. (commit on `fix/cli-p0-bugs`)
+**Impact**: Intermittent 500 errors on cost and gateway key endpoints.
+
 ### 16. Alembic multiple migration heads — deploy fails
 **Date**: 2026-02-23
 **Symptom**: Railway deploy fails with `Multiple head revisions are present for given argument 'head'` followed by `DuplicateColumn: column "subscription_tier" of relation "organizations" already exists`.

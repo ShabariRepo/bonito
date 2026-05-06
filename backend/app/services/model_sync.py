@@ -3,13 +3,16 @@
 Runs every 24 hours, syncing models for all active providers across all orgs.
 This ensures new models (e.g. Claude Sonnet 4, new Groq models) appear
 automatically without requiring users to manually resync.
+
+Uses a PostgreSQL advisory lock so only one worker runs the sync at a time
+(uvicorn spawns multiple workers, each with its own lifespan).
 """
 
 import asyncio
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session
@@ -17,48 +20,68 @@ from app.core.database import async_session
 logger = logging.getLogger(__name__)
 
 SYNC_INTERVAL_SECONDS = 24 * 60 * 60  # 24 hours
+# Advisory lock ID — arbitrary unique int64 for model sync
+_ADVISORY_LOCK_ID = 839271  # "model_sync" hash
 
 _task: asyncio.Task | None = None
 
 
 async def _sync_all_providers():
-    """Sync models for every active provider across all orgs."""
+    """Sync models for every active provider across all orgs.
+
+    Uses pg_try_advisory_lock to ensure only one worker runs at a time.
+    """
     from app.models.cloud_provider import CloudProvider
     from app.api.routes.models import sync_provider_models
 
     async with async_session() as db:
-        result = await db.execute(
-            select(CloudProvider).where(CloudProvider.status == "active")
+        # Try to acquire advisory lock — returns False if another worker holds it
+        lock_result = await db.execute(
+            text(f"SELECT pg_try_advisory_lock({_ADVISORY_LOCK_ID})")
         )
-        providers = result.scalars().all()
-
-        if not providers:
-            logger.info("[MODEL SYNC] No active providers to sync")
+        acquired = lock_result.scalar()
+        if not acquired:
+            logger.debug("[MODEL SYNC] Skipping — another worker is already syncing")
             return
 
-        total_synced = 0
-        errors = []
+        try:
+            result = await db.execute(
+                select(CloudProvider).where(CloudProvider.status == "active")
+            )
+            providers = result.scalars().all()
 
-        for p in providers:
-            try:
-                async with db.begin_nested():
-                    sync_result = await sync_provider_models(p, db)
-                    count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
-                    total_synced += count
-                    if isinstance(sync_result, dict) and sync_result.get("error"):
-                        errors.append(f"{p.provider_type}: {sync_result['error']}")
-            except Exception as e:
-                errors.append(f"{p.provider_type} ({p.id}): {e}")
-                logger.warning(f"[MODEL SYNC] Failed for {p.provider_type} (provider={p.id} org={p.org_id}): {e}")
+            if not providers:
+                logger.info("[MODEL SYNC] No active providers to sync")
+                return
 
-        await db.commit()
+            total_synced = 0
+            errors = []
 
-        now = datetime.now(timezone.utc).isoformat()
-        logger.info(
-            f"[MODEL SYNC] Completed at {now}: "
-            f"{len(providers)} providers, {total_synced} models synced"
-            + (f", {len(errors)} errors" if errors else "")
-        )
+            for p in providers:
+                try:
+                    async with db.begin_nested():
+                        sync_result = await sync_provider_models(p, db)
+                        count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
+                        total_synced += count
+                        if isinstance(sync_result, dict) and sync_result.get("error"):
+                            errors.append(f"{p.provider_type}: {sync_result['error']}")
+                except Exception as e:
+                    errors.append(f"{p.provider_type} ({p.id}): {e}")
+                    logger.warning(f"[MODEL SYNC] Failed for {p.provider_type} (provider={p.id} org={p.org_id}): {e}")
+
+            await db.commit()
+
+            now = datetime.now(timezone.utc).isoformat()
+            logger.info(
+                f"[MODEL SYNC] Completed at {now}: "
+                f"{len(providers)} providers, {total_synced} models synced"
+                + (f", {len(errors)} errors" if errors else "")
+            )
+        finally:
+            # Release advisory lock
+            await db.execute(
+                text(f"SELECT pg_advisory_unlock({_ADVISORY_LOCK_ID})")
+            )
 
 
 async def _run_loop():

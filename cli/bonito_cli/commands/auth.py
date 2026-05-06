@@ -33,21 +33,24 @@ def signup(
     password: Optional[str] = typer.Option(None, "--password", "-p", help="Account password"),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Full name"),
     org: Optional[str] = typer.Option(None, "--org", "-o", help="Organization name"),
+    invite_code: Optional[str] = typer.Option(None, "--invite-code", "-i", help="Invite code (required for invite-only registration)"),
     non_interactive: bool = typer.Option(False, "--non-interactive", help="Non-interactive mode (requires all fields as flags)"),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="Custom API URL"),
 ):
     """
     Sign up for a new Bonito account.
 
+    After signup you must verify your email before logging in.
+
     Examples:
         bonito auth signup
-        bonito auth signup --email admin@company.com --name "John Doe" --org "ACME Corp"
-        bonito auth signup --non-interactive --email admin@company.com --password secret --name "John Doe" --org "ACME Corp"
+        bonito auth signup --invite-code ABC123
+        bonito auth signup --email admin@company.com --name "John Doe" --org "ACME Corp" --invite-code ABC123
     """
     # In non-interactive mode, all fields must be provided as flags
     if non_interactive:
-        if not all([email, password, name, org]):
-            console.print("[red]✗ In non-interactive mode, all fields (--email, --password, --name, --org) are required[/red]")
+        if not all([email, password, name]):
+            console.print("[red]✗ In non-interactive mode, --email, --password, and --name are required[/red]")
             raise typer.Exit(1)
     else:
         # Interactive prompts
@@ -57,11 +60,13 @@ def signup(
             password = Prompt.ask("[cyan]Password[/cyan]", password=True)
         if not name:
             name = Prompt.ask("[cyan]Full name[/cyan]")
-        if not org:
-            org = Prompt.ask("[cyan]Organization name[/cyan]")
+        if not invite_code:
+            invite_code = Prompt.ask("[cyan]Invite code (leave blank if not required)[/cyan]", default="")
+            if not invite_code:
+                invite_code = None
 
-    if not all([email, password, name, org]):
-        console.print("[red]✗ All fields (email, password, name, organization) are required[/red]")
+    if not all([email, password, name]):
+        console.print("[red]✗ Email, password, and name are required[/red]")
         raise typer.Exit(1)
 
     # Allow overriding the API URL
@@ -74,53 +79,43 @@ def signup(
         api._client = None
 
     try:
+        body = {
+            "email": email,
+            "password": password,
+            "name": name,
+        }
+        if invite_code:
+            body["invite_code"] = invite_code
+
         with console.status("[cyan]Creating account…[/cyan]"):
             resp = httpx.post(
                 f"{api.base_url}/api/auth/register",
-                json={
-                    "email": email,
-                    "password": password,
-                    "name": name,
-                },
+                json=body,
                 timeout=15,
             )
 
-        if resp.status_code != 200:
+        if resp.status_code not in (200, 201):
             detail = "Registration failed"
             try:
-                detail = resp.json().get("detail", detail)
+                err = resp.json()
+                detail = err.get("detail") or err.get("message", detail)
             except Exception:
                 pass
             console.print(f"[red]✗ {detail}[/red]")
             raise typer.Exit(1)
 
         data = resp.json()
-        
-        # Auto-login after successful signup
-        creds = {
-            "access_token": data["access_token"],
-            "refresh_token": data.get("refresh_token"),
-            "email": email,
-        }
-        save_credentials(creds)
+        message = data.get("message", "Account created")
 
-        # Fetch user profile
-        try:
-            me = api.get("/auth/me")
-            creds["user"] = me
-            save_credentials(creds)
-            org_name = me.get("org", {}).get("name", "—")
-            console.print(
-                Panel(
-                    f"[green]✓ Account created and logged in as [bold]{email}[/bold][/green]\n"
-                    f"  Organization: {org_name}\n"
-                    f"  Role: {me.get('role', 'member')}",
-                    title="🎉 Welcome to Bonito",
-                    border_style="green",
-                )
+        console.print(
+            Panel(
+                f"[green]✓ {message}[/green]\n\n"
+                f"  Please verify your email, then run:\n"
+                f"  [cyan]bonito auth login --email {email}[/cyan]",
+                title="🎉 Welcome to Bonito",
+                border_style="green",
             )
-        except Exception:
-            console.print(f"[green]✓ Account created and logged in as {email}[/green]")
+        )
 
     except httpx.RequestError as exc:
         console.print(f"[red]✗ Connection failed: {exc}[/red]")
