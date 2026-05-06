@@ -194,7 +194,8 @@ class FeatureGateService:
     @property
     def redis(self):
         """Read redis_client lazily — it's None at import time, initialized in lifespan."""
-        return redis_client
+        from app.core.redis import redis_client as _rc
+        return _rc
     
     async def get_organization_subscription(self, db: AsyncSession, org_id: str) -> Dict[str, Any]:
         """Get organization subscription details"""
