@@ -216,7 +216,7 @@ async def _get_provider_secrets(provider_id: str) -> dict:
     try:
         from app.core.database import get_db_session
         from app.models.cloud_provider import CloudProvider as CPModel
-        from app.core.encryption import decrypt_credentials
+        from app.core.encryption import decrypt_credentials, encrypt_credentials
         from sqlalchemy import select
         import os
 
@@ -228,7 +228,28 @@ async def _get_provider_secrets(provider_id: str) -> dict:
             result = await db.execute(select(CPModel).where(CPModel.id == uuid.UUID(provider_id)))
             provider = result.scalar_one_or_none()
             if provider and provider.credentials_encrypted and not provider.credentials_encrypted.startswith("vault:"):
-                secrets = decrypt_credentials(provider.credentials_encrypted, secret_key)
+                secrets = None
+
+                # Try encrypted format first (AES-256-GCM base64)
+                try:
+                    secrets = decrypt_credentials(provider.credentials_encrypted, secret_key)
+                except Exception:
+                    pass
+
+                # Fall back to legacy plain JSON (from old endpoints that stored json.dumps)
+                if secrets is None:
+                    try:
+                        import json as _json
+                        parsed = _json.loads(provider.credentials_encrypted)
+                        if isinstance(parsed, dict):
+                            secrets = parsed
+                            # Re-encrypt so this doesn't happen again
+                            provider.credentials_encrypted = encrypt_credentials(parsed, secret_key)
+                            await db.commit()
+                            logger.info(f"Migrated plain-text credentials to encrypted for provider {provider_id}")
+                    except (ValueError, TypeError):
+                        pass
+
                 if secrets:
                     # Re-populate Vault for next time
                     try:
@@ -414,7 +435,11 @@ async def get_models_for_provider(provider_type: str, provider_id: str = None) -
                 provider = await get_groq_provider(provider_id)
                 return _convert(await provider.list_models(), "groq")
         except Exception as e:
-            logger.error(f"Failed to fetch real {provider_type} models: {e}")
+            # "No credentials" is expected for providers without stored keys — don't alarm
+            if "No credentials" in str(e):
+                logger.debug(f"No credentials for {provider_type} provider {provider_id}, using static catalog")
+            else:
+                logger.error(f"Failed to fetch real {provider_type} models: {e}")
             return MOCK_CATALOG.get(provider_type, [])
 
     return MOCK_CATALOG.get(provider_type, [])
