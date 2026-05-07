@@ -390,6 +390,17 @@ def _upload_file_to_kb(kb_id: str, file_path: Path) -> None:
 # -- step: agents ------------------------------------------------------------
 
 
+def _find_existing_agents(project_id: str) -> Dict[str, Dict[str, Any]]:
+    """Fetch existing agents in the project, keyed by name (lowercased)."""
+    try:
+        agents_list = api.get(f"/projects/{project_id}/agents")
+        if isinstance(agents_list, list):
+            return {a["name"].lower(): a for a in agents_list if a.get("name")}
+    except (APIError, Exception):
+        pass
+    return {}
+
+
 def _deploy_agents(
     agents: Dict[str, Dict[str, Any]],
     mcp_servers_cfg: Dict[str, Dict[str, Any]],
@@ -407,6 +418,13 @@ def _deploy_agents(
     console.print("\n[bold cyan]Agents[/bold cyan]")
 
     agent_id_map: Dict[str, str] = {}
+
+    # Pre-fetch existing agents so we can update instead of duplicate
+    existing_agents: Dict[str, Dict[str, Any]] = {}
+    if not dry_run:
+        existing_agents = _find_existing_agents(project_id)
+        if verbose and existing_agents:
+            console.print(f"  [dim]Found {len(existing_agents)} existing agent(s) in project[/dim]")
 
     for name, cfg in agents.items():
         try:
@@ -451,11 +469,7 @@ def _deploy_agents(
             else:
                 model_id = str(model_cfg)
 
-            # Build the create payload matching AgentCreate schema:
-            # name, description, system_prompt, model_id, model_config,
-            # knowledge_base_ids, tool_policy, max_turns, timeout_seconds,
-            # compaction_enabled, max_session_messages, rate_limit_rpm,
-            # budget_alert_threshold
+            # Build the payload matching AgentCreate/AgentUpdate schema
             params = cfg.get("parameters", {})
             payload: Dict[str, Any] = {
                 "name": display_name,
@@ -496,14 +510,22 @@ def _deploy_agents(
             if agent_secrets:
                 payload["secrets"] = agent_secrets
 
-            # Create the agent via POST /api/projects/{project_id}/agents
-            with console.status(f"  [cyan]Creating {display_name}...[/cyan]"):
-                resp = api.post(f"/projects/{project_id}/agents", payload)
+            # Check if agent already exists — update instead of creating a duplicate
+            existing = existing_agents.get(display_name.lower())
+            if existing:
+                agent_id = existing["id"]
+                with console.status(f"  [cyan]Updating {display_name}...[/cyan]"):
+                    resp = api.put(f"/agents/{agent_id}", payload)
+                agent_id_map[name] = agent_id
+                action = "updated"
+            else:
+                with console.status(f"  [cyan]Creating {display_name}...[/cyan]"):
+                    resp = api.post(f"/projects/{project_id}/agents", payload)
+                agent_id = resp.get("id", "")
+                agent_id_map[name] = agent_id
+                action = "created"
 
-            agent_id = resp.get("id", "")
-            agent_id_map[name] = agent_id
-
-            detail_parts = [f"{agent_id[:8]}...", f"model: {model_id}"]
+            detail_parts = [f"{agent_id[:8]}...", f"model: {model_id}", action]
 
             # Register MCP servers for this agent
             agent_mcp_refs = cfg.get("mcp_servers", [])
@@ -552,7 +574,8 @@ def _deploy_agents(
 
             detail = ", ".join(detail_parts)
             result.agents.append({"name": name, "status": "ok", "detail": detail})
-            console.print(f"  [green]v[/green] {display_name} [dim]({detail})[/dim]")
+            status_icon = "[yellow]~[/yellow]" if action == "updated" else "[green]v[/green]"
+            console.print(f"  {status_icon} {display_name} [dim]({detail})[/dim]")
 
         except FileNotFoundError as exc:
             result.agents.append({"name": name, "status": "error", "detail": str(exc)})
