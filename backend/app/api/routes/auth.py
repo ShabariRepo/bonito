@@ -242,6 +242,8 @@ async def login(
         raise  # Re-raise SSO enforcement errors
     except Exception:
         # SSO check failed (table missing, connection issue, etc.) -- allow login
+        # Rollback the failed transaction so subsequent DB ops (store_session) work
+        await db.rollback()
         logger.warning("SSO enforcement check failed, allowing password login", exc_info=True)
 
     if not user.email_verified:
