@@ -221,9 +221,11 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     # Check if the org has SSO enforced — block password login unless break-glass admin
+    # Use a savepoint so a failed query doesn't poison the main transaction
     try:
         from app.services.saml_service import get_sso_config
-        sso_config = await get_sso_config(db, user.org_id)
+        async with db.begin_nested():
+            sso_config = await get_sso_config(db, user.org_id)
         if sso_config and sso_config.enabled and sso_config.enforced:
             # Allow break-glass admin to use password login
             is_breakglass = (
@@ -242,8 +244,6 @@ async def login(
         raise  # Re-raise SSO enforcement errors
     except Exception:
         # SSO check failed (table missing, connection issue, etc.) -- allow login
-        # Rollback the failed transaction so subsequent DB ops (store_session) work
-        await db.rollback()
         logger.warning("SSO enforcement check failed, allowing password login", exc_info=True)
 
     if not user.email_verified:
