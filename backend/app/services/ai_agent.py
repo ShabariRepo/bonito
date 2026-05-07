@@ -142,7 +142,7 @@ class BonitoCopilot:
                 provider_lines = []
                 for p in providers:
                     provider_lines.append(
-                        f"  - {p.provider_type.upper()}: {p.name} (region: {p.region or 'default'}, status: {p.status})"
+                        f"  - {p.provider_type.upper()} (status: {p.status})"
                     )
                 parts.append("**Connected Providers:**\n" + "\n".join(provider_lines))
             else:
@@ -237,11 +237,9 @@ class BonitoCopilot:
             return json.dumps({
                 "providers": [
                     {
-                        "name": p.name,
                         "type": p.provider_type,
                         "status": p.status,
-                        "region": p.region,
-                        "created_at": str(p.created_at) if hasattr(p, "created_at") else None,
+                        "created_at": str(p.created_at) if p.created_at else None,
                     }
                     for p in providers
                 ],
