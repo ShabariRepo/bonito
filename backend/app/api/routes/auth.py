@@ -247,9 +247,17 @@ async def login(
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Please verify your email before logging in")
 
-    access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
-    refresh = auth_service.create_refresh_token(str(user.id))
-    await auth_service.store_session(db, str(user.id), refresh)
+    try:
+        access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
+        refresh = auth_service.create_refresh_token(str(user.id))
+    except Exception:
+        logger.exception("Failed to create tokens for user %s", user.id)
+        raise HTTPException(status_code=500, detail="Token creation failed")
+
+    try:
+        await auth_service.store_session(db, str(user.id), refresh)
+    except Exception:
+        logger.exception("Failed to store session for user %s — login will proceed without refresh token persistence", user.id)
 
     # Log successful login (fire-and-forget)
     try:
@@ -342,7 +350,10 @@ async def refresh(
 
     access = auth_service.create_access_token(str(user.id), str(user.org_id), user.role)
     refresh_tok = auth_service.create_refresh_token(str(user.id))
-    await auth_service.store_session(db, str(user.id), refresh_tok, family_id=family_id)
+    try:
+        await auth_service.store_session(db, str(user.id), refresh_tok, family_id=family_id)
+    except Exception:
+        logger.exception("Failed to store refresh session for user %s during token refresh", user.id)
 
     try:
         await emit_auth_event(user.org_id, user.id, "token_refresh", severity="debug", message="Token refreshed")
