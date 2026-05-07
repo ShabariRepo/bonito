@@ -2,6 +2,27 @@
 
 All notable changes to the Bonito CLI will be documented in this file.
 
+## [0.6.0] - 2026-05-07
+
+### Added
+- **8 new command modules** for full API parity:
+  - `bonito rbac` — role-based access control (roles, permissions, assignments)
+  - `bonito compliance` — SOC-2, HIPAA, GDPR, ISO27001 policy checks
+  - `bonito approval` — human-in-the-loop approval queue management
+  - `bonito scheduler` — cron-based autonomous agent execution
+  - `bonito audit` — audit log viewing and export
+  - `bonito memory` — persistent agent memory management
+  - `bonito mcp` — MCP server registration and management per-agent
+  - `bonito routing` — routing policy builder (cost/latency/balanced/failover/ab_test)
+
+### Fixed
+- **`bonito deploy` now updates existing agents** instead of creating duplicates on re-deploy. Model, prompt, and config changes in `bonito.yaml` now propagate correctly.
+- P0 bugs: signup flow, secrets API calls, stale URLs
+
+### Changed
+- Deploy summary now shows `~` (yellow) for updated agents vs `v` (green) for newly created ones
+
+
 ## [0.5.1] - 2026-03-02
 
 ### Added
