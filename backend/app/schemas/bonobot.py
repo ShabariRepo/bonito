@@ -226,7 +226,7 @@ class AgentTriggerResponse(BaseModel):
 # ─── Execution Schemas ───
 
 class AgentExecuteRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=10000)
+    message: str = Field(..., min_length=1, max_length=20000)
     session_id: Optional[UUID] = None  # if not provided, creates new session
 
 
@@ -465,13 +465,13 @@ class MCPTemplateResponse(BaseModel):
 
 class AgentMemoryCreate(BaseModel):
     memory_type: str = Field(..., pattern=r"^(fact|pattern|interaction|preference|context)$")
-    content: str = Field(..., min_length=1, max_length=10000)
+    content: str = Field(..., min_length=1, max_length=20000)
     metadata: Optional[Dict[str, Any]] = None
     importance_score: Optional[float] = Field(1.0, ge=0.0, le=10.0)
 
 
 class AgentMemoryUpdate(BaseModel):
-    content: Optional[str] = Field(None, min_length=1, max_length=10000)
+    content: Optional[str] = Field(None, min_length=1, max_length=20000)
     metadata: Optional[Dict[str, Any]] = None
     importance_score: Optional[float] = Field(None, ge=0.0, le=10.0)
 
@@ -516,7 +516,7 @@ class AgentScheduleCreate(BaseModel):
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     cron_expression: str = Field(..., max_length=100)  # Will be validated separately
-    task_prompt: str = Field(..., min_length=1, max_length=10000)
+    task_prompt: str = Field(..., min_length=1, max_length=20000)
     output_config: Optional[Dict[str, Any]] = None
     enabled: Optional[bool] = True
     timezone: Optional[str] = Field("UTC", max_length=50)
@@ -529,7 +529,7 @@ class AgentScheduleUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     cron_expression: Optional[str] = Field(None, max_length=100)
-    task_prompt: Optional[str] = Field(None, min_length=1, max_length=10000)
+    task_prompt: Optional[str] = Field(None, min_length=1, max_length=20000)
     output_config: Optional[Dict[str, Any]] = None
     enabled: Optional[bool] = None
     timezone: Optional[str] = Field(None, max_length=50)
