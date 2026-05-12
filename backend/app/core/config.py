@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     notion_page_id: Optional[str] = None
     notion_changelog_id: Optional[str] = None
     
+    # Sentry
+    sentry_dsn: Optional[str] = None
+
     # Platform admin emails (comma-separated)
     admin_emails: str = ""
 

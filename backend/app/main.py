@@ -1,9 +1,21 @@
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import settings
+
+# Initialize Sentry before FastAPI app
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        send_default_pii=True,
+        traces_sample_rate=0.2 if settings.production_mode else 1.0,
+        profile_session_sample_rate=0.1 if settings.production_mode else 1.0,
+        profile_lifecycle="trace",
+        environment="production" if settings.production_mode else "development",
+    )
 from app.core.logging import setup_logging
 from app.core.responses import handle_http_exception, handle_general_exception
 from app.api.routes import health, providers, models, deployments, routing, compliance, export, costs, users, policies, audit, ai, auth, onboarding, notifications, analytics, gateway, routing_policies, admin, knowledge_base, sso, sso_admin, bonobot_projects, bonobot_agents, agent_groups, mcp_servers, rbac, logging as logging_routes, subscriptions, bonbon, widget, agent_memory, agent_scheduler, agent_approval, github_app, secrets

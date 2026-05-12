@@ -36,6 +36,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=bonito-dev-token
+      - SENTRY_DSN=${SENTRY_DSN:-}
     depends_on:
       postgres:
         condition: service_healthy
