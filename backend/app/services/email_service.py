@@ -189,3 +189,36 @@ async def send_welcome_email(to: str, name: str):
         "subject": "Email verified — your Bonito account is ready ✅",
         "html": html,
     })
+
+
+async def send_product_update_email(to: str, name: str, subject: str, heading: str, items: list[dict[str, str]], cta_text: str = "View Changelog", cta_url: str | None = None):
+    """Send a product update / changelog email.
+
+    items: list of {"title": "...", "description": "..."}
+    """
+    await _ensure_initialized()
+    url = cta_url or f"{FRONTEND_URL}/changelog"
+    items_html = ""
+    for item in items:
+        items_html += f"""
+        <div style="margin-bottom:20px;padding:16px 20px;background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;">
+          <p style="color:#f5f0e8;font-size:15px;font-weight:600;margin:0 0 6px;">{item["title"]}</p>
+          <p style="color:#999;font-size:14px;line-height:1.6;margin:0;">{item["description"]}</p>
+        </div>"""
+    greeting = f"Hi {name}," if name else "Hi there,"
+    html = _base_template(f"""
+    <h2 style="color:#f5f0e8;margin:0 0 12px;font-size:22px;font-weight:600;">{heading}</h2>
+    <p style="color:#999;font-size:15px;line-height:1.7;margin:0 0 24px;">
+      {greeting} here's what's new in Bonito.
+    </p>
+    {items_html}
+    <div style="margin:28px 0;">{_button(url, cta_text + " →")}</div>
+    <p style="color:#555;font-size:12px;margin:16px 0 0;">You're receiving this because you have a Bonito account. Questions? Reply to this email.</p>
+    """)
+    resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to],
+        "subject": subject,
+        "html": html,
+        "reply_to": "shabari@bonito.ai",
+    })
