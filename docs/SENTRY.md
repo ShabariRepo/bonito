@@ -9,7 +9,7 @@ Sentry provides error tracking, performance monitoring, and profiling for both t
 | Project | Platform | Status | DSN Location |
 |---------|----------|--------|--------------|
 | bonito-backend | FastAPI (Python) | **Done** | `SENTRY_DSN` env var |
-| bonito-frontend | Next.js | **Pending** | TBD |
+| bonito-frontend | Next.js | **Done** | `NEXT_PUBLIC_SENTRY_DSN` env var |
 
 ## Backend Setup (Complete)
 
@@ -20,13 +20,20 @@ Sentry provides error tracking, performance monitoring, and profiling for both t
 - **Sampling (dev):** 100% traces, 100% profiling
 - **DSN:** Set `SENTRY_DSN` on Railway
 
-## Frontend Setup (Pending)
+## Frontend Setup (Complete)
 
-- [ ] Create Sentry project via API (`javascript-nextjs` platform)
-- [ ] Run `npx @sentry/wizard@latest -i nextjs` or manual SDK setup
-- [ ] Configure DSN as `NEXT_PUBLIC_SENTRY_DSN` env var
-- [ ] Add source maps upload in Vercel build
-- [ ] Verify error capture
+- [x] Created Sentry project via API (`javascript-nextjs` platform)
+- [x] Installed `@sentry/nextjs` SDK
+- [x] `sentry.client.config.ts` — client-side init with Replay integration
+- [x] `sentry.server.config.ts` — server-side init
+- [x] `sentry.edge.config.ts` — edge runtime init
+- [x] `src/instrumentation.ts` — Next.js instrumentation hook
+- [x] `src/app/global-error.tsx` — error boundary that reports to Sentry
+- [x] `next.config.js` — wrapped with `withSentryConfig` (source maps, org/project set)
+- [x] DSN configured as `NEXT_PUBLIC_SENTRY_DSN` env var
+- [ ] Set `NEXT_PUBLIC_SENTRY_DSN` on Vercel
+- [ ] Set `SENTRY_AUTH_TOKEN` on Vercel (org:ci token for source maps)
+- [ ] Verify error capture in production
 
 ## Helios Integration (Future)
 
