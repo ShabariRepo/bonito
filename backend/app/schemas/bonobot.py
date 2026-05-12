@@ -45,6 +45,10 @@ class ProjectResponse(BaseModel):
 # ─── Agent Schemas ───
 
 class AgentCreate(BaseModel):
+    class Config:
+        extra = "forbid"
+        protected_namespaces = ()
+
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     group_id: Optional[UUID] = None
@@ -63,6 +67,10 @@ class AgentCreate(BaseModel):
 
 
 class AgentUpdate(BaseModel):
+    class Config:
+        extra = "forbid"
+        protected_namespaces = ()
+
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     group_id: Optional[UUID] = None
@@ -172,6 +180,9 @@ class AgentMessageResponse(BaseModel):
 # ─── Connection Schemas ───
 
 class AgentConnectionCreate(BaseModel):
+    class Config:
+        extra = "forbid"
+
     target_agent_id: UUID
     connection_type: str = Field(..., pattern=r"^(handoff|escalation|data_feed|trigger)$")
     label: Optional[str] = Field(None, max_length=255)
@@ -226,6 +237,9 @@ class AgentTriggerResponse(BaseModel):
 # ─── Execution Schemas ───
 
 class AgentExecuteRequest(BaseModel):
+    class Config:
+        extra = "forbid"
+
     message: str = Field(..., min_length=1, max_length=100000)
     session_id: Optional[UUID] = None  # if not provided, creates new session
 
@@ -267,6 +281,10 @@ class AgentExecuteResponse(BaseModel):
 # ─── Agent Group Schemas ───
 
 class AgentGroupCreate(BaseModel):
+    class Config:
+        extra = "forbid"
+        protected_namespaces = ()
+
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     knowledge_base_ids: Optional[List[UUID]] = None
@@ -278,6 +296,9 @@ class AgentGroupCreate(BaseModel):
 
 
 class AgentGroupUpdate(BaseModel):
+    class Config:
+        extra = "forbid"
+
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     knowledge_base_ids: Optional[List[UUID]] = None
@@ -513,6 +534,9 @@ class AgentMemorySearchResponse(BaseModel):
 # ─── Scheduled Execution Schemas ───
 
 class AgentScheduleCreate(BaseModel):
+    class Config:
+        extra = "forbid"
+
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     cron_expression: str = Field(..., max_length=100)  # Will be validated separately
@@ -526,6 +550,9 @@ class AgentScheduleCreate(BaseModel):
 
 
 class AgentScheduleUpdate(BaseModel):
+    class Config:
+        extra = "forbid"
+
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     cron_expression: Optional[str] = Field(None, max_length=100)
