@@ -21,54 +21,42 @@ import sys
 # Add backend root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import select
-from app.core.database import async_session_factory
-from app.models.user import User
 from app.services.email_service import send_product_update_email
 
 
 # ── Email content ──────────────────────────────────────────────────────────
 
-SUBJECT = "Bonito Platform Update — May 2026"
-HEADING = "What's New in Bonito"
+SUBJECT = "Bonito just got sharper"
+HEADING = "Platform Update — May 2026"
 
 ITEMS = [
     {
-        "title": "Sentry Error Tracking",
+        "title": "Cleaner API Responses",
         "description": (
-            "Both the API and dashboard now report errors to Sentry in real-time. "
-            "This means faster incident detection and resolution — issues that would have "
-            "gone unnoticed are now caught immediately."
+            "The Bonobot Agent API now gives you clear, immediate feedback when something "
+            "in your request isn't right — no more guessing. "
+            "If you're calling the API directly, run a quick test to make sure your payloads are current. "
+            "Our <a href='https://getbonito.com/docs' style='color:#7c3aed;'>updated docs</a> have the latest field reference."
         ),
     },
     {
-        "title": "Stricter API Validation (Action Required for API Users)",
+        "title": "CLI v0.6.1 — Upgrade Recommended",
         "description": (
-            "The Bonobot Agent API now rejects unknown fields with a <strong>422 error</strong> "
-            "instead of silently dropping them. If you're calling the API directly, check that you're using "
-            "<code style='color:#7c3aed;'>model_id</code> (not <code>model</code>) and the correct "
-            "<code style='color:#7c3aed;'>tool_policy</code> shape. "
-            "See our updated docs at <a href='https://getbonito.com/docs' style='color:#7c3aed;'>getbonito.com/docs</a>."
+            "The Bonito CLI has been updated to match the latest API improvements. "
+            "Upgrade in one command: <code style='color:#7c3aed;'>pip install --upgrade bonito-cli</code>"
         ),
     },
     {
-        "title": "CLI v0.6.1",
+        "title": "Refreshed Documentation",
         "description": (
-            "Updated <code style='color:#7c3aed;'>bonito deploy</code> to work with the new validation. "
-            "Upgrade with: <code style='color:#7c3aed;'>pip install --upgrade bonito-cli</code>"
-        ),
-    },
-    {
-        "title": "Updated API Documentation",
-        "description": (
-            "Corrected field names, schema shapes, and connection types across all Bonobot API docs. "
-            "If you've been referencing the docs for agent provisioning, the latest version now matches "
-            "what the live API actually accepts."
+            "Agent provisioning guides, connection schemas, and tool policy references have all been "
+            "updated to reflect exactly what the live API expects. If you're building on Bonobot, "
+            "the docs are now your single source of truth."
         ),
     },
 ]
 
-CTA_TEXT = "View Documentation"
+CTA_TEXT = "Explore the Docs"
 CTA_URL = "https://getbonito.com/docs"
 
 
@@ -96,7 +84,11 @@ async def main():
         return
 
     # Query all verified users
-    async with async_session_factory() as session:
+    from sqlalchemy import select
+    from app.core.database import async_session
+    from app.models.user import User
+
+    async with async_session() as session:
         result = await session.execute(
             select(User).where(User.email_verified.is_(True)).order_by(User.created_at)
         )
