@@ -172,6 +172,10 @@ cd frontend && vercel --prod
 - **Background model sync (2026-05-06):** `model_sync.py` runs every 24h, syncs models for all active providers. Anthropic now uses live API + static pricing fallback. Wired into FastAPI lifespan.
 - **Credential storage fix (2026-05-06):** Legacy `POST/PATCH /api/providers` endpoints now encrypt credentials (were storing plain JSON). DB fallback auto-migrates plain JSON → AES-256-GCM on read. Bedrock `_check_model_access` fixed to use real API.
 - **Admin access requests (2026-05-06):** Admin UI page at `/admin/access-requests` for invite-only registration approval flow.
+- **Sentry backend integration (2026-05-12):** Added `sentry-sdk[fastapi]` to backend. Initializes before FastAPI app, environment-aware sampling (20% prod, 100% dev). DSN via `SENTRY_DSN` env var.
+- **Sentry frontend integration (2026-05-12):** Created `bonito-frontend` Sentry project via API. Added `@sentry/nextjs` SDK with client/server/edge configs, instrumentation hook, global error boundary, source map upload via `withSentryConfig`.
+- **API schema hardening (2026-05-12):** All Bonobot create/update schemas now reject unknown fields with `extra="forbid"` (422 instead of silent drop). Affected: AgentCreate, AgentUpdate, AgentConnectionCreate, AgentGroupCreate/Update, AgentExecuteRequest, AgentScheduleCreate/Update.
+- **Sentry tracking doc (2026-05-12):** Added `docs/SENTRY.md` covering backend (done), frontend (done), and future Helios MCP integration plan.
 
 ## What's Planned
 
