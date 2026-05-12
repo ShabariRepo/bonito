@@ -2,6 +2,7 @@ import uuid
 from functools import wraps
 from typing import Callable
 
+import sentry_sdk
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
@@ -32,6 +33,14 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not user.email_verified:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account suspended")
+
+    sentry_sdk.set_user({
+        "id": str(user.id),
+        "email": user.email,
+        "username": user.name,
+        "org_id": str(user.org_id),
+    })
+
     return user
 
 
