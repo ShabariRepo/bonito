@@ -100,8 +100,8 @@ def _validate(cfg: Dict[str, Any]) -> List[str]:
             continue
         if "system_prompt" not in agent_cfg:
             errors.append(f"agents.{agent_name}: missing 'system_prompt'")
-        if "model" not in agent_cfg:
-            errors.append(f"agents.{agent_name}: missing 'model'")
+        if "model" not in agent_cfg and "model_id" not in agent_cfg:
+            errors.append(f"agents.{agent_name}: missing 'model' (or 'model_id')")
 
     return errors
 
@@ -490,10 +490,10 @@ def _deploy_agents(
             agent_mcp_refs = cfg.get("mcp_servers", [])
             agent_delegates = cfg.get("delegates", [])
             if agent_mcp_refs or agent_delegates:
-                payload["tool_policy"] = {"mode": "all"}
+                payload["tool_policy"] = {"mode": "allowed", "allowed": [], "denied": [], "http_allowlist": []}
             elif cfg.get("rag"):
                 # RAG agents get search_knowledge_base tool
-                payload["tool_policy"] = {"mode": "all"}
+                payload["tool_policy"] = {"mode": "allowed", "allowed": ["kb_search"], "denied": [], "http_allowlist": []}
 
             # Attach knowledge base if configured via RAG section
             rag = cfg.get("rag", {})
@@ -505,10 +505,7 @@ def _deploy_agents(
                 elif verbose:
                     console.print(f"    [dim yellow]! KB '{kb_name}' not found - skipping[/dim yellow]")
 
-            # Attach secrets if specified
-            agent_secrets = cfg.get("secrets", [])
-            if agent_secrets:
-                payload["secrets"] = agent_secrets
+            # Note: agent secrets are managed via /api/secrets, not in the agent payload
 
             # Check if agent already exists — update instead of creating a duplicate
             existing = existing_agents.get(display_name.lower())
