@@ -197,10 +197,14 @@ Example: An MCP server named "aws-s3" with tool "list_buckets" becomes `mcp_aws_
 
 MCP tools are subject to the **same tool policy** as built-in tools:
 
-- **Mode `none`:** MCP tools blocked (default)
-- **Mode `allowlist`:** Only explicitly listed MCP tools allowed (by namespaced name)
-- **Mode `denylist`:** All MCP tools allowed except denied ones
-- **Mode `all`:** All MCP tools allowed
+- **Mode `none`:** All tools blocked, including MCP tools (default)
+- **Mode `allowlist`:** Only tools listed in `allowed` are permitted (use namespaced names like `mcp_aws_s3_list_buckets` for MCP tools)
+- **Mode `denylist`:** All tools permitted except those listed in `denied`
+- **Mode `all`:** All tools permitted, including MCP tools
+
+Tool policy shape: `{"mode": "none|all|allowlist|denylist", "allowed": [...], "denied": [...], "http_allowlist": [...]}`
+
+> **Note:** Agent schemas enforce `extra=forbid`. Sending unrecognized fields in agent create/update requests returns a `422` error.
 
 ### 5.2 Audit Trail
 

@@ -112,6 +112,9 @@ bonito/
 - **Migrations:** Alembic, numbered format (`###_descriptive_name`). Always include `org_id` FK, UUID PKs, timestamps with `server_default=func.now()`.
 - **CLI:** Typer + Rich. `ensure_authenticated()` before API calls. `APIError` for error handling.
 - **Error handling:** `HTTPException` with appropriate status codes. 422 for validation (Pydantic).
+- **Strict schemas:** Agent, connection, group, schedule, and execute schemas use `extra = "forbid"`. Unknown fields return 422.
+- **Agent field names:** Use `model_id` (not `model`) for the model field. Put `temperature`/`max_tokens` inside `model_config`. Tool policy shape: `{"mode": "none|all|allowlist|denylist", "allowed": [], "denied": [], "http_allowlist": []}`.
+- **Connection types:** `handoff`, `escalation`, `data_feed`, `trigger`. Connection fields are top-level (`target_agent_id`, `connection_type`), not nested in a `config` object.
 - **Feature gates:** `feature_gate.require_feature()` for premium features.
 
 ## Gateway Request Flow

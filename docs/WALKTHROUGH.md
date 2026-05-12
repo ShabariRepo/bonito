@@ -527,11 +527,13 @@ curl -X POST https://api.getbonito.com/api/bonobot/agents \
     "project_id": "<project-id>",
     "name": "Support Bot",
     "system_prompt": "You are a helpful customer support agent for Acme Corp.",
-    "model": "gpt-4o",
-    "max_turns": 50,
-    "temperature": 0.7
+    "model_id": "gpt-4o",
+    "model_config": {"temperature": 0.7},
+    "max_turns": 50
   }'
 ```
+
+> **Note:** The agent API uses strict input validation (`extra=forbid`). Sending unrecognized fields will return a `422 Unprocessable Entity` error. Use `model_id` (not `model`) and put tuning parameters like `temperature` inside `model_config`.
 
 ### Step 3: Link Knowledge Bases to Agent
 
@@ -606,9 +608,8 @@ curl -X POST https://api.getbonito.com/api/bonobot/agents \
     "project_id": "<project-id>",
     "name": "Orchestrator",
     "system_prompt": "You are a routing agent for Acme Corp. Analyze each user message and route to the appropriate department:\n\n- For general questions, product info, or how-to: route to support-bot\n- For billing, payments, invoices, or subscription issues: route to billing-bot\n- For API integration, technical errors, or developer questions: route to technical-bot\n\nAlways greet the user warmly and let them know you are connecting them to the right specialist.",
-    "model": "gpt-4o",
-    "max_turns": 100,
-    "is_orchestrator": true
+    "model_id": "gpt-4o",
+    "max_turns": 100
   }'
 ```
 
@@ -623,6 +624,22 @@ curl -X POST https://api.getbonito.com/api/bonobot/agents \
 ```bash
 bonito agents connections <orchestrator-id>  # View connections
 ```
+
+**API:**
+```bash
+curl -X POST https://api.getbonito.com/api/agents/<orchestrator-id>/connections \
+  -H "Authorization: Bearer $BONITO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target_agent_id": "<sub-agent-id>",
+    "connection_type": "handoff",
+    "label": "Route to support"
+  }'
+```
+
+Valid `connection_type` values: `handoff`, `escalation`, `data_feed`, `trigger`.
+
+> **Note:** The connection API uses strict validation (`extra=forbid`). Unknown fields return `422`. The `target_agent_id` and `connection_type` are top-level fields (not nested inside a `config` object).
 
 **Step 4:** The orchestrator is now the single entry point. Users talk to it, and it delegates.
 

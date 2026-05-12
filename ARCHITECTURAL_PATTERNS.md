@@ -251,7 +251,7 @@ agents:
   agent_name:
     system_prompt: "You are a helpful agent"
     system_prompt_file: ./system_prompt.txt  # Or file reference
-    model: auto
+    model: auto  # YAML uses "model"; deploy.py maps this to "model_id" in the API payload
     knowledge_base_ids: ["kb_name"]
     max_turns: 25
 ```
@@ -326,7 +326,7 @@ agent_engine = AgentEngine()
 @router.post("/projects/{project_id}/agents/{agent_id}/execute")
 async def execute_agent(
     agent_id: UUID,
-    request: AgentExecuteRequest,  # {"input": "user message"}
+    request: AgentExecuteRequest,  # {"message": "user message"} — extra=forbid, unknown fields return 422
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -353,7 +353,7 @@ class Agent:
     model_id: str  # "auto" for smart routing, or specific model
     model_config: dict  # {"temperature": 0.7, "max_tokens": 2048}
     knowledge_base_ids: list  # IDs of KBs this agent can access
-    tool_policy: dict  # {"mode": "none|allow|deny", "allowed": [...]}
+    tool_policy: dict  # {"mode": "none|all|allowlist|denylist", "allowed": [...], "denied": [...], "http_allowlist": [...]}
     max_turns: int  # Max tool call loops
     timeout_seconds: int  # Execution timeout
 ```
@@ -448,7 +448,7 @@ system_prompt: Mapped[str]  # The agent's instructions
 model_id: Mapped[str]  # "auto" or specific model
 model_config: Mapped[dict]  # {"temperature": 0.7, ...}
 knowledge_base_ids: Mapped[list]  # JSON array of KB UUIDs
-tool_policy: Mapped[dict]  # {"mode": "allow", "allowed": [...]}
+tool_policy: Mapped[dict]  # {"mode": "none|all|allowlist|denylist", "allowed": [...], "denied": [...], "http_allowlist": [...]}
 max_turns: Mapped[int]  # Max tool loop iterations
 ```
 
