@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -418,3 +419,124 @@ def init_wizard(
     console.print("• Start chatting: [cyan]bonito chat[/cyan]")
     console.print("• View usage: [cyan]bonito analytics usage[/cyan]")
     console.print("• Manage models: [cyan]bonito models list[/cyan]")
+
+
+# ── Template scaffolding ──────────────────────────────────────
+
+_EXAMPLES_DIR = Path(__file__).resolve().parent.parent / "examples"
+
+_TEMPLATES = {
+    "1": {
+        "name": "Quickstart",
+        "file": "quickstart.yaml",
+        "description": "Single provider (OpenAI) — simplest possible setup",
+    },
+    "2": {
+        "name": "Multi-Provider Failover",
+        "file": "multi-provider-failover.yaml",
+        "description": "3 providers with failover and cost-optimized routing",
+    },
+    "3": {
+        "name": "Support Agent",
+        "file": "support-agent.yaml",
+        "description": "Customer support agent with governed tools and KB search",
+    },
+    "4": {
+        "name": "Enterprise",
+        "file": "enterprise.yaml",
+        "description": "Multi-cloud (AWS/Azure/GCP), failover routing, governed agents",
+    },
+}
+
+
+@app.command("template")
+def init_template(
+    output: Optional[Path] = typer.Option(
+        None,
+        "--output", "-o",
+        help="Output file path (default: ./bonito.yaml)",
+    ),
+    template: Optional[str] = typer.Option(
+        None,
+        "--template", "-t",
+        help="Template number (1-4) for non-interactive use",
+    ),
+):
+    """
+    Scaffold a bonito.yaml from a starter template.
+
+    Shows a menu of available templates, copies your pick to the
+    current directory, and prints next steps.
+
+    \b
+    Examples:
+        bonito init template
+        bonito init template -t 1
+        bonito init template -t 4 -o infra/bonito.yaml
+    """
+    dest = output or Path.cwd() / "bonito.yaml"
+
+    # ── Show menu ─────────────────────────────────────────────
+    console.print(Panel(
+        "[bold cyan]Bonito Template Scaffolding[/bold cyan]\n\n"
+        "Pick a starter template to generate a [bold]bonito.yaml[/bold] file.",
+        border_style="cyan",
+    ))
+
+    table = Table(show_header=True, header_style="bold cyan", border_style="dim")
+    table.add_column("#", style="bold", width=3)
+    table.add_column("Template", style="bold white")
+    table.add_column("Description", style="dim")
+
+    for key, tmpl in _TEMPLATES.items():
+        table.add_row(key, tmpl["name"], tmpl["description"])
+
+    console.print(table)
+    console.print()
+
+    # ── Pick template ─────────────────────────────────────────
+    if template is not None:
+        choice = template.strip()
+    else:
+        choice = Prompt.ask(
+            "[cyan]Select a template[/cyan]",
+            choices=list(_TEMPLATES.keys()),
+            default="1",
+        )
+
+    if choice not in _TEMPLATES:
+        print_error(f"Invalid template: {choice}. Choose 1-{len(_TEMPLATES)}.")
+        raise typer.Exit(1)
+
+    selected = _TEMPLATES[choice]
+    src = _EXAMPLES_DIR / selected["file"]
+
+    if not src.exists():
+        print_error(f"Template file not found: {src}")
+        raise typer.Exit(1)
+
+    # ── Check for existing file ───────────────────────────────
+    if dest.exists():
+        overwrite = Confirm.ask(
+            f"[yellow]{dest} already exists. Overwrite?[/yellow]",
+            default=False,
+        )
+        if not overwrite:
+            console.print("[dim]Aborted.[/dim]")
+            raise typer.Exit(0)
+
+    # ── Copy template ─────────────────────────────────────────
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+
+    print_success(f"Created {dest} from template [bold]{selected['name']}[/bold]")
+
+    # ── Next steps ────────────────────────────────────────────
+    console.print(Panel(
+        f"[bold]Next steps:[/bold]\n\n"
+        f"  1. Edit [cyan]{dest}[/cyan] to add credentials or customise\n"
+        f"  2. Deploy:  [cyan]bonito deploy -f {dest}[/cyan]\n"
+        f"  3. Or validate first:  [cyan]bonito deploy -f {dest} --dry-run[/cyan]",
+        title="[bold green]Ready[/bold green]",
+        border_style="green",
+    ))

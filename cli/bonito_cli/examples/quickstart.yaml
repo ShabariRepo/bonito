@@ -1,0 +1,7 @@
+version: "1"
+name: my-first-bonito
+description: "Quick start — connect OpenAI and start routing"
+
+providers:
+  - name: openai
+    type: openai

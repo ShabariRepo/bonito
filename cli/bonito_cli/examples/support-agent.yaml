@@ -1,0 +1,22 @@
+version: "1"
+name: support-bot
+description: "Customer support agent with governed tools and knowledge base"
+
+providers:
+  - name: openai
+    type: openai
+
+agents:
+  - name: Customer Support
+    model_id: gpt-4o
+    system_prompt: |
+      You are a helpful customer support agent. Answer questions accurately
+      using the knowledge base. If you don't know the answer, escalate to
+      a human. Always be polite and concise.
+    model_config:
+      temperature: 0.3
+      max_tokens: 1024
+    tools:
+      mode: allowlist
+      allowed:
+        - kb_search

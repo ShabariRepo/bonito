@@ -25,3 +25,4 @@ bonito = "bonito_cli.app:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["bonito_cli"]
+artifacts = ["bonito_cli/examples/*.yaml"]
