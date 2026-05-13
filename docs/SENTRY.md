@@ -35,31 +35,34 @@ Sentry provides error tracking, performance monitoring, and profiling for both t
 - [ ] Set `SENTRY_AUTH_TOKEN` on Vercel (org:ci token for source maps)
 - [ ] Verify error capture in production
 
-## Helios Integration (Future)
+## Helios Integration (Done)
 
-Goal: Connect Sentry MCP to Helios so errors auto-trigger the self-healing pipeline (Kimi → Claude → PR).
+Sentry issues are now ingested directly into Helios via the Sentry REST API collector (`helios/bonito-healer/internal/sentry/collector.go`). This replaces the MCP approach with a native Go client for better reliability.
 
-- [ ] Add Sentry MCP server to Helios config
-- [ ] Auth token with `project:read`, `event:read`, `issue:read` scopes
-- [ ] Wire `search_issues` into Helios ingestion loop
-- [ ] Map Sentry issues → Helios fix pipeline
+- [x] Sentry REST API collector (`internal/sentry/collector.go`)
+- [x] Config: `sentry` section in `monitor.yaml` (auth_token, org, projects, poll_interval)
+- [x] Wired into Helios engine alongside GCS reader
+- [x] Sentry issues mapped to `gcs.Event` format → fingerprinting → alert rules → fix pipeline
+- [x] Auth token needs `project:read`, `event:read` scopes (personal token)
 
-### Sentry MCP Setup (for Helios)
+### How it works
 
-**Cloud (recommended):**
-```json
-{
-  "mcpServers": {
-    "sentry": {
-      "url": "https://mcp.sentry.dev/sse"
-    }
-  }
-}
-```
+1. Collector polls `GET /api/0/projects/{org}/{project}/issues/?query=is:unresolved` every 60s
+2. For new/updated issues, fetches latest event via `GET /api/0/issues/{id}/events/latest/`
+3. Converts Sentry issue+event → `gcs.Event` (Helios common format)
+4. Feeds into `engine.HandleEvent()` → fingerprint → alert rules → fix pipeline
+5. If an alert rule with `heal_action: "analyze_and_fix"` matches → Kimi → Claude → PR
 
-**Self-hosted / stdio:**
-```bash
-npx @sentry/mcp-server@latest --access-token=SENTRY_TOKEN
+### Config (in Helios `monitor.yaml`)
+```yaml
+sentry:
+  enabled: true
+  auth_token: "sntryu_..."
+  org: "bonito-ai"
+  projects:
+    - "python-fastapi"
+    - "bonito-frontend"
+  poll_interval: 60s
 ```
 
 ## Environment Variables
