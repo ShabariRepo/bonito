@@ -23,7 +23,11 @@ from ..utils.display import (
 console = Console()
 app = typer.Typer(help="☁️  Cloud provider management")
 
-_EMOJI = {"aws": "☁️ ", "azure": "🔷", "gcp": "🔺", "aws_bedrock": "☁️ ", "azure_openai": "🔷", "gcp_vertex": "🔺"}
+_EMOJI = {
+    "aws": "☁️ ", "azure": "🔷", "gcp": "🔺",
+    "aws_bedrock": "☁️ ", "azure_openai": "🔷", "gcp_vertex": "🔺",
+    "openai": "🤖", "anthropic": "🧠", "groq": "⚡", "openrouter": "🔀",
+}
 
 
 # ── list ────────────────────────────────────────────────────────
@@ -212,6 +216,74 @@ def add_gcp(
         },
         get_output_format(json_output),
         "Google Vertex AI",
+    )
+
+
+@add_app.command("openai")
+def add_openai(
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="OpenAI API key"),
+    name: Optional[str] = typer.Option(None, "--name"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Connect an OpenAI provider."""
+    ensure_authenticated()
+    if not api_key:
+        api_key = Prompt.ask("OpenAI API Key", password=True)
+    _connect_provider(
+        {"provider_type": "openai", "name": name or "OpenAI", "credentials": {"api_key": api_key}},
+        get_output_format(json_output),
+        "OpenAI",
+    )
+
+
+@add_app.command("anthropic")
+def add_anthropic(
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="Anthropic API key"),
+    name: Optional[str] = typer.Option(None, "--name"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Connect an Anthropic provider."""
+    ensure_authenticated()
+    if not api_key:
+        api_key = Prompt.ask("Anthropic API Key", password=True)
+    _connect_provider(
+        {"provider_type": "anthropic", "name": name or "Anthropic", "credentials": {"api_key": api_key}},
+        get_output_format(json_output),
+        "Anthropic",
+    )
+
+
+@add_app.command("groq")
+def add_groq(
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="Groq API key"),
+    name: Optional[str] = typer.Option(None, "--name"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Connect a Groq provider."""
+    ensure_authenticated()
+    if not api_key:
+        api_key = Prompt.ask("Groq API Key", password=True)
+    _connect_provider(
+        {"provider_type": "groq", "name": name or "Groq", "credentials": {"api_key": api_key}},
+        get_output_format(json_output),
+        "Groq",
+    )
+
+
+@add_app.command("openrouter")
+def add_openrouter(
+    api_key: Optional[str] = typer.Option(None, "--api-key", help="OpenRouter API key"),
+    name: Optional[str] = typer.Option(None, "--name"),
+    json_output: bool = typer.Option(False, "--json"),
+):
+    """Connect an OpenRouter provider."""
+    ensure_authenticated()
+    if not api_key:
+        api_key = Prompt.ask("OpenRouter API Key", password=True)
+    _connect_provider(
+        {"provider_type": "openrouter", "name": name or "OpenRouter", "credentials": {"api_key": api_key}},
+        get_output_format(json_output),
+        "OpenRouter",
     )
 
 
