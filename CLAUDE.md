@@ -98,10 +98,10 @@ bonito/
 
 ## Pricing Tiers
 
-- **Free** — 1 provider, 25K requests/mo, 1 seat, invite-only
-- **Pro** — $499/mo, 3 providers, 250K requests/mo, 10 seats, smart routing + failover
-- **Enterprise** — $10K-$20K/mo (annual), unlimited everything, SSO/SAML, advanced compliance
-- **Scale** — Custom ($200K+/yr), dedicated infra, SOC-2 support, named account manager
+- **Free** — 3 providers, 25K requests/mo, 3 seats, 1 agent, basic failover, invite-only
+- **Pro** — $999/mo, 5 providers, 500K requests/mo, unlimited seats, 5 agents, advanced routing, RAG, analytics, audit trail
+- **Enterprise** — $10K-$20K/mo, unlimited providers/requests/seats, SSO/SAML, RBAC, compliance, 99.9% SLA
+- **Scale** — Custom ($200K+/yr), dedicated infra, multi-region, 99.99% SLA, custom fine-tuning, dedicated account team
 
 ## Key Architectural Patterns
 
@@ -170,7 +170,7 @@ cd frontend && vercel --prod
 - **Dockerfile fixes:** `HOME=/app`, `HF_HOME`/`TRANSFORMERS_CACHE` set, sentence-transformers model pre-downloaded at build time. Fixes ChromaDB vector_similarity layer in production.
 - **VectorBoost gated:** KB config endpoints require Enterprise+ tier. Note: compression pipeline is NOT wired into ingestion yet — gating prevents customers from configuring a feature that doesn't fully work.
 - **AdVan integration:** Uses memwright standalone (ChromaDB + SQLite) in their own app.py. Bonito is their LLM gateway only. Changes to Bonito's MemwrightService do NOT affect them. Do not break this.
-- **Free tier:** 25K gateway requests/month (up from 10K).
+- **Free tier:** 3 providers, 25K gateway requests/month, 3 seats, CLI access enabled.
 - **Provider connection fixes (2026-05-06):** Fixed all 6 providers connectable via UI (connect modal + onboarding wizard). Anthropic validation uses `/v1/models` instead of hardcoded model. Groq added to connect modal and onboarding. Connect modal uses `apiRequest()` for JWT auth.
 - **Background model sync (2026-05-06):** `model_sync.py` runs every 24h, syncs models for all active providers. Anthropic now uses live API + static pricing fallback. Wired into FastAPI lifespan.
 - **Credential storage fix (2026-05-06):** Legacy `POST/PATCH /api/providers` endpoints now encrypt credentials (were storing plain JSON). DB fallback auto-migrates plain JSON → AES-256-GCM on read. Bedrock `_check_model_access` fixed to use real API.
