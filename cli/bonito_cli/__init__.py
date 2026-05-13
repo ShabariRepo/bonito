@@ -1,3 +1,3 @@
 """Bonito CLI — Unified multi-cloud AI management from your terminal."""
 
-__version__ = "0.6.0"
+__version__ = "0.7.2"
