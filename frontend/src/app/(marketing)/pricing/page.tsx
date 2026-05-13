@@ -322,7 +322,7 @@ export default function PricingPage() {
       </section>
 
       {/* Platform Plan Cards */}
-      <section className="grid md:grid-cols-2 lg:grid-cols-5 gap-5 max-w-7xl mx-auto pb-16">
+      <section className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto pb-16">
         {plans.map((plan, i) => (
           <motion.div
             key={plan.name}
