@@ -15,6 +15,7 @@ from app.services.providers.gcp_vertex import GCPVertexProvider
 from app.services.providers.openai_direct import OpenAIDirectProvider
 from app.services.providers.anthropic_direct import AnthropicDirectProvider
 from app.services.providers.groq_provider import GroqProvider
+from app.services.providers.openrouter_provider import OpenRouterProvider
 from app.services.providers.base import CloudProvider as CloudProviderInterface
 
 logger = logging.getLogger(__name__)
@@ -74,12 +75,24 @@ GROQ_MODELS: List[ModelInfo] = [
     ModelInfo(id="groq-11", name="Llama 3.2 90B Vision", provider="groq", provider_model_id="llama-3.2-90b-vision-preview", capabilities=["text", "vision"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.0009, output_price_per_1k=0.0009),
 ]
 
+OPENROUTER_MODELS: List[ModelInfo] = [
+    ModelInfo(id="or-1", name="GPT-4o (via OpenRouter)", provider="openrouter", provider_model_id="openai/gpt-4o", capabilities=["text", "vision", "code", "function_calling"], context_window=128000, pricing_tier="standard", input_price_per_1k=0.0025, output_price_per_1k=0.01),
+    ModelInfo(id="or-2", name="GPT-4o Mini (via OpenRouter)", provider="openrouter", provider_model_id="openai/gpt-4o-mini", capabilities=["text", "vision", "code", "function_calling"], context_window=128000, pricing_tier="economy", input_price_per_1k=0.00015, output_price_per_1k=0.0006),
+    ModelInfo(id="or-3", name="Claude Sonnet 4 (via OpenRouter)", provider="openrouter", provider_model_id="anthropic/claude-sonnet-4-20250514", capabilities=["text", "vision", "code", "function_calling"], context_window=200000, pricing_tier="standard", input_price_per_1k=0.003, output_price_per_1k=0.015),
+    ModelInfo(id="or-4", name="Claude 3.5 Haiku (via OpenRouter)", provider="openrouter", provider_model_id="anthropic/claude-3.5-haiku-20241022", capabilities=["text", "vision", "code"], context_window=200000, pricing_tier="economy", input_price_per_1k=0.0008, output_price_per_1k=0.004),
+    ModelInfo(id="or-5", name="Gemini 2.0 Flash (via OpenRouter)", provider="openrouter", provider_model_id="google/gemini-2.0-flash-001", capabilities=["text", "vision", "code", "function_calling"], context_window=1048576, pricing_tier="economy", input_price_per_1k=0.0001, output_price_per_1k=0.0004),
+    ModelInfo(id="or-6", name="Llama 3.3 70B (via OpenRouter)", provider="openrouter", provider_model_id="meta-llama/llama-3.3-70b-instruct", capabilities=["text", "code", "function_calling"], context_window=131072, pricing_tier="economy", input_price_per_1k=0.00039, output_price_per_1k=0.00039),
+    ModelInfo(id="or-7", name="DeepSeek R1 (via OpenRouter)", provider="openrouter", provider_model_id="deepseek/deepseek-r1", capabilities=["text", "reasoning", "code"], context_window=65536, pricing_tier="economy", input_price_per_1k=0.00055, output_price_per_1k=0.00219),
+    ModelInfo(id="or-8", name="Mistral Large (via OpenRouter)", provider="openrouter", provider_model_id="mistralai/mistral-large-2411", capabilities=["text", "code", "function_calling"], context_window=131072, pricing_tier="standard", input_price_per_1k=0.002, output_price_per_1k=0.006),
+]
+
 MOCK_CATALOG = {
     "azure": AZURE_MODELS,
     "gcp": GCP_MODELS,
     "openai": OPENAI_MODELS,
     "anthropic": ANTHROPIC_MODELS,
     "groq": GROQ_MODELS,
+    "openrouter": OPENROUTER_MODELS,
 }
 
 PROVIDER_NAMES = {
@@ -89,6 +102,7 @@ PROVIDER_NAMES = {
     "openai": "OpenAI Direct",
     "anthropic": "Anthropic Direct",
     "groq": "Groq",
+    "openrouter": "OpenRouter",
 }
 
 PROVIDER_REGIONS = {
@@ -102,6 +116,7 @@ PROVIDER_REGIONS = {
     "openai": ["Global"],
     "anthropic": ["Global"],
     "groq": ["Global"],
+    "openrouter": ["Global"],
 }
 
 
@@ -173,6 +188,11 @@ def validate_credentials(provider_type: str, credentials: dict) -> Tuple[bool, s
             return False, "Missing required field: api_key"
         if len(credentials["api_key"]) < 20:
             return False, "API key is too short"
+    elif provider_type == "openrouter":
+        if "api_key" not in credentials or not credentials["api_key"]:
+            return False, "Missing required field: api_key"
+        if len(credentials["api_key"]) < 20:
+            return False, "API key is too short"
     else:
         return False, f"Unsupported provider: {provider_type}"
     return True, ""
@@ -190,6 +210,8 @@ def extract_region(provider_type: str, credentials: dict) -> str:
     elif provider_type == "anthropic":
         return "Global"
     elif provider_type == "groq":
+        return "Global"
+    elif provider_type == "openrouter":
         return "Global"
     return ""
 
@@ -342,6 +364,14 @@ async def get_groq_provider(provider_id: str) -> GroqProvider:
     )
 
 
+async def get_openrouter_provider(provider_id: str) -> OpenRouterProvider:
+    """Create an OpenRouterProvider with Vault→DB fallback."""
+    secrets = await _get_provider_secrets(provider_id)
+    return OpenRouterProvider(
+        api_key=secrets["api_key"],
+    )
+
+
 async def store_credentials(provider_id: str, credentials: dict, db_provider=None) -> str:
     """
     Store credentials in both Vault and encrypted DB column.
@@ -434,6 +464,9 @@ async def get_models_for_provider(provider_type: str, provider_id: str = None, o
             elif provider_type == "groq":
                 provider = await get_groq_provider(provider_id)
                 return _convert(await provider.list_models(), "groq")
+            elif provider_type == "openrouter":
+                provider = await get_openrouter_provider(provider_id)
+                return _convert(await provider.list_models(), "openrouter")
         except Exception as e:
             # "No credentials" is expected for providers without stored keys — don't alarm
             ctx = f"provider={provider_id}" + (f" org={org_id}" if org_id else "")

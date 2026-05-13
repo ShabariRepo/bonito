@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
 
 // --- Types ---
-type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq";
+type Provider = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq" | "openrouter";
 type IaCTool = "terraform" | "pulumi" | "cloudformation" | "bicep" | "manual";
 type OnboardingPath = "quick" | "iac" | null;
 type ProductPath = "models" | "bonobot" | "bonbon" | null;
@@ -83,6 +83,7 @@ const PROVIDERS: { id: Provider; name: string; icon: string; color: string; desc
   { id: "openai", name: "OpenAI", icon: "🤖", color: "from-green-500 to-blue-500", desc: "Direct API — GPT-4o, o1, o3-mini" },
   { id: "anthropic", name: "Anthropic", icon: "🧠", color: "from-purple-500 to-pink-500", desc: "Direct API — Claude 3.5 Sonnet, Claude Opus" },
   { id: "groq", name: "Groq", icon: "⚡", color: "from-orange-500 to-red-500", desc: "LPU Inference — Llama, Mixtral, DeepSeek R1 — ultra-fast" },
+  { id: "openrouter", name: "OpenRouter", icon: "🔀", color: "from-cyan-500 to-teal-500", desc: "300+ models — unified API gateway" },
 ];
 
 const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; description: string; required: boolean }[]> = {
@@ -111,6 +112,10 @@ const REQUIRED_PERMISSIONS: Record<Provider, { key: string; name: string; descri
     { key: "api_key", name: "API Key Authentication", description: "Valid Groq API key with model access", required: true },
     { key: "models", name: "Model Access", description: "Access to Llama, Mixtral, DeepSeek R1, and other models via LPU", required: true },
   ],
+  openrouter: [
+    { key: "api_key", name: "API Key Authentication", description: "Valid OpenRouter API key with model access", required: true },
+    { key: "models", name: "Model Access", description: "Access to 300+ models from OpenAI, Anthropic, Google, Meta, and more", required: true },
+  ],
 };
 
 const CRED_FIELDS: Record<Provider, { key: string; label: string; type?: string; placeholder?: string; required?: boolean }[]> = {
@@ -138,6 +143,9 @@ const CRED_FIELDS: Record<Provider, { key: string; label: string; type?: string;
   ],
   groq: [
     { key: "api_key", label: "Groq API Key", type: "password", placeholder: "gsk_...", required: true },
+  ],
+  openrouter: [
+    { key: "api_key", label: "OpenRouter API Key", type: "password", placeholder: "sk-or-...", required: true },
   ],
 };
 
@@ -204,6 +212,8 @@ Get yours at platform.openai.com/api-keys`,
 Get yours at console.anthropic.com/settings/keys`,
   groq: `No IAM setup needed — just an API key.
 Get yours at console.groq.com/keys`,
+  openrouter: `No IAM setup needed — just an API key.
+Get yours at openrouter.ai/settings/keys`,
 };
 
 

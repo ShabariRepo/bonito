@@ -329,6 +329,8 @@ def _detect_provider_from_model(model_id: str, model_list: list[dict]) -> Option
                 return "anthropic"
             elif lp.startswith("groq/"):
                 return "groq"
+            elif lp.startswith("openrouter/"):
+                return "openrouter"
             elif lp.startswith("gemini/"):
                 return "gemini"
     return None
@@ -535,6 +537,11 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
                 elif provider_type == "groq":
                     litellm_params = {
                         "model": f"groq/{model_id}",
+                        "api_key": c.get("api_key", ""),
+                    }
+                elif provider_type == "openrouter":
+                    litellm_params = {
+                        "model": f"openrouter/{model_id}",
                         "api_key": c.get("api_key", ""),
                     }
                 elif provider_type == "gemini":

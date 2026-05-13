@@ -400,6 +400,14 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
         cred_info = await prov.validate_credentials()
         if not cred_info.valid:
             raise HTTPException(status_code=422, detail=f"Groq credential validation failed: {cred_info.message}")
+    elif data.provider_type == "openrouter":
+        from app.services.providers.openrouter_provider import OpenRouterProvider
+        prov = OpenRouterProvider(
+            api_key=data.credentials["api_key"],
+        )
+        cred_info = await prov.validate_credentials()
+        if not cred_info.valid:
+            raise HTTPException(status_code=422, detail=f"OpenRouter credential validation failed: {cred_info.message}")
 
     # Store credentials in Vault + encrypted DB column
     import os
@@ -459,6 +467,9 @@ async def verify_provider(provider_id: UUID, db: AsyncSession = Depends(get_db),
             cloud_prov = await get_anthropic_provider(str(provider_id))
         elif provider.provider_type == "groq":
             cloud_prov = await get_groq_provider(str(provider_id))
+        elif provider.provider_type == "openrouter":
+            from app.services.provider_service import get_openrouter_provider
+            cloud_prov = await get_openrouter_provider(str(provider_id))
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider type: {provider.provider_type}")
 
@@ -506,6 +517,9 @@ async def invoke_model(provider_id: UUID, req: InvocationRequest, db: AsyncSessi
             cloud_prov = await get_anthropic_provider(str(provider_id))
         elif provider.provider_type == "groq":
             cloud_prov = await get_groq_provider(str(provider_id))
+        elif provider.provider_type == "openrouter":
+            from app.services.provider_service import get_openrouter_provider
+            cloud_prov = await get_openrouter_provider(str(provider_id))
         else:
             raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider.provider_type}")
 

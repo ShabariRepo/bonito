@@ -9,7 +9,7 @@ import { LoadingDots } from "@/components/ui/loading-dots";
 import { API_URL } from "@/lib/utils";
 import { apiRequest } from "@/lib/auth";
 
-type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq";
+type ProviderType = "aws" | "azure" | "gcp" | "openai" | "anthropic" | "groq" | "openrouter";
 
 interface ConnectModalProps {
   open: boolean;
@@ -24,6 +24,7 @@ const providers: { type: ProviderType; name: string; description: string; color:
   { type: "openai", name: "OpenAI", description: "GPT-4o, o1, o3-mini — direct API", color: "text-green-500", bgColor: "bg-green-500/10", icon: "🤖" },
   { type: "anthropic", name: "Anthropic", description: "Claude 3.5 Sonnet, Opus — direct API", color: "text-purple-500", bgColor: "bg-purple-500/10", icon: "🧠" },
   { type: "groq", name: "Groq", description: "Llama, GPT OSS — ultra-fast inference", color: "text-orange-500", bgColor: "bg-orange-500/10", icon: "⚡" },
+  { type: "openrouter", name: "OpenRouter", description: "300+ models — unified API gateway", color: "text-cyan-500", bgColor: "bg-cyan-500/10", icon: "🔀" },
 ];
 
 const AWS_BEDROCK_REGIONS = [
@@ -142,6 +143,7 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
     if (selectedProvider === "openai") return (credentials.api_key?.length || 0) >= 20;
     if (selectedProvider === "anthropic") return (credentials.api_key?.length || 0) >= 20;
     if (selectedProvider === "groq") return (credentials.api_key?.length || 0) >= 20;
+    if (selectedProvider === "openrouter") return (credentials.api_key?.length || 0) >= 20;
     return false;
   };
 
@@ -294,6 +296,16 @@ export function ConnectModal({ open, onClose, onSuccess }: ConnectModalProps) {
                     <p className="text-xs text-muted-foreground">Get your API key from <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">console.groq.com</a></p>
                   </div>
                   <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="gsk_..." type="password" />
+                </>
+              )}
+
+              {selectedProvider === "openrouter" && (
+                <>
+                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 space-y-1">
+                    <p className="text-sm text-cyan-400 font-medium">🔀 OpenRouter — 300+ Models</p>
+                    <p className="text-xs text-muted-foreground">Get your API key from <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:text-violet-300 underline">openrouter.ai/settings/keys</a></p>
+                  </div>
+                  <Field label="API Key" value={credentials.api_key || ""} onChange={(v) => updateCred("api_key", v)} placeholder="sk-or-..." type="password" />
                 </>
               )}
 
