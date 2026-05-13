@@ -62,16 +62,16 @@ class TierLimits:
     
     TIER_CONFIG = {
         SubscriptionTier.FREE: {
-            "providers": 1,
+            "providers": 3,
             "gateway_calls_per_month": 25000,
-            "members": 1,
+            "members": 3,
             "features": {
                 "models": True,
                 "playground": True,
                 "routing": True,  # basic failover routing
                 "ai_context": False,
                 "analytics": False,
-                "cli": False,
+                "cli": True,
                 "audit": False,
                 "notifications": False,
                 "budget_alerts": False,

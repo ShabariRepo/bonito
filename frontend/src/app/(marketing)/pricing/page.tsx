@@ -12,7 +12,7 @@ const plans = [
     period: "",
     description: "For teams evaluating Bonito before committing to a paid plan.",
     features: [
-      "Up to 1 cloud provider connections",
+      "Up to 3 cloud provider connections",
       "25,000 gateway API calls / month",
       "Automatic failover routing",
       "Model catalog & playground",
@@ -20,7 +20,7 @@ const plans = [
       "Standard request logging",
       "AI Code Review — 6 reviews / month",
       "Community support (Discord)",
-      "1 team member",
+      "3 team members",
     ],
     cta: "Request Access",
     highlighted: true,
@@ -172,9 +172,9 @@ const agentPlans = [
 
 const comparisonFeatures = [
   // ── Core Platform
-  { category: "Core Platform", name: "Cloud Providers", free: "1", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Cloud Providers", free: "3", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Gateway API Calls / month", free: "25,000", pro: "500,000", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Team Members", free: "1", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Team Members", free: "3", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
   { category: "Core Platform", name: "Model Catalog & Playground", free: true, pro: true, enterprise: true, scale: true },
   { category: "Core Platform", name: "One-Click Model Activation", free: true, pro: true, enterprise: true, scale: true },
   // ── AI Gateway
