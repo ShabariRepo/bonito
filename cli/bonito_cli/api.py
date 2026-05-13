@@ -9,7 +9,7 @@ import httpx
 from rich.console import Console
 
 from . import __version__
-from .config import get_api_key, get_api_url
+from .config import get_api_key, get_api_url, get_refresh_token, save_credentials, load_credentials
 
 console = Console()
 
@@ -28,6 +28,7 @@ class BonitoAPI:
     def __init__(self) -> None:
         self.base_url: str = get_api_url()
         self._client: Optional[httpx.Client] = None
+        self._refreshing: bool = False
 
     # ── internal helpers ────────────────────────────────────────
 
@@ -51,6 +52,32 @@ class BonitoAPI:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
+    def _try_refresh(self) -> bool:
+        """Attempt to refresh the access token using the stored refresh token."""
+        refresh_token = get_refresh_token()
+        if not refresh_token:
+            return False
+        self._refreshing = True
+        try:
+            resp = self.client.request(
+                "POST", "/api/auth/refresh",
+                json={"refresh_token": refresh_token},
+                headers={"Content-Type": "application/json", "User-Agent": f"bonito-cli/{__version__}"},
+            )
+            if resp.status_code == 200:
+                tokens = resp.json()
+                creds = load_credentials()
+                creds["access_token"] = tokens["access_token"]
+                if tokens.get("refresh_token"):
+                    creds["refresh_token"] = tokens["refresh_token"]
+                save_credentials(creds)
+                return True
+        except Exception:
+            pass
+        finally:
+            self._refreshing = False
+        return False
+
     def _request(
         self,
         method: str,
@@ -66,10 +93,19 @@ class BonitoAPI:
         except httpx.RequestError as exc:
             raise APIError(f"Connection failed: {exc}") from exc
 
-        if resp.status_code == 401:
-            raise APIError(
-                "Authentication failed — run [cyan]bonito auth login[/cyan].", 401
-            )
+        if resp.status_code == 401 and not self._refreshing:
+            if self._try_refresh():
+                # Retry the request with the new token
+                try:
+                    resp = self.client.request(
+                        method, url, json=data, params=params, headers=self._headers()
+                    )
+                except httpx.RequestError as exc:
+                    raise APIError(f"Connection failed: {exc}") from exc
+            if resp.status_code == 401:
+                raise APIError(
+                    "Authentication failed — run [cyan]bonito auth login[/cyan].", 401
+                )
         if resp.status_code == 204:
             return {"status": "ok"}
         if resp.status_code >= 400:

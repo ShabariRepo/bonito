@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bonito-cli"
-version = "0.7.0"
+version = "0.7.1"
 description = "Bonito CLI — Unified multi-cloud AI management from your terminal"
 readme = "README.md"
 license = {text = "MIT"}
