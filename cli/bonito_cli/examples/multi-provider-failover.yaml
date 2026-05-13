@@ -2,34 +2,35 @@ version: "1"
 name: multi-provider
 description: "Multi-provider setup with automatic failover routing"
 
-providers:
-  - name: openai-primary
-    type: openai
-  - name: anthropic-backup
-    type: anthropic
-  - name: groq-fast
-    type: groq
+gateway:
+  providers:
+    - name: openai
+      api_key: ${OPENAI_API_KEY}
+    - name: anthropic
+      api_key: ${ANTHROPIC_API_KEY}
+    - name: groq
+      api_key: ${GROQ_API_KEY}
 
 routing:
   - name: smart-failover
     strategy: failover
     targets:
-      - provider: anthropic-backup
+      - provider: anthropic
         model: anthropic/claude-sonnet-4-20250514
         priority: 1
-      - provider: openai-primary
+      - provider: openai
         model: gpt-4o
         priority: 2
-      - provider: groq-fast
+      - provider: groq
         model: llama-3.3-70b-versatile
         priority: 3
 
   - name: cost-optimized
     strategy: cost
     targets:
-      - provider: groq-fast
+      - provider: groq
         model: llama-3.3-70b-versatile
         priority: 1
-      - provider: openai-primary
+      - provider: openai
         model: gpt-4o-mini
         priority: 2

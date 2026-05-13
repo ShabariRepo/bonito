@@ -2,12 +2,14 @@ version: "1"
 name: support-bot
 description: "Customer support agent with governed tools and knowledge base"
 
-providers:
-  - name: openai
-    type: openai
+gateway:
+  providers:
+    - name: openai
+      api_key: ${OPENAI_API_KEY}
 
 agents:
-  - name: Customer Support
+  customer-support:
+    display_name: "Customer Support"
     model_id: gpt-4o
     system_prompt: |
       You are a helpful customer support agent. Answer questions accurately

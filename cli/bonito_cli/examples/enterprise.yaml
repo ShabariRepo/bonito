@@ -2,42 +2,46 @@ version: "1"
 name: enterprise-ai-ops
 description: "Enterprise AI operations — multi-cloud, failover, governed agents"
 
-providers:
-  - name: aws-bedrock
-    type: aws
-  - name: azure-openai
-    type: azure
-  - name: gcp-vertex
-    type: gcp
-  - name: anthropic-direct
-    type: anthropic
+gateway:
+  providers:
+    - name: aws
+      access_key: ${AWS_ACCESS_KEY_ID}
+      secret_key: ${AWS_SECRET_ACCESS_KEY}
+      region: us-east-1
+    - name: azure
+      api_key: ${AZURE_API_KEY}
+    - name: gcp
+      api_key: ${GCP_API_KEY}
+    - name: anthropic
+      api_key: ${ANTHROPIC_API_KEY}
 
 routing:
   - name: production-failover
     strategy: failover
     targets:
-      - provider: aws-bedrock
+      - provider: aws
         model: us.anthropic.claude-sonnet-4-20250514-v1:0
         priority: 1
-      - provider: azure-openai
+      - provider: azure
         model: gpt-4o
         priority: 2
-      - provider: gcp-vertex
+      - provider: gcp
         model: gemini-2.0-flash
         priority: 3
 
   - name: internal-cost-optimized
     strategy: cost
     targets:
-      - provider: gcp-vertex
+      - provider: gcp
         model: gemini-2.0-flash
         priority: 1
-      - provider: aws-bedrock
+      - provider: aws
         model: us.amazon.nova-lite-v1:0
         priority: 2
 
 agents:
-  - name: Tier 1 Support
+  tier-1-support:
+    display_name: "Tier 1 Support"
     model_id: us.anthropic.claude-sonnet-4-20250514-v1:0
     system_prompt: |
       Enterprise support agent. Investigate alerts, follow internal playbooks,
@@ -53,7 +57,8 @@ agents:
       http_allowlist:
         - "https://internal-api.company.com/*"
 
-  - name: Knowledge Assistant
+  knowledge-assistant:
+    display_name: "Knowledge Assistant"
     model_id: gpt-4o
     system_prompt: |
       Internal knowledge assistant. Answer questions about company policies,
