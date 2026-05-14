@@ -122,8 +122,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if os.environ.get("REGISTRATION_DISABLED", "").lower() in ("true", "1", "yes"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration is currently closed")
 
-    # Invite-only gate: require a valid invite code unless INVITE_REQUIRED=false
-    invite_required = os.environ.get("INVITE_REQUIRED", "true").lower() not in ("false", "0", "no")
+    # Invite-only gate: require a valid invite code when INVITE_REQUIRED=true
+    invite_required = os.environ.get("INVITE_REQUIRED", "false").lower() not in ("false", "0", "no")
     access_request = None
     if invite_required:
         if not body.invite_code:
