@@ -242,7 +242,6 @@ class AgentExecuteRequest(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=100000)
     session_id: Optional[UUID] = None  # if not provided, creates new session
-    context: Optional[str] = None  # optional context for external integrations (e.g. AdVan)
 
 
 class SecurityMetadata(BaseModel):
