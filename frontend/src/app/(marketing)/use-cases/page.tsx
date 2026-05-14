@@ -2007,6 +2007,31 @@ export default function UseCasesPage() {
             </motion.div>
           </AnimatePresence>
 
+          {/* Product Hunt Embed */}
+          <section className="pb-12 flex justify-center">
+            <div className="border border-[#1a1a1a] rounded-xl p-5 bg-[#111] max-w-[500px] w-full">
+              <div className="flex items-center gap-3 mb-3">
+                <img
+                  alt="Bonito CLI"
+                  src="https://ph-files.imgix.net/817bff1e-7dc4-4856-b229-318b0f09ffe9.png?auto=format&fit=crop&w=80&h=80"
+                  className="w-16 h-16 rounded-lg object-cover shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-lg font-semibold text-[#f5f0e8] truncate">Bonito CLI</h3>
+                  <p className="text-sm text-[#888] line-clamp-2">Deploy AI agents across any provider from one YAML file</p>
+                </div>
+              </div>
+              <a
+                href="https://www.producthunt.com/products/bonito-cli?embed=true&utm_source=embed&utm_medium=post_embed"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-3 px-4 py-2 bg-[#ff6154] text-white text-sm font-semibold rounded-lg hover:bg-[#e5574b] transition"
+              >
+                Check it out on Product Hunt →
+              </a>
+            </div>
+          </section>
+
           {/* CTA */}
           <section className="pb-24">
             <div className="bg-gradient-to-br from-[#7c3aed]/10 to-transparent border border-[#7c3aed]/20 rounded-xl p-8 md:p-12 text-center">
