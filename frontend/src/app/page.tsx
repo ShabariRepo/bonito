@@ -168,6 +168,20 @@ export default function LandingPage() {
               Learn More
             </Link>
           </div>
+          <div className="mt-8">
+            <a
+              href="https://www.producthunt.com/products/bonito-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-bonito-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                alt="Bonito CLI - Deploy AI agents across any provider from one YAML file | Product Hunt"
+                width={250}
+                height={54}
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1146468&theme=light&t=1778759307880"
+              />
+            </a>
+          </div>
         </FadeInSection>
       </section>
 
@@ -321,7 +335,22 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-[#1a1a1a] py-12">
         <div className="max-w-7xl mx-auto px-6 md:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</div>
+          <div className="flex items-center gap-6">
+            <span className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</span>
+            <a
+              href="https://www.producthunt.com/products/bonito-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-bonito-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0"
+            >
+              <img
+                alt="Bonito CLI - Deploy AI agents across any provider from one YAML file | Product Hunt"
+                width={150}
+                height={33}
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1146468&theme=dark&t=1778759307880"
+              />
+            </a>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-[#666]">
             <Link href="/use-cases" className="hover:text-[#999] transition">Use Cases</Link>
             <Link href="/pricing" className="hover:text-[#999] transition">Pricing</Link>

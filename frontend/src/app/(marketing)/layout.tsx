@@ -191,7 +191,22 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
             ))}
           </div>
           <div className="mt-12 pt-8 border-t border-[#1a1a1a] flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</p>
+            <div className="flex items-center gap-6">
+              <p className="text-sm text-[#666]">© 2026 Bonito. All rights reserved.</p>
+              <a
+                href="https://www.producthunt.com/products/bonito-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-bonito-cli"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0"
+              >
+                <img
+                  alt="Bonito CLI - Deploy AI agents across any provider from one YAML file | Product Hunt"
+                  width={150}
+                  height={33}
+                  src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1146468&theme=dark&t=1778759307880"
+                />
+              </a>
+            </div>
             <p className="text-sm text-[#444]">getbonito.com</p>
           </div>
         </div>
