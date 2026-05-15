@@ -10,7 +10,6 @@ import { Menu, X } from "lucide-react";
 import SchematicBackground from "@/components/SchematicBackground";
 
 const navLinks = [
-  { href: "/discover", label: "Discover" },
   { href: "/use-cases", label: "Use Cases" },
   { href: "/compare", label: "Compare" },
   { href: "/pricing", label: "Pricing" },
@@ -21,6 +20,7 @@ const navLinks = [
 
 const footerLinks = {
   Product: [
+    { href: "/discover", label: "Discover" },
     { href: "/use-cases", label: "Use Cases" },
     { href: "/compare", label: "Compare" },
     { href: "/pricing", label: "Pricing" },
@@ -59,7 +59,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           </Link>
           
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
+            <Link
+              href="/discover"
+              className={`text-sm font-semibold px-3.5 py-1.5 rounded-full border transition ${
+                pathname?.startsWith("/discover")
+                  ? "bg-[#7c3aed] text-white border-[#7c3aed]"
+                  : "bg-[#7c3aed]/10 text-[#a78bfa] border-[#7c3aed]/30 hover:bg-[#7c3aed]/20 hover:text-white"
+              }`}
+            >
+              Discover
+            </Link>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -111,6 +121,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               className="md:hidden border-t border-[#1a1a1a] bg-[#0a0a0a]"
             >
               <div className="px-4 py-4 space-y-4">
+                <Link
+                  href="/discover"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`inline-flex items-center text-sm font-semibold px-4 py-2 rounded-full border transition ${
+                    pathname?.startsWith("/discover")
+                      ? "bg-[#7c3aed] text-white border-[#7c3aed]"
+                      : "bg-[#7c3aed]/10 text-[#a78bfa] border-[#7c3aed]/30"
+                  }`}
+                >
+                  Discover
+                </Link>
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
