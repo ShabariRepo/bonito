@@ -508,16 +508,18 @@ export default function DiscoverPage() {
             {/* Social proof hint */}
             <div className="mt-12 text-center">
               <p className="text-[#555] text-xs uppercase tracking-widest mb-4">Trusted by teams using</p>
-              <div className="flex items-center justify-center gap-6 text-[#444] text-sm">
-                <span>AWS Bedrock</span>
+              <div className="flex items-center justify-center gap-6 text-sm font-medium">
+                <span style={{ color: "#FF9900" }}>AWS Bedrock</span>
                 <span className="text-[#333]">&middot;</span>
-                <span>Azure AI</span>
+                <span style={{ color: "#0078D4" }}>Azure AI</span>
                 <span className="text-[#333]">&middot;</span>
-                <span>Google Vertex</span>
+                <span style={{ color: "#4285F4" }}>Google Vertex</span>
                 <span className="text-[#333]">&middot;</span>
-                <span>OpenAI</span>
+                <span style={{ color: "#10A37F" }}>OpenAI</span>
                 <span className="text-[#333]">&middot;</span>
-                <span>Anthropic</span>
+                <span style={{ color: "#D97757" }}>Anthropic</span>
+                <span className="text-[#333]">&middot;</span>
+                <span style={{ color: "#F55036" }}>Groq</span>
               </div>
             </div>
           </motion.div>

@@ -136,8 +136,8 @@ async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
     model = "groq/llama-3.3-70b-versatile"
 
     if not api_key:
-        # Fallback to OpenAI if Groq key isn't set
-        api_key = getattr(settings, "openai_api_key", None)
+        # Fallback to OpenAI platform key if Groq key isn't set
+        api_key = settings.platform_embedding_api_key
         model = "gpt-4o-mini"
 
     if not api_key:
