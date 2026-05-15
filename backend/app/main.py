@@ -195,6 +195,10 @@ app.include_router(access_requests.admin_router, prefix="/api")
 from app.api.routes import contact
 app.include_router(contact.router, prefix="/api")
 
+# Discover (public, no auth)
+from app.api.routes import discover
+app.include_router(discover.router, prefix="/api")
+
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
 

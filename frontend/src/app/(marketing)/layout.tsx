@@ -10,6 +10,7 @@ import { Menu, X } from "lucide-react";
 import SchematicBackground from "@/components/SchematicBackground";
 
 const navLinks = [
+  { href: "/discover", label: "Discover" },
   { href: "/use-cases", label: "Use Cases" },
   { href: "/compare", label: "Compare" },
   { href: "/pricing", label: "Pricing" },
