@@ -56,6 +56,17 @@ class EmbeddingRequest(BaseModel):
     encoding_format: Optional[str] = None
 
 
+class ImageGenerationRequest(BaseModel):
+    model: str = "dall-e-3"
+    prompt: str
+    n: Optional[int] = 1
+    size: Optional[str] = None  # "256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"
+    quality: Optional[str] = None  # "standard", "hd"
+    style: Optional[str] = None  # "natural", "vivid"
+    response_format: Optional[str] = None  # "url", "b64_json"
+    user: Optional[str] = None
+
+
 # ─── API Key schemas ───
 
 class GatewayKeyCreate(BaseModel):
