@@ -1274,6 +1274,107 @@ async def embedding(request_data: dict, org_id: uuid.UUID, key_id: uuid.UUID, db
         raise
 
 
+# ─── Image Generation ───
+
+# Approximate cost per image (used when litellm can't calculate)
+_IMAGE_COST_FALLBACK = {
+    "dall-e-3": {"1024x1024": 0.040, "1024x1792": 0.080, "1792x1024": 0.080},
+    "dall-e-2": {"256x256": 0.016, "512x512": 0.018, "1024x1024": 0.020},
+    "gpt-image-1": {"1024x1024": 0.040, "1024x1792": 0.080, "1792x1024": 0.080},
+}
+
+
+async def image_generation(
+    request_data: dict,
+    org_id: uuid.UUID,
+    key_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """Generate images via LiteLLM router and log the request."""
+    router = await get_router(db, org_id)
+    model = request_data.get("model", "dall-e-3")
+    start = time.time()
+
+    log_entry = GatewayRequest(
+        org_id=org_id,
+        key_id=key_id,
+        model_requested=model,
+        status="success",
+    )
+
+    try:
+        response = await router.aimage_generation(**request_data)
+        elapsed_ms = int((time.time() - start) * 1000)
+
+        log_entry.model_used = model
+        log_entry.input_tokens = 0  # image gen doesn't use tokens
+        log_entry.output_tokens = 0
+        log_entry.latency_ms = elapsed_ms
+
+        # Cost: try litellm first, fallback to our table
+        try:
+            log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
+        except Exception:
+            n = request_data.get("n", 1) or 1
+            size = request_data.get("size", "1024x1024") or "1024x1024"
+            per_image = _IMAGE_COST_FALLBACK.get(model, {}).get(size, 0.04)
+            log_entry.cost = per_image * n
+
+        log_entry.provider = await _resolve_provider_for_log(db, org_id, model)
+
+        db.add(log_entry)
+        await db.flush()
+
+        # Track managed inference
+        await _track_managed_inference(db, log_entry, org_id)
+
+        # Emit to platform logging
+        try:
+            await emit_gateway_event(
+                org_id, "request",
+                resource_type="model",
+                message=f"Image generation: {model}",
+                duration_ms=elapsed_ms,
+                cost=log_entry.cost,
+                metadata={
+                    "model": model,
+                    "n": request_data.get("n", 1),
+                    "size": request_data.get("size", "1024x1024"),
+                    "provider": log_entry.provider,
+                },
+            )
+        except Exception:
+            pass
+
+        response_dict = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+        return response_dict
+
+    except Exception as e:
+        elapsed_ms = int((time.time() - start) * 1000)
+        log_entry.status = "error"
+        log_entry.error_message = str(e)[:1000]
+        log_entry.latency_ms = elapsed_ms
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log image gen error: {log_err}")
+
+        # Emit error event
+        try:
+            await emit_gateway_event(
+                org_id, "error",
+                severity="error",
+                message=f"Image generation error: {model} - {str(e)[:200]}",
+                duration_ms=elapsed_ms,
+                metadata={"model": model, "error": str(e)[:500]},
+            )
+        except Exception:
+            pass
+
+        raise
+
+
 # ─── API Key management ───
 
 def generate_api_key() -> tuple[str, str, str]:

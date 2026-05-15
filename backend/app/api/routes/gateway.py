@@ -27,6 +27,7 @@ from app.schemas.gateway import (
     ChatCompletionRequest,
     CompletionRequest,
     EmbeddingRequest,
+    ImageGenerationRequest,
     GatewayKeyCreate,
     GatewayKeyResponse,
     GatewayKeyCreated,
@@ -625,6 +626,60 @@ async def embeddings(
     except PolicyViolation as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+
+
+@router.post("/v1/images/generations")
+async def image_generations(
+    raw_request: Request,
+    request: ImageGenerationRequest,
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """OpenAI-compatible image generation endpoint."""
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    key, policy = auth_context
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+
+    # Track usage
+    if org_id:
+        try:
+            await usage_tracker.track_gateway_request(db, str(org_id))
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+
+    # Gateway call limit
+    if key:
+        try:
+            from app.services.feature_gate import feature_gate
+            await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+        except HTTPException as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
+        # Policy enforcement
+        try:
+            await gateway_service.enforce_policies(db, key, request.model)
+        except PolicyViolation as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    key_id = key.id if key else None
+
+    try:
+        data = request.model_dump(exclude_none=True)
+        result = await gateway_service.image_generation(data, org_id, key_id, db)
+        return result
+    except HTTPException:
+        raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Image generation failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
