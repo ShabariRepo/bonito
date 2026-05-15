@@ -292,7 +292,7 @@ function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: 
                 </div>
               </div>
               <p className="text-[#999] text-sm leading-relaxed mb-3">{uc.description}</p>
-              <div className="flex items-center justify-between">
+              <div className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   {uc.bonito_features.map((feat, j) => (
                     <span key={j} className="text-xs px-2 py-1 rounded-md bg-[#7c3aed]/10 text-[#a78bfa] border border-[#7c3aed]/20">
@@ -300,8 +300,8 @@ function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: 
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-400 shrink-0 ml-4">
-                  <TrendingUp className="w-3.5 h-3.5" />
+                <div className="flex items-start gap-1.5 text-xs text-emerald-400">
+                  <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>{uc.impact}</span>
                 </div>
               </div>
