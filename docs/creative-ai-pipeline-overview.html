@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative AI Pipeline Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #d4d4d8;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 32px 100px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 64px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #a78bfa;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    padding: 6px 16px;
+    border-radius: 100px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: 40px;
+    font-weight: 700;
+    color: #fafafa;
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+  h1 span { color: #a78bfa; }
+  .subtitle {
+    font-size: 17px;
+    color: #71717a;
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  /* ── Sections ── */
+  section { margin-bottom: 56px; }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a78bfa;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(124,58,237,0.2);
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #fafafa;
+    margin-bottom: 8px;
+  }
+
+  p { margin-bottom: 16px; color: #a1a1aa; font-size: 15px; }
+
+  /* ── Pipeline Flow ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 640px) { .pipeline { grid-template-columns: 1fr; } }
+
+  .stage {
+    background: #111118;
+    border: 1px solid #1e1e2a;
+    border-radius: 14px;
+    padding: 24px 20px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .stage:hover { border-color: rgba(124,58,237,0.35); }
+
+  .stage-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7c3aed;
+    background: rgba(124,58,237,0.12);
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 14px;
+  }
+  .stage h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e4e4e7;
+    margin-bottom: 6px;
+  }
+  .stage p {
+    font-size: 13px;
+    color: #71717a;
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  /* ── Arrow connector row ── */
+  .flow-arrows {
+    text-align: center;
+    color: #3f3f50;
+    font-size: 22px;
+    margin: -4px 0 12px;
+    letter-spacing: 12px;
+  }
+
+  /* ── Cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 640px) { .card-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #111118;
+    border: 1px solid #1e1e2a;
+    border-radius: 14px;
+    padding: 24px 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(124,58,237,0.35); }
+  .card h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #e4e4e7;
+    margin-bottom: 6px;
+  }
+  .card p {
+    font-size: 13px;
+    color: #71717a;
+    margin: 0;
+    line-height: 1.55;
+  }
+  .card .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #a78bfa;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.2);
+    padding: 2px 10px;
+    border-radius: 100px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Simple list ── */
+  .simple-list {
+    list-style: none;
+    padding: 0;
+  }
+  .simple-list li {
+    padding: 14px 0;
+    border-bottom: 1px solid #1a1a24;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 14px;
+  }
+  .simple-list li:last-child { border-bottom: none; }
+  .bullet {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #7c3aed;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  .simple-list strong { color: #e4e4e7; font-weight: 600; }
+
+  /* ── Diagram ── */
+  .diagram-box {
+    background: #0e0e16;
+    border: 1px solid #1e1e2a;
+    border-radius: 14px;
+    padding: 32px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: #71717a;
+    line-height: 2;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .diagram-box .highlight { color: #a78bfa; font-weight: 600; }
+  .diagram-box .muted { color: #3f3f50; }
+  .diagram-box .accent { color: #34d399; }
+
+  /* ── Branding ── */
+  .brand-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #1a1a24;
+  }
+  .brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .brand-logo:hover { opacity: 0.8; }
+  .brand-logo img {
+    height: 32px;
+    width: auto;
+  }
+  .brand-logo span {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fafafa;
+  }
+  .brand-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #a78bfa;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    padding: 8px 18px;
+    border-radius: 100px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .brand-cta:hover {
+    background: rgba(124,58,237,0.2);
+    color: #c4b5fd;
+  }
+  .brand-cta svg {
+    width: 14px;
+    height: 14px;
+  }
+  .prepared-by {
+    font-size: 12px;
+    color: #52525b;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 80px;
+    text-align: center;
+    padding-top: 32px;
+    border-top: 1px solid #1a1a24;
+  }
+  .footer p {
+    font-size: 13px;
+    color: #3f3f50;
+  }
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    margin-bottom: 16px;
+    transition: opacity 0.2s;
+  }
+  .footer-logo:hover { opacity: 0.8; }
+  .footer-logo img {
+    height: 28px;
+    width: auto;
+  }
+  .footer-logo span {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fafafa;
+  }
+  .footer-discover {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #a78bfa;
+    text-decoration: none;
+    margin-top: 12px;
+    transition: color 0.2s;
+  }
+  .footer-discover:hover { color: #c4b5fd; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Brand Bar -->
+  <div class="brand-bar">
+    <a href="https://getbonito.com/discover" class="brand-logo">
+      <img src="https://getbonito.com/bonito-icon.png" alt="Bonito AI" />
+      <span>Bonito AI</span>
+    </a>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <span class="prepared-by">Prepared by Shabari</span>
+      <a href="https://getbonito.com/discover" class="brand-cta">
+        Try Discover
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="header">
+    <div class="badge">Reference Architecture</div>
+    <h1>Creative AI <span>Pipeline</span></h1>
+    <p class="subtitle">A framework for structuring multi-model AI workflows in creative production &mdash; from brief intake to published asset.</p>
+  </div>
+
+  <!-- ─── Pipeline Stages ─── -->
+  <section>
+    <h2>The 6-Stage Pipeline</h2>
+    <p>Every creative AI workflow follows the same general arc. The models, tools, and review gates change by use case &mdash; the shape stays consistent.</p>
+
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-num">1</div>
+        <h4>Brief &amp; Intake</h4>
+        <p>Structured input: brand, audience, tone, format, constraints. This becomes the "contract" every downstream agent works from.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-num">2</div>
+        <h4>Research &amp; Context</h4>
+        <p>RAG retrieval of brand guidelines, past campaign performance, competitor creative, audience data. Grounds generation in reality.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-num">3</div>
+        <h4>Ideation</h4>
+        <p>LLM generates concepts, headlines, angles, storyboards. Multiple variants produced in parallel for selection.</p>
+      </div>
+    </div>
+    <div class="pipeline">
+      <div class="stage">
+        <div class="stage-num">4</div>
+        <h4>Production</h4>
+        <p>Specialised models produce the actual assets &mdash; images, video, voiceover, copy. Each model type handles its domain.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-num">5</div>
+        <h4>Review &amp; QA</h4>
+        <p>Automated checks (brand compliance, tone, legal) plus human approval gates. The critical trust layer before anything goes live.</p>
+      </div>
+      <div class="stage">
+        <div class="stage-num">6</div>
+        <h4>Publish &amp; Learn</h4>
+        <p>Distribute to channels, track performance, feed results back into the pipeline for the next iteration.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Flow Diagram ─── -->
+  <section>
+    <h2>Request Flow</h2>
+    <div class="diagram-box"><span class="highlight">Brief</span> <span class="muted">───&gt;</span> <span class="highlight">RAG Context</span> <span class="muted">───&gt;</span> <span class="highlight">Ideation (LLM)</span>
+  <span class="muted">│</span>
+  <span class="muted">├──&gt;</span> <span class="highlight">Copy Agent</span> <span class="muted">──────────&gt;</span> <span class="accent">Text assets</span> <span class="muted">──┐</span>
+  <span class="muted">├──&gt;</span> <span class="highlight">Image Agent</span> <span class="muted">─────────&gt;</span> <span class="accent">Visual assets</span> <span class="muted">─┤</span>
+  <span class="muted">├──&gt;</span> <span class="highlight">Video Agent</span> <span class="muted">─────────&gt;</span> <span class="accent">Video assets</span> <span class="muted">──┤</span>
+  <span class="muted">└──&gt;</span> <span class="highlight">Voice Agent</span> <span class="muted">─────────&gt;</span> <span class="accent">Audio assets</span> <span class="muted">──┤</span>
+  <span class="muted">                                            │</span>
+  <span class="muted">                                     </span><span class="highlight">Review Gate</span> <span class="muted">───&gt;</span> <span class="accent">Publish</span></div>
+  </section>
+
+  <!-- ─── Agent Patterns ─── -->
+  <section>
+    <h2>Orchestration Patterns</h2>
+    <p>How you wire agents together matters as much as which models you pick. Four patterns cover most creative workflows.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="tag">Sequential</div>
+        <h4>Chain / Waterfall</h4>
+        <p>Each agent's output feeds the next. Simple, predictable. Good for linear workflows like brief &rarr; copy &rarr; design &rarr; review.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Parallel + Merge</div>
+        <h4>Fan-out / Fan-in</h4>
+        <p>One agent fans work to many specialists (copy, image, video), then a merge agent assembles the final package. Fast for multi-asset campaigns.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Supervisor</div>
+        <h4>Creative Director</h4>
+        <p>An orchestrator agent delegates, reviews, and re-routes. Can send work back for revision. Most flexible, highest token cost.</p>
+      </div>
+      <div class="card">
+        <div class="tag">Critic Loop</div>
+        <h4>Generator + Evaluator</h4>
+        <p>One agent creates, another scores against criteria (brand voice, compliance). Loops until quality threshold is met. Self-improving output.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Model Landscape ─── -->
+  <section>
+    <h2>Model Categories</h2>
+    <p>A creative pipeline typically spans 4&ndash;5 model types. No single provider covers everything &mdash; multi-provider routing is essential.</p>
+
+    <ul class="simple-list">
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Language models (LLMs)</strong> &mdash; Copy, scripts, strategy, ideation, review. GPT-4o, Claude, Llama, Gemini. The backbone of every pipeline stage.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Image generation</strong> &mdash; DALL-E 3, Stable Diffusion (via Bedrock), Imagen (Vertex). Key for ad creative, social posts, product shots. Prompt engineering matters enormously here.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Video generation</strong> &mdash; Runway, Pika, Sora. Emerging but fast-moving. Best for short-form social content, product demos, motion graphics.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Voice &amp; audio</strong> &mdash; ElevenLabs, OpenAI TTS, Google Cloud TTS, Play.ht. Voiceovers, podcast intros, ad narration. Cloning + multilingual are the unlock.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Music &amp; sound</strong> &mdash; Suno, Udio, MusicGen. Background tracks, jingles, soundscapes. Still early but usable for non-licensed content needs.</div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ─── Key Considerations ─── -->
+  <section>
+    <h2>What Matters in Practice</h2>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4>Brand Guardrails</h4>
+        <p>Every generation step needs access to brand voice, colour palettes, dos and don'ts. RAG over brand docs is the standard approach &mdash; embed guidelines, retrieve per-prompt.</p>
+      </div>
+      <div class="card">
+        <h4>Human-in-the-Loop</h4>
+        <p>Full automation isn't the goal &mdash; augmented speed is. Low-risk outputs (internal drafts) auto-approve; high-risk (client-facing, legal) require human sign-off.</p>
+      </div>
+      <div class="card">
+        <h4>Cost Control</h4>
+        <p>Image and video models are 10&ndash;100x the cost of text. Route drafts through cheaper models, reserve premium for finals. Budget caps per-project, not per-model.</p>
+      </div>
+      <div class="card">
+        <h4>Evaluation</h4>
+        <p>You can't improve what you can't measure. Track brand alignment scores, revision rates, time-to-publish, and client approval rates across the pipeline.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Example Workflow ─── -->
+  <section>
+    <h2>Example: Social Campaign</h2>
+    <p>A concrete walkthrough of how this plays out for a 10-post social media campaign.</p>
+
+    <ul class="simple-list">
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Brief intake:</strong> Brand uploads campaign brief (audience, goals, tone, platforms). System extracts structured parameters.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Context pull:</strong> RAG retrieves brand guidelines + top-performing past posts + competitor examples from knowledge base.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Concept generation:</strong> LLM produces 15 post concepts with hooks, CTAs, and visual direction notes. Creative director agent ranks top 10.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Asset production:</strong> Copy agent writes final captions. Image agent generates visuals (2&ndash;3 variants each). Runs in parallel.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Review:</strong> QA agent checks brand compliance, tone, and platform specs. Flags 2 posts for human review. Rest auto-approved.</div>
+      </li>
+      <li>
+        <div class="bullet"></div>
+        <div><strong>Publish:</strong> Approved assets pushed to scheduling tool. Performance data feeds back for next campaign's RAG context.</div>
+      </li>
+    </ul>
+  </section>
+
+  <div class="footer">
+    <a href="https://getbonito.com/discover" class="footer-logo">
+      <img src="https://getbonito.com/bonito-icon.png" alt="Bonito AI" />
+      <span>Bonito AI</span>
+    </a>
+    <p>Enterprise AI Operations Platform</p>
+    <p style="margin-top: 4px;">Prepared by Shabari &middot; shabari@bonito.ai &middot; 2026</p>
+    <a href="https://getbonito.com/discover" class="footer-discover">
+      See what Bonito can do for your company &rarr;
+    </a>
+  </div>
+
+</div>
+</body>
+</html>

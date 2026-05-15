@@ -22,6 +22,7 @@ import {
   TrendingUp,
   RefreshCw,
   Link2,
+  ThumbsUp,
 } from "lucide-react";
 
 // ─── Types ───
@@ -163,15 +164,17 @@ function PlanBadge({ plan }: { plan: string }) {
     free: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     pro: "bg-[#7c3aed]/10 text-[#a78bfa] border-[#7c3aed]/20",
     enterprise: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    scale: "bg-rose-500/10 text-rose-400 border-rose-500/20",
   };
   const labels: Record<string, string> = {
     free: "Free Tier",
     pro: "Pro Plan",
     enterprise: "Enterprise",
+    scale: "Scale",
   };
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${colors[plan] || colors.pro}`}>
-      {labels[plan] || "Pro Plan"}
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${colors[plan] || colors.enterprise}`}>
+      {labels[plan] || "Enterprise"}
     </span>
   );
 }
@@ -180,6 +183,7 @@ function PlanBadge({ plan }: { plan: string }) {
 
 function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
 
   const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/discover/${result.id}`
@@ -321,6 +325,35 @@ function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: 
               <PlanBadge plan={result.recommended_plan} />
             </div>
           </div>
+        </div>
+      </FadeIn>
+
+      {/* Feedback */}
+      <FadeIn delay={0.43}>
+        <div className="flex items-center justify-center">
+          {!feedbackSent ? (
+            <button
+              onClick={async () => {
+                setFeedbackSent(true);
+                const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
+                try { await fetch(`${apiBase}/api/discover/${result.id}/feedback`, { method: "POST" }); } catch {}
+                setTimeout(() => { window.location.href = "/contact"; }, 1500);
+              }}
+              className="flex items-center gap-3 px-6 py-3 rounded-xl border border-[#1a1a1a] bg-[#111] hover:border-[#7c3aed]/40 hover:bg-[#7c3aed]/5 transition group"
+            >
+              <ThumbsUp className="w-5 h-5 text-[#666] group-hover:text-[#a78bfa] transition" />
+              <span className="text-sm text-[#888] group-hover:text-[#f5f0e8] transition">Was this helpful?</span>
+            </button>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-3 px-6 py-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5"
+            >
+              <Check className="w-5 h-5 text-emerald-400" />
+              <span className="text-sm text-emerald-400">Thanks! Redirecting you...</span>
+            </motion.div>
+          )}
         </div>
       </FadeIn>
 
