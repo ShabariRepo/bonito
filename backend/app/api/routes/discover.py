@@ -195,6 +195,12 @@ async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
     """Call Groq (or fallback) via litellm to generate the discovery report."""
     import litellm
 
+    # If company_name looks like a URL, treat it as the website URL too
+    if not website_url and company_name.strip().startswith(("http://", "https://", "www.")):
+        website_url = company_name.strip()
+        if not website_url.startswith("http"):
+            website_url = "https://" + website_url
+
     user_msg = f"Company: {company_name}"
     if website_url:
         user_msg += f"\nWebsite: {website_url}"
