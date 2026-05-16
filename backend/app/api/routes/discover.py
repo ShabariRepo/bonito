@@ -46,8 +46,8 @@ class DiscoverUseCase(BaseModel):
 
 
 class DiscoverRequest(BaseModel):
-    company_name: str = Field(..., min_length=1, max_length=200)
-    website_url: Optional[str] = Field(None, max_length=500)
+    company_name: Optional[str] = Field(None, max_length=200)
+    website_url: str = Field(..., min_length=5, max_length=500)
 
 
 class DiscoverResponse(BaseModel):
@@ -147,8 +147,9 @@ def _parse_llm_json(text: str) -> dict:
     return json.loads(cleaned.strip())
 
 
-async def _scrape_website(url: str) -> Optional[str]:
-    """Fetch website content for context. Returns plain text summary or None."""
+async def _scrape_website(url: str) -> tuple[Optional[str], Optional[str]]:
+    """Fetch website content. Returns (page_text, company_name) or (None, None)."""
+    import re
     import httpx
     from html.parser import HTMLParser
 
@@ -158,16 +159,29 @@ async def _scrape_website(url: str) -> Optional[str]:
             self._texts: list = []
             self._skip = False
             self._skip_tags = {"script", "style", "noscript", "svg", "path"}
+            self._in_title = False
+            self.title: Optional[str] = None
+            self.og_site_name: Optional[str] = None
 
         def handle_starttag(self, tag, attrs):
             if tag in self._skip_tags:
                 self._skip = True
+            if tag == "title":
+                self._in_title = True
+            if tag == "meta":
+                attrs_dict = dict(attrs)
+                if attrs_dict.get("property") == "og:site_name":
+                    self.og_site_name = attrs_dict.get("content")
 
         def handle_endtag(self, tag):
             if tag in self._skip_tags:
                 self._skip = False
+            if tag == "title":
+                self._in_title = False
 
         def handle_data(self, data):
+            if self._in_title and not self.title:
+                self.title = data.strip()
             if not self._skip:
                 text = data.strip()
                 if text:
@@ -175,6 +189,15 @@ async def _scrape_website(url: str) -> Optional[str]:
 
         def get_text(self) -> str:
             return "\n".join(self._texts)
+
+        def get_company_name(self) -> Optional[str]:
+            """Extract company name from og:site_name or title tag."""
+            if self.og_site_name:
+                return self.og_site_name
+            if self.title:
+                name = re.split(r'\s*[|\-\u2013\u2014:]\s*', self.title)[0].strip()
+                return name if name else self.title
+            return None
 
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
@@ -185,29 +208,29 @@ async def _scrape_website(url: str) -> Optional[str]:
         extractor = _TextExtractor()
         extractor.feed(html)
         text = extractor.get_text()
-        # Limit to ~3000 chars to avoid blowing up context
-        return text[:3000] if text else None
+        company_name = extractor.get_company_name()
+        return (text[:3000] if text else None, company_name)
     except Exception:
-        return None
+        return (None, None)
 
 
-async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
-    """Call Groq (or fallback) via litellm to generate the discovery report."""
+async def _call_llm(website_url: str, company_name: Optional[str] = None) -> tuple[dict, str]:
+    """Call Groq (or fallback) via litellm to generate the discovery report.
+    Returns (result_dict, resolved_company_name)."""
     import litellm
 
-    # If company_name looks like a URL, treat it as the website URL too
-    if not website_url and company_name.strip().startswith(("http://", "https://", "www.")):
-        website_url = company_name.strip()
-        if not website_url.startswith("http"):
-            website_url = "https://" + website_url
+    # Normalize URL
+    url = website_url.strip()
+    if not url.startswith("http"):
+        url = "https://" + url
 
-    user_msg = f"Company: {company_name}"
-    if website_url:
-        user_msg += f"\nWebsite: {website_url}"
-        # Actually fetch the website so the LLM has real context
-        site_content = await _scrape_website(website_url)
-        if site_content:
-            user_msg += f"\n\n--- Website Content ---\n{site_content}\n--- End Website Content ---"
+    # Scrape the website for content and company name
+    site_content, scraped_name = await _scrape_website(url)
+    resolved_name = company_name or scraped_name or url.split("//")[-1].split("/")[0].replace("www.", "")
+
+    user_msg = f"Company: {resolved_name}\nWebsite: {url}"
+    if site_content:
+        user_msg += f"\n\n--- Website Content ---\n{site_content}\n--- End Website Content ---"
 
     api_key = settings.groq_api_key
     model = "groq/llama-3.3-70b-versatile"
@@ -236,7 +259,7 @@ async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
     )
 
     raw = response.choices[0].message.content
-    return _parse_llm_json(raw)
+    return (_parse_llm_json(raw), resolved_name)
 
 
 async def _store_result(result_id: str, data: dict, ttl: int = 604800):
@@ -306,7 +329,7 @@ async def discover_company(
         )
 
     try:
-        data = await _call_llm(body.company_name, body.website_url)
+        data, resolved_name = await _call_llm(body.website_url, body.company_name)
     except HTTPException:
         raise
     except Exception:
@@ -319,7 +342,7 @@ async def discover_company(
 
     response_data = {
         "id": result_id,
-        "company_name": body.company_name,
+        "company_name": resolved_name,
         "overview": data.get("overview", ""),
         "industry": data.get("industry", "Technology"),
         "company_size": data.get("company_size", "mid-market"),
@@ -335,7 +358,7 @@ async def discover_company(
     # Log to DB for analytics
     await _log_discover(
         result_id=result_id,
-        company_name=body.company_name,
+        company_name=resolved_name,
         website_url=body.website_url,
         client_ip=client_ip,
         recommended_plan=response_data["recommended_plan"],
