@@ -384,7 +384,6 @@ function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: 
 export default function DiscoverPage() {
   const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [showUrl, setShowUrl] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiscoverResult | null>(null);
   const [error, setError] = useState("");
@@ -502,30 +501,17 @@ export default function DiscoverPage() {
                 </button>
               </div>
 
-              {/* Optional URL */}
-              {!showUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setShowUrl(true)}
-                  className="mt-3 text-sm text-[#666] hover:text-[#888] transition flex items-center gap-1.5 mx-auto"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  Add website URL for better results
-                </button>
-              ) : (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3">
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
-                    <input
-                      type="url"
-                      value={websiteUrl}
-                      onChange={(e) => setWebsiteUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      className="w-full pl-11 pr-4 py-3 bg-[#111] border border-[#222] rounded-xl text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:border-[#7c3aed]/50 transition text-sm"
-                    />
-                  </div>
-                </motion.div>
-              )}
+              {/* Website URL field */}
+              <div className="mt-3 relative">
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
+                <input
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://company-website.com"
+                  className="w-full pl-11 pr-4 py-3 bg-[#111] border border-[#222] rounded-xl text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:border-[#7c3aed]/50 transition text-sm"
+                />
+              </div>
 
               {error && (
                 <motion.p
