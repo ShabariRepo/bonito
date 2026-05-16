@@ -147,6 +147,50 @@ def _parse_llm_json(text: str) -> dict:
     return json.loads(cleaned.strip())
 
 
+async def _scrape_website(url: str) -> Optional[str]:
+    """Fetch website content for context. Returns plain text summary or None."""
+    import httpx
+    from html.parser import HTMLParser
+
+    class _TextExtractor(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self._texts: list = []
+            self._skip = False
+            self._skip_tags = {"script", "style", "noscript", "svg", "path"}
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self._skip_tags:
+                self._skip = True
+
+        def handle_endtag(self, tag):
+            if tag in self._skip_tags:
+                self._skip = False
+
+        def handle_data(self, data):
+            if not self._skip:
+                text = data.strip()
+                if text:
+                    self._texts.append(text)
+
+        def get_text(self) -> str:
+            return "\n".join(self._texts)
+
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "BonitoDiscovery/1.0"})
+            resp.raise_for_status()
+            html = resp.text
+
+        extractor = _TextExtractor()
+        extractor.feed(html)
+        text = extractor.get_text()
+        # Limit to ~3000 chars to avoid blowing up context
+        return text[:3000] if text else None
+    except Exception:
+        return None
+
+
 async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
     """Call Groq (or fallback) via litellm to generate the discovery report."""
     import litellm
@@ -154,6 +198,10 @@ async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
     user_msg = f"Company: {company_name}"
     if website_url:
         user_msg += f"\nWebsite: {website_url}"
+        # Actually fetch the website so the LLM has real context
+        site_content = await _scrape_website(website_url)
+        if site_content:
+            user_msg += f"\n\n--- Website Content ---\n{site_content}\n--- End Website Content ---"
 
     api_key = settings.groq_api_key
     model = "groq/llama-3.3-70b-versatile"
@@ -177,7 +225,7 @@ async def _call_llm(company_name: str, website_url: Optional[str]) -> dict:
             {"role": "user", "content": user_msg},
         ],
         temperature=0.5,
-        max_tokens=2048,
+        max_tokens=3000,
         response_format={"type": "json_object"},
     )
 
