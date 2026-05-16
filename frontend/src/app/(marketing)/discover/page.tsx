@@ -105,7 +105,7 @@ const loadingSteps = [
   "Generating your personalised report...",
 ];
 
-function LoadingState({ companyName }: { companyName: string }) {
+function LoadingState({ websiteUrl }: { websiteUrl: string }) {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
@@ -126,7 +126,7 @@ function LoadingState({ companyName }: { companyName: string }) {
 
       <div className="text-center space-y-3">
         <h3 className="text-xl font-semibold text-[#f5f0e8]">
-          Analysing <span className="text-[#7c3aed]">{companyName}</span>
+          Analysing <span className="text-[#7c3aed]">{websiteUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
         </h3>
         <AnimatePresence mode="wait">
           <motion.p
@@ -538,7 +538,7 @@ export default function DiscoverPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <LoadingState companyName={companyName} />
+            <LoadingState websiteUrl={websiteUrl} />
           </motion.div>
         )}
       </AnimatePresence>
