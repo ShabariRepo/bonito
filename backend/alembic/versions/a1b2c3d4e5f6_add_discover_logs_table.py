@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import UUID
 
 
 revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, None] = 'cfc22bba5dd4'
+down_revision: Union[str, None] = '040_backfill_email_verified'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

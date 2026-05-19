@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import Link from "next/link";
 import {
-  Search,
   Globe,
   ArrowRight,
   Sparkles,
@@ -382,9 +381,7 @@ function ResultsDisplay({ result, onReset }: { result: DiscoverResult; onReset: 
 // ─── Main Page ───
 
 export default function DiscoverPage() {
-  const [companyName, setCompanyName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [showUrl, setShowUrl] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DiscoverResult | null>(null);
   const [error, setError] = useState("");
@@ -392,7 +389,7 @@ export default function DiscoverPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim()) return;
+    if (!websiteUrl.trim()) return;
 
     setLoading(true);
     setError("");
@@ -404,8 +401,7 @@ export default function DiscoverPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company_name: companyName.trim(),
-          website_url: websiteUrl.trim() || undefined,
+          website_url: websiteUrl.trim(),
         }),
       });
 
@@ -434,7 +430,6 @@ export default function DiscoverPage() {
 
   const handleReset = () => {
     setResult(null);
-    setCompanyName("");
     setWebsiteUrl("");
     setError("");
     window.history.pushState({}, "", "/discover");
@@ -462,7 +457,7 @@ export default function DiscoverPage() {
               See what <span className="text-[#7c3aed]">Bonito</span> can do<br />for your company
             </h1>
             <p className="text-[#888] text-lg max-w-2xl mx-auto">
-              Enter your company name and our AI will research your business, identify your AI challenges, and show you exactly how Bonito's platform fits.
+              Enter your website URL and our AI will research your business, identify your AI challenges, and show you exactly how Bonito's platform fits.
             </p>
           </motion.div>
         )}
@@ -481,51 +476,26 @@ export default function DiscoverPage() {
             <form onSubmit={handleSubmit} className="max-w-xl mx-auto">
               <div className="flex gap-2">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" />
+                  <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#666]" />
                   <input
                     ref={inputRef}
                     type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Enter company name..."
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="Enter your website URL..."
                     className="w-full pl-12 pr-4 py-4 bg-[#111] border border-[#333] rounded-xl text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:border-[#7c3aed] transition text-base"
                     autoFocus
                   />
                 </div>
                 <button
                   type="submit"
-                  disabled={!companyName.trim()}
+                  disabled={!websiteUrl.trim()}
                   className="px-6 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition flex items-center gap-2 text-sm"
                 >
                   Discover
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Optional URL */}
-              {!showUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setShowUrl(true)}
-                  className="mt-3 text-sm text-[#666] hover:text-[#888] transition flex items-center gap-1.5 mx-auto"
-                >
-                  <Globe className="w-3.5 h-3.5" />
-                  Add website URL for better results
-                </button>
-              ) : (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3">
-                  <div className="relative">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
-                    <input
-                      type="url"
-                      value={websiteUrl}
-                      onChange={(e) => setWebsiteUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      className="w-full pl-11 pr-4 py-3 bg-[#111] border border-[#222] rounded-xl text-[#f5f0e8] placeholder-[#555] focus:outline-none focus:border-[#7c3aed]/50 transition text-sm"
-                    />
-                  </div>
-                </motion.div>
-              )}
 
               {error && (
                 <motion.p
