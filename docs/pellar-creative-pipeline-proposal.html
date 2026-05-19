@@ -972,56 +972,98 @@
           </div>
         </div>
       </div>
-
       <!-- WITH BONITO -->
       <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 20px; padding: 36px; position: relative; box-shadow: 0 0 40px rgba(124,58,237,0.08);">
         <div style="font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 28px;">With Bonito</div>
 
-        <!-- The clean diagram -->
-        <div style="position: relative; min-height: 320px;">
+        <div style="position: relative; min-height: 360px;">
           <!-- Your App box -->
-          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 24px; font-size: 13px; font-weight: 600; color: var(--text); z-index: 2;">Your Pipeline</div>
+          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 24px; font-size: 13px; font-weight: 600; color: var(--text); z-index: 2;">
+            Your Pipeline
+            <div style="font-size: 9px; color: var(--green); margin-top: 2px;">one API call</div>
+          </div>
 
-          <!-- Single clean arrow down -->
-          <svg width="100%" height="280" viewBox="0 0 400 280" style="position: absolute; top: 20px; left: 0;" preserveAspectRatio="xMidYMid meet">
+          <!-- SVG clean lines -->
+          <svg width="100%" height="330" viewBox="0 0 400 330" style="position: absolute; top: 20px; left: 0;" preserveAspectRatio="xMidYMid meet">
             <!-- Single line down to Bonito -->
-            <line x1="200" y1="25" x2="200" y2="85" stroke="var(--accent)" stroke-width="2"/>
-            <polygon points="195,83 200,93 205,83" fill="var(--accent)"/>
-            <!-- Lines from Bonito to providers -->
-            <line x1="200" y1="145" x2="60" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
-            <line x1="200" y1="145" x2="200" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
-            <line x1="200" y1="145" x2="340" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
-            <polygon points="56,193 62,200 66,191" fill="var(--accent)" opacity="0.6"/>
-            <polygon points="195,193 200,203 205,193" fill="var(--accent)" opacity="0.6"/>
-            <polygon points="335,191 340,200 344,193" fill="var(--accent)" opacity="0.6"/>
+            <line x1="200" y1="30" x2="200" y2="68" stroke="#7c3aed" stroke-width="2"/>
+            <polygon points="196,66 200,76 204,66" fill="#7c3aed"/>
+
+            <!-- Lines from Bonito to agent row -->
+            <line x1="140" y1="120" x2="55" y2="155" stroke="#7c3aed" stroke-width="1.2" opacity="0.5"/>
+            <line x1="170" y1="120" x2="130" y2="155" stroke="#7c3aed" stroke-width="1.2" opacity="0.5"/>
+            <line x1="200" y1="120" x2="200" y2="155" stroke="#7c3aed" stroke-width="1.2" opacity="0.5"/>
+            <line x1="230" y1="120" x2="270" y2="155" stroke="#7c3aed" stroke-width="1.2" opacity="0.5"/>
+            <line x1="260" y1="120" x2="345" y2="155" stroke="#7c3aed" stroke-width="1.2" opacity="0.5"/>
+
+            <!-- Lines from agents to providers -->
+            <line x1="55" y1="195" x2="80" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+            <line x1="130" y1="195" x2="80" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+            <line x1="200" y1="195" x2="200" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+            <line x1="270" y1="195" x2="200" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+            <line x1="270" y1="195" x2="320" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+            <line x1="345" y1="195" x2="320" y2="245" stroke="#7c3aed" stroke-width="1" opacity="0.35"/>
+
+            <!-- Small arrows -->
+            <polygon points="76,243 80,253 84,243" fill="#7c3aed" opacity="0.4"/>
+            <polygon points="196,243 200,253 204,243" fill="#7c3aed" opacity="0.4"/>
+            <polygon points="316,243 320,253 324,243" fill="#7c3aed" opacity="0.4"/>
+
+            <!-- Orchestration label -->
+            <text x="200" y="145" text-anchor="middle" font-size="8" fill="#a78bfa" opacity="0.7" font-family="Inter,sans-serif" letter-spacing="1">ORCHESTRATES</text>
           </svg>
 
-          <!-- Bonito box -->
-          <div style="position: absolute; top: 88px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(124,58,237,0.05)); border: 1.5px solid var(--accent); border-radius: 12px; padding: 14px 28px; font-size: 13px; font-weight: 700; color: var(--accent-light); z-index: 2; text-align: center; white-space: nowrap;">
+          <!-- Bonito box — agentic -->
+          <div style="position: absolute; top: 72px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(124,58,237,0.05)); border: 1.5px solid #7c3aed; border-radius: 12px; padding: 12px 28px; font-size: 13px; font-weight: 700; color: #a78bfa; z-index: 2; text-align: center; white-space: nowrap;">
             Bonito AI
-            <div style="font-size: 10px; font-weight: 400; color: var(--text-muted); margin-top: 2px;">One API &middot; One Dashboard</div>
+            <div style="font-size: 9px; font-weight: 500; color: var(--text-muted); margin-top: 2px;">Agentic Control Plane</div>
+          </div>
+
+          <!-- Agent row — the 6 pipeline stages as mini agents -->
+          <div style="display: flex; justify-content: space-between; gap: 4px; position: absolute; top: 155px; left: 0; right: 0;">
+            <div style="background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 7px 4px; font-size: 8px; color: #a78bfa; text-align: center; flex: 1; min-width: 0;">
+              <div style="font-size: 13px; margin-bottom: 2px;">&#129302;</div>
+              Brief<br/>Agent
+            </div>
+            <div style="background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 7px 4px; font-size: 8px; color: #a78bfa; text-align: center; flex: 1; min-width: 0;">
+              <div style="font-size: 13px; margin-bottom: 2px;">&#128269;</div>
+              Research<br/>Agent
+            </div>
+            <div style="background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 7px 4px; font-size: 8px; color: #a78bfa; text-align: center; flex: 1; min-width: 0;">
+              <div style="font-size: 13px; margin-bottom: 2px;">&#128161;</div>
+              Ideation<br/>Agent
+            </div>
+            <div style="background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 7px 4px; font-size: 8px; color: #a78bfa; text-align: center; flex: 1; min-width: 0;">
+              <div style="font-size: 13px; margin-bottom: 2px;">&#127912;</div>
+              Production<br/>Agent
+            </div>
+            <div style="background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.25); border-radius: 8px; padding: 7px 4px; font-size: 8px; color: #a78bfa; text-align: center; flex: 1; min-width: 0;">
+              <div style="font-size: 13px; margin-bottom: 2px;">&#9989;</div>
+              Review<br/>Agent
+            </div>
           </div>
 
           <!-- Provider boxes -->
-          <div style="display: flex; justify-content: space-between; position: absolute; top: 190px; left: 0; right: 0;">
-            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
-              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">OpenAI</div>
+          <div style="display: flex; justify-content: space-between; position: absolute; top: 248px; left: 5%; right: 5%; gap: 8px;">
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; font-size: 10px; color: var(--text-muted); text-align: center; flex: 1;">
+              <div style="font-weight: 600; color: var(--text); font-size: 11px;">OpenAI</div>
             </div>
-            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
-              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Google AI</div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; font-size: 10px; color: var(--text-muted); text-align: center; flex: 1;">
+              <div style="font-weight: 600; color: var(--text); font-size: 11px;">Google AI</div>
             </div>
-            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
-              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Anthropic</div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; font-size: 10px; color: var(--text-muted); text-align: center; flex: 1;">
+              <div style="font-weight: 600; color: var(--text); font-size: 11px;">Anthropic</div>
             </div>
           </div>
 
-          <!-- Benefit callouts -->
-          <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
-            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Auto-failover</span>
-            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Cost per asset</span>
-            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Swap models instantly</span>
-            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">One dashboard</span>
-            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Full audit trail</span>
+          <!-- Built-in callouts -->
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;">
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Auto-failover</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Cost per asset</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Swap models instantly</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Agent memory</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Human-in-the-loop</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #22c55e; font-size: 9px; padding: 4px 8px; border-radius: 100px;">Full audit trail</span>
           </div>
         </div>
       </div>
