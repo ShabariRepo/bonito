@@ -860,97 +860,215 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 4: WHAT THIS MEANS FOR YOU -->
+<!-- SLIDE 4: WHY BONITO — VISUAL DIAGRAM -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
   <span class="slide-number">04</span>
   <div class="slide-inner">
-    <div class="tag">Why It Matters</div>
-    <h2>What This Means for Memory</h2>
+    <div class="tag">The Difference</div>
+    <h2>Why This Runs on Bonito</h2>
+    <p class="subtitle subtitle-wide" style="margin-bottom: 48px;">A creative pipeline needs AI from multiple providers. Here's what that looks like with and without a control plane.</p>
 
-    <div class="value-grid">
-      <div class="value-card">
-        <div class="value-icon">&#9881;</div>
-        <h3>Model Flexibility = Creative Flexibility</h3>
-        <p>Different assets need different models. Product photography on one, illustrations on another, textures on a third. The pipeline picks the right tool for each job instead of forcing everything through one model.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px;">
+
+      <!-- WITHOUT BONITO -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px; position: relative;">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #ef4444; margin-bottom: 28px;">Without Bonito</div>
+
+        <!-- The spaghetti diagram -->
+        <div style="position: relative; min-height: 320px;">
+          <!-- Your App box -->
+          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 24px; font-size: 13px; font-weight: 600; color: var(--text); z-index: 2;">Your Pipeline</div>
+
+          <!-- SVG spaghetti lines -->
+          <svg width="100%" height="280" viewBox="0 0 400 280" style="position: absolute; top: 20px; left: 0;" preserveAspectRatio="xMidYMid meet">
+            <!-- Messy crossing lines from app to providers -->
+            <line x1="200" y1="25" x2="60" y2="100" stroke="#ef4444" stroke-width="1.5" opacity="0.5" stroke-dasharray="4,3"/>
+            <line x1="200" y1="25" x2="200" y2="100" stroke="#ef4444" stroke-width="1.5" opacity="0.5" stroke-dasharray="4,3"/>
+            <line x1="200" y1="25" x2="340" y2="100" stroke="#ef4444" stroke-width="1.5" opacity="0.5" stroke-dasharray="4,3"/>
+            <!-- Cross-connections (the mess) -->
+            <line x1="60" y1="135" x2="200" y2="180" stroke="#ef4444" stroke-width="1" opacity="0.25" stroke-dasharray="2,3"/>
+            <line x1="200" y1="135" x2="60" y2="180" stroke="#ef4444" stroke-width="1" opacity="0.25" stroke-dasharray="2,3"/>
+            <line x1="340" y1="135" x2="200" y2="180" stroke="#ef4444" stroke-width="1" opacity="0.25" stroke-dasharray="2,3"/>
+            <line x1="200" y1="135" x2="340" y2="180" stroke="#ef4444" stroke-width="1" opacity="0.25" stroke-dasharray="2,3"/>
+            <!-- Down to problems -->
+            <line x1="60" y1="135" x2="100" y2="230" stroke="#ef4444" stroke-width="1" opacity="0.2" stroke-dasharray="2,3"/>
+            <line x1="340" y1="135" x2="300" y2="230" stroke="#ef4444" stroke-width="1" opacity="0.2" stroke-dasharray="2,3"/>
+          </svg>
+
+          <!-- Provider boxes -->
+          <div style="display: flex; justify-content: space-between; position: absolute; top: 90px; left: 0; right: 0;">
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">OpenAI</div>
+              API Key #1
+            </div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Google AI</div>
+              API Key #2
+            </div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Anthropic</div>
+              API Key #3
+            </div>
+          </div>
+
+          <!-- Problem callouts -->
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+            <span style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 10px; padding: 4px 10px; border-radius: 100px;">No failover</span>
+            <span style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 10px; padding: 4px 10px; border-radius: 100px;">No cost tracking</span>
+            <span style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 10px; padding: 4px 10px; border-radius: 100px;">Vendor lock-in</span>
+            <span style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 10px; padding: 4px 10px; border-radius: 100px;">Manual key mgmt</span>
+            <span style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-size: 10px; padding: 4px 10px; border-radius: 100px;">No audit trail</span>
+          </div>
+        </div>
       </div>
-      <div class="value-card">
-        <div class="value-icon">&#36;</div>
-        <h3>Cost Control at Scale</h3>
-        <p>Every generation is tracked — spend per project, per client, per asset type. When you're running campaigns generating hundreds of assets, you know exactly what each one costs. From day one.</p>
+
+      <!-- WITH BONITO -->
+      <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 20px; padding: 36px; position: relative; box-shadow: 0 0 40px rgba(124,58,237,0.08);">
+        <div style="font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 28px;">With Bonito</div>
+
+        <!-- The clean diagram -->
+        <div style="position: relative; min-height: 320px;">
+          <!-- Your App box -->
+          <div style="position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 24px; font-size: 13px; font-weight: 600; color: var(--text); z-index: 2;">Your Pipeline</div>
+
+          <!-- Single clean arrow down -->
+          <svg width="100%" height="280" viewBox="0 0 400 280" style="position: absolute; top: 20px; left: 0;" preserveAspectRatio="xMidYMid meet">
+            <!-- Single line down to Bonito -->
+            <line x1="200" y1="25" x2="200" y2="85" stroke="var(--accent)" stroke-width="2"/>
+            <polygon points="195,83 200,93 205,83" fill="var(--accent)"/>
+            <!-- Lines from Bonito to providers -->
+            <line x1="200" y1="145" x2="60" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
+            <line x1="200" y1="145" x2="200" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
+            <line x1="200" y1="145" x2="340" y2="195" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
+            <polygon points="56,193 62,200 66,191" fill="var(--accent)" opacity="0.6"/>
+            <polygon points="195,193 200,203 205,193" fill="var(--accent)" opacity="0.6"/>
+            <polygon points="335,191 340,200 344,193" fill="var(--accent)" opacity="0.6"/>
+          </svg>
+
+          <!-- Bonito box -->
+          <div style="position: absolute; top: 88px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(124,58,237,0.05)); border: 1.5px solid var(--accent); border-radius: 12px; padding: 14px 28px; font-size: 13px; font-weight: 700; color: var(--accent-light); z-index: 2; text-align: center; white-space: nowrap;">
+            Bonito AI
+            <div style="font-size: 10px; font-weight: 400; color: var(--text-muted); margin-top: 2px;">One API &middot; One Dashboard</div>
+          </div>
+
+          <!-- Provider boxes -->
+          <div style="display: flex; justify-content: space-between; position: absolute; top: 190px; left: 0; right: 0;">
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">OpenAI</div>
+            </div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Google AI</div>
+            </div>
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 10px 14px; font-size: 11px; color: var(--text-muted); text-align: center; width: 28%;">
+              <div style="font-weight: 600; color: var(--text); margin-bottom: 2px;">Anthropic</div>
+            </div>
+          </div>
+
+          <!-- Benefit callouts -->
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Auto-failover</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Cost per asset</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Swap models instantly</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">One dashboard</span>
+            <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--green); font-size: 10px; padding: 4px 10px; border-radius: 100px;">Full audit trail</span>
+          </div>
+        </div>
       </div>
-      <div class="value-card">
-        <div class="value-icon">&#9889;</div>
-        <h3>Production Reliability</h3>
-        <p>When OpenAI rate limits you at 2am before a client deadline, the system automatically fails over to another provider. No one wakes up, no one panics. The assets still get generated.</p>
-      </div>
-      <div class="value-card">
-        <div class="value-icon">&#8734;</div>
-        <h3>Future-Proof Infrastructure</h3>
-        <p>Swapping models or adding new ones is a config change, not a rebuild. Six months from now when something better ships, you're a toggle away from using it. Your pipeline gets better as AI gets better.</p>
-      </div>
-      <div class="value-card">
-        <div class="value-icon">&#128736;</div>
-        <h3>Enterprise, Not a Script</h3>
-        <p>This runs on the same platform powering AI operations for automotive marketplaces, restaurant chains, and creative agencies. Auth, audit trails, cost tracking, monitoring — enterprise infrastructure from the start.</p>
-      </div>
-      <div class="value-card">
-        <div class="value-icon">&#8593;</div>
-        <h3>Natural Extension Points</h3>
-        <p>Once the pipeline runs, the extensions are natural — automated brand compliance, client-facing approval portals, campaign variation testing. Start with asset generation, grow from there.</p>
-      </div>
+    </div>
+
+    <!-- Simple bottom message -->
+    <div style="margin-top: 40px; text-align: center;">
+      <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7; max-width: 700px; margin: 0 auto;">The pipeline sends one request to Bonito. Bonito handles the rest — routing, failover, cost tracking, and logging. If a provider goes down at 2am before a client deadline, the system automatically switches to another. No one wakes up.</p>
     </div>
   </div>
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 5: WHY BONITO VS RAW API KEYS -->
+<!-- SLIDE 5: WHAT YOU OWN -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
   <span class="slide-number">05</span>
   <div class="slide-inner">
-    <div class="tag">Why Not Just API Keys?</div>
-    <h2>What Happens Without Infrastructure</h2>
-    <p class="subtitle subtitle-wide">
-      You could wire up OpenAI API keys directly. Here's why agencies that do that end up rebuilding within 6 months.
-    </p>
+    <div class="tag">Ownership</div>
+    <h2>What You Own</h2>
+    <p class="subtitle subtitle-wide" style="margin-bottom: 48px;">We build it, you use it — for every client, forever. Here's exactly how ownership works.</p>
 
-    <div class="bonito-section">
-      <div class="bonito-point">
-        <div class="bonito-num">1</div>
-        <div class="bonito-content">
-          <h3>You're locked to one provider</h3>
-          <p>Raw API keys mean raw vendor lock-in. When a better image model ships on a different provider — and it will — you're rewriting integration code, not flipping a switch. Bonito's gateway routes to DALL-E, Stable Diffusion, Imagen, and whatever ships next through one endpoint. Swapping models is a config change.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-bottom: 40px;">
+
+      <!-- You Own -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 24px;">Memory Creative Owns</div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--green); font-size: 16px; line-height: 1.4;">&#10003;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">All creative output</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Every image, asset, and campaign deliverable belongs to you and your clients</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--green); font-size: 16px; line-height: 1.4;">&#10003;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Brand assets &amp; prompts</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Your style guides, prompt libraries, and client configurations</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--green); font-size: 16px; line-height: 1.4;">&#10003;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Unlimited client usage</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Use the pipeline for as many clients as you want — Peller, or the next 50</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--green); font-size: 16px; line-height: 1.4;">&#10003;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Your data stays yours</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Full data portability — we never use your client data for anything else</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="bonito-point">
-        <div class="bonito-num">2</div>
-        <div class="bonito-content">
-          <h3>Rate limits kill deadlines</h3>
-          <p>OpenAI rate-limits you at 2am before a client delivery? With raw keys, the pipeline stops and someone wakes up. With Bonito, requests automatically failover to an equivalent model on another provider. Zero human intervention, zero missed deadlines.</p>
+
+      <!-- Bonito Maintains -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px;">
+        <div style="font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent-light); margin-bottom: 24px;">Bonito Maintains</div>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--accent-light); font-size: 16px; line-height: 1.4;">&#9881;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Pipeline engine &amp; frontend</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">We own the platform code and keep it running, updated, and secure</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--accent-light); font-size: 16px; line-height: 1.4;">&#9881;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Ongoing improvements</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">New models, features, and performance upgrades — included in your subscription</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--accent-light); font-size: 16px; line-height: 1.4;">&#9881;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Infrastructure &amp; uptime</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Hosting, monitoring, failover, security patches — all handled</div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; align-items: flex-start;">
+            <span style="color: var(--accent-light); font-size: 16px; line-height: 1.4;">&#9881;</span>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: var(--text);">Custom development</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Need new features or integrations down the road? We build those at the same hourly rate</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="bonito-point">
-        <div class="bonito-num">3</div>
-        <div class="bonito-content">
-          <h3>You can't track what you can't see</h3>
-          <p>Raw API keys give you a monthly bill with no breakdown. Bonito tracks spend per model, per project, per client, per asset type — in real time. When a client asks "what did that campaign cost in AI?" you have the answer instantly. That's how you price AI services profitably.</p>
-        </div>
-      </div>
-      <div class="bonito-point">
-        <div class="bonito-num">4</div>
-        <div class="bonito-content">
-          <h3>Scripts don't scale into products</h3>
-          <p>A Python script calling OpenAI works for a demo. But auth, team permissions, audit trails, error recovery, monitoring, and a dashboard for your team to actually use it? That's months of engineering. Bonito provides all of that out of the box — including a visual agent builder, knowledge base, and approval workflows.</p>
-        </div>
-      </div>
-      <div class="bonito-point">
-        <div class="bonito-num">5</div>
-        <div class="bonito-content">
-          <h3>The platform grows with you</h3>
-          <p>Today it's asset generation. Tomorrow it's automated brand compliance, client-facing approval portals, campaign A/B testing, or AI-powered copy generation. Every new workflow plugs into the same infrastructure — same dashboard, same cost tracking, same reliability guarantees. You're not starting over each time.</p>
-        </div>
-      </div>
+    </div>
+
+    <div style="padding: 20px 28px; background: var(--accent-glow); border: 1px solid rgba(124,58,237,0.2); border-radius: 12px;">
+      <p style="font-size: 14px; color: var(--text); line-height: 1.7;"><strong style="color: var(--accent-light);">Think of it like Adobe Creative Suite</strong> — you don't own the software, but you have full commercial rights to everything you create with it. We maintain the engine; you own the output. This is the standard model for platform-based creative tools.</p>
     </div>
   </div>
 </section>
@@ -1102,7 +1220,7 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 7: CTA -->
+<!-- SLIDE 8: CTA -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide cta-slide">
   <div class="slide-inner">
