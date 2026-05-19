@@ -551,7 +551,7 @@
     </div>
     <div class="cover-bottom">
       <div class="cover-meta">
-        Prepared for Pellar<br>
+        Prepared for Memory Creative<br>
         May 2026
       </div>
       <div class="cover-logo">
@@ -623,13 +623,136 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 3: WHAT THIS MEANS FOR YOU -->
+<!-- SLIDE 3: PIPELINE IN ACTION -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
   <span class="slide-number">03</span>
   <div class="slide-inner">
+    <div class="tag">Live Example</div>
+    <h2>Pipeline in Action</h2>
+    <p class="subtitle subtitle-wide">
+      Here's what each stage actually produces — using a real campaign brief for a premium winery brand.
+    </p>
+
+    <div style="margin-top: 48px; display: flex; flex-direction: column; gap: 0;">
+
+      <!-- Stage 1 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0; border-bottom: 1px solid var(--border);">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 1</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Brief</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            Raw brief goes in. AI parses it into a structured asset manifest — identifying each deliverable, its dimensions, format, and creative intent.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--accent-light);">Input:</span> "Generate a summer campaign for Peller Estates — Niagara Nights..."<br>
+            <span style="color: var(--green);">Output:</span> 7 assets identified &bull; Project: "Niagara Nights" &bull; Palette: gold + burgundy &bull; Tone: premium lifestyle
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0; border-bottom: 1px solid var(--border);">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 2</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Research</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            AI researches the brand, category, and art direction — then generates a style guide and enriched prompts for each asset.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--green);">Style guide:</span> Warm golden-hour lighting, shallow depth of field, Niagara vineyard landscapes<br>
+            <span style="color: var(--green);">Per-asset prompts:</span> Enriched with brand-specific context, composition rules, colour grading notes
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 3 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0; border-bottom: 1px solid var(--border);">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 3</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Ideation</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            A "creative director" agent generates 2-3 prompt variants per asset exploring different visual directions, then selects the strongest one with rationale.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--amber);">Hero Banner v1:</span> Overhead patio shot, candlelit, wide vineyard vista<br>
+            <span style="color: var(--amber);">Hero Banner v2:</span> Eye-level couple's perspective, intimate, bokeh lights<br>
+            <span style="color: var(--green);">Selected: v1</span> — "Stronger sense of place, showcases the venue as a destination"
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 4 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0; border-bottom: 1px solid var(--border);">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 4</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Production</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            Selected prompts are sent to image generation models through Bonito's gateway. Each asset can route to the best model for its type — photography-style to DALL-E 3, illustrations to Stable Diffusion, etc.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--green);">7 assets generated</span> &bull; Model: DALL-E 3 via Bonito gateway &bull; Avg 12s per asset<br>
+            <span style="color: var(--text-dim);">hero_banner.png &bull; instagram_post.png &bull; instagram_story.png &bull; fb_cover.png &bull; email_header.png &bull; print_ad.png &bull; billboard.png</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 5 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0; border-bottom: 1px solid var(--border);">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 5</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Review</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            AI reviews each generated asset against the original brief — checking brand consistency, composition, colour palette adherence, and overall quality. Flags issues for human review.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--green);">6 approved</span> &bull; <span style="color: var(--amber);">1 flagged</span> (email header — text legibility concern) &bull; Overall score: 8.4/10
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 6 -->
+      <div style="display: flex; gap: 32px; padding: 28px 0;">
+        <div style="flex-shrink: 0; width: 140px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent-light); letter-spacing: 2px; text-transform: uppercase;">Stage 6</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 4px;">Publish</div>
+        </div>
+        <div style="flex: 1;">
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.7; margin-bottom: 12px;">
+            Assets organized by type, delivery manifest generated with metadata (dimensions, model used, cost, prompt). Ready for handoff to design team or direct delivery to client.
+          </p>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8;">
+            <span style="color: var(--green);">7 files delivered</span> &bull; manifest.json with full audit trail &bull; Total pipeline time: ~100s &bull; Estimated cost: $0.56
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px 28px; background: var(--accent-glow); border: 1px solid rgba(124,58,237,0.2); border-radius: 12px;">
+      <p style="font-size: 15px; color: var(--text); line-height: 1.7;"><strong style="color: var(--accent-light);">Total time: ~100 seconds.</strong> A campaign asset kit that would take a team hours to brief, source, and produce — generated end-to-end from a single text brief. And every asset, prompt, model choice, and cost is logged for full traceability.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: WHAT THIS MEANS FOR YOU -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">04</span>
+  <div class="slide-inner">
     <div class="tag">Why It Matters</div>
-    <h2>What This Means for Pellar</h2>
+    <h2>What This Means for Memory</h2>
 
     <div class="value-grid">
       <div class="value-card">
@@ -667,10 +790,10 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 4: WHY BONITO VS RAW API KEYS -->
+<!-- SLIDE 5: WHY BONITO VS RAW API KEYS -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
-  <span class="slide-number">04</span>
+  <span class="slide-number">05</span>
   <div class="slide-inner">
     <div class="tag">Why Not Just API Keys?</div>
     <h2>What Happens Without Infrastructure</h2>
@@ -719,10 +842,10 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 5: SCOPE & HOURS -->
+<!-- SLIDE 6: SCOPE & HOURS -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
-  <span class="slide-number">05</span>
+  <span class="slide-number">06</span>
   <div class="slide-inner">
     <div class="tag">Phase 1 Scope</div>
     <h2>Engagement Breakdown</h2>
@@ -811,10 +934,10 @@
 </section>
 
 <!-- ═══════════════════════════════════════════════════════ -->
-<!-- SLIDE 6: PRICING -->
+<!-- SLIDE 7: PRICING -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <section class="slide">
-  <span class="slide-number">06</span>
+  <span class="slide-number">07</span>
   <div class="slide-inner">
     <div class="tag">Investment</div>
     <h2>Pricing</h2>
