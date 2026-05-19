@@ -538,7 +538,7 @@ export default function DiscoverPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <LoadingState companyName={companyName} />
+            <LoadingState companyName={websiteUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]} />
           </motion.div>
         )}
       </AnimatePresence>
