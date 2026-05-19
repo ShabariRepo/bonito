@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Creative AI Pipeline — Proposal for Pellar</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #1a1a1a;
+    --border: #222222;
+    --text: #f5f0e8;
+    --text-muted: #888888;
+    --text-dim: #555555;
+    --accent: #7c3aed;
+    --accent-light: #a78bfa;
+    --accent-glow: rgba(124, 58, 237, 0.15);
+    --green: #22c55e;
+    --amber: #f59e0b;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* ─── Slide System ─── */
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 60px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .slide-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .slide-number {
+    position: absolute;
+    top: 40px;
+    right: 60px;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    font-weight: 500;
+  }
+
+  /* ─── Typography ─── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    color: var(--accent-light);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+
+  h1 {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 24px;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  h2 {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .subtitle {
+    font-size: 20px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 650px;
+  }
+
+  .subtitle-wide {
+    max-width: 800px;
+  }
+
+  /* ─── Cover Slide ─── */
+  .cover { justify-content: space-between; }
+
+  .cover-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: 60px;
+  }
+
+  .cover-meta {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .cover-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  .cover-logo img {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  /* ─── Pipeline Flow ─── */
+  .pipeline-flow {
+    display: flex;
+    gap: 0;
+    margin: 48px 0 32px;
+    align-items: stretch;
+  }
+
+  .pipeline-stage {
+    flex: 1;
+    padding: 24px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+    text-align: center;
+  }
+
+  .pipeline-stage:first-child { border-radius: 12px 0 0 12px; }
+  .pipeline-stage:last-child { border-radius: 0 12px 12px 0; }
+
+  .pipeline-stage .stage-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .pipeline-stage .stage-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .pipeline-stage .stage-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .pipeline-arrow {
+    display: flex;
+    align-items: center;
+    color: var(--accent);
+    font-size: 18px;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* ─── What This Means Grid ─── */
+  .value-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+  }
+
+  .value-card {
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    transition: border-color 0.3s;
+  }
+
+  .value-card:hover { border-color: var(--accent); }
+
+  .value-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--accent-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 20px;
+  }
+
+  .value-card h3 { color: var(--text); font-size: 17px; margin-bottom: 10px; }
+  .value-card p { color: var(--text-muted); font-size: 14px; line-height: 1.7; }
+
+  /* ─── Bonito Points ─── */
+  .bonito-section {
+    margin-top: 48px;
+  }
+
+  .bonito-point {
+    display: flex;
+    gap: 24px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bonito-point:last-child { border-bottom: none; }
+
+  .bonito-num {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--accent);
+    opacity: 0.3;
+    line-height: 1;
+    flex-shrink: 0;
+    width: 60px;
+  }
+
+  .bonito-content h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .bonito-content p {
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* ─── Phase Table ─── */
+  .phase-table {
+    width: 100%;
+    margin-top: 40px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .phase-table thead th {
+    text-align: left;
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .phase-table thead th:last-child { text-align: right; }
+
+  .phase-table tbody td {
+    padding: 18px 20px;
+    font-size: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+  }
+
+  .phase-table tbody td:last-child {
+    text-align: right;
+    font-weight: 600;
+    color: var(--accent-light);
+    white-space: nowrap;
+  }
+
+  .phase-table tbody tr:last-child td { border-bottom: none; }
+
+  .phase-name {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .phase-desc {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  .phase-table tfoot td {
+    padding: 20px;
+    border-top: 2px solid var(--accent);
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .phase-table tfoot td:last-child {
+    text-align: right;
+    color: var(--accent-light);
+    font-size: 18px;
+  }
+
+  /* ─── Pricing Slide ─── */
+  .pricing-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+    margin-top: 48px;
+  }
+
+  .pricing-card {
+    padding: 40px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .pricing-card.featured {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(124,58,237,0.08), transparent);
+    position: relative;
+  }
+
+  .pricing-card.featured::before {
+    content: 'RECOMMENDED';
+    position: absolute;
+    top: -12px;
+    left: 40px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--bg);
+    background: var(--accent);
+    padding: 4px 14px;
+    border-radius: 100px;
+  }
+
+  .pricing-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .pricing-card h3 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .pricing-amount {
+    font-size: 48px;
+    font-weight: 800;
+    margin: 20px 0 8px;
+  }
+
+  .pricing-rate {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 28px;
+  }
+
+  .pricing-features {
+    list-style: none;
+    padding: 0;
+  }
+
+  .pricing-features li {
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.5;
+  }
+
+  .pricing-features li::before {
+    content: '→';
+    color: var(--accent-light);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .pricing-note {
+    margin-top: 48px;
+    padding: 24px 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  .pricing-note strong { color: var(--text); }
+
+  /* ─── CTA Slide ─── */
+  .cta-slide {
+    text-align: center;
+    align-items: center;
+  }
+
+  .cta-slide h2 {
+    font-size: 52px;
+    margin-bottom: 20px;
+  }
+
+  .cta-contact {
+    margin-top: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cta-contact a {
+    color: var(--accent-light);
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .cta-contact span {
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .divider {
+    width: 60px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin: 32px 0;
+  }
+
+  .cta-slide .divider { margin: 32px auto; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .slide { padding: 60px 24px; }
+    h1 { font-size: 36px; }
+    h2 { font-size: 28px; }
+    .pipeline-flow { flex-direction: column; }
+    .pipeline-stage:first-child, .pipeline-stage:last-child { border-radius: 12px; }
+    .pipeline-arrow { transform: rotate(90deg); justify-content: center; padding: 4px 0; }
+    .value-grid { grid-template-columns: 1fr; }
+    .pricing-cards { grid-template-columns: 1fr; }
+    .slide-number { display: none; }
+    .pullquote { padding: 40px 32px; }
+    .pullquote p { font-size: 16px; }
+  }
+
+  /* ─── Pull Quote ─── */
+  .pullquote {
+    margin-top: 48px;
+    padding: 48px 48px 44px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.06), rgba(124,58,237,0.02));
+    border: 1px solid rgba(124,58,237,0.2);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px 16px 16px 4px;
+    position: relative;
+  }
+
+  .pullquote::before {
+    content: '\201C';
+    position: absolute;
+    top: 20px;
+    left: 32px;
+    font-size: 72px;
+    font-weight: 800;
+    color: var(--accent);
+    opacity: 0.2;
+    line-height: 1;
+    font-family: Georgia, serif;
+  }
+
+  .pullquote p {
+    font-size: 18px;
+    line-height: 1.8;
+    color: var(--text);
+    font-weight: 400;
+    font-style: italic;
+    position: relative;
+    z-index: 1;
+    padding-left: 8px;
+  }
+
+  .pullquote-attribution {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-left: 8px;
+  }
+
+  .pullquote-attribution img {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .pullquote-attribution span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: COVER -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide cover">
+  <div class="slide-inner">
+    <div>
+      <div class="tag">Proposal</div>
+      <h1>Creative AI<br><span class="accent">Pipeline</span></h1>
+      <p class="subtitle">
+        End-to-end AI-powered asset generation — from creative brief to production-ready deliverables. Backend pipeline, frontend dashboard, multi-provider infrastructure.
+      </p>
+    </div>
+    <div class="cover-bottom">
+      <div class="cover-meta">
+        Prepared for Pellar<br>
+        May 2026
+      </div>
+      <div class="cover-logo">
+        <img src="https://getbonito.com/bonito-icon.png" alt="Bonito" />
+        Bonito AI
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: THE PIPELINE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">02</span>
+  <div class="slide-inner">
+    <div class="tag">The System</div>
+    <h2>Six-Stage Pipeline</h2>
+    <p class="subtitle subtitle-wide">
+      A creative brief goes in. Production-ready assets come out. Every stage is AI-driven, orchestrated, and auditable.
+    </p>
+
+    <div class="pipeline-flow">
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 1</div>
+        <div class="stage-name">Brief</div>
+        <div class="stage-desc">Parse raw brief into structured asset manifest</div>
+      </div>
+      <div class="pipeline-arrow">&#9654;</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 2</div>
+        <div class="stage-name">Research</div>
+        <div class="stage-desc">Enrich with style guides, visual context, RAG</div>
+      </div>
+      <div class="pipeline-arrow">&#9654;</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 3</div>
+        <div class="stage-name">Ideation</div>
+        <div class="stage-desc">Generate prompt variants, creative director selects best</div>
+      </div>
+      <div class="pipeline-arrow">&#9654;</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 4</div>
+        <div class="stage-name">Production</div>
+        <div class="stage-desc">Multi-model image generation at scale</div>
+      </div>
+      <div class="pipeline-arrow">&#9654;</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 5</div>
+        <div class="stage-name">Review</div>
+        <div class="stage-desc">AI quality scoring against brief requirements</div>
+      </div>
+      <div class="pipeline-arrow">&#9654;</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">Stage 6</div>
+        <div class="stage-name">Publish</div>
+        <div class="stage-desc">Manifest, delivery, asset management</div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      <p>The pipeline doesn't lock you into one AI model. Right now DALL-E is great for some things, Stable Diffusion is better for others, and six months from now there'll be something new that blows both away. The way we've built this, swapping models or adding new ones is a config change, not a rebuild. You're not buying a tool that gets obsolete — you're buying infrastructure that gets better as AI gets better.</p>
+      <div class="pullquote-attribution">
+        <img src="https://getbonito.com/bonito-icon.png" alt="Bonito AI" />
+        <span>Bonito AI</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: WHAT THIS MEANS FOR YOU -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">03</span>
+  <div class="slide-inner">
+    <div class="tag">Why It Matters</div>
+    <h2>What This Means for Pellar</h2>
+
+    <div class="value-grid">
+      <div class="value-card">
+        <div class="value-icon">&#9881;</div>
+        <h3>Model Flexibility = Creative Flexibility</h3>
+        <p>Different assets need different models. Product photography on one, illustrations on another, textures on a third. The pipeline picks the right tool for each job instead of forcing everything through one model.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">&#36;</div>
+        <h3>Cost Control at Scale</h3>
+        <p>Every generation is tracked — spend per project, per client, per asset type. When you're running campaigns generating hundreds of assets, you know exactly what each one costs. From day one.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">&#9889;</div>
+        <h3>Production Reliability</h3>
+        <p>When OpenAI rate limits you at 2am before a client deadline, the system automatically fails over to another provider. No one wakes up, no one panics. The assets still get generated.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">&#8734;</div>
+        <h3>Future-Proof Infrastructure</h3>
+        <p>Swapping models or adding new ones is a config change, not a rebuild. Six months from now when something better ships, you're a toggle away from using it. Your pipeline gets better as AI gets better.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">&#128736;</div>
+        <h3>Enterprise, Not a Script</h3>
+        <p>This runs on the same platform powering AI operations for automotive marketplaces, restaurant chains, and creative agencies. Auth, audit trails, cost tracking, monitoring — enterprise infrastructure from the start.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">&#8593;</div>
+        <h3>Natural Extension Points</h3>
+        <p>Once the pipeline runs, the extensions are natural — automated brand compliance, client-facing approval portals, campaign variation testing. Start with asset generation, grow from there.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: WHY BONITO VS RAW API KEYS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">04</span>
+  <div class="slide-inner">
+    <div class="tag">Why Not Just API Keys?</div>
+    <h2>What Happens Without Infrastructure</h2>
+    <p class="subtitle subtitle-wide">
+      You could wire up OpenAI API keys directly. Here's why agencies that do that end up rebuilding within 6 months.
+    </p>
+
+    <div class="bonito-section">
+      <div class="bonito-point">
+        <div class="bonito-num">1</div>
+        <div class="bonito-content">
+          <h3>You're locked to one provider</h3>
+          <p>Raw API keys mean raw vendor lock-in. When a better image model ships on a different provider — and it will — you're rewriting integration code, not flipping a switch. Bonito's gateway routes to DALL-E, Stable Diffusion, Imagen, and whatever ships next through one endpoint. Swapping models is a config change.</p>
+        </div>
+      </div>
+      <div class="bonito-point">
+        <div class="bonito-num">2</div>
+        <div class="bonito-content">
+          <h3>Rate limits kill deadlines</h3>
+          <p>OpenAI rate-limits you at 2am before a client delivery? With raw keys, the pipeline stops and someone wakes up. With Bonito, requests automatically failover to an equivalent model on another provider. Zero human intervention, zero missed deadlines.</p>
+        </div>
+      </div>
+      <div class="bonito-point">
+        <div class="bonito-num">3</div>
+        <div class="bonito-content">
+          <h3>You can't track what you can't see</h3>
+          <p>Raw API keys give you a monthly bill with no breakdown. Bonito tracks spend per model, per project, per client, per asset type — in real time. When a client asks "what did that campaign cost in AI?" you have the answer instantly. That's how you price AI services profitably.</p>
+        </div>
+      </div>
+      <div class="bonito-point">
+        <div class="bonito-num">4</div>
+        <div class="bonito-content">
+          <h3>Scripts don't scale into products</h3>
+          <p>A Python script calling OpenAI works for a demo. But auth, team permissions, audit trails, error recovery, monitoring, and a dashboard for your team to actually use it? That's months of engineering. Bonito provides all of that out of the box — including a visual agent builder, knowledge base, and approval workflows.</p>
+        </div>
+      </div>
+      <div class="bonito-point">
+        <div class="bonito-num">5</div>
+        <div class="bonito-content">
+          <h3>The platform grows with you</h3>
+          <p>Today it's asset generation. Tomorrow it's automated brand compliance, client-facing approval portals, campaign A/B testing, or AI-powered copy generation. Every new workflow plugs into the same infrastructure — same dashboard, same cost tracking, same reliability guarantees. You're not starting over each time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: SCOPE & HOURS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">05</span>
+  <div class="slide-inner">
+    <div class="tag">Phase 1 Scope</div>
+    <h2>Engagement Breakdown</h2>
+    <p class="subtitle">Detailed scope for the initial build — from discovery through production deployment.</p>
+
+    <table class="phase-table">
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Hours</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="phase-name">Discovery & Architecture</div>
+            <div class="phase-desc">Understand your workflows, asset types, delivery formats, brand guidelines, and existing tool integrations</div>
+          </td>
+          <td>6 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Pipeline Backend — 6 Stages</div>
+            <div class="phase-desc">Brief parsing, research/RAG enrichment, ideation with creative director logic, multi-model production, QA review loop, publish and delivery</div>
+          </td>
+          <td>18 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Multi-Provider Image Generation</div>
+            <div class="phase-desc">DALL-E 3, GPT-Image-1, Stable Diffusion, Imagen 3 — model selection per asset type, quality-based routing, automatic fallback chains</div>
+          </td>
+          <td>8 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Frontend — Dashboard & UI</div>
+            <div class="phase-desc">Web interface for your team: submit briefs, track pipeline runs in real time, preview generated assets, download deliverables, view per-run cost breakdowns</div>
+          </td>
+          <td>16 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Frontend — Approval & Review Flows</div>
+            <div class="phase-desc">Visual review interface for QA: approve/reject/request revision on individual assets, annotation tools, batch approval, revision history</div>
+          </td>
+          <td>10 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Brand Integration & Customization</div>
+            <div class="phase-desc">Brand guidelines and style presets baked into prompts, delivery to your asset management system, team permissions</div>
+          </td>
+          <td>8 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Production Hardening</div>
+            <div class="phase-desc">Error recovery, retry logic, rate limit handling, parallel batch optimization, structured logging</div>
+          </td>
+          <td>6 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Testing, QA & Documentation</div>
+            <div class="phase-desc">End-to-end testing across asset types, edge cases, runbooks, team training sessions</div>
+          </td>
+          <td>6 hrs</td>
+        </tr>
+        <tr>
+          <td>
+            <div class="phase-name">Revision Buffer</div>
+            <div class="phase-desc">Client feedback cycles, scope adjustments, iteration</div>
+          </td>
+          <td>2 hrs</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>Total</td>
+          <td>80 hrs</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: PRICING -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">06</span>
+  <div class="slide-inner">
+    <div class="tag">Investment</div>
+    <h2>Pricing</h2>
+
+    <div class="pricing-cards" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="pricing-card featured">
+        <div class="pricing-label">Build</div>
+        <h3>Pipeline + Frontend</h3>
+        <div class="pricing-amount">$12,000</div>
+        <div class="pricing-rate">$150/hr &times; 80 hours</div>
+        <ul class="pricing-features">
+          <li>Full 6-stage backend pipeline</li>
+          <li>Web dashboard for your team — submit briefs, track runs, preview assets, download deliverables</li>
+          <li>Visual review &amp; approval interface</li>
+          <li>Multi-model image generation (4+ providers)</li>
+          <li>Brand guidelines baked in</li>
+          <li>Production hardening &amp; testing</li>
+          <li>Team training and documentation</li>
+        </ul>
+      </div>
+      <div class="pricing-card" style="border-color: var(--accent); border-width: 1px;">
+        <div class="pricing-label">Platform</div>
+        <h3>Bonito Pro</h3>
+        <div class="pricing-amount">$999<span style="font-size:24px;font-weight:400">/mo</span></div>
+        <div class="pricing-rate">Required infrastructure</div>
+        <ul class="pricing-features">
+          <li>Multi-provider gateway (OpenAI, Google, AWS, Azure, Anthropic)</li>
+          <li>Automatic failover — no downtime, no missed deadlines</li>
+          <li>Real-time cost tracking per project, per client, per asset</li>
+          <li>500K requests/month included</li>
+          <li>5 managed AI agents</li>
+          <li>Knowledge base (RAG) for brand docs</li>
+          <li>Analytics dashboard &amp; audit trail</li>
+          <li>New models available as they ship — no code changes</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-label">Ongoing</div>
+        <h3>Development Retainer</h3>
+        <div class="pricing-amount">$1.5–3K<span style="font-size:24px;font-weight:400">/mo</span></div>
+        <div class="pricing-rate">Optional — starts after Phase 1</div>
+        <ul class="pricing-features">
+          <li>New pipeline features &amp; workflow automation</li>
+          <li>Client-facing portal development</li>
+          <li>Campaign variation &amp; A/B testing tools</li>
+          <li>Automated brand compliance checks</li>
+          <li>New model integrations &amp; optimization</li>
+          <li>Priority support &amp; iteration</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pricing-note">
+      <strong>How it works:</strong> The $12K build is the pipeline and frontend — your team's tool. Bonito Pro ($999/mo) is the infrastructure it runs on — the multi-provider gateway, failover, cost tracking, and model access. Think of it like building an app (the build) that runs on AWS (the platform). The development retainer is optional and scoped after Phase 1 ships. <strong>Bonito Pro is waived during the build period.</strong>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: CTA -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide cta-slide">
+  <div class="slide-inner">
+    <h2>Ready to build?</h2>
+    <p class="subtitle" style="margin: 0 auto;">
+      Let's turn your creative workflows into a competitive advantage.
+    </p>
+    <div class="divider"></div>
+    <div class="cta-contact">
+      <a href="mailto:shabari@bonito.ai">shabari@bonito.ai</a>
+      <span>Bonito AI &mdash; Enterprise AI Operations Platform</span>
+      <span style="margin-top: 8px; color: var(--text-dim);">getbonito.com</span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
