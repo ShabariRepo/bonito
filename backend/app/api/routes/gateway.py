@@ -739,13 +739,14 @@ async def video_generations(
 async def video_status(
     video_id: str,
     auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
 ):
     """Check the status of a video generation job."""
     key, policy = auth_context
     org_id = key.org_id if key else (policy.org_id if policy else None)
 
     try:
-        result = await gateway_service.video_status_check(video_id, org_id)
+        result = await gateway_service.video_status_check(video_id, org_id, db=db)
         return result
     except Exception as e:
         logger.error(f"Video status check failed: {type(e).__name__}: {e}")
@@ -756,13 +757,14 @@ async def video_status(
 async def video_content(
     video_id: str,
     auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
 ):
     """Download the content of a completed video generation."""
     key, policy = auth_context
     org_id = key.org_id if key else (policy.org_id if policy else None)
 
     try:
-        content = await gateway_service.video_content_fetch(video_id, org_id)
+        content = await gateway_service.video_content_fetch(video_id, org_id, db=db)
         return StreamingResponse(
             iter([content]) if isinstance(content, bytes) else content,
             media_type="video/mp4",

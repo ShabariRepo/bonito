@@ -1382,11 +1382,42 @@ _VIDEO_COST_FALLBACK = {
     "sora-2": 0.10,           # ~$0.10/sec
     "sora-2-pro": 0.15,
     "veo-2.0-generate-001": 0.05,
-    "veo-3.0-generate-preview": 0.08,
-    "veo-3.0-fast-generate-preview": 0.06,
+    "veo-3.0-generate-001": 0.08,
+    "veo-3.0-fast-generate-001": 0.06,
+    "veo-3.1-generate-001": 0.10,
     "veo-3.1-generate-preview": 0.10,
+    "veo-3.1-fast-generate-001": 0.08,
     "veo-3.1-fast-generate-preview": 0.08,
 }
+
+
+async def _get_video_credentials(db: AsyncSession, org_id: uuid.UUID, model: str) -> dict:
+    """Resolve provider credentials for video generation.
+
+    The LiteLLM Router doesn't support video yet, so we pull credentials
+    directly from Vault/DB and inject them into the litellm call.
+    """
+    extra_params = {}
+
+    # Fetch all org credentials once (keyed by provider_type)
+    all_creds = await _get_provider_credentials(db, org_id)
+
+    if "vertex_ai/" in model or "veo" in model:
+        # GCP — need vertex_credentials, project, location
+        creds = all_creds.get("gcp", {})
+        if creds:
+            sa_json = creds.get("service_account_json")
+            if sa_json:
+                extra_params["vertex_credentials"] = json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json
+            extra_params["vertex_project"] = creds.get("project_id", "")
+            extra_params["vertex_location"] = creds.get("region", "us-central1")
+    elif "sora" in model or "openai" in model.lower():
+        # OpenAI — need api_key
+        creds = all_creds.get("openai", {})
+        if creds:
+            extra_params["api_key"] = creds.get("api_key", "")
+
+    return extra_params
 
 
 async def video_generation(
@@ -1395,8 +1426,7 @@ async def video_generation(
     key_id: uuid.UUID,
     db: AsyncSession,
 ) -> dict:
-    """Submit a video generation job via LiteLLM router and log the request."""
-    router = await get_router(db, org_id)
+    """Submit a video generation job via LiteLLM and log the request."""
     model = request_data.get("model", "sora-2")
     start = time.time()
 
@@ -1408,7 +1438,11 @@ async def video_generation(
     )
 
     try:
-        response = await litellm.avideo_generation(**request_data)
+        # Inject provider credentials (Router doesn't support video yet)
+        cred_params = await _get_video_credentials(db, org_id, model)
+        logger.info(f"Video generation: model={model}, org={org_id}, cred_keys={list(cred_params.keys())}")
+        call_params = {**request_data, **cred_params}
+        response = await litellm.avideo_generation(**call_params)
         elapsed_ms = int((time.time() - start) * 1000)
 
         log_entry.model_used = model
@@ -1473,13 +1507,40 @@ async def video_generation(
         raise
 
 
+def _detect_video_provider(video_id: str) -> str:
+    """Detect provider from encoded video_id (e.g. 'vertex_ai', 'openai')."""
+    import base64
+    try:
+        decoded = base64.b64decode(video_id.replace("video_", "")).decode()
+        if "vertex_ai" in decoded:
+            return "vertex_ai"
+        elif "openai" in decoded:
+            return "openai"
+    except Exception:
+        pass
+    return "openai"  # default
+
+
+async def _get_video_cred_kwargs(db: AsyncSession, org_id: uuid.UUID, video_id: str) -> dict:
+    """Get credential kwargs for video status/content calls based on encoded provider."""
+    provider = _detect_video_provider(video_id)
+    if provider == "vertex_ai":
+        return await _get_video_credentials(db, org_id, "vertex_ai/veo")
+    else:
+        return await _get_video_credentials(db, org_id, "sora")
+
+
 async def video_status_check(
     video_id: str,
     org_id: uuid.UUID,
+    db: AsyncSession = None,
 ) -> dict:
     """Check the status of a video generation job."""
     try:
-        response = await litellm.avideo_status(video_id=video_id)
+        cred_kwargs = {}
+        if db:
+            cred_kwargs = await _get_video_cred_kwargs(db, org_id, video_id)
+        response = await litellm.avideo_status(video_id=video_id, **cred_kwargs)
         response_dict = response.model_dump() if hasattr(response, "model_dump") else dict(response)
         return response_dict
     except Exception as e:
@@ -1490,10 +1551,14 @@ async def video_status_check(
 async def video_content_fetch(
     video_id: str,
     org_id: uuid.UUID,
+    db: AsyncSession = None,
 ) -> bytes:
     """Download the content of a completed video."""
     try:
-        content = await litellm.avideo_content(video_id=video_id)
+        cred_kwargs = {}
+        if db:
+            cred_kwargs = await _get_video_cred_kwargs(db, org_id, video_id)
+        content = await litellm.avideo_content(video_id=video_id, **cred_kwargs)
         return content
     except Exception as e:
         logger.error(f"Video content fetch failed for {video_id}: {e}")
