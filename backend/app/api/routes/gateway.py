@@ -28,6 +28,7 @@ from app.schemas.gateway import (
     CompletionRequest,
     EmbeddingRequest,
     ImageGenerationRequest,
+    VideoGenerationRequest,
     GatewayKeyCreate,
     GatewayKeyResponse,
     GatewayKeyCreated,
@@ -680,6 +681,95 @@ async def image_generations(
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         logger.error(f"Image generation failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+
+
+@router.post("/v1/videos")
+async def video_generations(
+    raw_request: Request,
+    request: VideoGenerationRequest,
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """OpenAI-compatible video generation endpoint. Returns a job object — poll /v1/videos/{id} for status."""
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    key, policy = auth_context
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+
+    if org_id:
+        try:
+            await usage_tracker.track_gateway_request(db, str(org_id))
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+
+    if key:
+        try:
+            from app.services.feature_gate import feature_gate
+            await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+        except HTTPException as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
+        try:
+            await gateway_service.enforce_policies(db, key, request.model)
+        except PolicyViolation as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    key_id = key.id if key else None
+
+    try:
+        data = request.model_dump(exclude_none=True)
+        result = await gateway_service.video_generation(data, org_id, key_id, db)
+        return result
+    except HTTPException:
+        raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Video generation failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+
+
+@router.get("/v1/videos/{video_id}")
+async def video_status(
+    video_id: str,
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+):
+    """Check the status of a video generation job."""
+    key, policy = auth_context
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+
+    try:
+        result = await gateway_service.video_status_check(video_id, org_id)
+        return result
+    except Exception as e:
+        logger.error(f"Video status check failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+
+
+@router.get("/v1/videos/{video_id}/content")
+async def video_content(
+    video_id: str,
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+):
+    """Download the content of a completed video generation."""
+    key, policy = auth_context
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+
+    try:
+        content = await gateway_service.video_content_fetch(video_id, org_id)
+        return StreamingResponse(
+            iter([content]) if isinstance(content, bytes) else content,
+            media_type="video/mp4",
+            headers={"Content-Disposition": f"attachment; filename={video_id}.mp4"},
+        )
+    except Exception as e:
+        logger.error(f"Video content fetch failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
