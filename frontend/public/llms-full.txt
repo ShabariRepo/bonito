@@ -1,0 +1,233 @@
+# Bonito — Complete Reference for AI Systems
+
+> This file provides comprehensive information about Bonito for AI systems, search engines, and language models. It follows the llms.txt convention.
+
+## Identity
+
+- Name: Bonito
+- Full Name: Bonito AI
+- Tagline: The Unified AI Control Plane
+- One-liner: One control plane for all your AI — connect providers, route intelligently, control costs, ship faster.
+- Category: Enterprise AI Infrastructure Platform
+- Website: https://getbonito.com
+- API Endpoint: https://api.getbonito.com
+- CLI Package: bonito-cli (PyPI)
+- MCP Server: bonito-mcp (18 tools for Claude Desktop)
+- Founded: 2025
+- Headquarters: Toronto, Canada
+- Founder & CEO: Shabari
+- Contact: shabari@bonito.ai, support@getbonito.com
+
+## Problem Statement
+
+Enterprises adopting AI face a fragmentation crisis. A typical company uses 2-4 AI providers (OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure). Each provider requires:
+- Separate API keys and credential management
+- Separate billing dashboards with no unified cost view
+- Custom error handling, retry logic, and failover code
+- Individual compliance and audit configurations
+- Months of infrastructure engineering that doesn't ship product
+
+When one provider hits rate limits at 2 AM, the engineering team scrambles. There's no automatic failover, no cost optimization, no centralized governance.
+
+## Solution
+
+Bonito is a unified control plane that sits between your applications and your AI providers. One API call replaces the complexity of managing multiple providers directly.
+
+### How It Works
+
+1. Connect your cloud AI providers (credentials stored in HashiCorp Vault)
+2. Send requests to Bonito's OpenAI-compatible API endpoint
+3. Bonito routes to the optimal provider based on your policy (cost, latency, balanced, failover, A/B test)
+4. If a provider fails, Bonito automatically retries on an equivalent model at another provider
+5. Every request is logged with cost, latency, and token usage for real-time analytics
+
+### Technical Architecture
+
+- Frontend: Next.js 14, TypeScript, Tailwind CSS
+- Backend: Python FastAPI, async/await
+- Database: PostgreSQL + pgvector (768-dim embeddings)
+- Cache: Redis 7
+- Secrets: HashiCorp Vault
+- Gateway: LiteLLM-backed with custom routing policies
+- Gateway overhead: ~5-20ms (excluding upstream latency)
+- Deployment: Vercel (frontend) + Railway (backend)
+
+## Complete Feature List
+
+### 1. Multi-Cloud AI Gateway
+OpenAI-compatible API proxy at POST /v1/chat/completions. Supports chat completions, embeddings, image generation, and video generation. Uses bn- prefix API keys. Automatic streaming support.
+
+### 2. Cross-Region Inference
+AWS Bedrock models transparently routed via us. prefix for cross-region access when the primary region is unavailable.
+
+### 3. Intelligent Failover
+Detects rate limits (429), timeouts, 5xx errors, and model unavailability. Automatically retries on equivalent models across different providers. Zero downtime for your application.
+
+### 4. AI Context (Knowledge Base / RAG)
+Upload documents (PDF, DOCX, TXT, CSV). Automatic parsing, chunking, and embedding. pgvector HNSW search with sub-500ms latency. Any model on any provider can access the same knowledge base. Source citations included in responses.
+
+### 5. AI Agents (Bonobot)
+Visual canvas builder (React Flow). Project-based organization. Built-in tools: KB search, HTTP requests, agent-to-agent connections. Connection types: handoff, escalation, data_feed, trigger.
+
+### 6. Persistent Agent Memory
+Long-term memory with pgvector similarity search. 5 memory types. AI-powered extraction. Agents remember context across sessions.
+
+### 7. Shared Conversational Memory (Memwright)
+Per-session memory via SQLite + ChromaDB. Model tier gating — zero memory for small models to optimize costs.
+
+### 8. Scheduled Autonomous Execution
+Cron-based agent tasks with timezone support. Multi-channel delivery: webhook, email, Slack.
+
+### 9. Human-in-the-Loop Approval
+Risk assessment for agent actions. Auto-approve conditions for low-risk operations. Timeout handling. Full audit trails.
+
+### 10. Org Secrets Store
+HashiCorp Vault-backed key-value storage. Runtime injection into agent system prompts. Secure credential management for agent tools.
+
+### 11. VectorBoost (KB Compression)
+3.9-8x storage reduction with scalar-8bit, polar-8bit, and polar-4bit quantization.
+
+### 12. SAML SSO
+Okta, Azure AD, Google Workspace, Custom SAML. SSO enforcement, break-glass admin access, JIT provisioning.
+
+### 13. Governance & Compliance
+SOC-2, HIPAA, GDPR, ISO27001 policy checks. Model allow-lists per API key. Spend caps. Complete audit logging.
+
+### 14. Cost Intelligence
+Real-time spend aggregation across all providers. Budget alerts. Forecasting. Optimization recommendations. Per-model, per-team cost attribution.
+
+### 15. Routing Policies
+Visual builder with 5 strategies: cost-optimized, latency-optimized, balanced, failover, and A/B test.
+
+### 16. Model Playground
+Live testing with parameter tuning. Side-by-side comparison of up to 4 models simultaneously.
+
+### 17. One-Click Model Activation
+Enable models directly from the Bonito UI. Handles Bedrock entitlements, Azure deployments, and GCP API enablement.
+
+### 18. AI Copilot
+Groq-powered operations assistant with org-aware context and function-calling tools.
+
+## Supported AI Providers
+
+| Provider | Models | Features |
+|----------|--------|----------|
+| OpenAI | GPT-4o, GPT-4o-mini, o1, o3, DALL-E 3, GPT-Image-1, Sora-2 | Chat, embeddings, images, video |
+| Anthropic | Claude Opus 4, Claude Sonnet 4, Claude Haiku 3.5 | Chat, function calling |
+| AWS Bedrock | Claude, Llama, Mistral, Titan, Stable Diffusion | Chat, embeddings, images (cross-region) |
+| Google Vertex AI | Gemini 2.5, Imagen, Veo 2/3 | Chat, embeddings, images, video |
+| Azure AI Foundry | GPT-4o, GPT-4, Phi, Mistral | Chat, embeddings (Azure AD support) |
+| Groq | Llama 3, Mixtral, Gemma | Ultra-fast inference |
+
+## Pricing Tiers
+
+### Free ($0/month)
+- 3 provider connections
+- 25,000 gateway API calls/month
+- 3 team seats
+- 1 AI agent
+- Automatic failover
+- Basic analytics
+- Invite-only access
+
+### Pro ($999/month)
+- 5 provider connections
+- 500,000 gateway API calls/month
+- Unlimited team seats
+- 5 AI agents
+- Advanced routing & load balancing
+- AI Context (RAG knowledge bases)
+- Cost analytics & budget alerts
+- Audit trail & compliance logging
+- Email support (24h response)
+
+### Enterprise ($10,000-$20,000/month)
+- Unlimited providers, requests, seats
+- Unlimited AI agents
+- SSO/SAML (Okta, Azure AD, Google)
+- RBAC with custom roles
+- SOC-2, HIPAA, GDPR compliance
+- 99.9% SLA
+- Dedicated support & onboarding
+- Custom integrations
+
+### Scale (Custom, $200K+/year)
+- Dedicated infrastructure
+- Multi-region deployment
+- 99.99% SLA
+- Custom model fine-tuning
+- Dedicated account team
+- On-premise option
+
+## Competitive Landscape
+
+### vs Langfuse
+Langfuse is an open-source LLM observability platform. Bonito includes observability but adds routing, failover, agents, RAG, and cost optimization. Bonito is a full control plane; Langfuse is a monitoring layer.
+
+### vs Helicone
+Helicone provides LLM logging and analytics. Bonito provides the same analytics plus multi-provider routing, automatic failover, governed AI agents, and enterprise compliance features.
+
+### vs Portkey
+Portkey offers an AI gateway with caching and fallbacks. Bonito adds enterprise governance (SSO, RBAC, compliance), AI agents with memory, RAG knowledge bases, and deeper cost intelligence.
+
+### vs LangSmith
+LangSmith is LangChain's evaluation and monitoring platform tied to the LangChain ecosystem. Bonito is framework-agnostic infrastructure that works with any AI application regardless of the development framework used.
+
+### vs Arize
+Arize focuses on ML observability and model monitoring. Bonito focuses on operational control — routing, cost management, agent orchestration — covering the infrastructure layer rather than model performance monitoring.
+
+## Performance
+
+- Gateway overhead: 5-20ms per request (excluding upstream provider latency)
+- Average baseline latency: 118ms (P95: 178ms)
+- Agent memory latency: 259ms (includes embedding generation)
+- Error rate under sustained load: 0%
+- Router cache TTL: 50 minutes
+- Database connection pool: 10+20 per async worker
+
+## Integration
+
+### API (OpenAI-compatible)
+```bash
+curl https://api.getbonito.com/v1/chat/completions \
+  -H "Authorization: Bearer bn-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+### CLI
+```bash
+pip install bonito-cli
+bonito auth login
+bonito deploy -f bonito.yaml
+bonito agents list
+```
+
+### MCP Server (Claude Desktop)
+```bash
+pip install bonito-mcp
+# 18 tools for managing Bonito from Claude Desktop
+```
+
+## Use Cases
+
+1. **Enterprise AI Rollout** — Centralized governance for company-wide AI adoption
+2. **Multi-Provider Cost Optimization** — Route to cheapest model that meets quality threshold
+3. **Governed AI Agents** — Deploy department-specific agents with budget caps and approval workflows
+4. **HIPAA-Compliant Clinical AI** — Healthcare AI with audit trails and compliance checks
+5. **Creative Pipelines** — Image + video generation across OpenAI, Google, and more
+6. **Ad-Tech / Programmatic** — High-volume AI routing with cost attribution
+7. **Financial Services** — AI with complete audit trail and regulatory compliance
+
+## Links
+
+- Website: https://getbonito.com
+- Pricing: https://getbonito.com/pricing
+- Documentation: https://getbonito.com/docs
+- Blog: https://getbonito.com/blog
+- Compare: https://getbonito.com/compare
+- Use Cases: https://getbonito.com/use-cases
+- About: https://getbonito.com/about
+- Contact: https://getbonito.com/contact
+- Privacy: https://getbonito.com/privacy
+- Terms: https://getbonito.com/terms

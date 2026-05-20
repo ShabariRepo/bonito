@@ -104,14 +104,75 @@ export default function LandingPage() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Bonito",
+            alternateName: "Bonito AI",
             url: "https://getbonito.com",
             logo: "https://getbonito.com/bonito-logo-400.png",
-            description: "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure.",
-            contactPoint: {
-              "@type": "ContactPoint",
-              email: "support@getbonito.com",
-              contactType: "customer support",
+            description: "The Unified AI Control Plane — one API to connect providers, route intelligently, control costs, and ship faster. Supports OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, and Groq.",
+            foundingDate: "2025",
+            founder: {
+              "@type": "Person",
+              name: "Shabari",
+              jobTitle: "Founder & CEO",
             },
+            contactPoint: [
+              {
+                "@type": "ContactPoint",
+                email: "support@getbonito.com",
+                contactType: "customer support",
+              },
+              {
+                "@type": "ContactPoint",
+                email: "shabari@bonito.ai",
+                contactType: "sales",
+              },
+            ],
+            sameAs: [
+              "https://www.producthunt.com/products/bonito-cli",
+              "https://pypi.org/project/bonito-cli/",
+              "https://x.com/BonitoAI",
+            ],
+            knowsAbout: [
+              "AI infrastructure",
+              "LLM gateway",
+              "Multi-cloud AI management",
+              "AI cost optimization",
+              "AI agent orchestration",
+              "Enterprise AI governance",
+              "RAG knowledge bases",
+              "AI routing and failover",
+            ],
+          }),
+        }}
+      />
+      <Script
+        id="json-ld-howto"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "HowTo",
+            name: "How to Set Up Bonito AI Control Plane",
+            description: "Get started with Bonito in 3 steps — connect your AI providers, send requests through one API, and let Bonito handle routing, failover, and cost tracking.",
+            step: [
+              {
+                "@type": "HowToStep",
+                position: 1,
+                name: "Connect your AI providers",
+                text: "Add your cloud AI provider credentials (AWS Bedrock, Azure OpenAI, Google Vertex AI, OpenAI, Anthropic, or Groq). Credentials are stored securely in HashiCorp Vault.",
+              },
+              {
+                "@type": "HowToStep",
+                position: 2,
+                name: "Send requests to one API endpoint",
+                text: "Use Bonito's OpenAI-compatible API endpoint (POST /v1/chat/completions) with your bn- prefix API key. Works with any existing OpenAI SDK client.",
+              },
+              {
+                "@type": "HowToStep",
+                position: 3,
+                name: "Route, monitor, and optimize",
+                text: "Configure routing policies (cost, latency, balanced, failover, A/B test). Bonito handles automatic failover, tracks costs in real-time, and provides optimization recommendations.",
+              },
+            ],
           }),
         }}
       />

@@ -87,14 +87,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               "@type": "SoftwareApplication",
               name: "Bonito",
               applicationCategory: "BusinessApplication",
+              applicationSubCategory: "AI Infrastructure",
               operatingSystem: "Web",
               url: "https://getbonito.com",
               description:
                 "Enterprise AI control plane — unified governance, routing, and cost management across AWS, Azure, and GCP. With Bonobot governed AI agents.",
+              featureList: [
+                "Multi-cloud AI gateway with OpenAI-compatible API",
+                "Intelligent routing across 6 AI providers",
+                "Automatic failover with zero downtime",
+                "Real-time cost analytics and budget alerts",
+                "RAG knowledge bases with vector search",
+                "Governed AI agents with visual canvas builder",
+                "SSO/SAML with RBAC and compliance logging",
+                "Model playground with side-by-side comparison",
+              ],
               offers: {
                 "@type": "AggregateOffer",
                 lowPrice: "0",
-                highPrice: "5000",
+                highPrice: "20000",
                 priceCurrency: "USD",
                 offerCount: "4",
               },
@@ -107,6 +118,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   name: "Shabari",
                   jobTitle: "Founder & CEO",
                 },
+              },
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Bonito",
+              url: "https://getbonito.com",
+              description: "The Unified AI Control Plane — connect providers, route intelligently, control costs, ship faster.",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://getbonito.com/docs?q={search_term_string}",
+                "query-input": "required name=search_term_string",
               },
             }),
           }}
