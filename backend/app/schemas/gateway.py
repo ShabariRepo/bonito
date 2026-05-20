@@ -67,6 +67,14 @@ class ImageGenerationRequest(BaseModel):
     user: Optional[str] = None
 
 
+class VideoGenerationRequest(BaseModel):
+    model: str = "sora-2"
+    prompt: str
+    seconds: Optional[str] = "4"  # "4", "8", "10" etc.
+    size: Optional[str] = None  # "1280x720", "720x1280", "1920x1080"
+    user: Optional[str] = None
+
+
 # ─── API Key schemas ───
 
 class GatewayKeyCreate(BaseModel):

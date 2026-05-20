@@ -654,7 +654,7 @@ async def get_router(
         routing_strategy="simple-shuffle",
         num_retries=2,
         retry_after=1,
-        timeout=30,
+        timeout=120,
         allowed_fails=2,
         cooldown_time=30,
     )
@@ -1372,6 +1372,131 @@ async def image_generation(
         except Exception:
             pass
 
+        raise
+
+
+# ─── Video Generation ───
+
+# Approximate cost per second of video
+_VIDEO_COST_FALLBACK = {
+    "sora-2": 0.10,           # ~$0.10/sec
+    "sora-2-pro": 0.15,
+    "veo-2.0-generate-001": 0.05,
+    "veo-3.0-generate-preview": 0.08,
+    "veo-3.0-fast-generate-preview": 0.06,
+    "veo-3.1-generate-preview": 0.10,
+    "veo-3.1-fast-generate-preview": 0.08,
+}
+
+
+async def video_generation(
+    request_data: dict,
+    org_id: uuid.UUID,
+    key_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """Submit a video generation job via LiteLLM router and log the request."""
+    router = await get_router(db, org_id)
+    model = request_data.get("model", "sora-2")
+    start = time.time()
+
+    log_entry = GatewayRequest(
+        org_id=org_id,
+        key_id=key_id,
+        model_requested=model,
+        status="success",
+    )
+
+    try:
+        response = await litellm.avideo_generation(**request_data)
+        elapsed_ms = int((time.time() - start) * 1000)
+
+        log_entry.model_used = model
+        log_entry.input_tokens = 0
+        log_entry.output_tokens = 0
+        log_entry.latency_ms = elapsed_ms
+
+        # Cost: estimate based on duration
+        seconds = float(request_data.get("seconds", 4) or 4)
+        per_sec = _VIDEO_COST_FALLBACK.get(model, 0.10)
+        log_entry.cost = per_sec * seconds
+
+        log_entry.provider = await _resolve_provider_for_log(db, org_id, model)
+
+        db.add(log_entry)
+        await db.flush()
+
+        await _track_managed_inference(db, log_entry, org_id)
+
+        try:
+            await emit_gateway_event(
+                org_id, "request",
+                resource_type="model",
+                message=f"Video generation: {model}",
+                duration_ms=elapsed_ms,
+                cost=log_entry.cost,
+                metadata={
+                    "model": model,
+                    "seconds": request_data.get("seconds", 4),
+                    "size": request_data.get("size", "1280x720"),
+                    "provider": log_entry.provider,
+                },
+            )
+        except Exception:
+            pass
+
+        response_dict = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+        return response_dict
+
+    except Exception as e:
+        elapsed_ms = int((time.time() - start) * 1000)
+        log_entry.status = "error"
+        log_entry.error_message = str(e)[:1000]
+        log_entry.latency_ms = elapsed_ms
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log video gen error: {log_err}")
+
+        try:
+            await emit_gateway_event(
+                org_id, "error",
+                severity="error",
+                message=f"Video generation error: {model} - {str(e)[:200]}",
+                duration_ms=elapsed_ms,
+                metadata={"model": model, "error": str(e)[:500]},
+            )
+        except Exception:
+            pass
+
+        raise
+
+
+async def video_status_check(
+    video_id: str,
+    org_id: uuid.UUID,
+) -> dict:
+    """Check the status of a video generation job."""
+    try:
+        response = await litellm.avideo_status(video_id=video_id)
+        response_dict = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+        return response_dict
+    except Exception as e:
+        logger.error(f"Video status check failed for {video_id}: {e}")
+        raise
+
+
+async def video_content_fetch(
+    video_id: str,
+    org_id: uuid.UUID,
+) -> bytes:
+    """Download the content of a completed video."""
+    try:
+        content = await litellm.avideo_content(video_id=video_id)
+        return content
+    except Exception as e:
+        logger.error(f"Video content fetch failed for {video_id}: {e}")
         raise
 
 
