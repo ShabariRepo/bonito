@@ -179,6 +179,8 @@ cd frontend && vercel --prod
 - **Sentry frontend integration (2026-05-12):** Created `bonito-frontend` Sentry project via API. Added `@sentry/nextjs` SDK with client/server/edge configs, instrumentation hook, global error boundary, source map upload via `withSentryConfig`.
 - **API schema hardening (2026-05-12):** All Bonobot create/update schemas now reject unknown fields with `extra="forbid"` (422 instead of silent drop). Affected: AgentCreate, AgentUpdate, AgentConnectionCreate, AgentGroupCreate/Update, AgentExecuteRequest, AgentScheduleCreate/Update.
 - **Sentry tracking doc (2026-05-12):** Added `docs/SENTRY.md` covering backend (done), frontend (done), and future Helios MCP integration plan.
+- **Video generation gateway (2026-05-20):** 3 new endpoints: `POST /v1/videos` (submit), `GET /v1/videos/{id}` (poll status), `GET /v1/videos/{id}/content` (download mp4). Supports OpenAI Sora-2 and Vertex AI Veo 2.0/3.0/3.1. Credentials injected from Vault/DB via `_get_video_credentials()` since LiteLLM Router doesn't support video yet. Status/content polling also injects credentials (decoded from base64 video_id). Cost tracking via `_VIDEO_COST_FALLBACK` per-second pricing.
+- **Creative pipeline (2026-05-20):** Separate repo (`creative-pipeline/`) — 6-stage orchestrated workflow (Brief → Research → Ideation → Production → Review → Publish). All AI calls routed through Bonito gateway. Supports mixed image (gpt-image-1) + video (veo-3.0/sora-2) asset generation. Tested with Peller Estates "Niagara Nights" campaign: 4 images + 1 video, 94% review score.
 
 ## What's Planned
 
