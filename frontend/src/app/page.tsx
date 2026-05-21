@@ -195,10 +195,10 @@ export default function LandingPage() {
             Sign In
           </Link>
           <Link
-            href="/register"
+            href="/request-access"
             className="px-5 py-2.5 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold rounded-lg transition"
           >
-            Get Started
+            Request Access
           </Link>
         </div>
       </nav>
@@ -216,17 +216,17 @@ export default function LandingPage() {
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <Link
-              href="/register"
+              href="/request-access"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition group"
             >
-              Get Started Free
+              Request Early Access
               <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <Link
-              href="#features"
+              href="/discover"
               className="inline-flex items-center justify-center px-8 py-4 border border-[#333] hover:border-[#555] text-[#999] hover:text-[#f5f0e8] rounded-xl text-lg transition"
             >
-              Learn More
+              See What Bonito Can Do For You
             </Link>
           </div>
           <div className="mt-8">
@@ -360,7 +360,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/register"
+                  href={plan.name === "Enterprise" ? "/contact" : "/request-access"}
                   className={`block text-center py-3 rounded-lg font-semibold transition ${
                     plan.highlighted
                       ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
@@ -383,12 +383,20 @@ export default function LandingPage() {
             <p className="text-[#888] text-lg mb-8 max-w-xl mx-auto">
               Join teams who manage their AI infrastructure with confidence.
             </p>
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition"
-            >
-              Get Started Free <ArrowRight className="w-5 h-5" />
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                href="/request-access"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition"
+              >
+                Request Early Access <ArrowRight className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/discover"
+                className="inline-flex items-center gap-2 px-8 py-4 border border-[#7c3aed]/30 hover:border-[#7c3aed]/60 text-[#ccc] hover:text-white rounded-xl text-lg transition"
+              >
+                Try Discover
+              </Link>
+            </div>
           </div>
         </FadeInSection>
       </section>

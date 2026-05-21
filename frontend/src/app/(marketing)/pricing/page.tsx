@@ -555,10 +555,10 @@ export default function PricingPage() {
             Join teams managing 380+ models across AWS, Azure, and GCP from a single control plane. Start free, upgrade anytime.
           </p>
           <Link
-            href="/register"
+            href="/request-access"
             className="inline-flex items-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition"
           >
-            Get Started Free <ArrowRight className="w-5 h-5" />
+            Request Early Access <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
       </section>

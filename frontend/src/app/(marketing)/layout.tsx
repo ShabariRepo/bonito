@@ -89,10 +89,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               Sign In
             </Link>
             <Link
-              href="/register"
+              href="/request-access"
               className="px-5 py-2.5 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold rounded-lg transition"
             >
-              Get Started
+              Request Access
             </Link>
           </div>
 
@@ -153,11 +153,11 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
                     Sign In
                   </Link>
                   <Link
-                    href="/register"
+                    href="/request-access"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="block w-full text-center px-5 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold rounded-lg transition touch-manipulation"
                   >
-                    Get Started
+                    Request Access
                   </Link>
                 </div>
               </div>

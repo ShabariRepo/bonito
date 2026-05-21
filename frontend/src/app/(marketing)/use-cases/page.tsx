@@ -2042,10 +2042,10 @@ export default function UseCasesPage() {
               </p>
               <div className="flex items-center justify-center gap-4 flex-wrap">
                 <Link
-                  href="/register"
+                  href="/request-access"
                   className="px-6 py-3 rounded-lg bg-[#7c3aed] text-white font-semibold hover:bg-[#6d28d9] transition"
                 >
-                  Get Started Free
+                  Request Early Access
                 </Link>
                 <Link
                   href="/contact"

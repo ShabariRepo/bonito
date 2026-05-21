@@ -91,19 +91,25 @@ async def managed_availability(user: User = Depends(get_current_user)):
 
 @router.get("", response_model=List[ProviderResponse])
 async def list_providers(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    import asyncio
+    from sqlalchemy import func as sa_func
+    from app.models.model import Model
+
     result = await db.execute(select(CloudProvider).where(CloudProvider.org_id == user.org_id))
     providers = result.scalars().all()
 
-    async def _count(p):
-        try:
-            models = await get_models_for_provider(p.provider_type, str(p.id))
-            return p, len(models)
-        except Exception:
-            return p, 0
+    # Use DB-cached model counts instead of live API calls to each provider
+    provider_ids = [p.id for p in providers]
+    if provider_ids:
+        count_result = await db.execute(
+            select(Model.provider_id, sa_func.count(Model.id))
+            .where(Model.provider_id.in_(provider_ids))
+            .group_by(Model.provider_id)
+        )
+        counts = dict(count_result.all())
+    else:
+        counts = {}
 
-    pairs = await asyncio.gather(*[_count(p) for p in providers])
-    return [_to_response(p, count) for p, count in pairs]
+    return [_to_response(p, counts.get(p.id, 0)) for p in providers]
 
 
 @router.get("/{provider_id}", response_model=ProviderDetail)
@@ -139,14 +145,21 @@ async def get_provider_summary(provider_id: UUID, db: AsyncSession = Depends(get
     except Exception as e:
         logger.warning(f"Failed to fetch credentials for masking: {e}")
 
-    models = await get_models_for_provider(provider.provider_type, str(provider.id))
+    from sqlalchemy import func as sa_func
+    from app.models.model import Model
+
+    count_result = await db.execute(
+        select(sa_func.count(Model.id)).where(Model.provider_id == provider.id)
+    )
+    model_count = count_result.scalar() or 0
+
     return ProviderSummary(
         id=provider.id,
         provider_type=provider.provider_type,
         status=provider.status,
         name=get_provider_display_name(provider.provider_type),
         region=extract_region(provider.provider_type, masked_creds),
-        model_count=len(models),
+        model_count=model_count,
         masked_credentials=masked_creds,
         last_validated=provider.updated_at or provider.created_at,
         created_at=provider.created_at,
