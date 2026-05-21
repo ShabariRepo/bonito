@@ -219,6 +219,172 @@ pip install bonito-mcp
 6. **Ad-Tech / Programmatic** — High-volume AI routing with cost attribution
 7. **Financial Services** — AI with complete audit trail and regulatory compliance
 
+## Integration Guide
+
+Bonito's gateway is fully OpenAI-compatible. Any code that works with OpenAI works with Bonito — just change the base URL and API key.
+
+### Base URL
+```
+https://api.getbonito.com
+```
+
+### Authentication
+```
+Authorization: Bearer bn-your-api-key-here
+```
+
+### Chat Completions (cURL)
+```bash
+curl https://api.getbonito.com/v1/chat/completions \
+  -H "Authorization: Bearer bn-YOUR-KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+### Python (OpenAI SDK)
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.getbonito.com/v1",
+    api_key="bn-YOUR-KEY",
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(response.choices[0].message.content)
+```
+
+### Node.js (OpenAI SDK)
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://api.getbonito.com/v1",
+  apiKey: "bn-YOUR-KEY",
+});
+
+const response = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Hello" }],
+});
+```
+
+### Streaming
+```python
+stream = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a poem"}],
+    stream=True,
+)
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+### Image Generation
+```python
+response = client.images.generate(
+    model="dall-e-3",
+    prompt="A futuristic cityscape at sunset",
+    size="1024x1024",
+    n=1,
+)
+image_url = response.data[0].url
+```
+
+### Video Generation (Async Polling)
+```python
+import httpx
+
+headers = {"Authorization": "Bearer bn-YOUR-KEY", "Content-Type": "application/json"}
+
+# 1. Submit
+resp = httpx.post("https://api.getbonito.com/v1/videos", headers=headers, json={
+    "model": "vertex_ai/veo-3.0-generate-001",
+    "prompt": "A drone shot of a coastal city at golden hour",
+    "size": "1280x720",
+    "seconds": "8",
+})
+video_id = resp.json()["video_id"]
+
+# 2. Poll until completed
+import time
+while True:
+    status = httpx.get(f"https://api.getbonito.com/v1/videos/{video_id}", headers=headers).json()
+    if status["status"] == "completed":
+        break
+    time.sleep(10)
+
+# 3. Download
+content = httpx.get(f"https://api.getbonito.com/v1/videos/{video_id}/content", headers=headers)
+with open("output.mp4", "wb") as f:
+    f.write(content.content)
+```
+
+### Supported API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | Chat completions (supports streaming) |
+| `/v1/completions` | POST | Legacy text completions |
+| `/v1/embeddings` | POST | Text embeddings |
+| `/v1/images/generations` | POST | Image generation (DALL-E, Imagen) |
+| `/v1/videos` | POST | Video generation (Sora, Veo) |
+| `/v1/videos/{id}` | GET | Check video generation status |
+| `/v1/videos/{id}/content` | GET | Download generated video |
+
+### Available Models
+
+Any model connected to your org is available. Common ones:
+
+| Model | Provider | Use Case |
+|-------|----------|----------|
+| `gpt-4o` | OpenAI | Best general-purpose |
+| `gpt-4o-mini` | OpenAI | Fast and cheap |
+| `claude-sonnet-4-20250514` | Anthropic | Strong reasoning |
+| `claude-haiku-3-5-20241022` | Anthropic | Fast and cheap |
+| `gemini-2.5-pro` | Google Vertex AI | Multimodal |
+| `us.anthropic.claude-sonnet-4-20250514-v1:0` | AWS Bedrock | Claude via Bedrock |
+| `groq/llama-3.3-70b-versatile` | Groq | Ultra-fast open source |
+
+### Environment Variables
+
+```env
+OPENAI_API_BASE=https://api.getbonito.com/v1
+OPENAI_API_KEY=bn-your-key-here
+```
+
+### CLI
+```bash
+pip install bonito-cli
+bonito auth login
+bonito models list
+bonito providers list
+bonito agents list
+bonito deploy -f bonito.yaml
+bonito usage summary
+```
+
+### MCP Server (Claude Desktop)
+```bash
+pip install bonito-mcp
+```
+Add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "bonito": {
+      "command": "bonito-mcp",
+      "args": ["--token", "bn-YOUR-KEY"]
+    }
+  }
+}
+```
+Provides 18 tools for managing Bonito from Claude Desktop.
+
 ## Links
 
 - Website: https://getbonito.com
