@@ -5,6 +5,7 @@ import { motion, useInView } from "framer-motion";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { PageHeaderSkeleton, StatsCardskeleton, TableSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
   BarChart3,
   Activity,
@@ -117,7 +118,13 @@ export default function AnalyticsPage() {
   const loadAnalytics = () => { mutateOverview(); mutateUsage(); };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;
+    return (
+      <div className="space-y-8">
+        <PageHeaderSkeleton />
+        <StatsCardskeleton count={4} />
+        <TableSkeleton rows={6} cols={4} />
+      </div>
+    );
   }
 
   return (

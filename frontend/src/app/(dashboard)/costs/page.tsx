@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { PageHeaderSkeleton, StatsCardskeleton, TableSkeleton } from "@/components/ui/LoadingSkeleton";
 import { DollarSign, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Download, PieChart, BarChart3, Activity } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -180,8 +181,10 @@ export default function CostsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <LoadingDots size="lg" />
+      <div className="space-y-8">
+        <PageHeaderSkeleton />
+        <StatsCardskeleton count={4} />
+        <TableSkeleton rows={5} cols={4} />
       </div>
     );
   }

@@ -26,6 +26,7 @@ import { AnimatedCard } from "@/components/ui/animated-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { CardSkeleton } from "@/components/ui/LoadingSkeleton";
 import Link from "next/link";
 import { ConnectModal } from "@/components/providers/connect-modal";
 
@@ -347,8 +348,8 @@ export default function ProvidersPage() {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <LoadingDots size="lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CardSkeleton count={6} />
         </div>
       ) : providers.length === 0 ? (
         <motion.div

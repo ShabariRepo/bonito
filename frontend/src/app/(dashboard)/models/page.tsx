@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { PageHeaderSkeleton, CardSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/page-header";
 import { Box, Sparkles, MessageSquare, Image, Code, Search, RefreshCw, AlertTriangle, Lock, Filter } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
@@ -242,8 +243,11 @@ export default function ModelsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <LoadingDots size="lg" />
+      <div className="space-y-8">
+        <PageHeaderSkeleton />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <CardSkeleton count={9} />
+        </div>
       </div>
     );
   }

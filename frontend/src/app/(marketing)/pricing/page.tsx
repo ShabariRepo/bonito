@@ -8,8 +8,8 @@ import { Fragment, useState } from "react";
 const plans = [
   {
     name: "Free",
-    price: "Invite Only",
-    period: "",
+    price: "$0",
+    period: "/mo",
     description: "For teams evaluating Bonito before committing to a paid plan.",
     features: [
       "Up to 3 cloud provider connections",
@@ -22,7 +22,7 @@ const plans = [
       "Community support (Discord)",
       "3 team members",
     ],
-    cta: "Request Access",
+    cta: "Get Started Free",
     highlighted: true,
   },
   {
@@ -244,7 +244,7 @@ const faqs = [
   },
   {
     q: "How does billing work?",
-    a: "You are billed monthly based on your plan tier. The Free plan is invite-only and includes 1 provider connection, 25K API calls, failover routing, and 1 BonBon Simple agent. Pro ($999/mo) adds RAG, deployment provisioning, 5 providers, and 5 BonBon agents. Additional BonBon agents are $49/mo (Simple) or $99/mo (Advanced). Bonobot custom agents are billed separately as add-ons. Your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
+    a: "You are billed monthly based on your plan tier. The Free plan ($0/mo) includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon Simple agent. Pro ($999/mo) adds RAG, deployment provisioning, 5 providers, and 5 BonBon agents. Additional BonBon agents are $49/mo (Simple) or $99/mo (Advanced). Bonobot custom agents are billed separately as add-ons. Your AI provider costs (AWS, Azure, GCP) are billed separately by those providers through your own cloud accounts.",
   },
   {
     q: "What is AI Context?",
@@ -350,7 +350,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <Link
-              href={plan.name === "Enterprise" || plan.name === "Scale" ? "/contact" : plan.name === "Free" ? "/request-access" : "/register"}
+              href={plan.name === "Enterprise" || plan.name === "Scale" ? "/contact" : "/register"}
               className={`block text-center py-3 rounded-lg font-semibold transition ${
                 plan.highlighted
                   ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
@@ -555,10 +555,10 @@ export default function PricingPage() {
             Join teams managing 380+ models across AWS, Azure, and GCP from a single control plane. Start free, upgrade anytime.
           </p>
           <Link
-            href="/request-access"
+            href="/register"
             className="inline-flex items-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition"
           >
-            Request Early Access <ArrowRight className="w-5 h-5" />
+            Get Started Free <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
       </section>

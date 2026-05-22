@@ -541,10 +541,10 @@ export default function BlogPostClient({ slug }: { slug: string }) {
           stack.
         </p>
         <Link
-          href="/request-access"
+          href="/register"
           className="inline-flex items-center gap-2 px-6 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-lg transition"
         >
-          Request early access <ArrowRight className="w-4 h-4" />
+          Get started free <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 

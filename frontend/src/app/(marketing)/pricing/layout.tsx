@@ -49,7 +49,7 @@ const faqStructuredData = {
       name: "How does Bonito billing work?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "You are billed monthly based on your plan tier. The Free plan is invite-only and includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon agent. Pro ($999/mo) adds RAG, advanced routing, 5 providers, and 5 BonBon agents. Enterprise ($10K-$20K/mo) includes unlimited everything with SSO/SAML and compliance. Your AI provider costs are billed separately by those providers through your own cloud accounts.",
+        text: "You are billed monthly based on your plan tier. The Free plan ($0/mo) includes 3 provider connections, 25K API calls, failover routing, and 1 BonBon agent. Pro ($999/mo) adds RAG, advanced routing, 5 providers, and 5 BonBon agents. Enterprise ($10K-$20K/mo) includes unlimited everything with SSO/SAML and compliance. Your AI provider costs are billed separately by those providers through your own cloud accounts.",
       },
     },
     {

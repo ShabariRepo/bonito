@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingDots } from "@/components/ui/loading-dots";
+import { PageHeaderSkeleton, TableSkeleton } from "@/components/ui/LoadingSkeleton";
 import {
   ScrollText,
   Download,
@@ -208,7 +209,7 @@ export default function LogsPage() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-96"><LoadingDots size="lg" /></div>;
+  if (loading) return <div className="space-y-8"><PageHeaderSkeleton /><TableSkeleton rows={10} cols={5} /></div>;
 
   return (
     <div className="space-y-6">

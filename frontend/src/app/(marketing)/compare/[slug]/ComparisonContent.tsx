@@ -235,10 +235,10 @@ export default function ComparisonContent({ competitor }: { competitor: Competit
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/request-access"
+              href="/register"
               className="px-6 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold rounded-lg transition inline-flex items-center gap-2"
             >
-              Request Early Access <ArrowRight className="w-4 h-4" />
+              Get Started Free <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
               href="/pricing"
