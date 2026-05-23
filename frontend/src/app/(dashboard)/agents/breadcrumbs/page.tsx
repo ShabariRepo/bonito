@@ -1,0 +1,819 @@
+"use client";
+
+import { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  ReactFlow,
+  Node,
+  Edge,
+  Controls,
+  MiniMap,
+  Background,
+  BackgroundVariant,
+  useNodesState,
+  useEdgesState,
+  Panel,
+  EdgeProps,
+  getBezierPath,
+  EdgeLabelRenderer,
+  BaseEdge,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { memo } from "react";
+import { Handle, Position } from "@xyflow/react";
+import {
+  Bot,
+  Activity,
+  MessageSquare,
+  X,
+  ChevronDown,
+  Calendar,
+  User,
+  Cpu,
+} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { CardSkeleton } from "@/components/ui/LoadingSkeleton";
+import { useAPI } from "@/lib/swr";
+import { apiRequest } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+// ── Types ──────────────────────────────────────────────────────────
+
+interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+}
+
+interface BreadcrumbAgent {
+  id: string;
+  name: string;
+  status: string;
+  model_id: string;
+  description?: string;
+  run_count: number;
+  message_count: number;
+  position?: { x: number; y: number };
+}
+
+interface InteractionBreakdown {
+  invoke_agent?: number;
+  delegate_task?: number;
+  [key: string]: number | undefined;
+}
+
+interface BreadcrumbConnection {
+  id: string;
+  source_agent_id: string;
+  target_agent_id: string;
+  connection_type: "handoff" | "escalation" | "data_feed" | "trigger";
+  interaction_count: number;
+  breakdown?: InteractionBreakdown;
+}
+
+interface BreadcrumbsData {
+  agents: BreadcrumbAgent[];
+  connections: BreadcrumbConnection[];
+}
+
+interface AgentMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+  run_id?: string;
+}
+
+// ── Color map ──────────────────────────────────────────────────────
+
+const CONNECTION_COLORS: Record<string, string> = {
+  handoff: "#06b6d4",
+  escalation: "#ef4444",
+  data_feed: "#10b981",
+  trigger: "#f59e0b",
+};
+
+const CONNECTION_LABELS: Record<string, string> = {
+  handoff: "Handoff",
+  escalation: "Escalation",
+  data_feed: "Data Feed",
+  trigger: "Trigger",
+};
+
+// ── Date helpers ───────────────────────────────────────────────────
+
+function formatDateInput(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function daysAgo(days: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatTimestamp(dateString: string): string {
+  const d = new Date(dateString);
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+// ── Breadcrumb Agent Node ──────────────────────────────────────────
+
+interface BreadcrumbNodeData extends BreadcrumbAgent {
+  [key: string]: unknown;
+}
+
+const BreadcrumbAgentNode = memo(
+  ({ data, selected }: { data: BreadcrumbNodeData; selected?: boolean }) => {
+    const statusDot = (status: string) => {
+      const colors: Record<string, string> = {
+        active: "bg-green-500 animate-pulse",
+        paused: "bg-yellow-500",
+        disabled: "bg-red-500",
+      };
+      return (
+        <div
+          className={`w-2 h-2 rounded-full ${colors[status] || "bg-gray-500"}`}
+        />
+      );
+    };
+
+    return (
+      <div className="group">
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="w-3 h-3 !bg-cyan-500 !border-2 !border-cyan-400"
+        />
+
+        <Card
+          className={cn(
+            "w-72 bg-[#1a1a2e] border-2 transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer",
+            selected
+              ? "border-cyan-500 shadow-lg shadow-cyan-500/30"
+              : "border-gray-700 hover:border-cyan-500/50"
+          )}
+        >
+          <CardContent className="p-4">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                {statusDot(data.status)}
+                <h3 className="font-semibold text-white text-sm truncate">
+                  {data.name}
+                </h3>
+              </div>
+              <Bot className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+            </div>
+
+            {/* Model */}
+            <div className="mb-3">
+              <Badge
+                variant="outline"
+                className="text-xs bg-gray-500/10 text-gray-400 border-gray-500/30"
+              >
+                <Cpu className="w-3 h-3 mr-1" />
+                {data.model_id}
+              </Badge>
+            </div>
+
+            {/* Stats row */}
+            <div className="flex items-center justify-between text-xs border-t border-gray-700 pt-2">
+              <div className="flex items-center text-blue-400">
+                <Activity className="w-3 h-3 mr-1" />
+                {data.run_count} runs
+              </div>
+              <div className="flex items-center text-purple-400">
+                <MessageSquare className="w-3 h-3 mr-1" />
+                {data.message_count} msgs
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="w-3 h-3 !bg-cyan-500 !border-2 !border-cyan-400"
+        />
+      </div>
+    );
+  }
+);
+BreadcrumbAgentNode.displayName = "BreadcrumbAgentNode";
+
+// ── Custom Interaction Edge ────────────────────────────────────────
+
+interface InteractionEdgeData {
+  interaction_count: number;
+  connection_type: string;
+  breakdown?: InteractionBreakdown;
+  [key: string]: unknown;
+}
+
+function InteractionEdge({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  style,
+}: EdgeProps<Edge<InteractionEdgeData>>) {
+  const [hovered, setHovered] = useState(false);
+
+  const [edgePath, labelX, labelY] = getBezierPath({
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  });
+
+  const color = CONNECTION_COLORS[data?.connection_type || "handoff"] || "#06b6d4";
+  const count = data?.interaction_count ?? 0;
+  const breakdown = data?.breakdown;
+
+  return (
+    <>
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{
+          ...style,
+          stroke: color,
+          strokeWidth: Math.min(2 + count * 0.3, 6),
+        }}
+      />
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: "absolute",
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            pointerEvents: "all",
+          }}
+          className="nodrag nopan"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
+          {/* Badge */}
+          <div
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium shadow-lg border border-gray-700"
+            style={{ backgroundColor: "#1a1a2e" }}
+          >
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: color }}
+            />
+            <span className="text-white">{count}</span>
+          </div>
+
+          {/* Hover tooltip */}
+          {hovered && breakdown && Object.keys(breakdown).length > 0 && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-44 rounded-lg border border-gray-700 bg-[#1a1a2e] p-2.5 shadow-xl">
+              <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                {CONNECTION_LABELS[data?.connection_type || "handoff"]}
+              </div>
+              {Object.entries(breakdown).map(([key, val]) =>
+                val ? (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between text-xs py-0.5"
+                  >
+                    <span className="text-gray-300">
+                      {key.replace(/_/g, " ")}
+                    </span>
+                    <span className="text-white font-medium">{val}</span>
+                  </div>
+                ) : null
+              )}
+            </div>
+          )}
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
+
+// ── Node / Edge type registries ────────────────────────────────────
+
+const nodeTypes = {
+  breadcrumbAgent: BreadcrumbAgentNode,
+} as const satisfies Record<string, React.ComponentType<any>>;
+
+const edgeTypes = {
+  interaction: InteractionEdge,
+} as const satisfies Record<string, React.ComponentType<any>>;
+
+// ── Main page component ────────────────────────────────────────────
+
+export default function BreadcrumbsPage() {
+  // Project selector
+  const {
+    data: projects,
+    isLoading: projectsLoading,
+  } = useAPI<Project[]>("/api/agents/projects");
+
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null
+  );
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+
+  // Date range — default last 7 days
+  const [dateFrom, setDateFrom] = useState(() => formatDateInput(daysAgo(7)));
+  const [dateTo, setDateTo] = useState(() => formatDateInput(new Date()));
+
+  // Breadcrumbs data
+  const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbsData | null>(null);
+  const [breadcrumbsLoading, setBreadcrumbsLoading] = useState(false);
+
+  // React Flow
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // Side panel
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AgentMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  // Auto-select first project when loaded
+  useEffect(() => {
+    if (projects && projects.length > 0 && !selectedProjectId) {
+      setSelectedProjectId(projects[0].id);
+    }
+  }, [projects, selectedProjectId]);
+
+  // Fetch breadcrumbs when project or dates change
+  useEffect(() => {
+    if (!selectedProjectId) return;
+
+    const fetchBreadcrumbs = async () => {
+      setBreadcrumbsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          date_from: dateFrom,
+          date_to: dateTo,
+        });
+        const res = await apiRequest(
+          `/api/agents/projects/${selectedProjectId}/breadcrumbs?${params}`
+        );
+        if (res.ok) {
+          const data: BreadcrumbsData = await res.json();
+          setBreadcrumbs(data);
+          buildGraph(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch breadcrumbs:", err);
+      } finally {
+        setBreadcrumbsLoading(false);
+      }
+    };
+
+    fetchBreadcrumbs();
+  }, [selectedProjectId, dateFrom, dateTo]);
+
+  // Build React Flow graph from breadcrumbs data
+  const buildGraph = useCallback((data: BreadcrumbsData) => {
+    const COLS = 3;
+    const GAP_X = 340;
+    const GAP_Y = 220;
+
+    const flowNodes: Node[] = data.agents.map((agent, i) => ({
+      id: agent.id,
+      type: "breadcrumbAgent",
+      position: agent.position || {
+        x: 80 + (i % COLS) * GAP_X,
+        y: 80 + Math.floor(i / COLS) * GAP_Y,
+      },
+      data: { ...agent },
+      draggable: true,
+    }));
+
+    const flowEdges: Edge[] = data.connections.map((conn) => ({
+      id: conn.id,
+      source: conn.source_agent_id,
+      target: conn.target_agent_id,
+      type: "interaction",
+      animated: true,
+      data: {
+        interaction_count: conn.interaction_count,
+        connection_type: conn.connection_type,
+        breakdown: conn.breakdown,
+      },
+    }));
+
+    setNodes(flowNodes);
+    setEdges(flowEdges);
+  }, [setNodes, setEdges]);
+
+  // Node click — open side panel
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setSelectedAgentId(node.id);
+      setPanelOpen(true);
+      fetchMessages(node.id);
+    },
+    [selectedProjectId, dateFrom, dateTo]
+  );
+
+  // Fetch agent messages
+  const fetchMessages = async (agentId: string) => {
+    if (!selectedProjectId) return;
+    setMessagesLoading(true);
+    setMessages([]);
+    try {
+      const params = new URLSearchParams({
+        date_from: dateFrom,
+        date_to: dateTo,
+        limit: "50",
+      });
+      const res = await apiRequest(
+        `/api/agents/projects/${selectedProjectId}/breadcrumbs/agents/${agentId}/messages?${params}`
+      );
+      if (res.ok) {
+        const data: AgentMessage[] = await res.json();
+        setMessages(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch messages:", err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  // Close panel
+  const closePanel = () => {
+    setPanelOpen(false);
+    setSelectedAgentId(null);
+    setMessages([]);
+  };
+
+  // Selected project name
+  const selectedProject = useMemo(
+    () => projects?.find((p) => p.id === selectedProjectId),
+    [projects, selectedProjectId]
+  );
+
+  // Selected agent name
+  const selectedAgent = useMemo(
+    () => breadcrumbs?.agents.find((a) => a.id === selectedAgentId),
+    [breadcrumbs, selectedAgentId]
+  );
+
+  // ── Loading state ──
+
+  if (projectsLoading) {
+    return (
+      <div className="space-y-6 p-6">
+        <PageHeader
+          title="Breadcrumbs"
+          description="Visualize agent interactions across your projects"
+          breadcrumbs={[
+            { label: "Agents", href: "/agents" },
+            { label: "Breadcrumbs" },
+          ]}
+        />
+        <CardSkeleton count={3} />
+      </div>
+    );
+  }
+
+  // ── Empty state — no projects ──
+
+  if (!projects || projects.length === 0) {
+    return (
+      <div className="space-y-6 p-6">
+        <PageHeader
+          title="Breadcrumbs"
+          description="Visualize agent interactions across your projects"
+          breadcrumbs={[
+            { label: "Agents", href: "/agents" },
+            { label: "Breadcrumbs" },
+          ]}
+        />
+        <Card className="text-center py-12">
+          <CardContent>
+            <Bot className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-semibold mb-2">No Projects</h2>
+            <p className="text-muted-foreground">
+              Create a project with agents to see interaction breadcrumbs.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen">
+      {/* ── Header / controls ── */}
+      <div className="p-6 pb-4 space-y-4 flex-shrink-0">
+        <PageHeader
+          title="Breadcrumbs"
+          description="Visualize agent interactions across your projects"
+          breadcrumbs={[
+            { label: "Agents", href: "/agents" },
+            { label: "Breadcrumbs" },
+          ]}
+        />
+
+        <div className="flex flex-wrap items-end gap-4">
+          {/* Project selector */}
+          <div className="relative">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Project
+            </label>
+            <button
+              onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+              className="flex items-center justify-between w-64 rounded-md border border-gray-700 bg-[#1a1a2e] px-3 py-2 text-sm text-white hover:border-gray-500 transition-colors"
+            >
+              <span className="truncate">
+                {selectedProject?.name || "Select project..."}
+              </span>
+              <ChevronDown className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+            </button>
+            {projectDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setProjectDropdownOpen(false)}
+                />
+                <div className="absolute top-full left-0 mt-1 w-64 z-50 rounded-md border border-gray-700 bg-[#1a1a2e] shadow-xl py-1 max-h-60 overflow-y-auto">
+                  {projects.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setSelectedProjectId(p.id);
+                        setProjectDropdownOpen(false);
+                        setPanelOpen(false);
+                        setSelectedAgentId(null);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-sm transition-colors",
+                        p.id === selectedProjectId
+                          ? "bg-cyan-500/10 text-cyan-400"
+                          : "text-gray-300 hover:bg-gray-800"
+                      )}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Date from */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              From
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="rounded-md border border-gray-700 bg-[#1a1a2e] px-3 py-2 text-sm text-white [color-scheme:dark]"
+            />
+          </div>
+
+          {/* Date to */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="rounded-md border border-gray-700 bg-[#1a1a2e] px-3 py-2 text-sm text-white [color-scheme:dark]"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Canvas area ── */}
+      <div className="flex-1 relative bg-[#0a0a1a]">
+        {breadcrumbsLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Card className="w-80 p-6 bg-[#1a1a2e] border-gray-800">
+              <CardContent className="flex items-center justify-center p-0">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500" />
+                <span className="ml-3 text-white text-sm">
+                  Loading breadcrumbs...
+                </span>
+              </CardContent>
+            </Card>
+          </div>
+        ) : breadcrumbs && breadcrumbs.agents.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <Card className="w-96 p-8 bg-[#1a1a2e]/90 border-gray-800 text-center">
+              <CardContent className="p-0">
+                <Activity className="mx-auto h-10 w-10 text-gray-500 mb-3" />
+                <h3 className="text-white font-medium mb-1">
+                  No activity in this period
+                </h3>
+                <p className="text-gray-400 text-sm">
+                  Try expanding the date range or selecting a different project.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            className="bg-[#0a0a1a]"
+            nodesDraggable
+            nodesConnectable={false}
+            elementsSelectable
+          >
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={20}
+              size={1}
+              color="#333"
+            />
+
+            <Controls className="!bg-[#1a1a2e] !border-gray-700 [&>button]:!bg-[#1a1a2e] [&>button]:!border-gray-700 [&>button]:!text-white" />
+
+            <MiniMap
+              className="!bg-[#1a1a2e] !border-gray-700"
+              nodeColor="#06b6d4"
+              maskColor="rgba(26, 26, 46, 0.8)"
+            />
+
+            {/* Legend */}
+            <Panel
+              position="bottom-left"
+              className="bg-[#1a1a2e]/90 backdrop-blur-sm border border-gray-700 rounded-lg p-3"
+            >
+              <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+                Connection Types
+              </div>
+              <div className="space-y-1.5 text-xs">
+                {Object.entries(CONNECTION_COLORS).map(([type, color]) => (
+                  <div key={type} className="flex items-center space-x-2">
+                    <div
+                      className="w-6 h-0.5 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-gray-300 capitalize">{type.replace(/_/g, " ")}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </ReactFlow>
+        )}
+
+        {/* ── Side panel ── */}
+        <div
+          className={cn(
+            "absolute top-0 right-0 h-full w-[400px] bg-[#12122a] border-l border-gray-800 shadow-2xl transition-transform duration-300 z-20 flex flex-col",
+            panelOpen ? "translate-x-0" : "translate-x-full"
+          )}
+        >
+          {/* Panel header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Bot className="h-4 w-4 text-cyan-500 flex-shrink-0" />
+              <h3 className="font-semibold text-white text-sm truncate">
+                {selectedAgent?.name || "Agent"}
+              </h3>
+              {selectedAgent && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-gray-500/10 text-gray-400 border-gray-500/30 flex-shrink-0"
+                >
+                  {selectedAgent.model_id}
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={closePanel}
+              className="text-gray-400 hover:text-white h-7 w-7 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Agent summary */}
+          {selectedAgent && (
+            <div className="px-4 py-3 border-b border-gray-800 flex-shrink-0">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
+                  <div className="text-gray-400 mb-0.5">Runs</div>
+                  <div className="text-white font-medium text-base">
+                    {selectedAgent.run_count}
+                  </div>
+                </div>
+                <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
+                  <div className="text-gray-400 mb-0.5">Messages</div>
+                  <div className="text-white font-medium text-base">
+                    {selectedAgent.message_count}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-2">
+              Message Log
+            </div>
+
+            {messagesLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="animate-pulse space-y-1.5">
+                    <div className="h-3 bg-gray-800 rounded w-20" />
+                    <div className="h-12 bg-gray-800 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="text-center py-8">
+                <MessageSquare className="mx-auto h-8 w-8 text-gray-600 mb-2" />
+                <p className="text-gray-500 text-sm">
+                  No messages in this period
+                </p>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "rounded-lg px-3 py-2.5 text-sm",
+                    msg.role === "user"
+                      ? "bg-blue-500/10 border border-blue-500/20 ml-4"
+                      : msg.role === "assistant"
+                      ? "bg-[#1a1a2e] border border-gray-700 mr-4"
+                      : "bg-yellow-500/5 border border-yellow-500/10 mx-2 text-yellow-200/70 italic"
+                  )}
+                >
+                  {/* Role label */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      {msg.role === "user" ? (
+                        <User className="h-3 w-3 text-blue-400" />
+                      ) : msg.role === "assistant" ? (
+                        <Cpu className="h-3 w-3 text-cyan-400" />
+                      ) : (
+                        <Bot className="h-3 w-3 text-yellow-400" />
+                      )}
+                      <span
+                        className={cn(
+                          "text-[10px] font-medium uppercase tracking-wider",
+                          msg.role === "user"
+                            ? "text-blue-400"
+                            : msg.role === "assistant"
+                            ? "text-cyan-400"
+                            : "text-yellow-400"
+                        )}
+                      >
+                        {msg.role}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-gray-500">
+                      {formatTimestamp(msg.created_at)}
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  <p className="text-gray-200 text-xs leading-relaxed whitespace-pre-wrap break-words">
+                    {msg.content.length > 500
+                      ? msg.content.slice(0, 500) + "..."
+                      : msg.content}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
