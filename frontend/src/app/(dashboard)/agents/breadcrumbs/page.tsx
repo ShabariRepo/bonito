@@ -347,7 +347,7 @@ export default function BreadcrumbsPage() {
   const {
     data: projects,
     isLoading: projectsLoading,
-  } = useAPI<Project[]>("/api/agents/projects");
+  } = useAPI<Project[]>("/api/projects");
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
@@ -391,7 +391,7 @@ export default function BreadcrumbsPage() {
           date_to: dateTo,
         });
         const res = await apiRequest(
-          `/api/agents/projects/${selectedProjectId}/breadcrumbs?${params}`
+          `/api/projects/${selectedProjectId}/breadcrumbs?${params}`
         );
         if (res.ok) {
           const data: BreadcrumbsData = await res.json();
@@ -470,7 +470,7 @@ export default function BreadcrumbsPage() {
         limit: "50",
       });
       const res = await apiRequest(
-        `/api/agents/projects/${selectedProjectId}/breadcrumbs/agents/${agentId}/messages?${params}`
+        `/api/projects/${selectedProjectId}/breadcrumbs/agents/${agentId}/messages?${params}`
       );
       if (res.ok) {
         const data: AgentMessageResponse = await res.json();
