@@ -115,7 +115,7 @@ bonito agents create --project PROJECT_ID --name NAME [--description DESC] [--pr
 bonito agents info AGENT_ID [--sessions] [--json]
 bonito agents update AGENT_ID [--name NAME] [--description DESC] [--model MODEL] [--max-turns N] [--timeout SECS] [--rate-limit RPM] [--status STATUS] [--json]
 bonito agents delete AGENT_ID [--force] 
-bonito agents execute AGENT_ID [MESSAGE] [--session SESSION_ID] [--json]
+bonito agents execute AGENT_ID [MESSAGE] [--session SESSION_ID] [--parent-agent PARENT_AGENT_ID] [--json]
 bonito agents sessions AGENT_ID [--limit N] [--json]
 bonito agents messages AGENT_ID SESSION_ID [--json]
 bonito agents connections AGENT_ID [--json]

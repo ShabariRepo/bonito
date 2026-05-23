@@ -242,6 +242,12 @@ class AgentExecuteRequest(BaseModel):
 
     message: str = Field(..., min_length=1, max_length=100000)
     session_id: Optional[UUID] = None  # if not provided, creates new session
+    parent_agent_id: Optional[UUID] = Field(
+        None,
+        description="ID of the orchestrating agent. When provided, a delegation "
+        "record is logged in agent_messages so Breadcrumbs can visualise "
+        "the interaction between parent and target agent.",
+    )
 
 
 class SecurityMetadata(BaseModel):

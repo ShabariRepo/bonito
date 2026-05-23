@@ -116,6 +116,7 @@ bonito/
 - **Agent field names:** Use `model_id` (not `model`) for the model field. Put `temperature`/`max_tokens` inside `model_config`. Tool policy shape: `{"mode": "none|all|allowlist|denylist", "allowed": [], "denied": [], "http_allowlist": []}`.
 - **Connection types:** `handoff`, `escalation`, `data_feed`, `trigger`. Connection fields are top-level (`target_agent_id`, `connection_type`), not nested in a `config` object.
 - **Feature gates:** `feature_gate.require_feature()` for premium features.
+- **External orchestration:** `POST /api/agents/{id}/execute` accepts optional `parent_agent_id` field. When set, a synthetic `invoke_agent` delegation record is logged in the parent agent's session so Breadcrumbs can visualise code-orchestrated pipelines. CLI: `--parent-agent`. Zero latency impact — logging happens after execution.
 
 ## Gateway Request Flow
 
@@ -181,6 +182,7 @@ cd frontend && vercel --prod
 - **Sentry tracking doc (2026-05-12):** Added `docs/SENTRY.md` covering backend (done), frontend (done), and future Helios MCP integration plan.
 - **Video generation gateway (2026-05-20):** 3 new endpoints: `POST /v1/videos` (submit), `GET /v1/videos/{id}` (poll status), `GET /v1/videos/{id}/content` (download mp4). Supports OpenAI Sora-2 and Vertex AI Veo 2.0/3.0/3.1. Credentials injected from Vault/DB via `_get_video_credentials()` since LiteLLM Router doesn't support video yet. Status/content polling also injects credentials (decoded from base64 video_id). Cost tracking via `_VIDEO_COST_FALLBACK` per-second pricing.
 - **Creative pipeline (2026-05-20):** Separate repo (`creative-pipeline/`) — 6-stage orchestrated workflow (Brief → Research → Ideation → Production → Review → Publish). All AI calls routed through Bonito gateway. Supports mixed image (gpt-image-1) + video (veo-3.0/sora-2) asset generation. Tested with Peller Estates "Niagara Nights" campaign: 4 images + 1 video, 94% review score.
+- **External orchestration / Breadcrumbs tracing (2026-05-23):** `POST /api/agents/{id}/execute` now accepts optional `parent_agent_id`. When set, a synthetic `invoke_agent` tool-call message is logged in the parent agent's session, letting code-orchestrated pipelines (like Duncan Lane) appear in Breadcrumbs with zero latency impact. CLI flag: `--parent-agent`. Documented in BONOBOT-ARCHITECTURE.md.
 
 ## What's Planned
 

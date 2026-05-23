@@ -384,7 +384,7 @@ async def execute_agent(
             redis=await get_redis(),
             user_id=current_user.id
         )
-        
+
         # Get the session ID (either existing or newly created)
         if request.session_id:
             session_id = request.session_id
@@ -398,7 +398,21 @@ async def execute_agent(
             )
             db_result = await db.execute(stmt)
             session_id = db_result.scalar_one()
-        
+
+        # ── External orchestration: log delegation for Breadcrumbs ──
+        # When parent_agent_id is provided, record a synthetic tool-call
+        # message in the parent's most recent session so Breadcrumbs can
+        # visualise the parent→child interaction.
+        if request.parent_agent_id:
+            await _log_external_delegation(
+                parent_agent_id=request.parent_agent_id,
+                target_agent_id=agent_id,
+                target_agent_name=agent.name,
+                org_id=current_user.org_id,
+                message_preview=request.message[:200],
+                db=db,
+            )
+
         return AgentExecuteResponse(
             run_id=uuid_lib.uuid4(),  # Generate a run ID
             session_id=session_id,
@@ -976,6 +990,90 @@ async def get_project_breadcrumbs(
         "nodes": nodes,
         "edges": edges,
     }
+
+
+async def _log_external_delegation(
+    parent_agent_id: UUID,
+    target_agent_id: UUID,
+    target_agent_name: str,
+    org_id: UUID,
+    message_preview: str,
+    db: AsyncSession,
+) -> None:
+    """
+    Record a synthetic invoke_agent tool-call message in the parent agent's
+    most recent session.  This lets the Breadcrumbs query pick up external
+    (code-orchestrated) delegations with the same format as native
+    invoke_agent calls from the AgentEngine.
+
+    If the parent agent has no session yet, one is created automatically.
+    """
+    import json as _json
+
+    # Find or create a session for the parent agent
+    stmt = (
+        select(AgentSession)
+        .where(AgentSession.agent_id == parent_agent_id)
+        .order_by(desc(AgentSession.last_message_at))
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
+    if not session:
+        session = AgentSession(
+            id=uuid_lib.uuid4(),
+            agent_id=parent_agent_id,
+            org_id=org_id,
+            started_at=func.now(),
+            last_message_at=func.now(),
+            message_count=0,
+        )
+        db.add(session)
+        await db.flush()
+
+    # Next sequence number
+    seq_stmt = (
+        select(func.coalesce(func.max(AgentMessage.sequence), 0))
+        .where(AgentMessage.session_id == session.id)
+    )
+    seq_result = await db.execute(seq_stmt)
+    next_seq = seq_result.scalar() + 1
+
+    # Create the synthetic tool-call message (same shape the engine uses)
+    tool_call_payload = [{
+        "id": f"ext-{uuid_lib.uuid4().hex[:12]}",
+        "function": {
+            "name": "invoke_agent",
+            "arguments": _json.dumps({
+                "agent_id": str(target_agent_id),
+                "agent_name": target_agent_name,
+                "message_preview": message_preview,
+            }),
+        },
+    }]
+
+    delegation_msg = AgentMessage(
+        id=uuid_lib.uuid4(),
+        session_id=session.id,
+        org_id=org_id,
+        role="tool",
+        content=_json.dumps({
+            "source": "external_orchestrator",
+            "target_agent_id": str(target_agent_id),
+            "target_agent_name": target_agent_name,
+        }),
+        tool_calls=tool_call_payload,
+        tool_name="invoke_agent",
+        sequence=next_seq,
+    )
+    db.add(delegation_msg)
+
+    # Bump session counters
+    session.message_count = (session.message_count or 0) + 1
+    session.last_message_at = func.now()
+
+    await db.flush()
 
 
 def _extract_target_agent_id(tool_calls) -> Optional[UUID]:

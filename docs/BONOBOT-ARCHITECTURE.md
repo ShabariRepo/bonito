@@ -178,6 +178,41 @@ Organization
 - Audit log viewer with filtering
 - Health monitoring per agent
 
+**5. External Orchestration & Breadcrumbs Tracing**
+
+Bonito supports two orchestration modes:
+
+| Mode | How it works | Best for |
+|---|---|---|
+| **LLM-orchestrated** | An orchestrator agent uses `invoke_agent` / `delegate_task` tools to call sub-agents. Delegation is logged automatically. | General-purpose workflows, support bots, research agents |
+| **Code-orchestrated** | An external pipeline (Python, Go, etc.) calls `POST /api/agents/{id}/execute` for each sub-agent directly. Faster, deterministic control. | Latency-critical systems, trading, CI/CD pipelines |
+
+Code-orchestrated pipelines can opt into Breadcrumbs tracing by passing `parent_agent_id` in the execute request. This logs a synthetic `invoke_agent` delegation record linking the parent (orchestrator) to the child (target) agent — identical to what the LLM agent engine produces natively.
+
+```bash
+# CLI
+bonito agents execute CHILD_AGENT_ID "your message" --parent-agent ORCHESTRATOR_ID
+
+# API
+POST /api/agents/{agent_id}/execute
+{
+  "message": "Validate this trading setup...",
+  "parent_agent_id": "62867c83-9628-495d-b1ac-bd527d0a1c36"
+}
+```
+
+**How it works internally:**
+1. Execute endpoint runs the agent normally (zero latency impact)
+2. After execution, if `parent_agent_id` is set, a synthetic `tool_name='invoke_agent'` message is written to the parent agent's most recent session
+3. The Breadcrumbs query picks up these records identically to native delegations
+4. No changes needed to the orchestrating code beyond adding one field
+
+**Example: Duncan Lane Financial**
+- 8 agents deployed on Bonito (chart-analyst, edge-validator, risk-manager, etc.)
+- Local Python pipeline orchestrates the trading flow, calling each agent via HTTP
+- Pipeline passes `parent_agent_id=orchestrator_id` on every call
+- Breadcrumbs shows the full interaction graph: orchestrator → edge-validator, orchestrator → risk-manager, etc.
+
 ---
 
 ## Build Phases

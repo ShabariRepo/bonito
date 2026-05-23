@@ -310,19 +310,26 @@ def execute_agent(
     agent_id: str = typer.Argument(..., help="Agent ID"),
     message: Optional[str] = typer.Argument(None, help="Message to send"),
     session_id: Optional[str] = typer.Option(None, "--session", "-s", help="Session ID (creates new if not provided)"),
+    parent_agent: Optional[str] = typer.Option(None, "--parent-agent", "-p", help="Parent (orchestrator) agent ID for Breadcrumbs tracing"),
     json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
 ):
-    """Execute an agent with a message."""
+    """Execute an agent with a message.
+
+    Use --parent-agent to declare that this call is being orchestrated by
+    another agent. The delegation will appear in Breadcrumbs.
+    """
     ensure_authenticated()
     fmt = get_output_format(json_output)
-    
+
     # Get message if not provided
     if not message:
         message = Prompt.ask("Enter your message")
-    
+
     payload = {"message": message}
     if session_id:
         payload["session_id"] = session_id
+    if parent_agent:
+        payload["parent_agent_id"] = parent_agent
     
     try:
         with console.status(f"[bold green]Executing agent...", spinner="dots"):
