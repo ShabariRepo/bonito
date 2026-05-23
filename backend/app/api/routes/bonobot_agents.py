@@ -4,12 +4,13 @@ Bonobot Agents API Routes
 Agent CRUD operations and execution endpoints
 """
 
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 import uuid as uuid_lib
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func, and_, desc
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, func, and_, desc, or_, case, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -798,3 +799,330 @@ async def delete_trigger(
     
     await db.delete(trigger)
     await db.commit()
+
+
+# ─── Breadcrumbs (Visual Trace) ───
+
+
+def _parse_iso_date(date_str: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO date string into a datetime, or return None."""
+    if not date_str:
+        return None
+    try:
+        return datetime.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid date format: {date_str}. Use ISO 8601 (e.g. 2026-01-15T00:00:00Z)."
+        )
+
+
+@router.get("/projects/{project_id}/breadcrumbs")
+async def get_project_breadcrumbs(
+    project_id: UUID,
+    date_from: Optional[str] = Query(None, description="ISO 8601 start date filter"),
+    date_to: Optional[str] = Query(None, description="ISO 8601 end date filter"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Return a visual trace of agent interactions within a project.
+
+    Produces nodes (agents) and edges (connections with interaction counts)
+    suitable for rendering a React Flow diagram.
+    """
+    # Parse date filters
+    dt_from = _parse_iso_date(date_from)
+    dt_to = _parse_iso_date(date_to)
+
+    # ── Verify project access ──
+    stmt = select(Project).where(
+        and_(
+            Project.id == project_id,
+            Project.org_id == current_user.org_id,
+        )
+    )
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    # ── Nodes: all agents in the project ──
+    stmt = select(Agent).where(Agent.project_id == project_id).order_by(Agent.created_at)
+    result = await db.execute(stmt)
+    agents = result.scalars().all()
+    agent_ids = [a.id for a in agents]
+
+    # Build date-range filter conditions for agent_messages
+    date_conditions = []
+    if dt_from:
+        date_conditions.append(AgentMessage.created_at >= dt_from)
+    if dt_to:
+        date_conditions.append(AgentMessage.created_at <= dt_to)
+
+    # Per-agent message counts within the date range
+    message_counts: dict[UUID, int] = {}
+    if agent_ids:
+        msg_count_stmt = (
+            select(
+                AgentSession.agent_id,
+                func.count(AgentMessage.id).label("cnt"),
+            )
+            .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+            .where(AgentSession.agent_id.in_(agent_ids))
+        )
+        if date_conditions:
+            msg_count_stmt = msg_count_stmt.where(and_(*date_conditions))
+        msg_count_stmt = msg_count_stmt.group_by(AgentSession.agent_id)
+
+        result = await db.execute(msg_count_stmt)
+        for row in result.all():
+            message_counts[row.agent_id] = row.cnt
+
+    nodes = []
+    for agent in agents:
+        nodes.append({
+            "id": str(agent.id),
+            "name": agent.name,
+            "description": agent.description,
+            "status": agent.status,
+            "model_id": agent.model_id,
+            "total_runs": agent.total_runs,
+            "total_cost": float(agent.total_cost),
+            "last_active_at": agent.last_active_at.isoformat() if agent.last_active_at else None,
+            "position": agent.canvas_position,
+            "message_count": message_counts.get(agent.id, 0),
+        })
+
+    # ── Edges: connections + interaction counts ──
+    stmt = select(AgentConnection).where(
+        and_(
+            AgentConnection.project_id == project_id,
+            AgentConnection.org_id == current_user.org_id,
+        )
+    )
+    result = await db.execute(stmt)
+    connections = result.scalars().all()
+
+    # For each connection, count invoke_agent and delegate_task interactions
+    # within the date range by querying agent_messages where
+    # tool_name IN ('invoke_agent', 'delegate_task') and the source agent
+    # matches via session -> agent_id.
+    #
+    # We batch this into a single query across all source agents, then match
+    # target agent_ids by parsing tool_calls JSON in Python.
+
+    interaction_map: dict[tuple[UUID, UUID], dict[str, int]] = {}
+
+    if connections:
+        # Get all relevant tool-call messages from source agents in this project
+        source_ids = list({c.source_agent_id for c in connections})
+
+        tool_msg_stmt = (
+            select(
+                AgentSession.agent_id.label("source_agent_id"),
+                AgentMessage.tool_name,
+                AgentMessage.tool_calls,
+            )
+            .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+            .where(
+                and_(
+                    AgentSession.agent_id.in_(source_ids),
+                    AgentMessage.tool_name.in_(["invoke_agent", "delegate_task"]),
+                )
+            )
+        )
+        if date_conditions:
+            tool_msg_stmt = tool_msg_stmt.where(and_(*date_conditions))
+
+        result = await db.execute(tool_msg_stmt)
+        tool_rows = result.all()
+
+        for row in tool_rows:
+            target_id = _extract_target_agent_id(row.tool_calls)
+            if target_id is None:
+                continue
+            key = (row.source_agent_id, target_id)
+            if key not in interaction_map:
+                interaction_map[key] = {"invoke_agent": 0, "delegate_task": 0}
+            if row.tool_name in interaction_map[key]:
+                interaction_map[key][row.tool_name] += 1
+
+    edges = []
+    for conn in connections:
+        key = (conn.source_agent_id, conn.target_agent_id)
+        counts = interaction_map.get(key, {"invoke_agent": 0, "delegate_task": 0})
+        edges.append({
+            "id": str(conn.id),
+            "source": str(conn.source_agent_id),
+            "target": str(conn.target_agent_id),
+            "connection_type": conn.connection_type,
+            "label": conn.label,
+            "interactions": {
+                "total": counts["invoke_agent"] + counts["delegate_task"],
+                "invoke_agent": counts["invoke_agent"],
+                "delegate_task": counts["delegate_task"],
+            },
+        })
+
+    return {
+        "project_id": str(project_id),
+        "date_from": date_from,
+        "date_to": date_to,
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
+def _extract_target_agent_id(tool_calls) -> Optional[UUID]:
+    """
+    Extract the target agent_id from a tool_calls JSON column.
+
+    Expected shape: [{function: {name: "invoke_agent", arguments: '{"agent_id": "..."}' }}]
+    The arguments value may be a JSON string or already-parsed dict.
+    """
+    import json as _json
+
+    if not tool_calls:
+        return None
+
+    calls = tool_calls if isinstance(tool_calls, list) else [tool_calls]
+    for call in calls:
+        fn = call.get("function") if isinstance(call, dict) else None
+        if not fn:
+            continue
+        args = fn.get("arguments")
+        if args is None:
+            continue
+        # arguments may be a JSON-encoded string or a dict
+        if isinstance(args, str):
+            try:
+                args = _json.loads(args)
+            except (ValueError, TypeError):
+                continue
+        if isinstance(args, dict):
+            aid = args.get("agent_id")
+            if aid:
+                try:
+                    return UUID(str(aid))
+                except (ValueError, TypeError):
+                    continue
+    return None
+
+
+@router.get("/projects/{project_id}/breadcrumbs/agents/{agent_id}/messages")
+async def get_breadcrumb_agent_messages(
+    project_id: UUID,
+    agent_id: UUID,
+    date_from: Optional[str] = Query(None, description="ISO 8601 start date filter"),
+    date_to: Optional[str] = Query(None, description="ISO 8601 end date filter"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Paginated messages for a specific agent within the breadcrumbs context.
+
+    Returns messages across all sessions for this agent, filtered by date range.
+    """
+    dt_from = _parse_iso_date(date_from)
+    dt_to = _parse_iso_date(date_to)
+
+    # Verify project access
+    stmt = select(Project).where(
+        and_(
+            Project.id == project_id,
+            Project.org_id == current_user.org_id,
+        )
+    )
+    result = await db.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    # Verify agent belongs to this project and org
+    stmt = select(Agent).where(
+        and_(
+            Agent.id == agent_id,
+            Agent.project_id == project_id,
+            Agent.org_id == current_user.org_id,
+        )
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent not found in this project",
+        )
+
+    # Build message query across all sessions for this agent
+    msg_stmt = (
+        select(AgentMessage)
+        .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+        .where(AgentSession.agent_id == agent_id)
+        .order_by(desc(AgentMessage.created_at))
+    )
+
+    if dt_from:
+        msg_stmt = msg_stmt.where(AgentMessage.created_at >= dt_from)
+    if dt_to:
+        msg_stmt = msg_stmt.where(AgentMessage.created_at <= dt_to)
+
+    # Total count for pagination
+    count_stmt = (
+        select(func.count(AgentMessage.id))
+        .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+        .where(AgentSession.agent_id == agent_id)
+    )
+    if dt_from:
+        count_stmt = count_stmt.where(AgentMessage.created_at >= dt_from)
+    if dt_to:
+        count_stmt = count_stmt.where(AgentMessage.created_at <= dt_to)
+
+    total_result = await db.execute(count_stmt)
+    total = total_result.scalar() or 0
+
+    # Fetch paginated messages
+    msg_stmt = msg_stmt.limit(limit).offset(offset)
+    result = await db.execute(msg_stmt)
+    messages = result.scalars().all()
+
+    return {
+        "agent_id": str(agent_id),
+        "project_id": str(project_id),
+        "date_from": date_from,
+        "date_to": date_to,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "messages": [
+            {
+                "id": str(msg.id),
+                "session_id": str(msg.session_id),
+                "role": msg.role,
+                "content": msg.content,
+                "tool_name": msg.tool_name,
+                "tool_calls": msg.tool_calls,
+                "tool_call_id": msg.tool_call_id,
+                "model_used": msg.model_used,
+                "input_tokens": msg.input_tokens,
+                "output_tokens": msg.output_tokens,
+                "cost": float(msg.cost) if msg.cost else None,
+                "latency_ms": msg.latency_ms,
+                "sequence": msg.sequence,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
+            for msg in messages
+        ],
+    }
