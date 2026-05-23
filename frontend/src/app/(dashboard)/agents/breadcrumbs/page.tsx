@@ -239,7 +239,7 @@ BreadcrumbAgentNode.displayName = "BreadcrumbAgentNode";
 interface InteractionEdgeData {
   interaction_count: number;
   connection_type: string;
-  breakdown?: InteractionBreakdown;
+  breakdown?: Record<string, number>;
   [key: string]: unknown;
 }
 
