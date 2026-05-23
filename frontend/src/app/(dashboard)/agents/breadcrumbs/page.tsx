@@ -48,43 +48,64 @@ interface Project {
   status: string;
 }
 
-interface BreadcrumbAgent {
+interface BreadcrumbNode {
   id: string;
   name: string;
   status: string;
   model_id: string;
-  description?: string;
-  run_count: number;
+  description?: string | null;
+  total_runs: number;
+  total_cost: number;
+  last_active_at?: string | null;
   message_count: number;
-  position?: { x: number; y: number };
+  position?: { x: number; y: number } | null;
 }
 
-interface InteractionBreakdown {
-  invoke_agent?: number;
-  delegate_task?: number;
-  [key: string]: number | undefined;
+interface InteractionCounts {
+  total: number;
+  invoke_agent: number;
+  delegate_task: number;
 }
 
-interface BreadcrumbConnection {
+interface BreadcrumbEdge {
   id: string;
-  source_agent_id: string;
-  target_agent_id: string;
+  source: string;
+  target: string;
   connection_type: "handoff" | "escalation" | "data_feed" | "trigger";
-  interaction_count: number;
-  breakdown?: InteractionBreakdown;
+  label?: string | null;
+  interactions: InteractionCounts;
 }
 
 interface BreadcrumbsData {
-  agents: BreadcrumbAgent[];
-  connections: BreadcrumbConnection[];
+  project_id: string;
+  date_from: string | null;
+  date_to: string | null;
+  nodes: BreadcrumbNode[];
+  edges: BreadcrumbEdge[];
+}
+
+interface AgentMessageResponse {
+  agent_id: string;
+  project_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  messages: AgentMessage[];
 }
 
 interface AgentMessage {
   id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  created_at: string;
-  run_id?: string;
+  session_id: string;
+  role: "user" | "assistant" | "system" | "tool";
+  content: string | null;
+  tool_name?: string | null;
+  model_used?: string | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cost?: number | null;
+  latency_ms?: number | null;
+  sequence: number;
+  created_at: string | null;
 }
 
 // ── Color map ──────────────────────────────────────────────────────
@@ -129,7 +150,8 @@ function formatTimestamp(dateString: string): string {
 
 // ── Breadcrumb Agent Node ──────────────────────────────────────────
 
-interface BreadcrumbNodeData extends BreadcrumbAgent {
+interface BreadcrumbNodeData extends BreadcrumbNode {
+  run_count: number;
   [key: string]: unknown;
 }
 
@@ -392,27 +414,33 @@ export default function BreadcrumbsPage() {
     const GAP_X = 340;
     const GAP_Y = 220;
 
-    const flowNodes: Node[] = data.agents.map((agent, i) => ({
-      id: agent.id,
+    const flowNodes: Node[] = data.nodes.map((node, i) => ({
+      id: node.id,
       type: "breadcrumbAgent",
-      position: agent.position || {
+      position: node.position || {
         x: 80 + (i % COLS) * GAP_X,
         y: 80 + Math.floor(i / COLS) * GAP_Y,
       },
-      data: { ...agent },
+      data: {
+        ...node,
+        run_count: node.total_runs,
+      },
       draggable: true,
     }));
 
-    const flowEdges: Edge[] = data.connections.map((conn) => ({
-      id: conn.id,
-      source: conn.source_agent_id,
-      target: conn.target_agent_id,
+    const flowEdges: Edge[] = data.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
       type: "interaction",
       animated: true,
       data: {
-        interaction_count: conn.interaction_count,
-        connection_type: conn.connection_type,
-        breakdown: conn.breakdown,
+        interaction_count: edge.interactions.total,
+        connection_type: edge.connection_type,
+        breakdown: {
+          invoke_agent: edge.interactions.invoke_agent,
+          delegate_task: edge.interactions.delegate_task,
+        },
       },
     }));
 
@@ -445,8 +473,8 @@ export default function BreadcrumbsPage() {
         `/api/agents/projects/${selectedProjectId}/breadcrumbs/agents/${agentId}/messages?${params}`
       );
       if (res.ok) {
-        const data: AgentMessage[] = await res.json();
-        setMessages(data);
+        const data: AgentMessageResponse = await res.json();
+        setMessages(data.messages);
       }
     } catch (err) {
       console.error("Failed to fetch messages:", err);
@@ -470,7 +498,7 @@ export default function BreadcrumbsPage() {
 
   // Selected agent name
   const selectedAgent = useMemo(
-    () => breadcrumbs?.agents.find((a) => a.id === selectedAgentId),
+    () => breadcrumbs?.nodes.find((a) => a.id === selectedAgentId),
     [breadcrumbs, selectedAgentId]
   );
 
@@ -618,7 +646,7 @@ export default function BreadcrumbsPage() {
               </CardContent>
             </Card>
           </div>
-        ) : breadcrumbs && breadcrumbs.agents.length === 0 ? (
+        ) : breadcrumbs && breadcrumbs.nodes.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Card className="w-96 p-8 bg-[#1a1a2e]/90 border-gray-800 text-center">
               <CardContent className="p-0">
@@ -726,7 +754,7 @@ export default function BreadcrumbsPage() {
                 <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
                   <div className="text-gray-400 mb-0.5">Runs</div>
                   <div className="text-white font-medium text-base">
-                    {selectedAgent.run_count}
+                    {selectedAgent.total_runs}
                   </div>
                 </div>
                 <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
@@ -798,15 +826,15 @@ export default function BreadcrumbsPage() {
                       </span>
                     </div>
                     <span className="text-[10px] text-gray-500">
-                      {formatTimestamp(msg.created_at)}
+                      {msg.created_at ? formatTimestamp(msg.created_at) : ""}
                     </span>
                   </div>
 
                   {/* Content */}
                   <p className="text-gray-200 text-xs leading-relaxed whitespace-pre-wrap break-words">
-                    {msg.content.length > 500
-                      ? msg.content.slice(0, 500) + "..."
-                      : msg.content}
+                    {(msg.content || "").length > 500
+                      ? (msg.content || "").slice(0, 500) + "..."
+                      : msg.content || (msg.tool_name ? `[Tool: ${msg.tool_name}]` : "")}
                   </p>
                 </div>
               ))

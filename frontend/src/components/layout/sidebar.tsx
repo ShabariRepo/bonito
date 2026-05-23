@@ -33,6 +33,7 @@ import {
   Package,
   FileText,
   UserPlus,
+  Footprints,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -59,8 +60,9 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-const bonobotNavigation = [
+const agentsNavigation = [
   { name: "Projects", href: "/agents", icon: Bot },
+  { name: "Breadcrumbs", href: "/agents/breadcrumbs", icon: Footprints },
   { name: "BonBon", href: "/agents/bonbon", icon: Package },
 ];
 
@@ -223,7 +225,7 @@ export function Sidebar() {
           );
         })}
 
-        {/* Bonobot section */}
+        {/* Agents section */}
         <div className="border-b border-border my-2" />
         <AnimatePresence>
           {(!isCollapsed || isMobile) && (
@@ -235,13 +237,13 @@ export function Sidebar() {
               transition={{ duration: 0.2 }}
               className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
             >
-              Bonobot
+              Agents
             </motion.p>
           )}
         </AnimatePresence>
-        {bonobotNavigation.map((item) => {
+        {agentsNavigation.map((item) => {
           const matchesPath = pathname === item.href || pathname?.startsWith(item.href + "/");
-          const hasMoreSpecificMatch = bonobotNavigation.some(
+          const hasMoreSpecificMatch = agentsNavigation.some(
             (other) => other.href !== item.href &&
               other.href.startsWith(item.href + "/") &&
               (pathname === other.href || pathname?.startsWith(other.href + "/"))
