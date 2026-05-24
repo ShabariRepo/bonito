@@ -4,7 +4,7 @@ Bonobot Agents API Routes
 Agent CRUD operations and execution endpoints
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 import uuid as uuid_lib
@@ -834,12 +834,28 @@ async def delete_trigger(
 # ─── Breadcrumbs (Visual Trace) ───
 
 
-def _parse_iso_date(date_str: Optional[str]) -> Optional[datetime]:
-    """Parse an ISO date string into a datetime, or return None."""
+def _parse_iso_date(date_str: Optional[str], end_of_day: bool = False) -> Optional[datetime]:
+    """Parse an ISO date string into a timezone-aware datetime, or return None.
+
+    The frontend sends plain dates like '2026-05-24' which parse as naive
+    datetimes at midnight.  Agent messages are stored with timezone-aware
+    timestamps (UTC), so comparing naive vs aware silently returns no rows
+    in PostgreSQL.  We normalise to UTC here.
+
+    When *end_of_day* is True and the input is a date-only string (no time
+    component), the result is snapped to 23:59:59.999999 so that a
+    ``date_to`` filter includes the entire day.
+    """
     if not date_str:
         return None
     try:
-        return datetime.fromisoformat(date_str)
+        dt = datetime.fromisoformat(date_str)
+        # date-only strings have no time component → snap to end of day
+        if end_of_day and "T" not in date_str:
+            dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except (ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -863,7 +879,7 @@ async def get_project_breadcrumbs(
     """
     # Parse date filters
     dt_from = _parse_iso_date(date_from)
-    dt_to = _parse_iso_date(date_to)
+    dt_to = _parse_iso_date(date_to, end_of_day=True)
 
     # ── Verify project access ──
     stmt = select(Project).where(
@@ -1213,7 +1229,7 @@ async def get_breadcrumb_agent_messages(
     Returns messages across all sessions for this agent, filtered by date range.
     """
     dt_from = _parse_iso_date(date_from)
-    dt_to = _parse_iso_date(date_to)
+    dt_to = _parse_iso_date(date_to, end_of_day=True)
 
     # Verify project access
     stmt = select(Project).where(
