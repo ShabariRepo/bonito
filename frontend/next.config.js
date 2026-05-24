@@ -8,14 +8,11 @@ const nextConfig = {
 module.exports = withSentryConfig(nextConfig, {
   org: "bonito-ai",
   project: "bonito-frontend",
-  silent: !process.env.CI,
+  silent: true,
   widenClientFileUpload: true,
   hideSourceMaps: true,
   disableLogger: true,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  errorHandler: (err, invokeErr, compilation) => {
-    if (compilation) {
-      compilation.warnings.push("Sentry source map upload failed: " + err.message);
-    }
+  sourcemaps: {
+    disable: true,
   },
 });

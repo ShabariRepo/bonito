@@ -72,7 +72,7 @@ export default function DiscoverLogsPage() {
     );
   });
 
-  if (loading) return <LoadingDots label="Loading discover logs..." />;
+  if (loading) return <LoadingDots />;
   if (error) return <ErrorBanner message={error} />;
 
   return (
