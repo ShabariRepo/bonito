@@ -254,6 +254,10 @@ async def update_provider_credentials(
     provider.status = "active"
     await db.flush()
 
+    # Invalidate gateway router cache so updated credentials take effect immediately
+    from app.services.gateway import reset_router
+    await reset_router(user.org_id)
+
     masked_creds = mask_credentials(provider.provider_type, merged)
     models = await get_models_for_provider(provider.provider_type, str(provider.id))
     return ProviderSummary(
@@ -456,6 +460,10 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
     model_count = sync_result["count"] if isinstance(sync_result, dict) else sync_result
     logger.info(f"Synced {model_count} models for {data.provider_type} provider {provider_id}")
 
+    # Invalidate gateway router cache so new provider is picked up immediately
+    from app.services.gateway import reset_router
+    await reset_router(user.org_id)
+
     return _to_response(provider, model_count)
 
 
@@ -620,6 +628,10 @@ async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db),
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
     await db.delete(provider)
+    await db.commit()
+    # Invalidate gateway router cache so stale credentials aren't used
+    from app.services.gateway import reset_router
+    await reset_router(user.org_id)
 
 
 @router.post("/{provider_id}/provision-azure", response_model=VerifyResponse)
@@ -768,6 +780,11 @@ async def update_provider(provider_id: UUID, data: ProviderUpdate, db: AsyncSess
 
     await db.flush()
     await db.refresh(provider)
+
+    # Invalidate gateway router cache so updated credentials take effect immediately
+    from app.services.gateway import reset_router
+    await reset_router(user.org_id)
+
     return _to_response(provider)
 
 

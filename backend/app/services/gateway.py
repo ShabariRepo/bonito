@@ -339,12 +339,15 @@ def _detect_provider_from_model(model_id: str, model_list: list[dict]) -> Option
 async def _get_provider_credentials(
     db: AsyncSession,
     org_id: uuid.UUID,
-) -> dict[str, dict]:
+) -> dict[uuid.UUID, dict]:
     """Fetch provider credentials from Vault using org-specific provider UUIDs.
 
     Credentials are stored at ``providers/{provider_uuid}`` — not at a
     generic ``providers/aws`` path.  We query the org's active
     CloudProvider rows, then fetch each one's secrets from Vault.
+
+    Returns a dict keyed by **provider UUID** (not provider_type) so orgs
+    with multiple providers of the same type don't collide.
     """
     result = await db.execute(
         select(CloudProvider).where(
@@ -356,7 +359,7 @@ async def _get_provider_credentials(
     )
     providers = result.scalars().all()
 
-    creds: dict[str, dict] = {}
+    creds: dict[uuid.UUID, dict] = {}
     for provider in providers:
         try:
             # Managed providers use platform master keys from env vars
@@ -364,7 +367,7 @@ async def _get_provider_credentials(
                 from app.services.managed_inference import get_master_key
                 master_key = get_master_key(provider.provider_type)
                 if master_key:
-                    creds[provider.provider_type] = {"api_key": master_key, "managed": True}
+                    creds[provider.id] = {"api_key": master_key, "managed": True, "_provider_type": provider.provider_type}
                     logger.debug(f"✓ Managed {provider.provider_type} provider credentials loaded")
                 else:
                     logger.error(
@@ -372,15 +375,16 @@ async def _get_provider_credentials(
                         f"Expected env var: BONITO_{provider.provider_type.upper()}_MASTER_KEY"
                     )
                 continue
-                    
+
             # Non-managed providers use Vault/DB credentials
             data = await vault_client.get_secrets(f"providers/{provider.id}")
             if data:
-                creds[provider.provider_type] = data
-                logger.debug(f"✓ {provider.provider_type} provider credentials loaded from Vault")
+                data["_provider_type"] = provider.provider_type
+                creds[provider.id] = data
+                logger.debug(f"✓ {provider.provider_type} provider credentials loaded from Vault (provider={provider.id})")
             else:
                 logger.warning(f"✗ No Vault credentials found for {provider.provider_type} provider {provider.id}")
-                
+
         except Exception as e:
             logger.warning(
                 "Failed to fetch %s credentials for provider %s: %s",
@@ -388,8 +392,8 @@ async def _get_provider_credentials(
                 provider.id,
                 e,
             )
-    
-    logger.info(f"Loaded credentials for providers: {list(creds.keys())}")
+
+    logger.info(f"Loaded credentials for {len(creds)} provider(s): {[str(pid)[:8] for pid in creds]}")
     return creds
 
 
@@ -437,10 +441,10 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
             
             for model, provider in rows:
                 provider_type = provider.provider_type
-                if provider_type not in creds:
+                if provider.id not in creds:
                     continue
-                
-                c = creds[provider_type]
+
+                c = creds[provider.id]
                 model_id = model.model_id
                 litellm_params: dict = {}
                 
@@ -583,8 +587,13 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
             logger.warning(f"Failed to build dynamic model list from DB: {e}, falling back to hardcoded")
 
     # Fallback: hardcoded model list (for when DB is unavailable)
-    if "aws" in creds:
-        c = creds["aws"]
+    # Build a type-indexed view for the fallback path
+    _creds_by_type: dict[str, dict] = {}
+    for _pid, _c in creds.items():
+        _creds_by_type.setdefault(_c.get("_provider_type", ""), _c)
+
+    if "aws" in _creds_by_type:
+        c = _creds_by_type["aws"]
         common = {
             "aws_access_key_id": c.get("access_key_id", ""),
             "aws_secret_access_key": c.get("secret_access_key", ""),
@@ -606,8 +615,8 @@ async def _build_model_list(creds: dict, db: AsyncSession = None, org_id: uuid.U
     # DB access the fallback cannot resolve deployment names, so Azure
     # models are only available via the dynamic model list.
 
-    if "gcp" in creds:
-        c = creds["gcp"]
+    if "gcp" in _creds_by_type:
+        c = _creds_by_type["gcp"]
         sa_json = c.get("service_account_json")
         vertex_credentials = json.dumps(sa_json) if isinstance(sa_json, dict) else sa_json if sa_json else None
         for model in ["gemini-1.5-pro", "gemini-1.5-flash"]:
@@ -1399,12 +1408,16 @@ async def _get_video_credentials(db: AsyncSession, org_id: uuid.UUID, model: str
     """
     extra_params = {}
 
-    # Fetch all org credentials once (keyed by provider_type)
+    # Fetch all org credentials (keyed by provider UUID)
     all_creds = await _get_provider_credentials(db, org_id)
+    # Build type-indexed view for video credential lookup
+    _by_type: dict[str, dict] = {}
+    for _pid, _c in all_creds.items():
+        _by_type.setdefault(_c.get("_provider_type", ""), _c)
 
     if "vertex_ai/" in model or "veo" in model:
         # GCP — need vertex_credentials, project, location
-        creds = all_creds.get("gcp", {})
+        creds = _by_type.get("gcp", {})
         if creds:
             sa_json = creds.get("service_account_json")
             if sa_json:
@@ -1413,7 +1426,7 @@ async def _get_video_credentials(db: AsyncSession, org_id: uuid.UUID, model: str
             extra_params["vertex_location"] = creds.get("region", "us-central1")
     elif "sora" in model or "openai" in model.lower():
         # OpenAI — need api_key
-        creds = all_creds.get("openai", {})
+        creds = _by_type.get("openai", {})
         if creds:
             extra_params["api_key"] = creds.get("api_key", "")
 
