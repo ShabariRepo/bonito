@@ -50,7 +50,9 @@ export default function DiscoverLogsPage() {
   async function fetchLogs() {
     try {
       setLoading(true);
-      const data = await apiRequest("/api/admin/discover-logs?limit=100");
+      const res = await apiRequest("/api/admin/discover-logs?limit=100");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
       setLogs(data.logs || []);
       setTotal(data.total || 0);
     } catch (err: any) {
