@@ -19,7 +19,6 @@ import litellm
 from sqlalchemy import select, func, and_, cast, Date, text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.vault import vault_client
 from app.core.redis import redis_client
 from app.core.database import get_db_session
 from app.models.cloud_provider import CloudProvider
@@ -376,14 +375,15 @@ async def _get_provider_credentials(
                     )
                 continue
 
-            # Non-managed providers use Vault/DB credentials
-            data = await vault_client.get_secrets(f"providers/{provider.id}")
+            # Non-managed providers use Vault → encrypted DB fallback
+            from app.services.provider_service import _get_provider_secrets
+            data = await _get_provider_secrets(str(provider.id))
             if data:
                 data["_provider_type"] = provider.provider_type
                 creds[provider.id] = data
-                logger.debug(f"✓ {provider.provider_type} provider credentials loaded from Vault (provider={provider.id})")
+                logger.debug(f"✓ {provider.provider_type} provider credentials loaded (provider={provider.id})")
             else:
-                logger.warning(f"✗ No Vault credentials found for {provider.provider_type} provider {provider.id}")
+                logger.warning(f"✗ No credentials found for {provider.provider_type} provider {provider.id} (Vault + DB both empty)")
 
         except Exception as e:
             logger.warning(

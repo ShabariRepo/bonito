@@ -195,4 +195,4 @@ cd frontend && vercel --prod
 - Advanced audit log export & SIEM integration
 - VectorBoost: Wire compression pipeline into KB ingestion (currently endpoint-only, not functional)
 - Vault org-namespacing: Move credential paths from `providers/{provider_id}` to `providers/{org_id}/{provider_id}` for proper tenant isolation
-- Gateway Vault fallback: `_get_provider_credentials()` in gateway.py should call `_get_provider_secrets()` instead of Vault directly, so it inherits the DB fallback chain on Vault outage
+- ~~Gateway Vault fallback~~ ✅ Done (2026-05-24): `_get_provider_credentials()` now uses `_get_provider_secrets()` with Vault → encrypted DB fallback chain
