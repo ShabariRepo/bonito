@@ -801,6 +801,23 @@ async def get_agent_health(
     }
 
 
+# ---------- Gateway Router Reset ----------
+
+@router.post("/gateway/reset-router")
+async def admin_reset_router(
+    org_id: Optional[uuid.UUID] = None,
+    _admin: User = Depends(require_superadmin),
+):
+    """Force-reset the cached LiteLLM router for an org (or all orgs).
+
+    Useful after provider changes when the 50-minute TTL hasn't expired.
+    """
+    from app.services.gateway import reset_router
+    await reset_router(org_id)
+    scope = f"org {org_id}" if org_id else "all orgs"
+    return {"status": "ok", "message": f"Router cache cleared for {scope}"}
+
+
 # ---------- Knowledge Base ----------
 
 @router.get("/kb")
