@@ -226,7 +226,21 @@ The `invoke_agent` tool is built and unit-tested in the agent engine. It:
 - Runs parallel `invoke_agent` calls concurrently via `asyncio.gather`
 - Logs the delegation in the session (visible in Breadcrumbs)
 
-**Before the Bulletproof demo**, we'll build a test deployment internally: a Triage Router connected to 2 specialist agents, send it synthetic tickets, and confirm native delegation works end-to-end with Breadcrumbs tracing. This is an afternoon of work, not a feature build.
+**COMPLETED (May 24, 2026):** We built and tested this internally. Results:
+
+**Bulletproof Tier 1 Pilot (Production — api.getbonito.com):**
+- Project: `ef7c1fd9-0852-401f-8f7e-1e2330139190`
+- Triage Router (gpt-4o-mini, tool_policy: allowlist[invoke_agent]) → 3 specialists
+- Test 1: VPN ticket → Router autonomously delegated to Connectivity Agent via `invoke_agent` ✓
+- Test 2: Password reset ticket → Router delegated to Password Agent ✓
+- Breadcrumbs: Full delegation chain visible (tool_call records in session messages) ✓
+
+**Duncan Lane Trading System (Local Dev — same architecture):**
+- Signal Router → Edge Validator → Risk Manager → Trade Executor (4-agent chain)
+- Test 1: ENTER signal — full chain executed, 8 messages in Breadcrumbs ✓
+- Test 2: SKIP signal — chain short-circuited correctly, 4 messages ✓
+
+Native `invoke_agent` delegation is **production-ready**. No feature build needed for the demo.
 
 ---
 
@@ -320,7 +334,7 @@ We recommend starting with **Scenario 1** (Tier 1 support agents) as an immediat
 | Phase | Target |
 |-------|--------|
 | May 29, 2026 | In-person meetup — align on scope, tooling list |
-| Week of June 2 | Internal test: native `invoke_agent` delegation with triage→specialist agents on Bonito (confirm Breadcrumbs e2e) |
+| ~~Week of June 2~~ **DONE May 24** | ~~Internal test: native `invoke_agent` delegation~~ ✅ Proven on production + local dev |
 | Mid–End June 2026 | Demo to Bulletproof dev team: live multi-agent triage demo, Sentinel webhook, Halo API integration |
 | July 2026 | NDA signed, possibly MSA. Bulletproof shares sample runbooks/SOPs + Halo API creds + Sentinel workspace access |
 | Aug–Sep 2026 | First pilot — 3 client environments in shadow mode (agent suggests, humans verify) |
