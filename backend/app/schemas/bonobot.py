@@ -156,7 +156,7 @@ class AgentMessageResponse(BaseModel):
     org_id: UUID
     role: str
     content: Optional[str]
-    tool_calls: Optional[Dict[str, Any]]
+    tool_calls: Optional[Any] = None  # List[Dict] for tool calls, Dict for legacy
     tool_call_id: Optional[str]
     tool_name: Optional[str]
     is_compaction_summary: bool

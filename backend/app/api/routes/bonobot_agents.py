@@ -319,6 +319,17 @@ async def update_agent(
     return AgentResponse.model_validate(agent)
 
 
+@router.patch("/agents/{agent_id}", response_model=AgentResponse)
+async def patch_agent(
+    agent_id: UUID,
+    agent_data: AgentUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Partial update agent configuration (alias for PUT with same semantics)."""
+    return await update_agent(agent_id, agent_data, current_user, db)
+
+
 @router.delete("/agents/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_agent(
     agent_id: UUID,
