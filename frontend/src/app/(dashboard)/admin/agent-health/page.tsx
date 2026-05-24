@@ -10,12 +10,10 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { apiRequest } from "@/lib/auth";
 import {
   Bot,
-  HeartPulse,
   AlertTriangle,
   XCircle,
   CheckCircle,
   Search,
-  Filter,
 } from "lucide-react";
 
 interface AgentHealth {
@@ -105,7 +103,6 @@ export default function AdminAgentHealthPage() {
       <PageHeader
         title="Agent Health"
         description="Platform-wide agent model health and deprecation monitoring"
-        icon={HeartPulse}
       />
 
       {error && <ErrorBanner message={error} onRetry={fetchHealth} />}

@@ -623,12 +623,22 @@ async def get_provider_costs(
 
 @router.delete("/{provider_id}", status_code=204)
 async def delete_provider(provider_id: UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    from sqlalchemy import delete as sa_delete
+    from app.models.model import Model
+    from app.models.deployment import Deployment
+
     result = await db.execute(select(CloudProvider).where(CloudProvider.id == provider_id, CloudProvider.org_id == user.org_id))
     provider = result.scalar_one_or_none()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
+
+    # Explicitly delete child rows to avoid SQLAlchemy cascade issues
+    # Deployments reference models, so delete deployments first
+    await db.execute(sa_delete(Deployment).where(Deployment.provider_id == provider_id))
+    await db.execute(sa_delete(Model).where(Model.provider_id == provider_id))
     await db.delete(provider)
     await db.commit()
+
     # Invalidate gateway router cache so stale credentials aren't used
     from app.services.gateway import reset_router
     await reset_router(user.org_id)
