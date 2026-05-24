@@ -400,18 +400,23 @@ async def execute_agent(
             session_id = db_result.scalar_one()
 
         # ── External orchestration: log delegation for Breadcrumbs ──
-        # When parent_agent_id is provided, record a synthetic tool-call
-        # message in the parent's most recent session so Breadcrumbs can
-        # visualise the parent→child interaction.
+        # Best-effort — a logging failure must never kill the agent response.
         if request.parent_agent_id:
-            await _log_external_delegation(
-                parent_agent_id=request.parent_agent_id,
-                target_agent_id=agent_id,
-                target_agent_name=agent.name,
-                org_id=current_user.org_id,
-                message_preview=request.message[:200],
-                db=db,
-            )
+            try:
+                await _log_external_delegation(
+                    parent_agent_id=request.parent_agent_id,
+                    target_agent_id=agent_id,
+                    target_agent_name=agent.name,
+                    org_id=current_user.org_id,
+                    message_preview=request.message[:200],
+                    db=db,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Breadcrumb delegation logging failed (non-fatal): parent=%s target=%s error=%s",
+                    request.parent_agent_id, agent_id, e,
+                )
 
         return AgentExecuteResponse(
             run_id=uuid_lib.uuid4(),  # Generate a run ID
@@ -1007,8 +1012,30 @@ async def _log_external_delegation(
     invoke_agent calls from the AgentEngine.
 
     If the parent agent has no session yet, one is created automatically.
+    Skips silently if the parent agent doesn't exist or belongs to a
+    different org (prevents cross-tenant writes).
     """
     import json as _json
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+
+    # ── Validate parent agent exists and belongs to same org ──
+    parent_stmt = select(Agent).where(
+        and_(
+            Agent.id == parent_agent_id,
+            Agent.org_id == org_id,
+        )
+    )
+    parent_result = await db.execute(parent_stmt)
+    parent_agent = parent_result.scalar_one_or_none()
+
+    if not parent_agent:
+        _logger.warning(
+            "Breadcrumb skip: parent_agent_id=%s not found or wrong org=%s",
+            parent_agent_id, org_id,
+        )
+        return
 
     # Find or create a session for the parent agent
     stmt = (
