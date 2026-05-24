@@ -127,7 +127,8 @@ export default function AgentsOverviewPage() {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
+      minimumFractionDigits: amount < 1 ? 3 : 2,
+      maximumFractionDigits: amount < 1 ? 3 : 2,
     }).format(amount);
   };
 
