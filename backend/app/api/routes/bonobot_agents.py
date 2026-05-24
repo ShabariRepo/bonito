@@ -178,7 +178,7 @@ async def create_agent(
         description=agent_data.description,
         system_prompt=agent_data.system_prompt,
         model_id=agent_data.model_id,
-        model_config=agent_data.model_config or {},
+        model_config=agent_data.agent_model_config or {},
         knowledge_base_ids=[str(kb_id) for kb_id in (agent_data.knowledge_base_ids or [])],
         tool_policy=agent_data.tool_policy or {"mode": "none", "allowed": [], "denied": [], "http_allowlist": []},
         max_turns=agent_data.max_turns,
@@ -307,7 +307,7 @@ async def update_agent(
                 )
     
     # Update fields
-    update_data = agent_data.model_dump(exclude_unset=True)
+    update_data = agent_data.model_dump(exclude_unset=True, by_alias=True)
     for field, value in update_data.items():
         if field == "knowledge_base_ids" and value is not None:
             value = [str(kb_id) for kb_id in value]

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─── Project Schemas ───
@@ -45,16 +45,14 @@ class ProjectResponse(BaseModel):
 # ─── Agent Schemas ───
 
 class AgentCreate(BaseModel):
-    class Config:
-        extra = "forbid"
-        protected_namespaces = ()
+    model_config = ConfigDict(extra="forbid", protected_namespaces=(), populate_by_name=True)
 
     name: str = Field(..., max_length=255)
     description: Optional[str] = None
     group_id: Optional[UUID] = None
     system_prompt: str = Field(..., min_length=1)
     model_id: str = Field("auto", max_length=100)
-    model_config: Optional[Dict[str, Any]] = None
+    agent_model_config: Optional[Dict[str, Any]] = Field(None, alias="model_config")
     knowledge_base_ids: Optional[List[UUID]] = None
     tool_policy: Optional[Dict[str, Any]] = None
     max_turns: Optional[int] = Field(25, ge=1, le=100)
@@ -67,16 +65,14 @@ class AgentCreate(BaseModel):
 
 
 class AgentUpdate(BaseModel):
-    class Config:
-        extra = "forbid"
-        protected_namespaces = ()
+    model_config = ConfigDict(extra="forbid", protected_namespaces=(), populate_by_name=True)
 
     name: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     group_id: Optional[UUID] = None
     system_prompt: Optional[str] = Field(None, min_length=1)
     model_id: Optional[str] = Field(None, max_length=100)
-    model_config: Optional[Dict[str, Any]] = None
+    agent_model_config: Optional[Dict[str, Any]] = Field(None, alias="model_config")
     knowledge_base_ids: Optional[List[UUID]] = None
     tool_policy: Optional[Dict[str, Any]] = None
     max_turns: Optional[int] = Field(None, ge=1, le=100)
@@ -90,6 +86,8 @@ class AgentUpdate(BaseModel):
 
 
 class AgentResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=(), populate_by_name=True, from_attributes=True)
+
     id: UUID
     project_id: UUID
     org_id: UUID
@@ -98,7 +96,7 @@ class AgentResponse(BaseModel):
     description: Optional[str]
     system_prompt: str
     model_id: str
-    model_config: Dict[str, Any]
+    agent_model_config: Dict[str, Any] = Field(default_factory=dict, alias="model_config")
     knowledge_base_ids: List[UUID]
     tool_policy: Dict[str, Any]
     max_turns: int
@@ -121,9 +119,6 @@ class AgentResponse(BaseModel):
     total_cost: Decimal
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AgentDetailResponse(AgentResponse):
