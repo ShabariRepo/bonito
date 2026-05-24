@@ -974,3 +974,49 @@ async def get_kb_article(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     return article
+
+
+# ---------- Discover Logs ----------
+
+
+@router.get("/discover-logs")
+async def list_discover_logs(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """List discover usage logs — who searched, what company, when."""
+    from app.models.discover_log import DiscoverLog
+    from sqlalchemy import desc
+
+    stmt = (
+        select(DiscoverLog)
+        .order_by(desc(DiscoverLog.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+
+    count_result = await db.execute(select(func.count(DiscoverLog.id)))
+    total = count_result.scalar() or 0
+
+    return {
+        "total": total,
+        "logs": [
+            {
+                "id": str(log.id),
+                "result_id": log.result_id,
+                "company_name": log.company_name,
+                "website_url": log.website_url,
+                "industry": log.industry,
+                "company_size": log.company_size,
+                "recommended_plan": log.recommended_plan,
+                "thumbs_up": log.thumbs_up,
+                "client_ip": log.client_ip,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
+    }
