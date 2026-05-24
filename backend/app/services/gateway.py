@@ -1151,6 +1151,9 @@ async def chat_completion(
             except Exception:
                 pass
 
+            # Expose cost so callers (agent engine, etc.) can track spend
+            response_dict["cost"] = float(log_entry.cost or 0)
+
             return response_dict
 
         except Exception as e:
