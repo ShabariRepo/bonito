@@ -167,6 +167,9 @@ MODEL_EQUIVALENCE_MAP: dict[str, dict[str, list[str]]] = {
         "anthropic": ["claude-sonnet-4-20250514"],
         "aws": ["anthropic.claude-sonnet-4-20250514-v1:0"],
     },
+    "claude-sonnet-4-6": {
+        "aws": ["anthropic.claude-sonnet-4-6"],
+    },
     "claude-3.5-sonnet": {
         "anthropic": ["claude-3-5-sonnet-20241022"],
         "aws": ["anthropic.claude-3-5-sonnet-20241022-v2:0"],
