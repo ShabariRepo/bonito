@@ -67,7 +67,7 @@ Detects rate limits (429), timeouts, 5xx errors, and model unavailability. Autom
 Upload documents (PDF, DOCX, TXT, CSV). Automatic parsing, chunking, and embedding. pgvector HNSW search with sub-500ms latency. Any model on any provider can access the same knowledge base. Source citations included in responses.
 
 ### 5. AI Agents (Bonobot)
-Visual canvas builder (React Flow). Project-based organization. Built-in tools: KB search, HTTP requests, agent-to-agent connections. Connection types: handoff, escalation, data_feed, trigger.
+Visual canvas builder (React Flow). Project-based organization. Built-in tools: KB search, HTTP requests, agent-to-agent orchestration (invoke_agent, delegate_task, check_task, collect_results). Connection types: handoff, escalation, data_feed, trigger. Two orchestration modes: LLM-orchestrated (orchestrator agent delegates to sub-agents via tools) and code-orchestrated (external pipelines call agents via API with parent_agent_id for tracing). Breadcrumbs page visualizes agent interaction graphs per project with color-coded connection types and interaction counts.
 
 ### 6. Persistent Agent Memory
 Long-term memory with pgvector similarity search. 5 memory types. AI-powered extraction. Agents remember context across sessions.

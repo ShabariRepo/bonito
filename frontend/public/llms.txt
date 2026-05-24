@@ -25,7 +25,7 @@ Bonito solves the multi-provider AI management problem. Companies using AI from 
 
 3. **Cost Intelligence** — Real-time spend tracking across all providers. Budget alerts, forecasting, optimization recommendations. Customers report 60-84% cost reduction.
 
-4. **AI Agents (Bonobot)** — Enterprise agent framework with visual canvas builder. Features: persistent memory, human-in-the-loop approval, agent-to-agent orchestration, scheduled execution, budget caps, full audit trail.
+4. **AI Agents (Bonobot)** — Enterprise agent framework with visual canvas builder. Features: persistent memory, human-in-the-loop approval, agent-to-agent orchestration (invoke_agent / delegate_task), Breadcrumbs interaction tracing, external orchestration support (parent_agent_id), scheduled execution, budget caps, full audit trail.
 
 5. **AI Context (RAG)** — Upload documents, auto-chunk and embed, pgvector similarity search. Any model on any cloud can access the same knowledge base.
 
