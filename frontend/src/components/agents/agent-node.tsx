@@ -31,12 +31,13 @@ export const AgentNode = memo(({ data, selected }: { data: AgentNodeData; select
   };
 
   const formatCurrency = (amount: number) => {
-    if (amount < 0.01) return "$0.00";
+    if (amount === 0) return "$0.00";
+    const decimals = amount < 1 ? 3 : 2;
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
     }).format(amount);
   };
 
