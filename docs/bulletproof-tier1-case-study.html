@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  @page {
+    size: letter;
+    margin: 50px 60px;
+  }
+
+  @page :first {
+    margin: 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #1a1a2e;
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+
+  .cover {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #2d1b69 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    padding: 200px 60px 160px;
+    page-break-after: always;
+  }
+
+  .cover img { width: 300px; margin-bottom: 45px; }
+  .cover h1 { font-size: 28pt; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.5px; }
+  .cover .subtitle { font-size: 13pt; font-weight: 300; color: #c4b5fd; margin-bottom: 50px; }
+  .cover .meta { font-size: 9.5pt; color: #a78bfa; line-height: 2; }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #7c3aed;
+    margin-bottom: 28px;
+  }
+  .page-header img { height: 22px; }
+  .page-header .doc-title {
+    font-size: 8.5pt; color: #7c3aed; font-weight: 500;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+
+  h2 {
+    font-size: 18pt; font-weight: 700; color: #1a1a2e;
+    margin-bottom: 14px; margin-top: 6px; letter-spacing: -0.3px;
+  }
+
+  h3 {
+    font-size: 12pt; font-weight: 600; color: #7c3aed;
+    margin-top: 20px; margin-bottom: 8px;
+  }
+
+  p { margin-bottom: 10px; color: #374151; }
+
+  .highlight-box {
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-left: 4px solid #7c3aed;
+    padding: 14px 18px;
+    border-radius: 0 10px 10px 0;
+    margin: 16px 0;
+  }
+  .highlight-box p { margin-bottom: 4px; color: #1a1a2e; font-size: 10pt; }
+  .highlight-box strong { color: #5b21b6; }
+
+  ul { margin: 8px 0 14px 0; padding-left: 0; list-style: none; }
+  ul li { padding: 3px 0 3px 20px; position: relative; color: #374151; }
+  ul li::before {
+    content: ""; position: absolute; left: 0; top: 10px;
+    width: 7px; height: 7px; background: #7c3aed; border-radius: 50%;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  th {
+    background: #7c3aed; color: white; padding: 8px 14px; text-align: left;
+    font-size: 8.5pt; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  th:first-child { border-radius: 6px 0 0 0; }
+  th:last-child { border-radius: 0 6px 0 0; }
+  td { padding: 8px 14px; border-bottom: 1px solid #e5e7eb; font-size: 9.5pt; }
+  tr:nth-child(even) td { background: #f9fafb; }
+
+  .next-steps {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2d1b69 100%);
+    color: white; padding: 22px 28px; border-radius: 12px; margin: 24px 0;
+  }
+  .next-steps h3 { color: #c4b5fd; margin-top: 0; font-size: 13pt; }
+  .next-steps p { color: #e2e8f0; font-size: 10pt; }
+  .next-steps ul li { color: #e2e8f0; font-size: 10pt; }
+  .next-steps ul li::before { background: #a78bfa; }
+
+  .contact-block { text-align: center; margin-top: 30px; padding: 20px; }
+  .contact-block .name { font-size: 13pt; font-weight: 600; color: #1a1a2e; }
+  .contact-block .detail { font-size: 9.5pt; color: #7c3aed; margin-top: 3px; }
+
+  .page-break { page-break-before: always; }
+
+  .highlight-box, .next-steps, table, .contact-block {
+    page-break-inside: avoid;
+  }
+  h2, h3 { page-break-after: avoid; }
+
+  .page-footer {
+    text-align: center; font-size: 9pt; color: #dc2626;
+    font-weight: 600; margin-top: 30px; padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .stat-row { display: flex; gap: 20px; margin: 16px 0; }
+  .stat-card {
+    flex: 1; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-radius: 10px; padding: 14px; text-align: center;
+  }
+  .stat-card .stat-value { font-size: 20pt; font-weight: 700; color: #7c3aed; }
+  .stat-card .stat-label { font-size: 8.5pt; color: #5b21b6; font-weight: 500; }
+  .stat-card .stat-sub { font-size: 7.5pt; color: #6b7280; margin-top: 2px; }
+
+  .phase-box {
+    background: #f9fafb; border-left: 4px solid #7c3aed;
+    padding: 12px 18px; border-radius: 0 10px 10px 0;
+    margin: 10px 0; page-break-inside: avoid;
+  }
+  .phase-box .phase-label {
+    font-size: 9pt; font-weight: 600; color: #7c3aed;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .phase-box .phase-title { font-size: 11pt; font-weight: 600; color: #1a1a2e; margin-bottom: 6px; }
+  .phase-box p { font-size: 9.5pt; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="cover">
+  <img src="file:///Users/appa/Desktop/code/bonito/frontend/public/bonito-logo-400.png" alt="Bonito AI">
+  <h1>Tier 1 Support Automation</h1>
+  <div class="subtitle">Feasibility Overview</div>
+  <div class="subtitle" style="font-size: 11pt; margin-bottom: 0;">Prepared for Bulletproof, a GLI Company</div>
+  <div class="meta">
+    Prepared by Bonito AI<br>
+    May 2026<br>
+    Confidential
+  </div>
+</div>
+
+<!-- PAGE 2: THE PROBLEM -->
+<div class="page-header">
+  <img src="file:///Users/appa/Desktop/code/bonito/frontend/public/bonito-logo-400.png" alt="Bonito">
+  <div class="doc-title">Tier 1 Support Automation</div>
+</div>
+
+<h2>The Problem</h2>
+
+<p>Bulletproof operates ~50 Tier 1 support agents across 300+ client sites in gaming, government, finance, healthcare, and manufacturing. These agents cost $55&ndash;70K/year each &mdash; $2.75M&ndash;$3.5M in total annual labor.</p>
+
+<p>Tier 1 handles the front line: high-volume, repetitive, well-documented work. The knowledge to resolve most tickets already exists in runbooks and SOPs &mdash; it's just trapped in documents that agents have to search manually.</p>
+
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-value">~50</div>
+    <div class="stat-label">Tier 1 Agents</div>
+    <div class="stat-sub">$55&ndash;70K/yr each</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">$3.5M</div>
+    <div class="stat-label">Annual Labor Cost</div>
+    <div class="stat-sub">Tier 1 support alone</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">300+</div>
+    <div class="stat-label">Client Environments</div>
+    <div class="stat-sub">Gaming, government, enterprise</div>
+  </div>
+</div>
+
+<p>This creates four compounding problems:</p>
+
+<ul>
+  <li><strong>Slow response times</strong> &mdash; agents read through docs while the user waits</li>
+  <li><strong>Inconsistent quality</strong> &mdash; resolution depends on which agent picks up the ticket</li>
+  <li><strong>Shift-dependent coverage</strong> &mdash; no 24/7 without overtime or offshoring</li>
+  <li><strong>High turnover cost</strong> &mdash; every new hire needs weeks of training on client-specific procedures</li>
+</ul>
+
+<div class="highlight-box">
+  <p>The work is well-structured. That's what makes it automatable. AI agents backed by client-specific knowledge bases can resolve the same tickets &mdash; faster, more consistently, and around the clock.</p>
+</div>
+
+<!-- PAGE 3: WHAT IT DOES + WHAT YOU KEEP -->
+<div class="page-break"></div>
+
+<div class="page-header">
+  <img src="file:///Users/appa/Desktop/code/bonito/frontend/public/bonito-logo-400.png" alt="Bonito">
+  <div class="doc-title">Tier 1 Support Automation</div>
+</div>
+
+<h2>What the AI Handles</h2>
+
+<p>Bonito's agent framework deploys knowledge-backed AI agents that resolve common Tier 1 tickets autonomously &mdash; and intelligently escalate everything else with full context.</p>
+
+<table>
+  <tr>
+    <th>Ticket Category</th>
+    <th>% of Volume</th>
+    <th>AI Resolution</th>
+  </tr>
+  <tr>
+    <td>Password resets & account lockouts</td>
+    <td>~30%</td>
+    <td>Fully automated &mdash; KB lookup, identity verification, self-service routing</td>
+  </tr>
+  <tr>
+    <td>Connectivity & VPN issues</td>
+    <td>~20%</td>
+    <td>Automated troubleshooting; infrastructure issues escalated immediately</td>
+  </tr>
+  <tr>
+    <td>Software installation & access</td>
+    <td>~15%</td>
+    <td>Fully automated &mdash; approved software checks, provisioning tickets</td>
+  </tr>
+  <tr>
+    <td>"How do I..." questions</td>
+    <td>~15%</td>
+    <td>Fully automated &mdash; step-by-step from client KB</td>
+  </tr>
+  <tr>
+    <td>Hardware issues</td>
+    <td>~10%</td>
+    <td>AI handles triage & data collection; humans do physical work</td>
+  </tr>
+  <tr>
+    <td>Ticket triage & routing</td>
+    <td>~10%</td>
+    <td>Fully automated &mdash; classify, enrich, route to correct team</td>
+  </tr>
+</table>
+
+<h3>What Bulletproof Retains Control Of</h3>
+<ul>
+  <li>Which AI models the agents can use (per client, per environment)</li>
+  <li>Budget caps per agent, per client &mdash; hard stops, not just alerts</li>
+  <li>Human-in-the-loop approval gates on sensitive actions</li>
+  <li>Per-client Knowledge Base isolation &mdash; government data never touches gaming inference</li>
+  <li>Complete audit trail of every AI interaction, model call, and tool use</li>
+</ul>
+
+<h3>Escalation &mdash; Not Guessing</h3>
+<p>Every agent has confidence thresholds and hard rules. When a ticket exceeds scope, the agent escalates with the full conversation, KB articles referenced, steps attempted, and a suggested resolution. The human picks up mid-stream, not from scratch.</p>
+
+<div class="highlight-box">
+  <p><strong>Compliance:</strong> Full audit trails for government municipality clients. Agent interactions logged and auditable for gaming clients (NIGC MICS, GLI). SOC 2 aligned controls across the board.</p>
+</div>
+
+<!-- PAGE 4: COST MODEL + ROI -->
+<div class="page-break"></div>
+
+<div class="page-header">
+  <img src="file:///Users/appa/Desktop/code/bonito/frontend/public/bonito-logo-400.png" alt="Bonito">
+  <div class="doc-title">Tier 1 Support Automation</div>
+</div>
+
+<h2>Cost Model</h2>
+
+<h3>Current State</h3>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>Tier 1 agents</td><td>~50</td></tr>
+  <tr><td>Avg salary + benefits</td><td>$55,000&ndash;$70,000/yr</td></tr>
+  <tr><td>Total annual Tier 1 labor</td><td><strong>$2,750,000&ndash;$3,500,000</strong></td></tr>
+  <tr><td>Avg tickets/month (estimated)</td><td>8,000&ndash;15,000</td></tr>
+</table>
+
+<h3>Projected State (Month 6+)</h3>
+<table>
+  <tr><th>Item</th><th>Value</th></tr>
+  <tr><td>AI-deflected tickets</td><td>40&ndash;60%</td></tr>
+  <tr><td>Remaining human agents needed</td><td>20&ndash;25</td></tr>
+  <tr><td>Agents redeployed or reduced</td><td>25&ndash;30</td></tr>
+</table>
+
+<h3>Net Savings</h3>
+
+<p>Bulletproof uses their own cloud providers for inference &mdash; Bonito is the control plane, not the compute. LLM token costs are not a Bonito line item.</p>
+
+<table>
+  <tr>
+    <th>Scenario</th>
+    <th>Conservative (40%)</th>
+    <th>Moderate (50%)</th>
+    <th>Aggressive (60%)</th>
+  </tr>
+  <tr>
+    <td>Agents reduced</td><td>20</td><td>25</td><td>30</td>
+  </tr>
+  <tr>
+    <td>Labor saved/yr</td><td>$1.1M&ndash;$1.4M</td><td>$1.4M&ndash;$1.8M</td><td>$1.7M&ndash;$2.1M</td>
+  </tr>
+  <tr>
+    <td><strong>Net savings/yr</strong></td><td><strong>$920K&ndash;$1.2M</strong></td><td><strong>$1.2M&ndash;$1.6M</strong></td><td><strong>$1.5M&ndash;$1.9M</strong></td>
+  </tr>
+  <tr>
+    <td><strong>ROI</strong></td><td><strong>6&ndash;7x</strong></td><td><strong>7&ndash;9x</strong></td><td><strong>8&ndash;11x</strong></td>
+  </tr>
+</table>
+
+<div class="stat-row">
+  <div class="stat-card">
+    <div class="stat-value">~$1M+</div>
+    <div class="stat-label">Annual Savings</div>
+    <div class="stat-sub">Even at conservative 40% deflection</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">6&ndash;11x</div>
+    <div class="stat-label">Return on Investment</div>
+    <div class="stat-sub">Year 1 including implementation</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">$0</div>
+    <div class="stat-label">Inference Cost to Bonito</div>
+    <div class="stat-sub">Runs on Bulletproof's own cloud</div>
+  </div>
+</div>
+
+<!-- PAGE 5: TIMELINE + WHY BONITO + NEXT STEPS -->
+<div class="page-break"></div>
+
+<div class="page-header">
+  <img src="file:///Users/appa/Desktop/code/bonito/frontend/public/bonito-logo-400.png" alt="Bonito">
+  <div class="doc-title">Tier 1 Support Automation</div>
+</div>
+
+<h2>Rollout Timeline</h2>
+
+<p>Enterprise deployment across 300+ client environments with compliance requirements. Five phases, fully production in 6&ndash;8 months.</p>
+
+<div class="phase-box">
+  <div class="phase-label">Phase 1 &mdash; Weeks 1&ndash;4</div>
+  <div class="phase-title">Discovery & KB Ingestion</div>
+  <p>Runbooks and SOPs ingested for pilot clients. Coverage gaps identified. Escalation rules defined per client.</p>
+</div>
+
+<div class="phase-box">
+  <div class="phase-label">Phase 2 &mdash; Weeks 5&ndash;8</div>
+  <div class="phase-title">Agent Build & Integration</div>
+  <p>Agents configured per client group. ITSM integration (ServiceNow, ConnectWise). Internal testing with synthetic tickets.</p>
+</div>
+
+<div class="phase-box">
+  <div class="phase-label">Phase 3 &mdash; Weeks 9&ndash;12</div>
+  <div class="phase-title">Shadow Mode Pilot</div>
+  <p>Agents deployed in shadow mode on 3&ndash;5 clients. Human agents see AI suggestions and choose to use, modify, or ignore. Zero risk &mdash; humans still resolve every ticket.</p>
+</div>
+
+<div class="phase-box">
+  <div class="phase-label">Phase 4 &mdash; Weeks 13&ndash;16</div>
+  <div class="phase-title">Supervised Go-Live</div>
+  <p>Live on pilot clients starting with low-risk categories. Human spot-checks on 20% of resolutions. Gradually expand as accuracy validates.</p>
+</div>
+
+<div class="phase-box">
+  <div class="phase-label">Phase 5 &mdash; Months 5&ndash;8</div>
+  <div class="phase-title">Scale to Full Client Base</div>
+  <p>Roll out in waves (20&ndash;30 clients per wave). Headcount reduction begins. Resolved tickets feed back into KB for continuous improvement.</p>
+</div>
+
+<h3>Why Bonito (vs Build It Yourself)</h3>
+
+<ul>
+  <li><strong>Multi-provider failover</strong> &mdash; if one AI provider goes down at 2 AM, Bonito reroutes automatically. Support agents are 24/7; provider uptime is not.</li>
+  <li><strong>Per-client tenant isolation</strong> &mdash; architecture-level, not prompt-level. Government data stays separated from gaming inference.</li>
+  <li><strong>Compliance-ready</strong> &mdash; audit trails, HIPAA/GDPR policy enforcement, SOC 2 aligned controls. Built in, not bolted on.</li>
+  <li><strong>Cost visibility & hard stops</strong> &mdash; exact cost per agent, per client, per ticket. Budget caps that halt spend, not just alert.</li>
+  <li><strong>No infrastructure to maintain</strong> &mdash; Bonito handles model updates, scaling, and uptime. Bulletproof configures agents and manages KBs.</li>
+</ul>
+
+<div class="next-steps">
+  <h3>Next Step</h3>
+  <p>Happy to walk through the details or discuss what a scoped pilot would look like &mdash; we can tailor it to however your team wants to approach the build.</p>
+</div>
+
+<div class="contact-block">
+  <div class="name">Bonito AI</div>
+  <div class="detail">shabari@bonito.ai</div>
+  <div class="detail">https://getbonito.com</div>
+</div>
+
+<div class="page-footer">
+  Confidential &mdash; Bonito AI &copy; 2026
+</div>
+
+</body>
+</html>

@@ -1,0 +1,45 @@
+Shabari,
+
+I got wind of how you're structuring the equity on Bonito and I'm going to be direct with you because that's what you need right now.
+
+A prospective cofounder — who has produced nothing in the time he's been attached to this — is walking around with a COO title and a 50% equity stake contingent on landing Sequoia? That's not a cap table. That's a time bomb.
+
+Let me explain what you've built here, because I don't think you see it clearly.
+
+You built the product. You found the idea. You shipped it. That's 65-70% of this company, minimum, and any serious investor will agree.
+
+Here's what a proper, VC-readable cap table looks like at your stage:
+
+- Founder (you): 65-70%
+- Director of Growth: 1% to start, with milestone bumps up to 3-5%
+- ESOP: 15% created NOW, before the raise — not after
+- Advisors: 1-2%
+
+That's it. Clean. Defendable.
+
+The 50% number — whether it's contingent on Sequoia or not — is a joke. It tells me one of two things: either you don't understand cap table mechanics, or you've already given away the company before the real work has started. Either way, I can't touch this with a ten-foot pole until it's cleaned up.
+
+The LinkedIn cofounder tag before any equity has vested is also a problem. Investors Google. They find the posts. They ask questions. You want to be able to answer those questions cleanly.
+
+Here's what I'd recommend — and this is non-negotiable if we're having further conversations:
+
+1. Prashant comes in as Director of Growth. Title signals the role without implying full cofounder status. LinkedIn can reflect that.
+
+2. Starting equity: 1% ESOP, 4-year vest, 1-year cliff. He's earned 1% for the commitment and his network book — that's generous given where things stand.
+
+3. Referral structure on closed business: 7% cash commission on any deal he sources. If his network is real, this pays better than equity upfront and keeps the cap table clean.
+
+4. Milestone bumps:
+   - $250K ARR brought in → +1% equity
+   - $500K ARR brought in → +2% more
+   - $1M ARR brought in → +3% more (title confirmed, full vesting continues)
+
+5. ESOP gets created immediately. 15%. Vesting employees, future hires, the whole thing. This is table stakes for any seed investor.
+
+6. No 50% anywhere near this cap table. Not now. Not ever unless he's writing a check that justifies it.
+
+I'm not saying Prashant can't earn a meaningful stake. He can — up to 5-7% total if he actually delivers pipeline. But locking in 50% before the work is done is how companies die.
+
+Fix the cap table. Then come back to me.
+
+— R

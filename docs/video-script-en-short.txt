@@ -1,0 +1,9 @@
+Your organization runs AI across multiple clouds. Multiple models. Multiple teams. And right now, none of it is connected. Bonito changes that.
+
+One control plane. Connect AWS, Azure, Google, OpenAI, Anthropic, and Groq in minutes. One API endpoint. Unified cost tracking. Intelligent failover that reroutes requests across providers automatically when something breaks. Your users never notice.
+
+But we're not just a gateway. Bonito has a built-in agentic framework. Deploy autonomous AI agents scoped to projects, locked to approved models, with persistent memory, scheduled execution, and human-in-the-loop approvals. Organizations are already running agents in production for investment research, campaign analytics, clinical documentation, and real-time operations monitoring.
+
+Upload your company docs once. Any model on any cloud can query them. Cross-cloud RAG with zero vendor lock-in. Add governance, compliance scanning, SSO, and real-time cost intelligence, and you have everything you need to run AI at scale, responsibly.
+
+This is Bonito. The operating system for enterprise AI. getbonito.com

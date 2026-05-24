@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Creative — Interview Prep: Creative AI Pipelines</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a22;
+    --surface2: #22222e;
+    --border: #2e2e3a;
+    --purple: #a78bfa;
+    --purple-dim: #7c3aed;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --red: #f87171;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --dim: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 15px;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 60px 0 50px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 50px;
+  }
+
+  .hero .tag {
+    display: inline-block;
+    background: rgba(167,139,250,.12);
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(167,139,250,.25);
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-size: 38px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1.15;
+    margin-bottom: 14px;
+    background: linear-gradient(135deg, #e2e8f0, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p { color: var(--muted); font-size: 16px; max-width: 600px; margin: 0 auto; }
+
+  .company-brief {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 50px;
+  }
+
+  .company-brief h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+    color: var(--purple);
+  }
+
+  .company-brief .founders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .founder-card {
+    background: var(--surface2);
+    border-radius: 12px;
+    padding: 18px;
+    border: 1px solid var(--border);
+  }
+
+  .founder-card .name { font-weight: 700; color: var(--text); font-size: 15px; }
+  .founder-card .role { color: var(--purple); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .founder-card p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0; }
+
+  .section {
+    margin-bottom: 56px;
+  }
+
+  .section-label {
+    color: var(--purple);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    color: var(--text);
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 28px;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  p { color: var(--muted); margin-bottom: 12px; }
+
+  .pipeline-flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 24px 0;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .pipeline-step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .pipeline-step.highlight { border-color: var(--purple); background: rgba(167,139,250,.1); color: var(--purple); }
+
+  .arrow { color: var(--dim); font-size: 16px; }
+
+  .process-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin: 20px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .process-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+  }
+
+  .process-card.brief::before { background: var(--blue); }
+  .process-card.research::before { background: var(--green); }
+  .process-card.ideation::before { background: var(--yellow); }
+  .process-card.production::before { background: var(--pink); }
+  .process-card.review::before { background: var(--red); }
+  .process-card.publish::before { background: var(--purple); }
+
+  .process-card .step-num {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .process-card.brief .step-num { color: var(--blue); }
+  .process-card.research .step-num { color: var(--green); }
+  .process-card.ideation .step-num { color: var(--yellow); }
+  .process-card.production .step-num { color: var(--pink); }
+  .process-card.review .step-num { color: var(--red); }
+  .process-card.publish .step-num { color: var(--purple); }
+
+  .process-card h3 { margin-top: 0; margin-bottom: 12px; }
+
+  .sub-section {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 14px 0;
+    border: 1px solid var(--border);
+  }
+
+  .sub-section h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .sub-section p, .sub-section li {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  ul { list-style: none; padding: 0; margin: 8px 0; }
+  li { padding: 4px 0 4px 18px; position: relative; color: var(--muted); }
+  li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 12px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--purple-dim);
+  }
+
+  .talk-track {
+    background: rgba(167,139,250,.06);
+    border: 1px solid rgba(167,139,250,.2);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 16px 0;
+  }
+
+  .talk-track::before {
+    content: "What to say";
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin-bottom: 8px;
+  }
+
+  .talk-track p {
+    color: var(--text);
+    font-size: 14px;
+    font-style: italic;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .vs-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 16px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .vs-table th {
+    background: var(--surface2);
+    color: var(--text);
+    padding: 12px 18px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .vs-table td {
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .vs-table tr:last-child td { border-bottom: none; }
+
+  .agent-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 16px 0;
+  }
+
+  .agent-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+
+  .agent-card .agent-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .agent-card .agent-role {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .agent-card p { font-size: 13px; margin: 0; }
+
+  .callout {
+    background: var(--surface);
+    border-left: 4px solid var(--yellow);
+    border-radius: 0 12px 12px 0;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+
+  .callout strong { color: var(--yellow); }
+  .callout p { margin: 0; font-size: 14px; }
+
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .tool-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .tool-card .tool-name { font-weight: 700; font-size: 14px; color: var(--text); margin-bottom: 2px; }
+  .tool-card .tool-cat { font-size: 11px; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .tool-card p { font-size: 12px; margin: 0; }
+
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .metric .num { font-size: 28px; font-weight: 800; color: var(--purple); }
+  .metric .label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 50px 0;
+  }
+
+  code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--green);
+  }
+
+  .code-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .code-block .comment { color: var(--dim); }
+  .code-block .keyword { color: var(--purple); }
+  .code-block .string { color: var(--green); }
+  .code-block .func { color: var(--blue); }
+
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 50px;
+  }
+
+  .toc h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--purple);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 14px 0;
+  }
+
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    columns: 2;
+    column-gap: 24px;
+  }
+
+  .toc li {
+    padding: 6px 0;
+    position: relative;
+    break-inside: avoid;
+  }
+
+  .toc li::before { display: none; }
+
+  .toc a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toc a:hover { color: var(--purple); }
+
+  .toc .toc-num {
+    color: var(--purple-dim);
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 22px;
+  }
+
+  .toc .toc-group {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 0 4px;
+  }
+
+  .toc .toc-group:first-child { padding-top: 0; }
+
+  section[id] { scroll-margin-top: 20px; }
+
+  @media (max-width: 700px) {
+    .hero h1 { font-size: 28px; }
+    .company-brief .founders, .agent-grid { grid-template-columns: 1fr; }
+    .tool-grid { grid-template-columns: 1fr 1fr; }
+    .metric-row { grid-template-columns: 1fr 1fr; }
+    .container { padding: 20px 16px 60px; }
+    .toc ol { columns: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="hero">
+    <div class="tag">Interview Prep</div>
+    <h1>Creative AI Pipelines & Agent Architecture</h1>
+    <p>Memory Creative — Peller Technical Assessment. Everything you need to speak confidently about how AI agents power creative workflows.</p>
+  </div>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <h3>Table of Contents</h3>
+    <ol>
+      <li class="toc-group">Company & Context</li>
+      <li><a href="#company"><span class="toc-num">01</span> Memory Creative — Company Brief</a></li>
+      <li><a href="#peller"><span class="toc-num">02</span> Peller Estates — The Assessment Brief</a></li>
+
+      <li class="toc-group">The Creative Pipeline</li>
+      <li><a href="#pipeline"><span class="toc-num">03</span> Pipeline Overview — End to End</a></li>
+      <li><a href="#brief-intake"><span class="toc-num">04</span> Stage 1: Brief Intake & Parsing</a></li>
+      <li><a href="#research"><span class="toc-num">05</span> Stage 2: Research & Context (RAG)</a></li>
+      <li><a href="#ideation"><span class="toc-num">06</span> Stage 3: Ideation & Concepting</a></li>
+      <li><a href="#production"><span class="toc-num">07</span> Stage 4: Production & Asset Generation</a></li>
+      <li><a href="#review"><span class="toc-num">08</span> Stage 5: Review, QA & Compliance</a></li>
+      <li><a href="#revision"><span class="toc-num">09</span> Stage 5b: Revision Loop</a></li>
+      <li><a href="#publish"><span class="toc-num">10</span> Stage 6: Multi-Channel Publishing</a></li>
+
+      <li class="toc-group">Architecture & Tools</li>
+      <li><a href="#orchestration"><span class="toc-num">11</span> Agent Orchestration Patterns</a></li>
+      <li><a href="#frameworks"><span class="toc-num">12</span> CrewAI vs LangGraph vs AutoGen</a></li>
+      <li><a href="#tools"><span class="toc-num">13</span> Creative AI Tool Landscape</a></li>
+      <li><a href="#evaluation"><span class="toc-num">14</span> Evaluating Creative AI Output</a></li>
+      <li><a href="#enterprise"><span class="toc-num">15</span> Enterprise Reality (McKinsey Gap)</a></li>
+
+      <li class="toc-group">Models, Providers & Costs</li>
+      <li><a href="#providers"><span class="toc-num">16</span> AI Models by Provider</a></li>
+      <li><a href="#unit-costs"><span class="toc-num">17</span> Unit Cost Pricing (Per Image/Video/Token)</a></li>
+      <li><a href="#campaign-cost"><span class="toc-num">18</span> Real Campaign Cost Model (~$18)</a></li>
+      <li><a href="#30k-scenarios"><span class="toc-num">19</span> $30K Budget Scenarios (Buzz / Convert / Full)</a></li>
+
+      <li class="toc-group">Platform Fit</li>
+      <li><a href="#bonito-fit"><span class="toc-num">20</span> Can This Be Built on Bonito?</a></li>
+
+      <li class="toc-group">Interview Strategy</li>
+      <li><a href="#what-to-say"><span class="toc-num">21</span> What Memory Wants to Hear</a></li>
+    </ol>
+  </div>
+
+  <!-- COMPANY BRIEF -->
+  <section id="company">
+  <div class="company-brief">
+    <h2>Memory Creative — Quick Brief</h2>
+    <p>Full-service brand performance agency, Toronto. Launched May 2025. Their thesis: brand drives demand & demand builds brand — no silos. They're an ad agency with a serious AI/tech integration angle, not a SaaS company.</p>
+    <p><strong>Three pillars:</strong> Feel (emotional brand connection) → Think (computational/AI intelligence) → Do (measurable purchase behavior)</p>
+    <p><strong>Marquee work:</strong> CFL "Keep It Unreal" (30+ films), Grupo Bimbo "The Greatest Guide", BMW "Hofmeister Kink", WWF "Save Big"</p>
+    <p><strong>Model:</strong> Small core team + composable specialists per project. They scale up, not out.</p>
+    <div class="founders">
+      <div class="founder-card">
+        <div class="role">Co-Founder & CCO</div>
+        <div class="name">Ian Mackenzie</div>
+        <p>Ex-Global Creative AI Lead at McCann Worldgroup. 31 Cannes Lions, D&AD Black Pencil. Ranked #1 Copywriter in Canada (2014). Built AI campaigns for Grupo Bimbo, BMW, WWF.</p>
+      </div>
+      <div class="founder-card">
+        <div class="role">Co-Founder & CBO</div>
+        <div class="name">Ryan Bullock</div>
+        <p>Ex-CMO at The Keg (25%+ sales growth). President at Juliet agency. Client-side + agency-side hybrid. He and Ian met 10+ years ago.</p>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- THE PIPELINE OVERVIEW -->
+  <section id="pipeline">
+  <div class="section">
+    <div class="section-label">Overview</div>
+    <h2>The Creative Pipeline — End to End</h2>
+    <p>Every creative project, whether it's a CFL campaign or a social media kit, follows the same fundamental pipeline. The difference with AI is that agents handle the repetitive execution while humans make the creative decisions.</p>
+
+    <div class="pipeline-flow">
+      <div class="pipeline-step highlight">Brief Intake</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step">Research & Context</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step">Ideation</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step highlight">Production</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step">Review & QA</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step">Revision</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step highlight">Approval</div>
+      <span class="arrow">→</span>
+      <div class="pipeline-step">Multi-Channel Publish</div>
+    </div>
+
+    <p>The highlighted stages are where <strong>human gates</strong> live — humans approve the brief, approve final creative, and approve publishing. Everything between is where agents accelerate the work.</p>
+
+    <div class="callout">
+      <p><strong>Key insight for the interview:</strong> The pipeline isn't about replacing creatives. It's about compressing a 3-week production cycle into 3 days by automating the 80% of work that's research, versioning, reformatting, and compliance checking — so the creative team spends their time on the 20% that actually requires taste and judgment.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- STAGE 1: BRIEF INTAKE -->
+  <section id="brief-intake">
+  <div class="section">
+    <div class="section-label">Stage 1</div>
+    <div class="process-card brief">
+      <div class="step-num">Brief Intake & Parsing</div>
+      <h3>From messy client input to structured creative brief</h3>
+      <p>Clients send briefs in every format — emails, PDFs, Slack messages, decks with 47 slides. The Brief Parser Agent takes unstructured input and extracts a structured creative brief that the rest of the pipeline can work with.</p>
+
+      <div class="sub-section">
+        <h4>What the agent extracts</h4>
+        <ul>
+          <li><strong>Objective:</strong> What's the campaign trying to achieve? (awareness, conversion, engagement, retention)</li>
+          <li><strong>Audience:</strong> Who are we talking to? Demographics, psychographics, behavioral segments</li>
+          <li><strong>Channels:</strong> Where does this run? (LinkedIn, Instagram, TikTok, CTV, OOH, email)</li>
+          <li><strong>Tone & voice:</strong> Playful? Authoritative? Irreverent? Mapped to brand voice guidelines</li>
+          <li><strong>Constraints:</strong> Budget, timeline, legal/regulatory requirements, mandatory inclusions</li>
+          <li><strong>Deliverables:</strong> What assets are needed? (hero video, 6 social cuts, 3 email variants, landing page)</li>
+          <li><strong>Success metrics:</strong> What does "good" look like? (CTR target, view-through rate, engagement benchmarks)</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>How it actually works in practice</h4>
+        <p>The agent uses an LLM (Claude or GPT-4o) with a system prompt loaded with the agency's brief template. It parses the client input, flags anything missing ("no target audience specified — defaulting to brand's primary persona"), and outputs a structured JSON brief that feeds into the next stages.</p>
+        <p>If it's a returning client, the agent also pulls prior campaign briefs from the knowledge base to maintain continuity — "last campaign targeted 25-34 urban professionals, same audience assumed unless specified otherwise."</p>
+      </div>
+
+      <div class="talk-track">
+        <p>"The brief is the contract between the client and the creative team. If you get the brief wrong, everything downstream is wrong. An AI agent can parse a messy 12-page RFP into a structured brief in minutes, flag gaps, and pull context from prior campaigns — but the creative director still signs off before anything moves to ideation. That human gate is non-negotiable."</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 2: RESEARCH & CONTEXT -->
+  <section id="research">
+  <div class="section">
+    <div class="process-card research">
+      <div class="step-num">Stage 2 — Research & Context Building</div>
+      <h3>Grounding every output in real data</h3>
+      <p>This is where RAG (Retrieval-Augmented Generation) earns its keep. Before any creative work starts, the Research Agent assembles the context package that will inform every generation downstream.</p>
+
+      <div class="sub-section">
+        <h4>What gets pulled</h4>
+        <ul>
+          <li><strong>Brand guidelines:</strong> Logo usage, color palette, typography, photography style, tone-of-voice rules, do's and don'ts</li>
+          <li><strong>Previous campaigns:</strong> What worked, what didn't, performance data from prior creative</li>
+          <li><strong>Competitor landscape:</strong> What competitors are running right now (scraped or uploaded), creative positioning gaps</li>
+          <li><strong>Cultural/trend context:</strong> Trending topics, seasonal relevance, platform algorithm shifts (e.g., "Instagram is prioritizing Reels over static in Q2")</li>
+          <li><strong>Audience insights:</strong> CRM data, survey results, social listening data, persona docs</li>
+          <li><strong>Legal/compliance rules:</strong> Industry-specific disclaimers, claim substantiation requirements, rights and clearances</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>The RAG architecture</h4>
+        <p>Brand documents are chunked (typically 500-1000 tokens per chunk), embedded using a model like <code>text-embedding-3-large</code>, and stored in a vector database (pgvector, Pinecone, Weaviate). When a brief comes in, the agent queries the vector store with the brief's key terms and retrieves the top-k most relevant chunks.</p>
+        <p>Critical detail: <strong>brand guidelines need to be structured, not just dumped in.</strong> A 200-page brand book should be broken into discrete sections (voice, visual, messaging pillars, audience personas) with metadata tags so retrieval is precise. "Retrieve all voice guidelines for the enterprise audience segment" is very different from "retrieve everything."</p>
+      </div>
+
+      <div class="talk-track">
+        <p>"RAG is what separates generic AI content from brand-consistent output. Every generation prompt gets injected with relevant brand context before the model sees it. But the quality of your RAG depends entirely on how you structure and chunk your brand documents. A 200-page brand book dumped as one file is useless — you need it broken into tagged, queryable sections. Voice guidelines for enterprise vs consumer, visual rules for social vs print, messaging pillars per persona. That's the unsexy work that makes the creative output actually good."</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 3: IDEATION -->
+  <section id="ideation">
+  <div class="section">
+    <div class="process-card ideation">
+      <div class="step-num">Stage 3 — Ideation & Concepting</div>
+      <h3>Generating creative directions at speed</h3>
+      <p>This is where the Creative Director Agent (or a team of agents) generates multiple concept directions. The goal isn't to replace the human CD — it's to give them 10 directions to react to instead of starting from a blank page.</p>
+
+      <div class="sub-section">
+        <h4>How multi-agent ideation works</h4>
+        <ul>
+          <li><strong>Divergent generation:</strong> 3-5 "concepting agents" each generate ideas from different angles — one focused on emotional storytelling, one on humor, one on data-driven proof points, one on cultural relevance</li>
+          <li><strong>Concept cards:</strong> Each agent outputs a structured concept card — headline, visual direction, key copy lines, tone rationale, platform adaptation notes</li>
+          <li><strong>Selector/Ranker agent:</strong> Reviews all concepts against the brief's objectives and brand guidelines, scores them on relevance, originality, and feasibility, ranks top 3-5</li>
+          <li><strong>Human gate:</strong> Creative Director reviews ranked concepts, picks 1-2 to develop, provides direction notes ("love direction B but make the tone less corporate, more like how we did the CFL work")</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>The parallel vs sequential decision</h4>
+        <p><strong>Parallel generation</strong> runs multiple concepting agents simultaneously — faster, more diverse, but uses more compute. <strong>Sequential generation</strong> has one agent build on the previous agent's ideas — more cohesive but slower and risks echo-chamber thinking. Best practice: parallel for initial divergence, sequential for refinement once a direction is chosen.</p>
+      </div>
+
+      <div class="talk-track">
+        <p>"Ideation is where AI is most misunderstood. People think it's about the AI having the idea. It's not. It's about giving the creative director 10 directions to react to in 20 minutes instead of the team spending two days in a brainstorm to get 3. The CD still picks the winner, still shapes the direction — but they're reacting and editing instead of generating from zero. That's a fundamentally different creative process, and it's faster without being worse."</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 4: PRODUCTION -->
+  <section id="production">
+  <div class="section">
+    <div class="process-card production">
+      <div class="step-num">Stage 4 — Production & Asset Generation</div>
+      <h3>Where agents actually make things</h3>
+      <p>Once a concept direction is approved, production agents execute. This is the most tool-heavy stage — different agents for copy, image, video, audio, and layout.</p>
+
+      <div class="agent-grid">
+        <div class="agent-card">
+          <div class="agent-role" style="color: var(--blue);">Copywriter Agent</div>
+          <div class="agent-name">Long-form & Short-form Copy</div>
+          <p>Generates headlines, body copy, CTAs, social captions, email subject lines. System prompt loaded with brand voice + brief context via RAG. Outputs multiple variants per asset for A/B testing.</p>
+        </div>
+        <div class="agent-card">
+          <div class="agent-role" style="color: var(--pink);">Designer Agent</div>
+          <div class="agent-name">Image & Visual Generation</div>
+          <p>Calls Midjourney/Firefly/DALL-E APIs with structured prompts: style references + negative prompts + brand color constraints. Generates hero images, social graphics, ad creative variants.</p>
+        </div>
+        <div class="agent-card">
+          <div class="agent-role" style="color: var(--yellow);">Video Agent</div>
+          <div class="agent-name">Motion & Video Production</div>
+          <p>Runway Gen-4.5 for video generation from stills or text, ElevenLabs for voiceover, automated cuts for platform-specific aspect ratios (16:9, 9:16, 1:1).</p>
+        </div>
+        <div class="agent-card">
+          <div class="agent-role" style="color: var(--green);">Layout Agent</div>
+          <div class="agent-name">Composition & Formatting</div>
+          <p>Assembles copy + visuals into final layouts per channel spec. Auto-generates responsive email templates, social post graphics with text overlay, landing page sections.</p>
+        </div>
+      </div>
+
+      <div class="sub-section">
+        <h4>The production workflow in detail</h4>
+        <p>Production isn't linear — it's a DAG (directed acyclic graph). Copy and visuals generate in parallel. Once both are ready, the Layout Agent composites them. Video agents may depend on both still images (as starting frames) and copy (as script/voiceover text).</p>
+        <p>Example for a social campaign:</p>
+      </div>
+
+      <div class="code-block"><span class="comment">// Production DAG for a social campaign</span>
+
+<span class="keyword">Brief</span> (approved concept #2)
+  ├── <span class="func">Copywriter Agent</span>
+  │     ├── <span class="string">3x headline variants</span>
+  │     ├── <span class="string">3x body copy variants</span>
+  │     ├── <span class="string">6x social captions (2 per platform)</span>
+  │     └── <span class="string">2x email subject lines</span>
+  │
+  ├── <span class="func">Designer Agent</span>  <span class="comment">// runs in parallel with copy</span>
+  │     ├── <span class="string">1x hero image (16:9)</span>
+  │     ├── <span class="string">3x social variants (1:1, 4:5, 9:16)</span>
+  │     └── <span class="string">2x style explorations</span>
+  │
+  ├── <span class="func">Video Agent</span>  <span class="comment">// depends on hero image + copy</span>
+  │     ├── <span class="string">1x 30s hero video</span>
+  │     ├── <span class="string">3x 6-15s social cuts</span>
+  │     └── <span class="string">1x voiceover (ElevenLabs)</span>
+  │
+  └── <span class="func">Layout Agent</span>  <span class="comment">// depends on copy + visuals</span>
+        ├── <span class="string">Social post composites (copy + image overlays)</span>
+        ├── <span class="string">Email template (header image + copy blocks)</span>
+        └── <span class="string">Landing page hero section</span></div>
+
+      <div class="sub-section">
+        <h4>Style propagation — the hard part</h4>
+        <p>The biggest challenge in multi-agent production is <strong>visual consistency</strong>. Each image generation call is independent — the model doesn't "remember" the previous image. Solutions:</p>
+        <ul>
+          <li><strong>Style reference images:</strong> Feed approved brand imagery as style references to every generation call</li>
+          <li><strong>Seed locking:</strong> Use consistent random seeds for similar compositions</li>
+          <li><strong>Fine-tuned LoRAs:</strong> Train a lightweight style adapter on the client's existing creative. 500-2,000 curated examples is the sweet spot</li>
+          <li><strong>Negative prompts:</strong> Explicitly exclude off-brand elements ("no stock photo look, no neon colors, no serif fonts")</li>
+          <li><strong>Adobe Firefly Foundry:</strong> Enterprise custom model trained on client's own brand assets — commercially safe, brand-locked</li>
+        </ul>
+      </div>
+
+      <div class="talk-track">
+        <p>"Production is where you need to think in DAGs, not linear pipelines. Copy and visuals generate in parallel — there's no reason to wait. But video depends on both, and layout depends on everything. The orchestration framework needs to understand those dependencies. LangGraph handles this well because you define nodes and edges explicitly, and it manages the execution order. CrewAI is simpler but works for linear flows. The real challenge isn't orchestration though — it's style consistency across generated assets. Every image call is stateless. You solve that with style references, seed locking, and ideally a LoRA fine-tuned on the client's existing creative."</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 5: REVIEW & QA -->
+  <section id="review">
+  <div class="section">
+    <div class="process-card review">
+      <div class="step-num">Stage 5 — Review, QA & Brand Compliance</div>
+      <h3>The quality gate that prevents disasters</h3>
+      <p>Before any human sees the final creative, a Brand Compliance Agent runs automated QA. This is where agencies protect themselves and their clients.</p>
+
+      <div class="sub-section">
+        <h4>What the compliance agent checks</h4>
+        <ul>
+          <li><strong>Brand voice alignment:</strong> LLM-as-judge scores copy against brand voice guidelines (retrieved via RAG). "Does this sound like [brand]?" scored 1-5 with rationale</li>
+          <li><strong>Visual brand check:</strong> Color palette compliance (hex values within approved range), logo usage rules, photography style match</li>
+          <li><strong>Legal/regulatory:</strong> Required disclaimers present, claims substantiated, rights/clearances verified, industry-specific rules (e.g., pharma fair balance, financial disclosures)</li>
+          <li><strong>Accessibility:</strong> Alt text present, color contrast ratios meet WCAG 2.1, video captions generated</li>
+          <li><strong>Platform specs:</strong> Image dimensions correct per platform, video duration within limits, character counts within bounds</li>
+          <li><strong>Factual accuracy:</strong> Claims cross-referenced against source data, statistics verified, dates/names checked</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>Risk-based routing</h4>
+        <p>Not every piece of creative needs the same level of review. Smart pipelines route based on risk:</p>
+        <ul>
+          <li><strong>Low risk</strong> (internal blog post, organic social) → Auto-approved if compliance score > 4.0/5.0</li>
+          <li><strong>Medium risk</strong> (paid social, email campaign) → Junior reviewer + compliance pass</li>
+          <li><strong>High risk</strong> (TV/CTV, regulated industry, anything with legal claims) → Senior CD review + legal sign-off required</li>
+        </ul>
+      </div>
+
+      <div class="talk-track">
+        <p>"Brand compliance isn't a nice-to-have, it's the thing that keeps the agency from getting fired. An AI compliance agent can check 50 assets in the time it takes a human to check 2 — color accuracy, voice alignment, legal disclaimers, platform specs. But the key is risk-based routing. Not everything needs the CCO's eyes. A social post that scores 4.5/5 on brand voice and passes all compliance checks can auto-approve. A regulated industry TV spot needs human review no matter what. The agent handles the volume, the humans handle the judgment calls."</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 6: REVISION LOOP -->
+  <section id="revision">
+  <div class="section">
+    <div class="process-card ideation">
+      <div class="step-num">Stage 5b — Revision Loop</div>
+      <h3>Incorporating feedback without restarting</h3>
+      <p>When a reviewer (human or agent) flags issues, the Revision Agent incorporates feedback and regenerates — without restarting the entire pipeline.</p>
+
+      <div class="sub-section">
+        <h4>How the revision loop works</h4>
+        <ul>
+          <li>Reviewer provides structured feedback: what's wrong, what to change, reference for what "right" looks like</li>
+          <li>Revision Agent receives original generation context + feedback as a new prompt</li>
+          <li>Only the flagged assets regenerate — approved assets are locked and don't re-enter the loop</li>
+          <li><strong>Max iteration bound:</strong> Pipeline caps at 3 revision rounds before escalating to human ("we've revised this 3 times and compliance still flags the tone — needs creative director input")</li>
+          <li>Full revision history is tracked — every version, every feedback note, every score change</li>
+        </ul>
+      </div>
+
+      <div class="callout">
+        <p><strong>State management is critical here.</strong> The pipeline state object carries the brief, brand context, all generated assets, all feedback, all scores, and revision history. LangGraph's typed state and checkpointing handles this natively — you can "rewind" to any point in the pipeline and branch from there. CrewAI doesn't have this built in, which is why LangGraph is better for complex creative workflows.</p>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <!-- STAGE 7: PUBLISH -->
+  <section id="publish">
+  <div class="section">
+    <div class="process-card publish">
+      <div class="step-num">Stage 6 — Multi-Channel Publishing</div>
+      <h3>One brief, every channel, formatted correctly</h3>
+      <p>The Distribution Agent takes approved final creative and formats, resizes, and delivers to each channel's specifications.</p>
+
+      <div class="sub-section">
+        <h4>What the distribution agent handles</h4>
+        <ul>
+          <li><strong>Auto-formatting:</strong> Hero image → Instagram square (1:1), Instagram Story (9:16), LinkedIn (1.91:1), Twitter (16:9), email header (600px wide)</li>
+          <li><strong>Copy adaptation:</strong> Full blog post → LinkedIn summary (3,000 chars max) → Twitter thread (280/tweet) → Instagram caption (2,200 chars) → email preview text (90 chars)</li>
+          <li><strong>Video renditions:</strong> 30s hero → 15s Instagram Reel → 6s bumper ad → square format for feed</li>
+          <li><strong>DAM upload:</strong> Final assets tagged with metadata (campaign, client, date, channel, format, version) and uploaded to Digital Asset Management system (Aprimo, AEM, Bynder)</li>
+          <li><strong>CMS/scheduler push:</strong> Content delivered to publishing tools (Hootsuite, HubSpot, WordPress) with scheduled publish times per channel</li>
+        </ul>
+      </div>
+
+      <div class="talk-track">
+        <p>"The least glamorous part of the pipeline is where agencies burn the most hours. Taking one hero asset and manually resizing it for 8 platforms, rewriting the caption for each character limit, exporting 4 aspect ratios of the same video — that's pure production labor. A distribution agent does that in seconds. And it tags everything with proper metadata so the DAM isn't a mess 6 months later. That's where AI saves the most time in a real agency workflow."</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- AGENT ORCHESTRATION PATTERNS -->
+  <section id="orchestration">
+  <div class="section">
+    <div class="section-label">Architecture Deep Dive</div>
+    <h2>Agent Orchestration Patterns</h2>
+    <p>There are four core patterns for how agents work together. Know these — they'll come up in any system design question.</p>
+
+    <table class="vs-table">
+      <tr>
+        <th>Pattern</th>
+        <th>How It Works</th>
+        <th>Best For</th>
+      </tr>
+      <tr>
+        <td><strong>Sequential Pipeline</strong></td>
+        <td>Agent A → Agent B → Agent C. Output of each feeds the next. Simple, predictable, easy to debug.</td>
+        <td>Linear workflows (brief → copy → review). Most common in production.</td>
+      </tr>
+      <tr>
+        <td><strong>Parallel + Merge</strong></td>
+        <td>Multiple agents run simultaneously, a Selector agent picks the best output or merges results.</td>
+        <td>Ideation (3 concepts at once), A/B variant generation, multi-format production.</td>
+      </tr>
+      <tr>
+        <td><strong>Supervisor / CD Pattern</strong></td>
+        <td>A "Creative Director" agent delegates tasks to specialist agents, reviews their output, requests revisions, assembles final deliverable.</td>
+        <td>Complex campaigns with multiple asset types. The supervisor maintains creative coherence.</td>
+      </tr>
+      <tr>
+        <td><strong>Critic Loop</strong></td>
+        <td>Generator produces → Critic scores against rubric → Generator revises → repeat until threshold or max iterations.</td>
+        <td>Quality-sensitive outputs. Brand voice refinement, compliance-heavy content.</td>
+      </tr>
+    </table>
+
+    <div class="callout">
+      <p><strong>In practice, you combine them.</strong> A real campaign pipeline uses Parallel+Merge for ideation, Sequential for production, Critic Loop for QA, and a Supervisor overseeing the whole thing. LangGraph lets you compose these patterns because it's graph-based — each pattern is a subgraph wired into the larger pipeline.</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- FRAMEWORK COMPARISON -->
+  <section id="frameworks">
+  <div class="section">
+    <div class="section-label">Frameworks</div>
+    <h2>CrewAI vs LangGraph vs AutoGen</h2>
+    <p>You'll probably be asked which framework you'd choose. Here's the honest comparison.</p>
+
+    <table class="vs-table">
+      <tr>
+        <th>Dimension</th>
+        <th>CrewAI</th>
+        <th>LangGraph</th>
+        <th>AutoGen</th>
+      </tr>
+      <tr>
+        <td><strong>Mental model</strong></td>
+        <td>Roles & tasks (like a creative team)</td>
+        <td>State machine / graph (like a flowchart)</td>
+        <td>Multi-agent chat (like a group thread)</td>
+      </tr>
+      <tr>
+        <td><strong>Strengths</strong></td>
+        <td>Easy to set up, intuitive role-based design, good for linear workflows</td>
+        <td>Branching, human-in-the-loop, state persistence, checkpointing, production-grade</td>
+        <td>Collaborative review, multi-perspective feedback, conversation-driven</td>
+      </tr>
+      <tr>
+        <td><strong>Weaknesses</strong></td>
+        <td>No built-in state management, limited branching, harder to debug complex flows</td>
+        <td>Steeper learning curve, more boilerplate, overkill for simple tasks</td>
+        <td>Less structured, harder to enforce deterministic pipelines</td>
+      </tr>
+      <tr>
+        <td><strong>Use for creative</strong></td>
+        <td>Small projects, content batches, simple copy → review → publish flows</td>
+        <td>Full campaign pipelines, multi-asset production, anything with approval gates</td>
+        <td>Creative review sessions, brainstorming with multiple "perspectives"</td>
+      </tr>
+      <tr>
+        <td><strong>Pick this when</strong></td>
+        <td>You need something running in an afternoon</td>
+        <td>You need production reliability, state recovery, and human gates</td>
+        <td>The workflow is more conversation than pipeline</td>
+      </tr>
+    </table>
+
+    <div class="talk-track">
+      <p>"For a real agency pipeline, I'd use LangGraph. Creative workflows have too many branch points and human gates for a purely sequential framework. You need to pause for CD approval, branch based on risk level, recover state if something fails halfway through production. LangGraph gives you typed state, checkpointing, and graph composition — you can wire together a Critic Loop subgraph inside a larger Supervisor pipeline. CrewAI is great for prototyping and simpler flows, but LangGraph is what you'd deploy in production."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- TOOLS LANDSCAPE -->
+  <section id="tools">
+  <div class="section">
+    <div class="section-label">Tools</div>
+    <h2>The Creative AI Tool Landscape</h2>
+
+    <div class="tool-grid">
+      <div class="tool-card">
+        <div class="tool-cat">Copy</div>
+        <div class="tool-name">Jasper</div>
+        <p>Brand voice learning, 100+ content agents, marketing-first</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Copy</div>
+        <div class="tool-name">Writer</div>
+        <p>Own LLMs (Palmyra), HIPAA-eligible, enterprise governance</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Copy</div>
+        <div class="tool-name">Copy.ai</div>
+        <p>GTM platform, workflow chains, learns style from 3 samples</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Image</div>
+        <div class="tool-name">Midjourney v7</div>
+        <p>Best quality stills, concept art, visual exploration</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Image</div>
+        <div class="tool-name">Adobe Firefly</div>
+        <p>Commercially safe (licensed training data), Creative Cloud integrated</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Image</div>
+        <div class="tool-name">DALL-E 3</div>
+        <p>Strong text rendering, API-accessible, OpenAI ecosystem</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Video</div>
+        <div class="tool-name">Runway Gen-4.5</div>
+        <p>Best commercial AI video, character consistency, camera controls</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Voice</div>
+        <div class="tool-name">ElevenLabs</div>
+        <p>Human-quality TTS, voice cloning, emotional tone, cross-language</p>
+      </div>
+      <div class="tool-card">
+        <div class="tool-cat">Enterprise</div>
+        <div class="tool-name">Typeface</div>
+        <p>Multimodal (text+image+video), strict brand compliance, Brand Agent</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- EVALUATION -->
+  <section id="evaluation">
+  <div class="section">
+    <div class="section-label">Measurement</div>
+    <h2>How to Evaluate Creative AI Output</h2>
+    <p>This is the question that separates people who've thought about this from people who've just read about it. Creative quality is subjective — but you can still measure it.</p>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="num" style="font-size: 20px;">4.2/5</div>
+        <div class="label">Brand Voice Score</div>
+      </div>
+      <div class="metric">
+        <div class="num">78%</div>
+        <div class="label">First-Pass Rate</div>
+      </div>
+      <div class="metric">
+        <div class="num">1.3</div>
+        <div class="label">Avg Revision Rounds</div>
+      </div>
+      <div class="metric">
+        <div class="num">12min</div>
+        <div class="label">Human Edit Time</div>
+      </div>
+    </div>
+
+    <table class="vs-table">
+      <tr>
+        <th>Metric</th>
+        <th>What It Measures</th>
+        <th>How to Compute</th>
+      </tr>
+      <tr>
+        <td><strong>Brand voice score</strong></td>
+        <td>Does this sound like the brand?</td>
+        <td>LLM-as-judge with brand voice guidelines as rubric. Score 1-5 with written rationale.</td>
+      </tr>
+      <tr>
+        <td><strong>First-pass approval rate</strong></td>
+        <td>% of assets that pass QA without revision</td>
+        <td>Track across pipeline — higher = better prompt engineering / RAG quality.</td>
+      </tr>
+      <tr>
+        <td><strong>Revision rounds</strong></td>
+        <td>How many generate→review cycles before approval</td>
+        <td>Count per asset. Target: < 2 on average.</td>
+      </tr>
+      <tr>
+        <td><strong>Human edit time</strong></td>
+        <td>Time humans spend editing AI output before final</td>
+        <td>Timer from first human touch to approval click. Lower = better generation quality.</td>
+      </tr>
+      <tr>
+        <td><strong>A/B performance</strong></td>
+        <td>Does AI creative perform as well as human creative?</td>
+        <td>CTR, engagement, conversion — compare AI variants vs human-created in same campaign.</td>
+      </tr>
+      <tr>
+        <td><strong>Production velocity</strong></td>
+        <td>How fast does the pipeline deliver?</td>
+        <td>Brief-to-final-approval time. Compare pre-AI vs post-AI.</td>
+      </tr>
+    </table>
+
+    <div class="talk-track">
+      <p>"The metric I care about most is first-pass approval rate. If 80% of what the pipeline generates passes QA without revision, your RAG is good, your prompts are good, and your brand context is well-structured. If it's 40%, something upstream is broken — probably your brand guidelines aren't chunked properly or your system prompts are too generic. Revision rounds is the second signal. If you're averaging 3+ rounds, the critic loop isn't specific enough in its feedback — it's saying 'this doesn't match the brand' instead of 'the tone is too formal for this audience, reference the casual voice guidelines in section 4.'"</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- McKINSEY STAT + ENTERPRISE -->
+  <section id="enterprise">
+  <div class="section">
+    <div class="section-label">Enterprise Reality</div>
+    <h2>The Gap Between Testing and Deploying</h2>
+
+    <div class="process-card review">
+      <div class="step-num">The McKinsey Number</div>
+      <h3>~90% of CMOs are testing AI. Fewer than 10% have deployed end-to-end workflows at scale.</h3>
+      <p>The bottleneck isn't model capability. It's governance, interoperability, and organizational readiness.</p>
+
+      <div class="sub-section">
+        <h4>What blocks enterprise deployment</h4>
+        <ul>
+          <li><strong>Brand/legal governance:</strong> No framework for who approves AI-generated content, what the liability is, how to audit</li>
+          <li><strong>System interoperability:</strong> AI tools don't connect to existing DAM, CMS, CRM, approval workflows. Manual handoffs everywhere</li>
+          <li><strong>Skills gap:</strong> Creatives know design, not prompt engineering. Engineers know code, not brand. The bridge role barely exists yet</li>
+          <li><strong>Data readiness:</strong> Brand guidelines aren't machine-readable. Campaign performance data lives in 6 different tools. No single source of truth</li>
+          <li><strong>Measurement:</strong> No agreed-on framework for evaluating AI creative quality. "Is this good?" is still vibes-based</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="talk-track">
+      <p>"This is where an agency like Memory has an unfair advantage. You're not trying to deploy AI inside a 50,000-person enterprise with 18 approval layers. You're a small, composable team that can ship a pipeline, test it on a real campaign, and iterate in a week. The Adobe-WPP-NVIDIA stack is the reference architecture for the Unilevers of the world, but most brands will access creative AI through their agency partners first. The agency becomes the AI-enabled layer."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- PELLER ESTATES CASE STUDY -->
+  <section id="peller">
+  <div class="section">
+    <div class="section-label">The Assessment Brief</div>
+    <h2>"Peller" Is Most Likely Peller Estates</h2>
+    <p>No product, platform, or person named "Peller" exists in the creative AI space. The strongest hypothesis: <strong>Andrew Peller Limited / Peller Estates</strong> — a major Canadian winery. The technical assessment is likely a case study brief: "Design a creative AI pipeline for this brand."</p>
+
+    <div class="process-card brief">
+      <div class="step-num">The Brand</div>
+      <h3>Andrew Peller Limited — Canadian Wine Portfolio</h3>
+      <div class="sub-section">
+        <h4>What you need to know</h4>
+        <ul>
+          <li><strong>Portfolio:</strong> Peller Estates (premium), Trius (icewine/Niagara), Wayne Gretzky Estates (celebrity brand), plus 15+ other labels</li>
+          <li><strong>Challenge:</strong> Aging brand perception. Needs to connect with younger consumers (25-40) without alienating core base</li>
+          <li><strong>Recent move:</strong> Hired VaynerMedia Canada for social creative (2025) — signaling they're actively modernizing their digital presence</li>
+          <li><strong>Regulated industry:</strong> Alcohol advertising has legal constraints — age-gating, responsible drinking disclaimers, platform restrictions (no targeting under legal drinking age)</li>
+          <li><strong>Multi-brand complexity:</strong> Peller Estates, Trius, and Wayne Gretzky have very different audiences, tones, and visual identities — but share production/distribution infrastructure</li>
+          <li><strong>Seasonality:</strong> Wine marketing is heavily seasonal — icewine in winter, ros&eacute; in summer, harvest stories in fall, holiday gifting in Q4</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>Creative AI opportunities for a winery</h4>
+        <ul>
+          <li><strong>Multi-brand content at scale:</strong> One pipeline that outputs content for 3+ brands with distinct voice/visual guidelines — this is the exact use case for RAG-powered brand context switching</li>
+          <li><strong>Seasonal campaign automation:</strong> Scheduled agents that generate seasonal content calendars — summer ros&eacute; campaign, fall harvest stories, holiday gift guides — with brand-appropriate imagery and copy</li>
+          <li><strong>Social content velocity:</strong> Wine brands need constant lifestyle content (food pairings, occasion suggestions, vineyard stories). Agents can generate 50 social variants from one hero shoot</li>
+          <li><strong>Compliance automation:</strong> Auto-insert age-gate disclaimers, responsible drinking messaging, provincial regulation compliance (Ontario vs BC vs Alberta rules differ)</li>
+          <li><strong>Personalized email at scale:</strong> Different wine recommendations based on purchase history, tasting preferences, regional availability</li>
+          <li><strong>UGC repurposing:</strong> Agents that take user-submitted photos/reviews and transform them into branded social content with proper credits and brand overlay</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>If They Ask You to Design a Pipeline for Peller</h3>
+    <p>Here's how you'd structure it, hitting every stage with Peller-specific details:</p>
+
+    <div class="process-card research">
+      <div class="step-num">Your Answer Framework</div>
+      <h3>Creative AI Pipeline for a Multi-Brand Winery</h3>
+
+      <div class="sub-section">
+        <h4>1. Brand Context Layer (RAG)</h4>
+        <p>Each brand in the portfolio gets its own knowledge base partition:</p>
+        <ul>
+          <li><strong>Peller Estates:</strong> Premium, sophisticated, heritage. Photography: vineyard landscapes, elegant table settings, close-up pours. Voice: refined but approachable</li>
+          <li><strong>Wayne Gretzky:</strong> Celebrity, fun, accessible. Photography: lifestyle, sports, social gatherings. Voice: casual, energetic, "the great one"</li>
+          <li><strong>Trius:</strong> Artisanal, Niagara-focused, wine-enthusiast. Photography: winemaking process, terroir, intimate tastings. Voice: knowledgeable, passionate</li>
+        </ul>
+        <p>The RAG system retrieves the correct brand context based on the brief's brand field. Same pipeline, completely different outputs.</p>
+      </div>
+
+      <div class="sub-section">
+        <h4>2. Seasonal Campaign Engine</h4>
+        <ul>
+          <li>Scheduled agent triggers campaign briefs based on season + brand calendar</li>
+          <li>Research agent pulls current trends (summer cocktail trends, holiday entertaining trends), competitor social activity, and performance data from previous seasonal campaigns</li>
+          <li>Ideation agent generates 5-8 concept directions — the CD picks 2 to develop</li>
+          <li>Production agents generate full asset suites: hero image, 6 social variants (IG feed, IG story, TikTok, Facebook, Pinterest, X), email header, web banner</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>3. Compliance Gate (Critical for Alcohol)</h4>
+        <ul>
+          <li>Every generated asset runs through a compliance agent that checks: age-gate language present, responsible drinking disclaimer, no depiction of excessive consumption, no appeal to minors, provincial ad regulation compliance</li>
+          <li>High-risk content (anything with a person, anything implying health benefits) routes to legal review</li>
+          <li>Low-risk content (vineyard landscape, food pairing, tasting notes) can auto-approve if compliance score passes</li>
+        </ul>
+      </div>
+
+      <div class="sub-section">
+        <h4>4. Multi-Channel Distribution</h4>
+        <ul>
+          <li>Single hero asset → auto-formatted for every platform spec</li>
+          <li>Copy adapted per platform: long-form for email, punchy for X, hashtag-rich for IG, educational for Pinterest</li>
+          <li>Age-gated platforms (Meta, YouTube) get platform-specific age restriction tags in the metadata</li>
+          <li>Assets tagged in DAM with brand, season, campaign, channel, compliance status</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="talk-track">
+      <p>"A multi-brand winery is actually a perfect use case for AI-powered creative pipelines. The challenge isn't making one good ad — it's producing consistent, on-brand content across 3+ brands, 6+ channels, 4 seasons, and a regulated industry. That's a combinatorial problem. A human team drowns in the permutations. An agent pipeline with brand-specific RAG context handles the volume while humans make the creative calls. And the compliance layer is where AI genuinely saves the agency from risk — every asset gets checked against alcohol advertising regulations before a human ever sees it."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- MODEL/PROVIDER MAPPING -->
+  <section id="providers">
+  <div class="section">
+    <div class="section-label">Infrastructure</div>
+    <h2>AI Models for Creative Pipelines — What's Actually Available via API</h2>
+    <p>Not every tool has an API. Here's the honest map of what you can programmatically wire into a creative pipeline today, organized by the providers available through platforms like Bonito's gateway.</p>
+
+    <h3>The Big 3 for Creative Work</h3>
+
+    <div class="process-card production">
+      <div class="step-num">Azure AI / Azure OpenAI — The Creative Powerhouse</div>
+      <h3>Best single provider for a full creative pipeline</h3>
+      <table class="vs-table">
+        <tr><th>Capability</th><th>Model</th><th>Notes</th></tr>
+        <tr><td><strong>Image generation</strong></td><td>gpt-image-1, gpt-image-1.5, gpt-image-2</td><td>GPT-4o native image gen. Replaced DALL-E 3</td></tr>
+        <tr><td><strong>Image generation (alt)</strong></td><td>FLUX.2-flex, FLUX.2-pro, FLUX.1-Kontext-pro</td><td>Black Forest Labs models, available as Azure partner models</td></tr>
+        <tr><td><strong>Video generation</strong></td><td>Sora, Sora-2</td><td>Preview. OpenAI shutting down standalone app + API by Sept 2026</td></tr>
+        <tr><td><strong>Speech-to-text</strong></td><td>Whisper</td><td>Transcription + translation</td></tr>
+        <tr><td><strong>Text-to-speech</strong></td><td>tts-1, tts-hd, gpt-4o-mini-tts</td><td>Multiple voices, GPT-powered tone control</td></tr>
+        <tr><td><strong>Realtime audio</strong></td><td>gpt-4o-realtime-preview</td><td>Real-time speech-to-speech</td></tr>
+        <tr><td><strong>Copy/reasoning</strong></td><td>GPT-4o, GPT-4.1, GPT-5</td><td>Text generation + vision input</td></tr>
+      </table>
+    </div>
+
+    <div class="process-card research">
+      <div class="step-num">Google Vertex AI — The Only One With Music</div>
+      <h3>Image + video + music in one provider</h3>
+      <table class="vs-table">
+        <tr><th>Capability</th><th>Model</th><th>Notes</th></tr>
+        <tr><td><strong>Image generation</strong></td><td>Imagen 4 (Ultra, Fast)</td><td>Photorealism + artistic styles, inpainting, outpainting</td></tr>
+        <tr><td><strong>Video generation</strong></td><td>Veo 3.1, Veo 3, Veo 2</td><td>Text-to-video, image-to-video, object insertion/removal</td></tr>
+        <tr><td><strong>Music generation</strong></td><td>Lyria 3, Lyria 2</td><td>Only major provider with music gen. Unique capability</td></tr>
+        <tr><td><strong>Multimodal</strong></td><td>Gemini 2.5 Pro/Flash</td><td>Native multimodal — text + image + audio + video understanding</td></tr>
+        <tr><td><strong>Copy/reasoning</strong></td><td>Gemini 2.5 Pro</td><td>Text gen + built-in image generation capability</td></tr>
+      </table>
+    </div>
+
+    <div class="process-card ideation">
+      <div class="step-num">AWS Bedrock — The Editing Suite</div>
+      <h3>Strong on image manipulation, not just generation</h3>
+      <table class="vs-table">
+        <tr><th>Capability</th><th>Model</th><th>Notes</th></tr>
+        <tr><td><strong>Image generation</strong></td><td>Amazon Nova Canvas, Titan Image Gen v2</td><td>Text-to-image</td></tr>
+        <tr><td><strong>Image editing</strong></td><td>Stability AI (13 models)</td><td>Inpaint, outpaint, remove BG, erase object, search &amp; replace, style transfer, upscale — this is the editing toolkit</td></tr>
+        <tr><td><strong>Video generation</strong></td><td>Amazon Nova Reel</td><td>Text-to-video</td></tr>
+        <tr><td><strong>Speech</strong></td><td>Amazon Nova Sonic</td><td>Speech-to-speech conversational</td></tr>
+        <tr><td><strong>Copy/reasoning</strong></td><td>Claude (Anthropic), Llama, Mistral</td><td>Text gen via partner models</td></tr>
+      </table>
+    </div>
+
+    <h3>The Rest of the Current Providers</h3>
+
+    <table class="vs-table">
+      <tr><th>Provider</th><th>Creative Capabilities</th><th>Best Used For</th></tr>
+      <tr>
+        <td><strong>OpenAI (direct)</strong></td>
+        <td>gpt-image-1, DALL-E 3, Whisper, TTS, GPT-4o Realtime</td>
+        <td>Mirrors Azure capabilities. Use when Azure isn't available</td>
+      </tr>
+      <tr>
+        <td><strong>Anthropic</strong></td>
+        <td>Vision input only (image understanding). No generation</td>
+        <td>Brand compliance checking (analyze generated images against guidelines), brief parsing, copy generation, critic/review agent</td>
+      </tr>
+      <tr>
+        <td><strong>Groq</strong></td>
+        <td>Whisper (very fast). No image/video/TTS</td>
+        <td>Fast transcription. Speed-optimized text generation for high-volume copy variants</td>
+      </tr>
+    </table>
+
+    <h3>How This Maps to the Pipeline</h3>
+
+    <div class="process-card publish">
+      <div class="step-num">Model Selection Per Pipeline Stage</div>
+      <h3>Which model for which job</h3>
+      <table class="vs-table">
+        <tr><th>Pipeline Stage</th><th>Best Model(s)</th><th>Why</th></tr>
+        <tr>
+          <td><strong>Brief parsing</strong></td>
+          <td>Claude 4.5 Sonnet (Anthropic) or GPT-4.1 (Azure)</td>
+          <td>Complex reasoning, structured output extraction. Claude excels at nuanced instruction-following</td>
+        </tr>
+        <tr>
+          <td><strong>Research / RAG</strong></td>
+          <td>Gemini 2.5 Flash (Vertex) or Groq Llama 3.3</td>
+          <td>Fast, cheap, high-throughput retrieval + summarization</td>
+        </tr>
+        <tr>
+          <td><strong>Ideation / concepting</strong></td>
+          <td>Claude Opus 4.6 or GPT-4.1</td>
+          <td>Creative reasoning, multiple concept generation, long context for brand guidelines</td>
+        </tr>
+        <tr>
+          <td><strong>Copywriting</strong></td>
+          <td>Claude 4.5 Sonnet + Groq for volume</td>
+          <td>Claude for hero copy (quality), Groq for 50 social variants (speed)</td>
+        </tr>
+        <tr>
+          <td><strong>Image generation</strong></td>
+          <td>gpt-image-2 (Azure) or Imagen 4 (Vertex)</td>
+          <td>Best photorealism + prompt adherence. FLUX for artistic/stylized</td>
+        </tr>
+        <tr>
+          <td><strong>Image editing</strong></td>
+          <td>Stability AI suite (Bedrock)</td>
+          <td>Background removal, inpainting, style transfer, upscaling — 13 specialized models</td>
+        </tr>
+        <tr>
+          <td><strong>Video generation</strong></td>
+          <td>Veo 3.1 (Vertex) or Nova Reel (Bedrock)</td>
+          <td>Veo for quality, Nova Reel for speed/cost</td>
+        </tr>
+        <tr>
+          <td><strong>Voiceover</strong></td>
+          <td>gpt-4o-mini-tts (Azure) or TTS-HD (OpenAI)</td>
+          <td>Tone-controllable TTS. ElevenLabs is better but needs separate provider</td>
+        </tr>
+        <tr>
+          <td><strong>Music / audio bed</strong></td>
+          <td>Lyria 3 (Vertex)</td>
+          <td>Only option via major providers. Unique to Google</td>
+        </tr>
+        <tr>
+          <td><strong>Brand compliance</strong></td>
+          <td>Claude 4.5 Sonnet (Anthropic)</td>
+          <td>Image understanding + long-context brand guideline comparison. Can analyze generated visuals against brand rules</td>
+        </tr>
+        <tr>
+          <td><strong>Transcription</strong></td>
+          <td>Whisper (Groq)</td>
+          <td>Fastest Whisper inference. Useful for transcribing client calls, extracting briefs from meetings</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="callout">
+      <p><strong>The multi-provider advantage:</strong> No single provider covers the full creative pipeline well. Azure is the richest but has no music gen. Vertex has music but weaker TTS. Bedrock has the best image editing toolkit but weaker generation. Anthropic can't generate media at all but is the best critic/reviewer. A gateway that routes to the right provider per task — that's the infrastructure play.</p>
+    </div>
+
+    <h3>Providers Worth Adding for a Serious Creative Pipeline</h3>
+
+    <div class="agent-grid">
+      <div class="agent-card">
+        <div class="agent-role" style="color: var(--green);">Priority 1 — High Impact</div>
+        <div class="agent-name">ElevenLabs</div>
+        <p>Best-in-class voice. TTS, voice cloning, emotional tone control, cross-language dubbing. Proper REST API with WebSocket streaming. Nothing else comes close for voiceover quality.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-role" style="color: var(--green);">Priority 1 — High Impact</div>
+        <div class="agent-name">Runway</div>
+        <p>Leading video generation. Gen-4.5 with character consistency and camera controls. Python + Node SDKs. Self-serve + enterprise tiers. The standard for AI video in production.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-role" style="color: var(--blue);">Priority 2 — Nice to Have</div>
+        <div class="agent-name">Black Forest Labs (FLUX)</div>
+        <p>Top-tier image generation. Already on Azure as partner models, but direct API is cheaper. Open weights available for self-hosting. FLUX.1-Kontext excels at image editing.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-role" style="color: var(--blue);">Priority 2 — Nice to Have</div>
+        <div class="agent-name">Ideogram</div>
+        <p>Best text rendering in generated images (logos, headlines overlaid on imagery). Proper OpenAPI 3.1 spec. Strong for social graphics where text is part of the image.</p>
+      </div>
+    </div>
+
+    <h3>Skip These</h3>
+    <table class="vs-table">
+      <tr><th>Provider</th><th>Why Not</th></tr>
+      <tr><td><strong>Seedance (ByteDance)</strong></td><td>No public API. Major copyright controversy — Disney and Paramount sent cease-and-desists. Reputational risk for any brand work</td></tr>
+      <tr><td><strong>Midjourney</strong></td><td>No API. Discord bot + web UI only. Can't integrate into pipelines programmatically</td></tr>
+      <tr><td><strong>Stability AI (direct)</strong></td><td>Models already available via Bedrock. Company financially unstable. Use through AWS instead</td></tr>
+      <tr><td><strong>Leonardo AI</strong></td><td>Aggregator, not a provider. They wrap FLUX, Kling, Seedance, etc. — same models available directly through better providers</td></tr>
+    </table>
+
+    <div class="talk-track">
+      <p>"You don't need 15 providers to build a creative pipeline. Azure, Vertex, and Bedrock cover 80% of the creative use cases through existing API infrastructure — image gen, video gen, TTS, music, editing tools, plus all the text/reasoning models for copy and compliance. The two additions that would make the biggest difference are ElevenLabs for voice (nothing else is close for quality) and Runway for video (Gen-4.5 with proper SDKs). Everything else is optimization, not a blocker."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- COST ANALYSIS -->
+  <section id="unit-costs">
+  <div class="section">
+    <div class="section-label">Cost Analysis</div>
+    <h2>What Does a Creative AI Pipeline Actually Cost?</h2>
+    <p>Real API pricing per unit, then modeled out for a realistic campaign. These are current rates as of May 2026.</p>
+
+    <h3>Image Generation — Cost Per Image</h3>
+    <table class="vs-table">
+      <tr><th>Model</th><th>Low / Fast</th><th>Standard</th><th>High / Ultra</th></tr>
+      <tr>
+        <td><strong>GPT Image 1</strong> (OpenAI/Azure)</td>
+        <td>$0.011</td>
+        <td>$0.042</td>
+        <td>$0.167 – $0.250</td>
+      </tr>
+      <tr>
+        <td><strong>GPT Image 1 Mini</strong></td>
+        <td>$0.005</td>
+        <td>$0.019</td>
+        <td>$0.052</td>
+      </tr>
+      <tr>
+        <td><strong>Imagen 4</strong> (Vertex)</td>
+        <td>$0.02 (Fast)</td>
+        <td>$0.04</td>
+        <td>$0.06 (Ultra)</td>
+      </tr>
+      <tr>
+        <td><strong>FLUX.2 Pro</strong> (BFL / Azure)</td>
+        <td>$0.015 (Schnell)</td>
+        <td>$0.025 (Dev)</td>
+        <td>$0.055 (Pro)</td>
+      </tr>
+      <tr>
+        <td><strong>Nova Canvas</strong> (Bedrock)</td>
+        <td>—</td>
+        <td>$0.04</td>
+        <td>$0.08 (2048px)</td>
+      </tr>
+      <tr>
+        <td><strong>Stability AI</strong> (Bedrock)</td>
+        <td>$0.03 (Core)</td>
+        <td>$0.04 (SDXL)</td>
+        <td>$0.08 (SD 3.5)</td>
+      </tr>
+      <tr>
+        <td><strong>DALL-E 3</strong> (legacy)</td>
+        <td>—</td>
+        <td>$0.04</td>
+        <td>$0.12</td>
+      </tr>
+      <tr>
+        <td><strong>Ideogram</strong></td>
+        <td>$0.038 (Turbo)</td>
+        <td>$0.075</td>
+        <td>$0.11 (Quality)</td>
+      </tr>
+    </table>
+
+    <div class="callout">
+      <p><strong>Takeaway:</strong> High-quality hero images cost $0.04–$0.17 each. Bulk social variants at standard quality run $0.02–$0.04. At these prices, generating 50 image variants costs less than a single stock photo license.</p>
+    </div>
+
+    <h3>Video Generation — Cost Per Second</h3>
+    <table class="vs-table">
+      <tr><th>Model</th><th>Cost / Second</th><th>10-Second Video</th><th>Notes</th></tr>
+      <tr>
+        <td><strong>Nova Reel</strong> (Bedrock)</td>
+        <td>$0.08</td>
+        <td>$0.80</td>
+        <td>Cheapest option. Good for volume</td>
+      </tr>
+      <tr>
+        <td><strong>Runway Gen-4 Turbo</strong></td>
+        <td>$0.05</td>
+        <td>$0.50</td>
+        <td>Fast, cheapest high-quality option</td>
+      </tr>
+      <tr>
+        <td><strong>Runway Gen-4.5</strong></td>
+        <td>$0.12</td>
+        <td>$1.20</td>
+        <td>Best quality, character consistency</td>
+      </tr>
+      <tr>
+        <td><strong>Veo 3.1 Fast</strong> (Vertex)</td>
+        <td>$0.15</td>
+        <td>$1.50</td>
+        <td>Good balance of speed + quality</td>
+      </tr>
+      <tr>
+        <td><strong>Veo 3.1</strong> (Vertex)</td>
+        <td>$0.40</td>
+        <td>$4.00</td>
+        <td>Highest quality, includes audio</td>
+      </tr>
+      <tr>
+        <td><strong>Sora 2</strong> (OpenAI)</td>
+        <td>$0.10 – $0.50</td>
+        <td>$1.00 – $5.00</td>
+        <td>Shutting down Sept 2026</td>
+      </tr>
+    </table>
+
+    <h3>Voice & Audio — Cost Per Minute</h3>
+    <table class="vs-table">
+      <tr><th>Model</th><th>Cost / Minute</th><th>Notes</th></tr>
+      <tr>
+        <td><strong>OpenAI TTS-1</strong></td>
+        <td>~$0.09</td>
+        <td>Standard quality. ~6K chars/min</td>
+      </tr>
+      <tr>
+        <td><strong>OpenAI TTS-HD</strong></td>
+        <td>~$0.18</td>
+        <td>Higher quality voice</td>
+      </tr>
+      <tr>
+        <td><strong>GPT-4o-mini TTS</strong></td>
+        <td>~$0.015</td>
+        <td>Cheapest. GPT-powered tone control</td>
+      </tr>
+      <tr>
+        <td><strong>ElevenLabs</strong> (Scale plan)</td>
+        <td>~$0.10</td>
+        <td>Best quality. Voice cloning, emotional tone. $330/mo plan</td>
+      </tr>
+      <tr>
+        <td><strong>ElevenLabs</strong> (Business)</td>
+        <td>~$0.05</td>
+        <td>Volume pricing. $990/mo plan</td>
+      </tr>
+      <tr>
+        <td><strong>Whisper</strong> (OpenAI)</td>
+        <td>$0.006</td>
+        <td>Transcription. Groq runs it even faster</td>
+      </tr>
+      <tr>
+        <td><strong>Nova Sonic</strong> (Bedrock)</td>
+        <td>~$0.02</td>
+        <td>Speech-to-speech. 80% cheaper than GPT-4o Realtime</td>
+      </tr>
+    </table>
+
+    <h3>Text & Reasoning — Cost Per 1M Tokens</h3>
+    <table class="vs-table">
+      <tr><th>Model</th><th>Input / MTok</th><th>Output / MTok</th><th>Best For</th></tr>
+      <tr>
+        <td><strong>Groq Llama 3.3 70B</strong></td>
+        <td>$0.59</td>
+        <td>$0.79</td>
+        <td>Bulk copy variants (cheapest + fastest)</td>
+      </tr>
+      <tr>
+        <td><strong>Gemini 2.5 Flash</strong></td>
+        <td>$0.30</td>
+        <td>$2.50</td>
+        <td>RAG retrieval, research, summarization</td>
+      </tr>
+      <tr>
+        <td><strong>GPT-4.1</strong></td>
+        <td>$2.00</td>
+        <td>$8.00</td>
+        <td>High-quality copy, 1M context window</td>
+      </tr>
+      <tr>
+        <td><strong>GPT-4o</strong></td>
+        <td>$2.50</td>
+        <td>$10.00</td>
+        <td>General purpose, multimodal input</td>
+      </tr>
+      <tr>
+        <td><strong>Claude Sonnet 4.5</strong></td>
+        <td>$3.00</td>
+        <td>$15.00</td>
+        <td>Hero copy, compliance review, brief parsing</td>
+      </tr>
+      <tr>
+        <td><strong>Claude Opus 4.6</strong></td>
+        <td>$5.00</td>
+        <td>$25.00</td>
+        <td>Creative direction, complex ideation</td>
+      </tr>
+      <tr>
+        <td><strong>Gemini 2.5 Pro</strong></td>
+        <td>$1.25</td>
+        <td>$10.00</td>
+        <td>Long-context brand analysis (up to 1M tokens)</td>
+      </tr>
+    </table>
+
+    <div class="divider" style="margin: 36px 0;"></div>
+
+    <h2 id="campaign-cost">Real Campaign Cost Model: Peller Estates Seasonal Campaign</h2>
+    <p>Let's price out a realistic seasonal campaign — say a <strong>Summer Ros&eacute; Campaign</strong> for Peller Estates across 3 brands, 6 channels. This is what the pipeline would cost in pure API spend.</p>
+
+    <div class="process-card production">
+      <div class="step-num">Campaign Scope</div>
+      <h3>Summer Ros&eacute; — 3 Brands, 6 Channels, Full Asset Suite</h3>
+
+      <table class="vs-table">
+        <tr><th>Pipeline Stage</th><th>What's Generated</th><th>Model Used</th><th>Unit Cost</th><th>Qty</th><th>Subtotal</th></tr>
+        <tr>
+          <td><strong>Brief parsing</strong></td>
+          <td>Structured brief from client input</td>
+          <td>Claude Sonnet 4.5 (~2K tokens out)</td>
+          <td>~$0.04</td>
+          <td>1</td>
+          <td>$0.04</td>
+        </tr>
+        <tr>
+          <td><strong>Research / RAG</strong></td>
+          <td>Brand context retrieval, trend analysis</td>
+          <td>Gemini 2.5 Flash (~10K tokens out)</td>
+          <td>~$0.03</td>
+          <td>3 brands</td>
+          <td>$0.09</td>
+        </tr>
+        <tr>
+          <td><strong>Ideation</strong></td>
+          <td>5 concept directions per brand</td>
+          <td>Claude Opus 4.6 (~3K tokens each)</td>
+          <td>~$0.09</td>
+          <td>15</td>
+          <td>$1.35</td>
+        </tr>
+        <tr>
+          <td><strong>Hero copy</strong></td>
+          <td>Headlines, body, CTAs per brand</td>
+          <td>Claude Sonnet 4.5 (~1K tokens each)</td>
+          <td>~$0.02</td>
+          <td>9 (3/brand)</td>
+          <td>$0.18</td>
+        </tr>
+        <tr>
+          <td><strong>Social copy variants</strong></td>
+          <td>Captions per platform per brand</td>
+          <td>Groq Llama 3.3 (~500 tokens each)</td>
+          <td>~$0.001</td>
+          <td>54 (6 platforms &times; 3 variants &times; 3 brands)</td>
+          <td>$0.05</td>
+        </tr>
+        <tr>
+          <td><strong>Email copy</strong></td>
+          <td>Nurture sequence per brand</td>
+          <td>Claude Sonnet 4.5 (~2K tokens each)</td>
+          <td>~$0.04</td>
+          <td>9 (3 emails &times; 3 brands)</td>
+          <td>$0.36</td>
+        </tr>
+        <tr>
+          <td><strong>Hero images</strong></td>
+          <td>1 hero per brand, high quality</td>
+          <td>GPT Image 1 (high)</td>
+          <td>$0.17</td>
+          <td>3</td>
+          <td>$0.51</td>
+        </tr>
+        <tr>
+          <td><strong>Social image variants</strong></td>
+          <td>6 platform-sized variants per brand</td>
+          <td>Imagen 4 Standard</td>
+          <td>$0.04</td>
+          <td>18</td>
+          <td>$0.72</td>
+        </tr>
+        <tr>
+          <td><strong>Style explorations</strong></td>
+          <td>3 alternative looks per brand</td>
+          <td>FLUX.2 Pro</td>
+          <td>$0.055</td>
+          <td>9</td>
+          <td>$0.50</td>
+        </tr>
+        <tr>
+          <td><strong>Image editing</strong></td>
+          <td>BG removal, recolor, upscale</td>
+          <td>Stability AI (Bedrock)</td>
+          <td>$0.04</td>
+          <td>12</td>
+          <td>$0.48</td>
+        </tr>
+        <tr>
+          <td><strong>Hero videos</strong></td>
+          <td>15-sec video per brand</td>
+          <td>Veo 3.1 Fast</td>
+          <td>$0.15/sec</td>
+          <td>45 sec</td>
+          <td>$6.75</td>
+        </tr>
+        <tr>
+          <td><strong>Social video cuts</strong></td>
+          <td>6-sec bumpers per brand</td>
+          <td>Runway Gen-4 Turbo</td>
+          <td>$0.05/sec</td>
+          <td>54 sec (3 cuts &times; 6sec &times; 3 brands)</td>
+          <td>$2.70</td>
+        </tr>
+        <tr>
+          <td><strong>Voiceover</strong></td>
+          <td>30-sec VO per brand</td>
+          <td>ElevenLabs (Scale)</td>
+          <td>$0.10/min</td>
+          <td>1.5 min</td>
+          <td>$0.15</td>
+        </tr>
+        <tr>
+          <td><strong>Background music</strong></td>
+          <td>30-sec audio beds</td>
+          <td>Lyria 3 (Vertex)</td>
+          <td>~$0.07</td>
+          <td>3</td>
+          <td>$0.21</td>
+        </tr>
+        <tr>
+          <td><strong>Brand compliance</strong></td>
+          <td>Review all generated assets</td>
+          <td>Claude Sonnet 4.5 (vision + text)</td>
+          <td>~$0.05</td>
+          <td>30 assets</td>
+          <td>$1.50</td>
+        </tr>
+        <tr>
+          <td><strong>Revision loop</strong></td>
+          <td>~30% of assets need 1 revision</td>
+          <td>Mixed (same models as above)</td>
+          <td>—</td>
+          <td>~10 assets</td>
+          <td>$2.50</td>
+        </tr>
+      </table>
+
+      <div class="deal-box" style="margin-top: 20px;">
+        <h3>Total API Cost: ~$18</h3>
+        <p style="font-size: 13pt; margin-top: 8px;">For a full multi-brand, multi-channel seasonal campaign — 3 brands, 6 platforms, hero images, social variants, videos, voiceover, music, email sequences, and compliance review.</p>
+        <ul>
+          <li><strong>Text / reasoning:</strong> ~$2.57 (brief parsing, ideation, copy, compliance)</li>
+          <li><strong>Image generation + editing:</strong> ~$2.21 (heroes, variants, explorations, edits)</li>
+          <li><strong>Video generation:</strong> ~$9.45 (hero videos + social cuts)</li>
+          <li><strong>Voice + music:</strong> ~$0.36 (voiceover + audio beds)</li>
+          <li><strong>Revisions:</strong> ~$2.50 (re-generation of flagged assets)</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Scaling It Out — Monthly Cost Projections</h3>
+
+    <table class="vs-table">
+      <tr><th>Scenario</th><th>Campaigns / Month</th><th>API Cost / Month</th><th>Comparison</th></tr>
+      <tr>
+        <td><strong>Small agency</strong> (2-3 clients)</td>
+        <td>4</td>
+        <td>~$72</td>
+        <td>Less than one stock photo subscription</td>
+      </tr>
+      <tr>
+        <td><strong>Memory Creative scale</strong> (5-8 clients)</td>
+        <td>12</td>
+        <td>~$216</td>
+        <td>Less than one junior designer's daily rate</td>
+      </tr>
+      <tr>
+        <td><strong>Heavy production</strong> (10+ clients, daily content)</td>
+        <td>40</td>
+        <td>~$720</td>
+        <td>Less than a single freelance video editor for a day</td>
+      </tr>
+      <tr>
+        <td><strong>Enterprise agency</strong> (20+ clients, always-on)</td>
+        <td>100</td>
+        <td>~$1,800</td>
+        <td>Less than one FTE's monthly benefits cost</td>
+      </tr>
+    </table>
+
+    <div class="callout">
+      <p><strong>The real cost isn't the API.</strong> At $18 per full campaign, the API spend is a rounding error. The real costs are: engineering time to build and maintain the pipeline, compute for orchestration infrastructure, and the human review time that remains. But even all-in, a well-built creative AI pipeline runs at 5-10% the cost of traditional production for equivalent output volume.</p>
+    </div>
+
+    <div class="talk-track">
+      <p>"The API costs are almost embarrassingly low. A full multi-brand seasonal campaign — images, video, voiceover, music, copy, compliance review — runs about $18 in API calls. Even at enterprise scale, 100 campaigns a month is $1,800. The models aren't the expensive part anymore. The expensive part is building the pipeline infrastructure, structuring the brand knowledge bases, and the human creative judgment that stays in the loop. But the marginal cost of producing one more variant, one more channel adaptation, one more A/B test? Basically zero. That changes the economics of creative production completely."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- $30K BUDGET SCENARIOS -->
+  <section id="30k-scenarios">
+  <div class="section">
+    <div class="section-label">$30K Budget Scenarios</div>
+    <h2>What $30K Buys You — Three Ways to Spend It</h2>
+    <p>Given a $30,000 budget for AI-powered creative, here are three allocation models depending on where the brand needs the most impact: buzz generation, mid-funnel workflows, or full-funnel coverage.</p>
+
+    <!-- SCENARIO 1: BUZZ -->
+    <div class="process-card production">
+      <div class="step-num">Scenario 1 — Promotional Buzz & Awareness</div>
+      <h3>Goal: Maximum visibility. Get Peller in front of new audiences at scale.</h3>
+
+      <table class="vs-table">
+        <tr><th>Line Item</th><th>What It Covers</th><th>Cost</th></tr>
+        <tr>
+          <td><strong>Pipeline build & brand RAG setup</strong></td>
+          <td>3 brand knowledge bases (Peller, Trius, Gretzky), voice/visual guidelines ingested, compliance rules encoded</td>
+          <td>$6,000</td>
+        </tr>
+        <tr>
+          <td><strong>Hero video campaign</strong> (3 brands)</td>
+          <td>3 hero videos (15-30s each), 9 social cuts (6-15s), 3 voiceovers, 3 music beds. AI-generated via Veo + Runway + ElevenLabs + Lyria</td>
+          <td>$3,000</td>
+        </tr>
+        <tr>
+          <td><strong>Social content engine</strong> (3 months)</td>
+          <td>Agent-generated content calendar: 5 posts/week &times; 3 brands &times; 3 platforms = ~540 posts. Images, carousels, short video, captions. Human CD reviews weekly batches</td>
+          <td>$5,500</td>
+        </tr>
+        <tr>
+          <td><strong>Influencer/UGC repurposing pipeline</strong></td>
+          <td>Agent takes UGC photos/reviews, applies brand overlay, generates captions, queues for approval. 100 assets/month</td>
+          <td>$2,000</td>
+        </tr>
+        <tr>
+          <td><strong>Seasonal variant engine</strong></td>
+          <td>Auto-generate seasonal variants (summer ros&eacute;, fall harvest, holiday gifting) from one hero shoot. Swap backgrounds, copy, CTAs per season</td>
+          <td>$2,500</td>
+        </tr>
+        <tr>
+          <td><strong>Paid creative variants</strong></td>
+          <td>50 ad creative variants per brand for Meta/Google/TikTok. A/B test headlines, images, CTAs at scale</td>
+          <td>$2,000</td>
+        </tr>
+        <tr>
+          <td><strong>API costs</strong> (3 months)</td>
+          <td>All model inference: image gen, video gen, TTS, text reasoning, compliance. ~55 campaigns worth</td>
+          <td>$1,000</td>
+        </tr>
+        <tr>
+          <td><strong>Human creative oversight</strong></td>
+          <td>CD review time, revision direction, final approvals. ~40 hrs over 3 months</td>
+          <td>$6,000</td>
+        </tr>
+        <tr>
+          <td><strong>Platform/infra</strong></td>
+          <td>Orchestration hosting (LangGraph Cloud or self-hosted), vector DB, DAM integration</td>
+          <td>$2,000</td>
+        </tr>
+      </table>
+
+      <div class="deal-box">
+        <h3>Total: $30,000 &nbsp;|&nbsp; Output: ~1,800+ assets over 3 months</h3>
+        <ul>
+          <li>540 social posts (3 brands &times; 3 platforms &times; 5/week &times; 12 weeks)</li>
+          <li>12 hero videos + 36 social cuts</li>
+          <li>150 paid ad variants</li>
+          <li>300 UGC repurposed assets</li>
+          <li>Full seasonal refresh engine that runs on autopilot</li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>Traditional agency equivalent:</strong> $150K–$250K for this volume. A single 30-second brand video costs $15K-$50K in traditional production.</p>
+      </div>
+    </div>
+
+    <!-- SCENARIO 2: MID-FUNNEL + LOWER FUNNEL -->
+    <div class="process-card research">
+      <div class="step-num">Scenario 2 — Mid-Funnel & Lower-Funnel Conversion</div>
+      <h3>Goal: Nurture consideration, drive purchase. Content that converts, not just impresses.</h3>
+
+      <table class="vs-table">
+        <tr><th>Line Item</th><th>What It Covers</th><th>Cost</th></tr>
+        <tr>
+          <td><strong>Pipeline build & brand RAG</strong></td>
+          <td>Same as Scenario 1 — brand knowledge bases, compliance rules</td>
+          <td>$5,000</td>
+        </tr>
+        <tr>
+          <td><strong>Email nurture engine</strong></td>
+          <td>AI-generated email sequences per brand: welcome series (5 emails), wine club upsell (4), seasonal recommendations (4), re-engagement (3). Personalized by purchase history/preferences. ~48 email templates total</td>
+          <td>$4,000</td>
+        </tr>
+        <tr>
+          <td><strong>Product content generator</strong></td>
+          <td>Agent generates tasting notes, food pairings, occasion suggestions, sommelier-style descriptions for every SKU. Outputs for web, email, and in-store displays</td>
+          <td>$3,000</td>
+        </tr>
+        <tr>
+          <td><strong>Dynamic landing pages</strong></td>
+          <td>AI generates landing page variants per audience segment: wine enthusiasts, gift buyers, event planners, wine club members. Copy + hero image + CTA per variant</td>
+          <td>$3,500</td>
+        </tr>
+        <tr>
+          <td><strong>Retargeting creative engine</strong></td>
+          <td>Agent generates personalized retargeting ads based on browsing behavior: "You looked at the 2023 Ros&eacute; — here's why it pairs with summer." 100+ variants per brand</td>
+          <td>$3,000</td>
+        </tr>
+        <tr>
+          <td><strong>Review/testimonial pipeline</strong></td>
+          <td>Agent transforms customer reviews into social proof assets: quote cards, video testimonials with TTS voiceover, star-rating graphics</td>
+          <td>$2,000</td>
+        </tr>
+        <tr>
+          <td><strong>SMS/push notification copy</strong></td>
+          <td>Short-form conversion copy: flash sale alerts, new vintage drops, wine club reminders. 200+ variants, A/B tested</td>
+          <td>$1,500</td>
+        </tr>
+        <tr>
+          <td><strong>API costs</strong> (3 months)</td>
+          <td>Heavier on text generation (email, landing page copy), lighter on video</td>
+          <td>$500</td>
+        </tr>
+        <tr>
+          <td><strong>Human creative + strategy</strong></td>
+          <td>Conversion copywriter review, CRO strategy, funnel mapping. ~50 hrs</td>
+          <td>$7,500</td>
+        </tr>
+      </table>
+
+      <div class="deal-box">
+        <h3>Total: $30,000 &nbsp;|&nbsp; Output: Full conversion content system</h3>
+        <ul>
+          <li>48 email templates across 4 sequence types &times; 3 brands</li>
+          <li>Complete product content library (every SKU, every channel format)</li>
+          <li>12+ landing page variants (audience-segmented)</li>
+          <li>300+ retargeting ad variants</li>
+          <li>200+ SMS/push copy variants</li>
+          <li>Customer review → social proof pipeline (ongoing)</li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>Key difference from Scenario 1:</strong> Less hero video, more personalized conversion content. API costs drop because text generation is 10-100x cheaper than video/image. The ROI is measured in sales lift, not impressions.</p>
+      </div>
+    </div>
+
+    <!-- SCENARIO 3: FULL FUNNEL -->
+    <div class="process-card publish">
+      <div class="step-num">Scenario 3 — Full-Funnel: Buzz + Workflows + Conversion</div>
+      <h3>Goal: Cover everything. Awareness at top, nurture in middle, convert at bottom.</h3>
+
+      <table class="vs-table">
+        <tr><th>Line Item</th><th>What It Covers</th><th>Cost</th></tr>
+        <tr>
+          <td><strong>Pipeline build & brand RAG</strong></td>
+          <td>3 brand KBs, full compliance rules, seasonal templates, audience personas encoded</td>
+          <td>$6,000</td>
+        </tr>
+        <tr>
+          <td><strong>Top-of-funnel: Social + video</strong></td>
+          <td>3 hero videos, 18 social cuts, social content engine (3 posts/week &times; 3 brands &times; 2 platforms &times; 8 weeks = ~144 posts)</td>
+          <td>$5,000</td>
+        </tr>
+        <tr>
+          <td><strong>Top-of-funnel: Paid creative</strong></td>
+          <td>30 ad variants per brand for Meta + Google. Headline, image, CTA combinations</td>
+          <td>$2,000</td>
+        </tr>
+        <tr>
+          <td><strong>Mid-funnel: Email + landing pages</strong></td>
+          <td>Welcome series + wine education sequence + seasonal recs. 6 landing page variants (2 per brand, audience-segmented)</td>
+          <td>$4,000</td>
+        </tr>
+        <tr>
+          <td><strong>Mid-funnel: Content hub</strong></td>
+          <td>AI-generated wine education content: food pairing guides, region stories, winemaker Q&As, vintage comparisons. 20 articles</td>
+          <td>$2,500</td>
+        </tr>
+        <tr>
+          <td><strong>Lower-funnel: Retargeting + SMS</strong></td>
+          <td>Personalized retargeting variants, cart abandonment emails, flash sale SMS, wine club conversion sequences</td>
+          <td>$2,500</td>
+        </tr>
+        <tr>
+          <td><strong>API costs</strong> (3 months)</td>
+          <td>Full pipeline: video + image + text + TTS + compliance</td>
+          <td>$800</td>
+        </tr>
+        <tr>
+          <td><strong>Human creative + strategy</strong></td>
+          <td>CD oversight, conversion strategy, funnel architecture. ~45 hrs</td>
+          <td>$5,200</td>
+        </tr>
+        <tr>
+          <td><strong>Platform/infra</strong></td>
+          <td>Orchestration, vector DB, DAM, CMS integrations</td>
+          <td>$2,000</td>
+        </tr>
+      </table>
+
+      <div class="deal-box">
+        <h3>Total: $30,000 &nbsp;|&nbsp; Output: Complete funnel coverage</h3>
+        <ul>
+          <li><strong>Top:</strong> 3 hero videos, 18 cuts, 144 social posts, 90 paid ad variants</li>
+          <li><strong>Mid:</strong> 36 email templates, 6 landing pages, 20 content articles</li>
+          <li><strong>Bottom:</strong> 100+ retargeting variants, cart recovery, SMS sequences</li>
+          <li><strong>Ongoing:</strong> Pipeline continues producing after initial build — the $30K is setup + first 3 months, but the engine runs indefinitely at ~$500/mo in API + hosting</li>
+        </ul>
+        <p style="margin-top: 12px;"><strong>The pitch:</strong> $30K buys you a creative production <em>system</em>, not a campaign. The campaign is the first output. The system keeps producing at marginal cost.</p>
+      </div>
+    </div>
+
+    <h3>Budget Breakdown Comparison</h3>
+    <table class="vs-table">
+      <tr><th>Category</th><th>S1: Buzz</th><th>S2: Conversion</th><th>S3: Full Funnel</th></tr>
+      <tr>
+        <td><strong>Pipeline / infrastructure</strong></td>
+        <td>$8,000 (27%)</td>
+        <td>$5,000 (17%)</td>
+        <td>$8,000 (27%)</td>
+      </tr>
+      <tr>
+        <td><strong>Content production</strong></td>
+        <td>$15,000 (50%)</td>
+        <td>$17,000 (57%)</td>
+        <td>$16,000 (53%)</td>
+      </tr>
+      <tr>
+        <td><strong>Human creative oversight</strong></td>
+        <td>$6,000 (20%)</td>
+        <td>$7,500 (25%)</td>
+        <td>$5,200 (17%)</td>
+      </tr>
+      <tr>
+        <td><strong>API costs (3 months)</strong></td>
+        <td>$1,000 (3%)</td>
+        <td>$500 (2%)</td>
+        <td>$800 (3%)</td>
+      </tr>
+      <tr>
+        <td><strong>Total assets produced</strong></td>
+        <td>~1,800+</td>
+        <td>~600+</td>
+        <td>~500+</td>
+      </tr>
+      <tr>
+        <td><strong>Traditional equivalent cost</strong></td>
+        <td>$150K–$250K</td>
+        <td>$80K–$120K</td>
+        <td>$200K–$350K</td>
+      </tr>
+    </table>
+
+    <div class="callout">
+      <p><strong>Notice the API costs.</strong> In every scenario, actual AI model inference is 2-3% of the budget. The money goes to pipeline engineering, content strategy, and human creative oversight. This is the key insight: AI doesn't eliminate the need for smart people — it makes smart people 10x more productive. A $30K budget with AI produces what used to cost $200K+ in traditional production.</p>
+    </div>
+
+    <div class="talk-track">
+      <p>"With a $30K budget, I'd recommend Scenario 3 — the full-funnel build. Here's why: the pipeline infrastructure cost is fixed regardless of which scenario you pick. Once you've built the brand RAG, set up the compliance gates, and wired the agent orchestration, the marginal cost of adding another funnel stage is almost zero. You're already paying for the platform — might as well use it top to bottom. The API costs are under $1,000 for 3 months in every scenario. The real question isn't 'can we afford full funnel?' — it's 'where do we allocate the human creative hours?' And the answer is: spread them across the funnel touchpoints that drive the most revenue, not the ones that produce the prettiest hero video."</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <!-- CAN THIS BE BUILT ON BONITO -->
+  <section id="bonito-fit">
+  <div class="section">
+    <div class="section-label">Platform Fit</div>
+    <h2>Can This Pipeline Be Built on Bonito?</h2>
+    <p>If Memory Creative (or any agency) signed up for Bonito Pro, here's exactly what they could build today, what needs a lightweight extension, and what's on the roadmap.</p>
+
+    <h3>What Works Today — No Changes Needed</h3>
+
+    <div class="process-card research">
+      <div class="step-num">Ready Now</div>
+      <h3>~60% of the creative pipeline runs on Bonito's existing infrastructure</h3>
+
+      <table class="vs-table">
+        <tr><th>Pipeline Stage</th><th>Bonito Feature</th><th>How It Works</th></tr>
+        <tr>
+          <td><strong>Brief parsing</strong></td>
+          <td>Bonobot Agent + Gateway</td>
+          <td>Agent receives brief text, routes to Claude/GPT via gateway, extracts structured JSON. System prompt loaded with brief template via agent config</td>
+        </tr>
+        <tr>
+          <td><strong>Brand context (RAG)</strong></td>
+          <td>Knowledge Base</td>
+          <td>Upload brand guidelines, voice docs, competitor intel as PDFs/DOCX/MD. Auto-chunked, embedded (768-dim), stored in pgvector. Per-client KB isolation built in — Client A's docs never bleed into Client B</td>
+        </tr>
+        <tr>
+          <td><strong>Ideation / concepting</strong></td>
+          <td>Bonobot Agent + KB Search tool</td>
+          <td>Creative Director agent calls <code>search_knowledge_base</code> to pull brand context, generates concept directions via Claude Opus or GPT-4.1. Multiple agents can run in parallel via <code>delegate_task</code> + <code>collect_results</code></td>
+        </tr>
+        <tr>
+          <td><strong>Copywriting</strong></td>
+          <td>Bonobot Agent + Gateway</td>
+          <td>Copywriter agent generates headlines, body, CTAs, social captions. Brand voice injected via KB context. Can route to Groq for bulk variants (fast + cheap) or Claude for hero copy (quality)</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-agent orchestration</strong></td>
+          <td>Agent-to-Agent tools</td>
+          <td>9 built-in tools including <code>invoke_agent</code> (sync), <code>delegate_task</code> (async), <code>check_task</code>, <code>collect_results</code>. Creative Director agent can fan out to Copywriter, Designer, Compliance agents and collect results</td>
+        </tr>
+        <tr>
+          <td><strong>Brand compliance / QA</strong></td>
+          <td>Bonobot Agent + KB Search + Vision</td>
+          <td>Compliance agent retrieves brand rules from KB, scores generated copy against them. Claude's vision capability can analyze generated images against visual brand guidelines</td>
+        </tr>
+        <tr>
+          <td><strong>Human-in-the-loop</strong></td>
+          <td>Approval Queue</td>
+          <td>Built-in risk assessment (low/medium/high/critical), auto-approve conditions for low-risk content, manual review routing for high-risk. Full audit trail with timestamps, reviewer ID, notes</td>
+        </tr>
+        <tr>
+          <td><strong>Scheduling</strong></td>
+          <td>Agent Scheduler</td>
+          <td>Cron-based scheduling with timezone support. "Run the social content agent every Monday at 9AM EST, deliver to Slack." Retry logic, timeout enforcement, multi-channel output (webhook/email/Slack)</td>
+        </tr>
+        <tr>
+          <td><strong>Cost tracking</strong></td>
+          <td>Cost Intelligence</td>
+          <td>Every gateway request logged with token count and cost. Per-model, per-agent, per-project breakdowns. Budget caps to prevent runaway spend. "The Peller Estates ideation agent used $0.45 this week across 12 runs"</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-provider routing</strong></td>
+          <td>AI Gateway</td>
+          <td>Route to Claude for compliance, GPT for copy, Groq for volume, Gemini for research — all through one <code>bn-</code> API key. Automatic failover if a provider goes down. 5 routing strategies (cost/latency/balanced/failover/AB test)</td>
+        </tr>
+        <tr>
+          <td><strong>External integrations</strong></td>
+          <td>HTTP Request tool + MCP</td>
+          <td>Agents can call any REST API — DAM uploads, CMS publishing, Slack notifications, Zapier webhooks. URL allowlist for security. MCP server support for richer integrations (up to 18 tool definitions per agent)</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>What Needs a Lightweight Extension</h3>
+
+    <div class="process-card ideation">
+      <div class="step-num">Quick Wins — LiteLLM Already Supports These</div>
+      <h3>3 new gateway endpoints unlock the full creative pipeline</h3>
+      <p>Bonito's gateway runs on LiteLLM, which already has methods for image generation, TTS, and transcription. They're just not wired into the FastAPI routes yet. Each is a ~100-line addition to the gateway.</p>
+
+      <table class="vs-table">
+        <tr><th>Endpoint</th><th>LiteLLM Method</th><th>What It Unlocks</th><th>Effort</th></tr>
+        <tr>
+          <td><code>POST /v1/images/generations</code></td>
+          <td><code>router.aimage_generation()</code></td>
+          <td>GPT Image 1/2 (Azure/OpenAI), Imagen 4 (Vertex), Nova Canvas (Bedrock), FLUX (Azure), Stability AI (Bedrock). All image gen through one endpoint with cost tracking + routing</td>
+          <td>~1-2 days</td>
+        </tr>
+        <tr>
+          <td><code>POST /v1/audio/speech</code></td>
+          <td><code>router.aspeech()</code></td>
+          <td>OpenAI TTS, GPT-4o-mini TTS. Text-to-speech with voice selection and tone control. Voiceover generation for video content</td>
+          <td>~1 day</td>
+        </tr>
+        <tr>
+          <td><code>POST /v1/audio/transcriptions</code></td>
+          <td><code>router.atranscription()</code></td>
+          <td>Whisper (OpenAI/Groq). Transcribe client calls, extract briefs from meetings, generate captions for video content</td>
+          <td>~1 day</td>
+        </tr>
+      </table>
+
+      <div class="callout">
+        <p><strong>Total effort: ~3-4 dev days.</strong> These three endpoints follow the exact same pattern as the existing chat completions route — authenticate, enforce policy, route via LiteLLM, log cost, return response. The auth, policy, cost-logging, and routing infrastructure already exists. It's plumbing, not architecture.</p>
+      </div>
+    </div>
+
+    <h3>What Requires New Provider Integrations</h3>
+
+    <div class="process-card production">
+      <div class="step-num">Medium Effort — New Providers</div>
+      <h3>Video, advanced voice, and music need providers beyond the current 6</h3>
+
+      <table class="vs-table">
+        <tr><th>Capability</th><th>Provider Needed</th><th>Why Not Available Today</th><th>Effort</th></tr>
+        <tr>
+          <td><strong>High-quality video gen</strong></td>
+          <td>Runway (API) or Vertex Veo</td>
+          <td>Runway is a standalone API (not in LiteLLM). Veo is Vertex-specific but Vertex is already a provider — needs Veo endpoint wiring</td>
+          <td>~3-5 days per provider</td>
+        </tr>
+        <tr>
+          <td><strong>Premium voice / cloning</strong></td>
+          <td>ElevenLabs</td>
+          <td>ElevenLabs has its own REST API, not OpenAI-compatible. Needs a new provider adapter in Bonito</td>
+          <td>~3-5 days</td>
+        </tr>
+        <tr>
+          <td><strong>Music generation</strong></td>
+          <td>Vertex AI (Lyria)</td>
+          <td>Lyria is Vertex-specific. Vertex is a provider but Lyria endpoints aren't mapped</td>
+          <td>~2-3 days</td>
+        </tr>
+        <tr>
+          <td><strong>Video gen (budget)</strong></td>
+          <td>Bedrock (Nova Reel)</td>
+          <td>Bedrock is a provider but Nova Reel has a different API shape than chat completions</td>
+          <td>~2-3 days</td>
+        </tr>
+      </table>
+
+      <p style="margin-top: 16px;">Note: agents can call these providers directly today via the <code>http_request</code> tool — an agent can POST to Runway's API, ElevenLabs' API, or any REST endpoint. The limitation is that these calls bypass Bonito's cost tracking, routing, and failover. Wiring them as first-class providers adds governance.</p>
+    </div>
+
+    <h3>The Full Picture</h3>
+
+    <div class="metric-row">
+      <div class="metric">
+        <div class="num" style="color: var(--green);">60%</div>
+        <div class="label">Works Today</div>
+      </div>
+      <div class="metric">
+        <div class="num" style="color: var(--yellow);">25%</div>
+        <div class="label">3-4 Dev Days</div>
+      </div>
+      <div class="metric">
+        <div class="num" style="color: var(--pink);">15%</div>
+        <div class="label">New Providers</div>
+      </div>
+      <div class="metric">
+        <div class="num" style="color: var(--purple);">0%</div>
+        <div class="label">Impossible</div>
+      </div>
+    </div>
+
+    <table class="vs-table">
+      <tr><th>Pipeline Stage</th><th style="width:90px;">Status</th><th>Details</th></tr>
+      <tr>
+        <td><strong>Brief parsing & research</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Agents + KB + gateway. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Ideation & concepting</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Multi-agent orchestration + KB context. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Copywriting (all formats)</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Gateway routes to best model per task. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Brand compliance / QA</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Compliance agent + KB search + approval queue. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Scheduling & automation</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Cron scheduler + multi-channel output. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Human-in-the-loop</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Approval queue with risk-based routing. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Cost tracking</strong></td>
+        <td style="color: var(--green); font-weight: 700;">Ready</td>
+        <td>Per-model, per-agent, per-project. Works today</td>
+      </tr>
+      <tr>
+        <td><strong>Image generation</strong></td>
+        <td style="color: var(--yellow); font-weight: 700;">Quick win</td>
+        <td>Wire <code>/v1/images/generations</code> → LiteLLM. ~1-2 days. Unlocks GPT Image, Imagen 4, FLUX, Nova Canvas, Stability AI</td>
+      </tr>
+      <tr>
+        <td><strong>Transcription</strong></td>
+        <td style="color: var(--yellow); font-weight: 700;">Quick win</td>
+        <td>Wire <code>/v1/audio/transcriptions</code> → LiteLLM. ~1 day. Unlocks Whisper across providers</td>
+      </tr>
+      <tr>
+        <td><strong>Basic TTS</strong></td>
+        <td style="color: var(--yellow); font-weight: 700;">Quick win</td>
+        <td>Wire <code>/v1/audio/speech</code> → LiteLLM. ~1 day. Unlocks OpenAI TTS models</td>
+      </tr>
+      <tr>
+        <td><strong>Video generation</strong></td>
+        <td style="color: var(--pink); font-weight: 700;">New provider</td>
+        <td>Runway API adapter or Vertex Veo endpoint. ~3-5 days. Or use <code>http_request</code> tool today (no cost tracking)</td>
+      </tr>
+      <tr>
+        <td><strong>Premium voice / cloning</strong></td>
+        <td style="color: var(--pink); font-weight: 700;">New provider</td>
+        <td>ElevenLabs adapter. ~3-5 days. Or use <code>http_request</code> tool today</td>
+      </tr>
+      <tr>
+        <td><strong>Music generation</strong></td>
+        <td style="color: var(--pink); font-weight: 700;">New provider</td>
+        <td>Vertex Lyria endpoint. ~2-3 days</td>
+      </tr>
+    </table>
+
+    <h3>What an Agency Gets on Day 1 (No Extensions)</h3>
+
+    <div class="process-card publish">
+      <div class="step-num">Day 1 on Bonito Pro — $999/mo</div>
+      <h3>A working creative text pipeline with agent orchestration, brand RAG, approval gates, and scheduling</h3>
+      <ul>
+        <li>Upload all client brand guidelines to Knowledge Base — organized by brand, audience, channel</li>
+        <li>Build a <strong>Brief Parser Agent</strong> that extracts structured briefs from messy client input, pulling prior campaign context from KB</li>
+        <li>Build a <strong>Creative Director Agent</strong> that generates 5-8 concept directions per brief, grounded in brand context via KB search</li>
+        <li>Build a <strong>Copywriter Agent</strong> per brand — each with its own system prompt tuned to brand voice. Routes to Claude for hero copy, Groq for variant volume</li>
+        <li>Build a <strong>Compliance Agent</strong> that scores every output against brand guidelines (retrieved from KB) + regulatory rules. Flags violations, auto-approves low-risk content</li>
+        <li>Wire agents together on the <strong>visual canvas</strong> — Brief Parser → Creative Director → Copywriter → Compliance → Approval Queue</li>
+        <li>Schedule the <strong>Social Content Agent</strong> to run every Monday at 9AM — generates the week's content calendar, drops it in Slack for CD review</li>
+        <li>Set <strong>budget caps</strong> per client project — "Peller Estates can't exceed $50/month in AI spend"</li>
+        <li>Track <strong>cost per client, per agent, per model</strong> — "The Wayne Gretzky copywriter agent costs $3.20/week running on Groq"</li>
+      </ul>
+
+      <p style="margin-top: 14px;">For image/video/voice, agents can call external APIs (Runway, ElevenLabs, Midjourney Discord bots) via the <code>http_request</code> tool with URL allowlisting. The content comes back as URLs that get passed to the next agent in the chain. It works — you just don't get Bonito's cost tracking and failover on those calls.</p>
+    </div>
+
+    <div class="talk-track">
+      <p>"The text and orchestration layer is the hard part of a creative pipeline, and it's fully built. Brand RAG, multi-agent orchestration, approval queues, scheduling, cost tracking, multi-provider routing — that's all production-ready today. Image and video generation are the visual layer, and those are straightforward API calls. Three gateway endpoints — images, TTS, transcription — are a week of engineering because LiteLLM already supports them. Video and premium voice need new provider adapters, but agents can call those APIs directly via HTTP in the meantime. The point is: you're not building from scratch. You're adding media endpoints to an existing control plane."</p>
+    </div>
+  </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- WHAT MEMORY SPECIFICALLY MIGHT CARE ABOUT -->
+  <section id="what-to-say">
+  <div class="section">
+    <div class="section-label">Connecting the Dots</div>
+    <h2>What Memory Creative Probably Wants to Hear</h2>
+
+    <div class="process-card publish">
+      <div class="step-num">Their Context</div>
+      <h3>Ian was McCann's Global Creative AI Lead. He's not asking "should we use AI?" — he's asking "how do we build the infrastructure to use it at agency scale?"</h3>
+
+      <div class="sub-section">
+        <h4>Topics to lead with</h4>
+        <ul>
+          <li><strong>Composable pipelines:</strong> Memory's team model is composable (contractors per project). Their AI pipeline should be too — modular agents that swap in/out based on the campaign type</li>
+          <li><strong>Brand context as infrastructure:</strong> Every client gets a structured knowledge base. Voice guidelines, visual rules, messaging pillars, competitor intelligence — all queryable via RAG. This is the reusable asset that makes every campaign faster</li>
+          <li><strong>Human-AI collaboration model:</strong> Agents handle volume and variation. Humans handle taste and judgment. The pipeline enforces this with explicit approval gates — not optional, built into the graph</li>
+          <li><strong>Production economics:</strong> A campaign that takes a team of 6 three weeks to produce — research, concepting, copywriting, design, video, trafficking — can compress to 3-5 days with a well-built pipeline. The agency doesn't cut headcount; they take on more clients at the same team size</li>
+          <li><strong>Multi-provider routing:</strong> No single AI provider covers the full creative pipeline. You need Azure for image/video gen, Vertex for music, Bedrock for editing tools, Anthropic for compliance. A gateway that routes to the right model per task is the infrastructure layer</li>
+          <li><strong>Measurement from day one:</strong> Every generated asset gets scored automatically. First-pass rate, revision rounds, human edit time. This data improves the pipeline over time and proves ROI to clients</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sub-section" style="margin-top: 20px;">
+      <h4>Things NOT to say</h4>
+      <ul>
+        <li>"AI will replace creatives" — Ian has 31 Cannes Lions. He knows the value of human creativity. Frame AI as leverage, not replacement</li>
+        <li>"Just use ChatGPT" — they know. They want infrastructure, not a chatbot</li>
+        <li>"Fine-tune everything" — prompt engineering + RAG handles 90% of cases. Fine-tuning is expensive and only worth it for very specific style needs</li>
+        <li>Overcomplicating the stack — a working pipeline with 3 agents beats a theoretical pipeline with 15</li>
+        <li>"Seedance for video" — copyright controversy makes it toxic for any brand work. Stick to Runway or Veo</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  </section>
+
+  <div style="text-align: center; padding: 40px 0; color: var(--dim); font-size: 13px;">
+    Prepared for Shabari Shenoy — Memory Creative / Peller Technical Assessment — May 2026
+  </div>
+
+</div>
+</body>
+</html>
