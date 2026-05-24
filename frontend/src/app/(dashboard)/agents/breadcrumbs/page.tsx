@@ -24,20 +24,21 @@ import {
   Bot,
   Activity,
   MessageSquare,
-  X,
   ChevronDown,
-  Calendar,
-  User,
   Cpu,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { CardSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAPI } from "@/lib/swr";
 import { apiRequest } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+
+import { BreadcrumbSummaryPanel } from "./BreadcrumbSummaryPanel";
+import { BreadcrumbDetailPanel } from "./BreadcrumbDetailPanel";
+import { BreadcrumbEdgePanel } from "./BreadcrumbEdgePanel";
+import type { BreadcrumbNode, AgentMessage } from "./BreadcrumbSummaryPanel";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -46,19 +47,6 @@ interface Project {
   name: string;
   description: string | null;
   status: string;
-}
-
-interface BreadcrumbNode {
-  id: string;
-  name: string;
-  status: string;
-  model_id: string;
-  description?: string | null;
-  total_runs: number;
-  total_cost: number;
-  last_active_at?: string | null;
-  message_count: number;
-  position?: { x: number; y: number } | null;
 }
 
 interface InteractionCounts {
@@ -93,22 +81,11 @@ interface AgentMessageResponse {
   messages: AgentMessage[];
 }
 
-interface AgentMessage {
-  id: string;
-  session_id: string;
-  role: "user" | "assistant" | "system" | "tool";
-  content: string | null;
-  tool_name?: string | null;
-  model_used?: string | null;
-  input_tokens?: number | null;
-  output_tokens?: number | null;
-  cost?: number | null;
-  latency_ms?: number | null;
-  sequence: number;
-  created_at: string | null;
-}
+// ── Panel state ───────────────────────────────────────────────────
 
-// ── Color map ──────────────────────────────────────────────────────
+type PanelView = "closed" | "summary" | "detail" | "edge";
+
+// ── Color map ─────────────────────────────────────────────────────
 
 const CONNECTION_COLORS: Record<string, string> = {
   handoff: "#06b6d4",
@@ -124,7 +101,7 @@ const CONNECTION_LABELS: Record<string, string> = {
   trigger: "Trigger",
 };
 
-// ── Date helpers ───────────────────────────────────────────────────
+// ── Date helpers ──────────────────────────────────────────────────
 
 function formatDateInput(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -137,18 +114,7 @@ function daysAgo(days: number): Date {
   return d;
 }
 
-function formatTimestamp(dateString: string): string {
-  const d = new Date(dateString);
-  return d.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-// ── Breadcrumb Agent Node ──────────────────────────────────────────
+// ── Breadcrumb Agent Node ─────────────────────────────────────────
 
 interface BreadcrumbNodeData extends BreadcrumbNode {
   run_count: number;
@@ -234,7 +200,7 @@ const BreadcrumbAgentNode = memo(
 );
 BreadcrumbAgentNode.displayName = "BreadcrumbAgentNode";
 
-// ── Custom Interaction Edge ────────────────────────────────────────
+// ── Custom Interaction Edge ───────────────────────────────────────
 
 interface InteractionEdgeData {
   interaction_count: number;
@@ -265,7 +231,8 @@ function InteractionEdge({
     targetPosition,
   });
 
-  const color = CONNECTION_COLORS[data?.connection_type || "handoff"] || "#06b6d4";
+  const color =
+    CONNECTION_COLORS[data?.connection_type || "handoff"] || "#06b6d4";
   const count = data?.interaction_count ?? 0;
   const breakdown = data?.breakdown;
 
@@ -294,7 +261,7 @@ function InteractionEdge({
         >
           {/* Badge */}
           <div
-            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium shadow-lg border border-gray-700"
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium shadow-lg border border-gray-700 cursor-pointer hover:border-gray-500 transition-colors"
             style={{ backgroundColor: "#1a1a2e" }}
           >
             <div
@@ -306,7 +273,10 @@ function InteractionEdge({
 
           {/* Hover tooltip */}
           {hovered && breakdown && Object.keys(breakdown).length > 0 && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-lg border border-gray-700 bg-[#1a1a2e] p-2.5 shadow-xl" style={{ zIndex: 1000 }}>
+            <div
+              className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-lg border border-gray-700 bg-[#1a1a2e] p-2.5 shadow-xl"
+              style={{ zIndex: 1000 }}
+            >
               <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                 {CONNECTION_LABELS[data?.connection_type || "handoff"]}
               </div>
@@ -323,6 +293,9 @@ function InteractionEdge({
                   </div>
                 ) : null
               )}
+              <div className="mt-2 pt-1.5 border-t border-gray-700 text-[10px] text-cyan-500">
+                Click to view messages
+              </div>
             </div>
           )}
         </div>
@@ -331,7 +304,7 @@ function InteractionEdge({
   );
 }
 
-// ── Node / Edge type registries ────────────────────────────────────
+// ── Node / Edge type registries ───────────────────────────────────
 
 const nodeTypes = {
   breadcrumbAgent: BreadcrumbAgentNode,
@@ -341,14 +314,12 @@ const edgeTypes = {
   interaction: InteractionEdge,
 } as const satisfies Record<string, React.ComponentType<any>>;
 
-// ── Main page component ────────────────────────────────────────────
+// ── Main page component ───────────────────────────────────────────
 
 export default function BreadcrumbsPage() {
   // Project selector
-  const {
-    data: projects,
-    isLoading: projectsLoading,
-  } = useAPI<Project[]>("/api/projects");
+  const { data: projects, isLoading: projectsLoading } =
+    useAPI<Project[]>("/api/projects");
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null
@@ -367,11 +338,19 @@ export default function BreadcrumbsPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Side panel
+  // Panel state
+  const [panelView, setPanelView] = useState<PanelView>("closed");
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [selectedEdge, setSelectedEdge] = useState<{
+    source: string;
+    target: string;
+    connectionType: string;
+  } | null>(null);
+
+  // Summary panel data
+  const [summaryMessages, setSummaryMessages] = useState<AgentMessage[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryTotal, setSummaryTotal] = useState(0);
 
   // Auto-select first project when loaded
   useEffect(() => {
@@ -410,85 +389,127 @@ export default function BreadcrumbsPage() {
   }, [selectedProjectId, dateFrom, dateTo]);
 
   // Build React Flow graph from breadcrumbs data
-  const buildGraph = useCallback((data: BreadcrumbsData) => {
-    const COLS = 3;
-    const GAP_X = 340;
-    const GAP_Y = 220;
+  const buildGraph = useCallback(
+    (data: BreadcrumbsData) => {
+      const COLS = 3;
+      const GAP_X = 340;
+      const GAP_Y = 220;
 
-    const flowNodes: Node[] = data.nodes.map((node, i) => ({
-      id: node.id,
-      type: "breadcrumbAgent",
-      position: node.position || {
-        x: 80 + (i % COLS) * GAP_X,
-        y: 80 + Math.floor(i / COLS) * GAP_Y,
-      },
-      data: {
-        ...node,
-        run_count: node.total_runs,
-      },
-      draggable: true,
-    }));
-
-    const flowEdges: Edge[] = data.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      type: "interaction",
-      animated: true,
-      data: {
-        interaction_count: edge.interactions.total,
-        connection_type: edge.connection_type,
-        breakdown: {
-          invoke_agent: edge.interactions.invoke_agent,
-          delegate_task: edge.interactions.delegate_task,
+      const flowNodes: Node[] = data.nodes.map((node, i) => ({
+        id: node.id,
+        type: "breadcrumbAgent",
+        position: node.position || {
+          x: 80 + (i % COLS) * GAP_X,
+          y: 80 + Math.floor(i / COLS) * GAP_Y,
         },
-      },
-    }));
+        data: {
+          ...node,
+          run_count: node.total_runs,
+        },
+        draggable: true,
+      }));
 
-    setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [setNodes, setEdges]);
+      const flowEdges: Edge[] = data.edges.map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        type: "interaction",
+        animated: true,
+        data: {
+          interaction_count: edge.interactions.total,
+          connection_type: edge.connection_type,
+          breakdown: {
+            invoke_agent: edge.interactions.invoke_agent,
+            delegate_task: edge.interactions.delegate_task,
+          },
+        },
+      }));
 
-  // Node click — open side panel
-  const onNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      setSelectedAgentId(node.id);
-      setPanelOpen(true);
-      fetchMessages(node.id);
+      setNodes(flowNodes);
+      setEdges(flowEdges);
     },
-    [selectedProjectId, dateFrom, dateTo]
+    [setNodes, setEdges]
   );
 
-  // Fetch agent messages
-  const fetchMessages = async (agentId: string) => {
+  // Fetch summary messages (5 most recent)
+  const fetchSummaryMessages = async (agentId: string) => {
     if (!selectedProjectId) return;
-    setMessagesLoading(true);
-    setMessages([]);
+    setSummaryLoading(true);
+    setSummaryMessages([]);
+    setSummaryTotal(0);
     try {
       const params = new URLSearchParams({
         date_from: dateFrom,
         date_to: dateTo,
-        limit: "50",
+        limit: "5",
       });
       const res = await apiRequest(
         `/api/projects/${selectedProjectId}/breadcrumbs/agents/${agentId}/messages?${params}`
       );
       if (res.ok) {
         const data: AgentMessageResponse = await res.json();
-        setMessages(data.messages);
+        setSummaryMessages(data.messages);
+        setSummaryTotal(data.total);
       }
     } catch (err) {
-      console.error("Failed to fetch messages:", err);
+      console.error("Failed to fetch summary messages:", err);
     } finally {
-      setMessagesLoading(false);
+      setSummaryLoading(false);
     }
   };
 
-  // Close panel
+  // Node click — open summary panel
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      setSelectedAgentId(node.id);
+      setSelectedEdge(null);
+      setPanelView("summary");
+      fetchSummaryMessages(node.id);
+    },
+    [selectedProjectId, dateFrom, dateTo]
+  );
+
+  // Edge click — open edge panel
+  const onEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      const connectionType =
+        (edge.data as InteractionEdgeData)?.connection_type || "handoff";
+      setSelectedEdge({
+        source: edge.source,
+        target: edge.target,
+        connectionType,
+      });
+      setSelectedAgentId(null);
+      setPanelView("edge");
+    },
+    []
+  );
+
+  // Close all panels
   const closePanel = () => {
-    setPanelOpen(false);
+    setPanelView("closed");
     setSelectedAgentId(null);
-    setMessages([]);
+    setSelectedEdge(null);
+    setSummaryMessages([]);
+  };
+
+  // Summary → Detail
+  const expandToDetail = () => {
+    setPanelView("detail");
+  };
+
+  // Detail → Summary
+  const backToSummary = () => {
+    setPanelView("summary");
+    if (selectedAgentId) {
+      fetchSummaryMessages(selectedAgentId);
+    }
+  };
+
+  // Date change from detail panel
+  const handleDateChange = (from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
   };
 
   // Selected project name
@@ -497,10 +518,26 @@ export default function BreadcrumbsPage() {
     [projects, selectedProjectId]
   );
 
-  // Selected agent name
+  // Selected agent
   const selectedAgent = useMemo(
     () => breadcrumbs?.nodes.find((a) => a.id === selectedAgentId),
     [breadcrumbs, selectedAgentId]
+  );
+
+  // Source/target agents for edge panel
+  const sourceAgent = useMemo(
+    () =>
+      selectedEdge
+        ? breadcrumbs?.nodes.find((a) => a.id === selectedEdge.source)
+        : undefined,
+    [breadcrumbs, selectedEdge]
+  );
+  const targetAgent = useMemo(
+    () =>
+      selectedEdge
+        ? breadcrumbs?.nodes.find((a) => a.id === selectedEdge.target)
+        : undefined,
+    [breadcrumbs, selectedEdge]
   );
 
   // ── Loading state ──
@@ -588,8 +625,7 @@ export default function BreadcrumbsPage() {
                       onClick={() => {
                         setSelectedProjectId(p.id);
                         setProjectDropdownOpen(false);
-                        setPanelOpen(false);
-                        setSelectedAgentId(null);
+                        closePanel();
                       }}
                       className={cn(
                         "w-full text-left px-3 py-2 text-sm transition-colors",
@@ -668,6 +704,7 @@ export default function BreadcrumbsPage() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
+            onEdgeClick={onEdgeClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
@@ -707,7 +744,9 @@ export default function BreadcrumbsPage() {
                       className="w-6 h-0.5 rounded-full"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-gray-300 capitalize">{type.replace(/_/g, " ")}</span>
+                    <span className="text-gray-300 capitalize">
+                      {type.replace(/_/g, " ")}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -715,133 +754,49 @@ export default function BreadcrumbsPage() {
           </ReactFlow>
         )}
 
-        {/* ── Side panel ── */}
-        <div
-          className={cn(
-            "absolute top-0 right-0 h-full w-[340px] sm:w-[400px] max-w-[90vw] bg-[#12122a] border-l border-gray-800 shadow-2xl transition-transform duration-300 z-20 flex flex-col",
-            panelOpen ? "translate-x-0" : "translate-x-full"
+        {/* ── Summary Panel ── */}
+        {selectedAgent && (
+          <BreadcrumbSummaryPanel
+            agent={selectedAgent}
+            messages={summaryMessages}
+            messagesLoading={summaryLoading}
+            totalMessages={summaryTotal}
+            open={panelView === "summary"}
+            onClose={closePanel}
+            onExpand={expandToDetail}
+          />
+        )}
+
+        {/* ── Detail Panel ── */}
+        {panelView === "detail" && selectedAgentId && breadcrumbs && selectedProjectId && (
+          <BreadcrumbDetailPanel
+            projectId={selectedProjectId}
+            agents={breadcrumbs.nodes}
+            initialAgentId={selectedAgentId}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateChange={handleDateChange}
+            onClose={closePanel}
+            onBack={backToSummary}
+          />
+        )}
+
+        {/* ── Edge Panel ── */}
+        {panelView === "edge" &&
+          selectedEdge &&
+          sourceAgent &&
+          targetAgent &&
+          selectedProjectId && (
+            <BreadcrumbEdgePanel
+              projectId={selectedProjectId}
+              sourceAgent={sourceAgent}
+              targetAgent={targetAgent}
+              connectionType={selectedEdge.connectionType}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onClose={closePanel}
+            />
           )}
-        >
-          {/* Panel header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              <Bot className="h-4 w-4 text-cyan-500 flex-shrink-0" />
-              <h3 className="font-semibold text-white text-sm truncate">
-                {selectedAgent?.name || "Agent"}
-              </h3>
-              {selectedAgent && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] bg-gray-500/10 text-gray-400 border-gray-500/30 flex-shrink-0"
-                >
-                  {selectedAgent.model_id}
-                </Badge>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={closePanel}
-              className="text-gray-400 hover:text-white h-7 w-7 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Agent summary */}
-          {selectedAgent && (
-            <div className="px-4 py-3 border-b border-gray-800 flex-shrink-0">
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
-                  <div className="text-gray-400 mb-0.5">Runs</div>
-                  <div className="text-white font-medium text-base">
-                    {selectedAgent.total_runs}
-                  </div>
-                </div>
-                <div className="rounded-md bg-[#1a1a2e] px-3 py-2">
-                  <div className="text-gray-400 mb-0.5">Messages</div>
-                  <div className="text-white font-medium text-base">
-                    {selectedAgent.message_count}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-            <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-2">
-              Message Log
-            </div>
-
-            {messagesLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="animate-pulse space-y-1.5">
-                    <div className="h-3 bg-gray-800 rounded w-20" />
-                    <div className="h-12 bg-gray-800 rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageSquare className="mx-auto h-8 w-8 text-gray-600 mb-2" />
-                <p className="text-gray-500 text-sm">
-                  No messages in this period
-                </p>
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "rounded-lg px-3 py-2.5 text-sm",
-                    msg.role === "user"
-                      ? "bg-blue-500/10 border border-blue-500/20 ml-4"
-                      : msg.role === "assistant"
-                      ? "bg-[#1a1a2e] border border-gray-700 mr-4"
-                      : "bg-yellow-500/5 border border-yellow-500/10 mx-2 text-yellow-200/70 italic"
-                  )}
-                >
-                  {/* Role label */}
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
-                      {msg.role === "user" ? (
-                        <User className="h-3 w-3 text-blue-400" />
-                      ) : msg.role === "assistant" ? (
-                        <Cpu className="h-3 w-3 text-cyan-400" />
-                      ) : (
-                        <Bot className="h-3 w-3 text-yellow-400" />
-                      )}
-                      <span
-                        className={cn(
-                          "text-[10px] font-medium uppercase tracking-wider",
-                          msg.role === "user"
-                            ? "text-blue-400"
-                            : msg.role === "assistant"
-                            ? "text-cyan-400"
-                            : "text-yellow-400"
-                        )}
-                      >
-                        {msg.role}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-gray-500">
-                      {msg.created_at ? formatTimestamp(msg.created_at) : ""}
-                    </span>
-                  </div>
-
-                  {/* Content */}
-                  <p className="text-gray-200 text-xs leading-relaxed whitespace-pre-wrap break-words">
-                    {(msg.content || "").length > 500
-                      ? (msg.content || "").slice(0, 500) + "..."
-                      : msg.content || (msg.tool_name ? `[Tool: ${msg.tool_name}]` : "")}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

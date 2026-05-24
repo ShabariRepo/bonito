@@ -1218,6 +1218,7 @@ async def get_breadcrumb_agent_messages(
     agent_id: UUID,
     date_from: Optional[str] = Query(None, description="ISO 8601 start date filter"),
     date_to: Optional[str] = Query(None, description="ISO 8601 end date filter"),
+    role: Optional[str] = Query(None, description="Filter by role/type: user, assistant, system, tool, invoke_agent, delegate_task"),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -1226,7 +1227,8 @@ async def get_breadcrumb_agent_messages(
     """
     Paginated messages for a specific agent within the breadcrumbs context.
 
-    Returns messages across all sessions for this agent, filtered by date range.
+    Returns messages across all sessions for this agent, filtered by date range
+    and optionally by role/interaction type.
     """
     dt_from = _parse_iso_date(date_from)
     dt_to = _parse_iso_date(date_to, end_of_day=True)
@@ -1264,6 +1266,27 @@ async def get_breadcrumb_agent_messages(
             detail="Agent not found in this project",
         )
 
+    # Build role filter conditions
+    role_conditions = []
+    if role:
+        if role in ("user", "assistant", "system", "tool"):
+            role_conditions.append(AgentMessage.role == role)
+        elif role == "invoke_agent":
+            # Match tool messages with tool_name OR assistant messages with invoke_agent in tool_calls
+            role_conditions.append(
+                or_(
+                    and_(AgentMessage.role == "tool", AgentMessage.tool_name == "invoke_agent"),
+                    and_(AgentMessage.role == "assistant", AgentMessage.tool_calls.isnot(None)),
+                )
+            )
+        elif role == "delegate_task":
+            role_conditions.append(
+                or_(
+                    and_(AgentMessage.role == "tool", AgentMessage.tool_name == "delegate_task"),
+                    and_(AgentMessage.role == "assistant", AgentMessage.tool_calls.isnot(None)),
+                )
+            )
+
     # Build message query across all sessions for this agent
     msg_stmt = (
         select(AgentMessage)
@@ -1276,6 +1299,8 @@ async def get_breadcrumb_agent_messages(
         msg_stmt = msg_stmt.where(AgentMessage.created_at >= dt_from)
     if dt_to:
         msg_stmt = msg_stmt.where(AgentMessage.created_at <= dt_to)
+    for cond in role_conditions:
+        msg_stmt = msg_stmt.where(cond)
 
     # Total count for pagination
     count_stmt = (
@@ -1287,6 +1312,8 @@ async def get_breadcrumb_agent_messages(
         count_stmt = count_stmt.where(AgentMessage.created_at >= dt_from)
     if dt_to:
         count_stmt = count_stmt.where(AgentMessage.created_at <= dt_to)
+    for cond in role_conditions:
+        count_stmt = count_stmt.where(cond)
 
     total_result = await db.execute(count_stmt)
     total = total_result.scalar() or 0
@@ -1322,5 +1349,126 @@ async def get_breadcrumb_agent_messages(
                 "created_at": msg.created_at.isoformat() if msg.created_at else None,
             }
             for msg in messages
+        ],
+    }
+
+
+@router.get("/projects/{project_id}/breadcrumbs/edges/{source_agent_id}/{target_agent_id}/messages")
+async def get_breadcrumb_edge_messages(
+    project_id: UUID,
+    source_agent_id: UUID,
+    target_agent_id: UUID,
+    date_from: Optional[str] = Query(None, description="ISO 8601 start date filter"),
+    date_to: Optional[str] = Query(None, description="ISO 8601 end date filter"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Messages exchanged between two agents along an edge.
+
+    Returns delegation messages (invoke_agent / delegate_task) from
+    the source agent's sessions that target the specified target agent.
+    Also returns the corresponding tool-result messages.
+    """
+    import json as _json
+
+    dt_from = _parse_iso_date(date_from)
+    dt_to = _parse_iso_date(date_to, end_of_day=True)
+
+    # Verify project access
+    stmt = select(Project).where(
+        and_(Project.id == project_id, Project.org_id == current_user.org_id)
+    )
+    result = await db.execute(stmt)
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    # Verify both agents belong to this project
+    for aid in (source_agent_id, target_agent_id):
+        stmt = select(Agent).where(
+            and_(Agent.id == aid, Agent.project_id == project_id, Agent.org_id == current_user.org_id)
+        )
+        result = await db.execute(stmt)
+        if not result.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found in this project")
+
+    # Fetch ALL candidate messages from the source agent's sessions that
+    # could be delegation messages (assistant with tool_calls, or tool with
+    # tool_name set).  We filter in Python because the target agent ID is
+    # buried inside a JSON column.
+    candidate_stmt = (
+        select(AgentMessage)
+        .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+        .where(
+            and_(
+                AgentSession.agent_id == source_agent_id,
+                or_(
+                    and_(AgentMessage.role == "assistant", AgentMessage.tool_calls.isnot(None)),
+                    and_(
+                        AgentMessage.role == "tool",
+                        AgentMessage.tool_name.in_(["invoke_agent", "delegate_task"]),
+                        AgentMessage.tool_calls.isnot(None),
+                    ),
+                ),
+            )
+        )
+        .order_by(desc(AgentMessage.created_at))
+    )
+    if dt_from:
+        candidate_stmt = candidate_stmt.where(AgentMessage.created_at >= dt_from)
+    if dt_to:
+        candidate_stmt = candidate_stmt.where(AgentMessage.created_at <= dt_to)
+
+    result = await db.execute(candidate_stmt)
+    candidates = result.scalars().all()
+
+    # Filter in Python: keep only messages that reference the target agent
+    matching = []
+    target_str = str(target_agent_id)
+    for msg in candidates:
+        extracted = _extract_target_agent_id(msg.tool_calls)
+        if extracted and str(extracted) == target_str:
+            matching.append(msg)
+
+    total = len(matching)
+    page = matching[offset : offset + limit]
+
+    # Look up source/target agent names
+    src_stmt = select(Agent.name).where(Agent.id == source_agent_id)
+    tgt_stmt = select(Agent.name).where(Agent.id == target_agent_id)
+    src_name = (await db.execute(src_stmt)).scalar() or "Unknown"
+    tgt_name = (await db.execute(tgt_stmt)).scalar() or "Unknown"
+
+    return {
+        "source_agent_id": str(source_agent_id),
+        "source_agent_name": src_name,
+        "target_agent_id": str(target_agent_id),
+        "target_agent_name": tgt_name,
+        "project_id": str(project_id),
+        "date_from": date_from,
+        "date_to": date_to,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "messages": [
+            {
+                "id": str(msg.id),
+                "session_id": str(msg.session_id),
+                "role": msg.role,
+                "content": msg.content,
+                "tool_name": msg.tool_name,
+                "tool_calls": msg.tool_calls,
+                "tool_call_id": msg.tool_call_id,
+                "model_used": msg.model_used,
+                "input_tokens": msg.input_tokens,
+                "output_tokens": msg.output_tokens,
+                "cost": float(msg.cost) if msg.cost else None,
+                "latency_ms": msg.latency_ms,
+                "sequence": msg.sequence,
+                "created_at": msg.created_at.isoformat() if msg.created_at else None,
+            }
+            for msg in page
         ],
     }
