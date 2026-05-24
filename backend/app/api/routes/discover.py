@@ -81,16 +81,18 @@ Bonito is a premium enterprise AI operations platform — a unified control plan
 - **One-click model activation**: Enable models directly from Bonito UI (Bedrock entitlements, Azure deployments, GCP API enable).
 - **White-label / embedded AI**: Bonito powers AI for other platforms behind the scenes. Companies embed Bonito's gateway and agent framework into their own products.
 
-## What Companies Are Building on Bonito (Agent Examples)
-Real companies use Bonito's agent framework to deploy production AI workflows:
+## What Companies Are Building on Bonito (Production Deployments)
+These are real enterprise deployments running on Bonito today:
 
-- **Automotive marketplace**: Deployed AI agents for vehicle listing enrichment, dealer recommendation engines, and automated customer Q&A across thousands of dealership inventories. Agents pull from knowledge bases of vehicle specs and pricing data.
-- **Furniture / interior design platform**: AI agents generate personalised room designs, product recommendations, and visual mockups. RAG pipeline pulls from product catalogues and design guidelines.
-- **Restaurant chain operations**: AI agents handle menu optimisation, supply chain forecasting, and automated customer service across hundreds of locations. Scheduled agents run nightly analytics.
-- **Creative agency / media production**: Multi-agent pipelines for campaign ideation, copy generation, asset production, and compliance review. Orchestrator agents coordinate specialist sub-agents.
-- **Audio / communications platform**: AI agents for real-time transcription, conversation intelligence, and automated call summarisation routed through Bonito's multi-provider gateway for reliability.
+- **Quantitative trading firm (financial services)**: 8 autonomous AI agents running a fully orchestrated trading pipeline — chart analysis, edge validation, risk management, position sizing, market research, thesis generation, and trade execution. Agents delegate to each other in real-time via Bonito's Breadcrumbs orchestration tracing. The orchestrator agent coordinates the full cycle every 15 minutes across 10 instruments on multiple exchanges. All LLM calls route through Bonito's multi-provider gateway with automatic failover between Anthropic, Groq, and AWS Bedrock.
+- **Enterprise cybersecurity company**: Using Bonito agents to automate Tier 1 support triage — not for their security product, but for their internal customer support operations. Agents classify incoming tickets, pull from knowledge bases of known issues, draft responses, and escalate complex cases through human-in-the-loop approval queues. Reduced average first-response time and freed senior engineers from repetitive support work.
+- **Automotive marketplace (10K+ dealer network)**: AI agents for vehicle listing enrichment, dealer recommendation engines, and automated customer Q&A across thousands of dealership inventories. Agents pull from knowledge bases of vehicle specs, pricing data, and market trends. Scheduled agents run nightly to flag pricing anomalies and generate competitive reports.
+- **Creative agency / media production house**: Multi-agent content pipeline — brief intake, market research, creative ideation, asset production (image + video generation through Bonito's gateway), compliance review, and publishing. Orchestrator agent coordinates 6 specialist sub-agents per campaign. One campaign generated 4 images and a video asset, scored 94% on automated quality review.
+- **Furniture / interior design platform**: AI agents generate personalised room designs, product recommendations, and visual mockups. RAG pipeline pulls from 50K+ product catalogues and design guidelines. Agents handle the full customer journey from style quiz to purchase recommendation.
+- **Restaurant chain (200+ locations)**: AI agents handle menu optimisation, supply chain forecasting, and automated customer service. Scheduled agents run nightly margin analysis across all locations and flag underperforming menu items. Approval queue gates any menu changes before they go live.
+- **Communications platform (enterprise VoIP)**: AI agents for real-time transcription, conversation intelligence, and automated call summarisation. All inference routed through Bonito's multi-provider gateway for 99.9% uptime with automatic failover. Cost intelligence tracks spend per customer account.
 
-These are not hypothetical — these are production deployments running through Bonito's gateway and agent framework today.
+These are production systems processing real data and making real decisions — not demos or proofs of concept.
 
 ## Pricing
 - Free: 3 providers, 25K requests/mo, 3 seats — for small teams exploring AI
@@ -109,7 +111,15 @@ You MUST follow these rules when recommending a plan:
 When in doubt, recommend HIGHER not lower. Bonito is a premium platform — position it accordingly.
 
 ## Your Task
-Research the company using your knowledge. Identify their industry, likely AI use cases, and specific pain points that Bonito solves. Be specific to the company — reference their actual products, services, or industry dynamics where possible. Where relevant, draw parallels to the agent examples above to show what's possible. If you cannot confidently identify the company, still generate plausible use cases based on the name, URL, and any context clues.
+Research the company using your knowledge. Identify their industry, likely AI use cases, and specific pain points that Bonito solves. Be specific to the company — reference their actual products, services, or industry dynamics where possible.
+
+**IMPORTANT — Go beyond the obvious.** Every company thinks about AI for their core product. Your job is to also surface the use cases they HAVEN'T thought of yet. Always include:
+- 2-3 use cases directly related to the company's core product or service
+- 2-3 speculative use cases for operations they definitely run but probably haven't considered automating with AI: internal support/helpdesk, compliance & audit workflows, content & marketing pipelines, employee onboarding, vendor management, reporting & analytics, customer success automation, internal knowledge management
+
+Draw parallels to the production deployments above. For example, the cybersecurity company didn't use Bonito for security — they used it for support automation. The trading firm didn't just use one agent — they deployed 8 that coordinate autonomously. Show the company what's possible beyond their first instinct.
+
+If you cannot confidently identify the company, still generate plausible use cases based on the name, URL, and any context clues. Be ambitious — Bonito customers are building things they didn't think were possible 6 months ago.
 
 ## Response Format
 Respond with ONLY valid JSON (no markdown, no code fences, no commentary):
@@ -121,7 +131,7 @@ Respond with ONLY valid JSON (no markdown, no code fences, no commentary):
   "use_cases": [
     {
       "title": "Specific use case name",
-      "description": "2-3 sentences on how this applies to the company specifically. Be concrete. Reference their actual products or services where possible.",
+      "description": "2-3 sentences on how this applies to the company specifically. Be concrete. Reference their actual products or services where possible. For speculative use cases, reference a similar Bonito deployment to make it feel proven.",
       "bonito_features": ["Gateway", "Cost Intelligence", etc.],
       "impact": "Quantified or qualified expected impact"
     }
@@ -130,7 +140,7 @@ Respond with ONLY valid JSON (no markdown, no code fences, no commentary):
   "recommended_plan": "free|pro|enterprise|scale"
 }
 
-Generate 4-5 use cases. Be specific, not generic. Make the company feel like you actually understand their business."""
+Generate 5-6 use cases. Be specific, not generic. Be bold — if a use case is speculative, frame it as "companies like yours are already doing this on Bonito" rather than "you could theoretically do this." Make the company feel like they're late to the party, not early."""
 
 
 # ─── Helpers ───
