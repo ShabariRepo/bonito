@@ -858,6 +858,83 @@ async def admin_vault_diag(
     return results
 
 
+# ---------- Gateway Debug ----------
+
+@router.get("/gateway/debug")
+async def admin_gateway_debug(
+    org_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """Full pipeline trace: providers → credentials → model list → router.
+
+    Shows exactly where Bedrock/Claude models are being dropped.
+    """
+    from app.models.model import Model
+    from app.services.gateway import _get_provider_credentials, _build_model_list
+
+    results = {}
+
+    # 1. Active providers for this org
+    prov_result = await db.execute(
+        select(CloudProvider).where(
+            CloudProvider.org_id == org_id,
+            CloudProvider.status == "active",
+        )
+    )
+    providers = prov_result.scalars().all()
+    results["providers"] = [
+        {"id": str(p.id), "type": p.provider_type, "status": p.status, "is_managed": p.is_managed}
+        for p in providers
+    ]
+
+    # 2. Model rows per provider
+    model_result = await db.execute(
+        select(Model, CloudProvider)
+        .join(CloudProvider, Model.provider_id == CloudProvider.id)
+        .where(CloudProvider.org_id == org_id, CloudProvider.status == "active")
+    )
+    rows = model_result.all()
+    models_by_provider: dict = {}
+    for model, prov in rows:
+        pid = str(prov.id)
+        models_by_provider.setdefault(pid, {"type": prov.provider_type, "count": 0, "sample": []})
+        models_by_provider[pid]["count"] += 1
+        if len(models_by_provider[pid]["sample"]) < 5:
+            models_by_provider[pid]["sample"].append(model.model_id)
+    results["models_by_provider"] = models_by_provider
+
+    # 3. Credential loading
+    try:
+        creds = await _get_provider_credentials(db, org_id)
+        results["credentials"] = {
+            str(pid): {"keys": list(c.keys()), "provider_type": c.get("_provider_type", "?")}
+            for pid, c in creds.items()
+        }
+    except Exception as e:
+        results["credentials"] = {"error": str(e)}
+        creds = {}
+
+    # 4. Model list building
+    try:
+        model_list = await _build_model_list(creds, db=db, org_id=org_id)
+        results["model_list"] = {
+            "total": len(model_list),
+            "by_provider": {},
+            "sample": [],
+        }
+        for m in model_list:
+            lp = m["litellm_params"]["model"]
+            ptype = lp.split("/")[0] if "/" in lp else "unknown"
+            results["model_list"]["by_provider"][ptype] = results["model_list"]["by_provider"].get(ptype, 0) + 1
+            if len(results["model_list"]["sample"]) < 10:
+                results["model_list"]["sample"].append({"name": m["model_name"], "litellm": lp})
+    except Exception as e:
+        results["model_list"] = {"error": str(e)}
+
+    return results
+
+
 # ---------- Gateway Router Reset ----------
 
 @router.post("/gateway/reset-router")
