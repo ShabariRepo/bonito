@@ -286,6 +286,7 @@ function InteractionEdge({
             position: "absolute",
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: "all",
+            zIndex: hovered ? 1000 : 1,
           }}
           className="nodrag nopan"
           onMouseEnter={() => setHovered(true)}
@@ -305,7 +306,7 @@ function InteractionEdge({
 
           {/* Hover tooltip */}
           {hovered && breakdown && Object.keys(breakdown).length > 0 && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-44 rounded-lg border border-gray-700 bg-[#1a1a2e] p-2.5 shadow-xl">
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-44 rounded-lg border border-gray-700 bg-[#1a1a2e] p-2.5 shadow-xl" style={{ zIndex: 1000 }}>
               <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">
                 {CONNECTION_LABELS[data?.connection_type || "handoff"]}
               </div>
@@ -547,7 +548,7 @@ export default function BreadcrumbsPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen">
+    <div className="flex flex-col h-[calc(100vh-4rem)] lg:h-screen overflow-hidden">
       {/* ── Header / controls ── */}
       <div className="p-6 pb-4 space-y-4 flex-shrink-0">
         <PageHeader
@@ -717,7 +718,7 @@ export default function BreadcrumbsPage() {
         {/* ── Side panel ── */}
         <div
           className={cn(
-            "absolute top-0 right-0 h-full w-[400px] bg-[#12122a] border-l border-gray-800 shadow-2xl transition-transform duration-300 z-20 flex flex-col",
+            "absolute top-0 right-0 h-full w-[340px] sm:w-[400px] max-w-[90vw] bg-[#12122a] border-l border-gray-800 shadow-2xl transition-transform duration-300 z-20 flex flex-col",
             panelOpen ? "translate-x-0" : "translate-x-full"
           )}
         >
