@@ -939,20 +939,64 @@ async def get_project_breadcrumbs(
     connections = result.scalars().all()
 
     # For each connection, count invoke_agent and delegate_task interactions
-    # within the date range by querying agent_messages where
-    # tool_name IN ('invoke_agent', 'delegate_task') and the source agent
-    # matches via session -> agent_id.
+    # within the date range.
     #
-    # We batch this into a single query across all source agents, then match
-    # target agent_ids by parsing tool_calls JSON in Python.
+    # Native invoke_agent calls are recorded in TWO messages:
+    #   1. role="assistant" with tool_calls=[{function:{name:"invoke_agent", arguments:{agent_id:...}}}]
+    #   2. role="tool" with tool_name="invoke_agent" but tool_calls=NULL (only tool_call_id + result)
+    #
+    # We query ASSISTANT messages that have non-null tool_calls, then parse
+    # the JSON in Python to extract function names and target agent_ids.
+    # We also query TOOL messages with tool_name set (for external orchestration
+    # via _log_external_delegation which sets both tool_name and tool_calls).
 
     interaction_map: dict[tuple[UUID, UUID], dict[str, int]] = {}
 
     if connections:
-        # Get all relevant tool-call messages from source agents in this project
         source_ids = list({c.source_agent_id for c in connections})
 
-        tool_msg_stmt = (
+        # Query 1: Assistant messages with tool_calls (native invoke_agent)
+        assistant_stmt = (
+            select(
+                AgentSession.agent_id.label("source_agent_id"),
+                AgentMessage.tool_calls,
+            )
+            .join(AgentSession, AgentMessage.session_id == AgentSession.id)
+            .where(
+                and_(
+                    AgentSession.agent_id.in_(source_ids),
+                    AgentMessage.role == "assistant",
+                    AgentMessage.tool_calls.isnot(None),
+                )
+            )
+        )
+        if date_conditions:
+            assistant_stmt = assistant_stmt.where(and_(*date_conditions))
+
+        result = await db.execute(assistant_stmt)
+        assistant_rows = result.all()
+
+        for row in assistant_rows:
+            if not row.tool_calls:
+                continue
+            calls = row.tool_calls if isinstance(row.tool_calls, list) else [row.tool_calls]
+            for call in calls:
+                fn = call.get("function") if isinstance(call, dict) else None
+                if not fn:
+                    continue
+                fn_name = fn.get("name")
+                if fn_name not in ("invoke_agent", "delegate_task"):
+                    continue
+                target_id = _extract_target_agent_id([call])
+                if target_id is None:
+                    continue
+                key = (row.source_agent_id, target_id)
+                if key not in interaction_map:
+                    interaction_map[key] = {"invoke_agent": 0, "delegate_task": 0}
+                interaction_map[key][fn_name] += 1
+
+        # Query 2: Tool messages from external orchestration (_log_external_delegation)
+        ext_stmt = (
             select(
                 AgentSession.agent_id.label("source_agent_id"),
                 AgentMessage.tool_name,
@@ -962,17 +1006,19 @@ async def get_project_breadcrumbs(
             .where(
                 and_(
                     AgentSession.agent_id.in_(source_ids),
+                    AgentMessage.role == "tool",
                     AgentMessage.tool_name.in_(["invoke_agent", "delegate_task"]),
+                    AgentMessage.tool_calls.isnot(None),
                 )
             )
         )
         if date_conditions:
-            tool_msg_stmt = tool_msg_stmt.where(and_(*date_conditions))
+            ext_stmt = ext_stmt.where(and_(*date_conditions))
 
-        result = await db.execute(tool_msg_stmt)
-        tool_rows = result.all()
+        result = await db.execute(ext_stmt)
+        ext_rows = result.all()
 
-        for row in tool_rows:
+        for row in ext_rows:
             target_id = _extract_target_agent_id(row.tool_calls)
             if target_id is None:
                 continue
