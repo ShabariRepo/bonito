@@ -77,6 +77,9 @@ async def _sync_all_providers():
                 f"{len(providers)} providers, {total_synced} models synced"
                 + (f", {len(errors)} errors" if errors else "")
             )
+
+            # ── Deprecation check: warn about agents on dead models ──
+            await _check_agent_model_health(db)
         finally:
             # Release advisory lock
             await db.execute(
@@ -96,6 +99,60 @@ async def _run_loop():
             logger.exception(f"[MODEL SYNC] Unexpected error: {e}")
 
         await asyncio.sleep(SYNC_INTERVAL_SECONDS)
+
+
+async def _check_agent_model_health(db: AsyncSession):
+    """After sync, check if any active agents reference models that no longer route.
+
+    Logs warnings so operators can investigate. This runs inside the
+    advisory-locked sync block so it won't race with itself.
+    """
+    from app.models.agent import Agent
+    from app.models.model import Model
+    from app.models.cloud_provider import CloudProvider
+    from app.models.organization import Organization
+
+    try:
+        # All active agents
+        agent_result = await db.execute(
+            select(Agent, Organization.name.label("org_name"))
+            .join(Organization, Agent.org_id == Organization.id)
+            .where(Agent.status == "active")
+        )
+        agents = agent_result.all()
+
+        # All available model_ids per org
+        model_result = await db.execute(
+            select(CloudProvider.org_id, Model.model_id, Model.status)
+            .join(Model, Model.provider_id == CloudProvider.id)
+            .where(CloudProvider.status == "active")
+        )
+        org_models: dict = {}
+        for row in model_result.all():
+            org_models.setdefault(row.org_id, set()).add(row.model_id)
+
+        issues = []
+        for row in agents:
+            agent = row[0]
+            org_name = row[1]
+            model_id = agent.model_id
+            if not model_id or model_id == "auto":
+                continue
+            available = org_models.get(agent.org_id, set())
+            if model_id not in available:
+                issues.append(
+                    f"  {org_name} / {agent.name}: model_id={model_id} — no provider route"
+                )
+
+        if issues:
+            logger.warning(
+                f"[MODEL SYNC] {len(issues)} agent(s) using unroutable models:\n"
+                + "\n".join(issues)
+            )
+        else:
+            logger.info("[MODEL SYNC] All active agents have valid model routes")
+    except Exception as e:
+        logger.warning(f"[MODEL SYNC] Agent health check failed (non-fatal): {e}")
 
 
 async def start_model_sync():

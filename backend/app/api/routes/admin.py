@@ -678,6 +678,129 @@ async def get_platform_stats(
     }
 
 
+# ---------- Agent Health ----------
+
+@router.get("/agent-health")
+async def get_agent_health(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_superadmin),
+):
+    """
+    Platform-wide agent health overview.
+
+    Returns every agent across all orgs with its model_id and whether
+    the model is currently available, deprecated (LEGACY), or missing
+    from any connected provider.
+    """
+    from app.models.agent import Agent
+    from app.models.project import Project
+    from app.models.model import Model
+
+    # All agents with org + project names
+    stmt = (
+        select(
+            Agent,
+            Organization.name.label("org_name"),
+            Project.name.label("project_name"),
+        )
+        .join(Organization, Agent.org_id == Organization.id)
+        .join(Project, Agent.project_id == Project.id)
+        .order_by(Organization.name, Project.name, Agent.name)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    # Build a lookup: org_id -> set of available model_ids from their providers
+    org_models_stmt = (
+        select(
+            CloudProvider.org_id,
+            Model.model_id,
+            Model.status,
+        )
+        .join(Model, Model.provider_id == CloudProvider.id)
+    )
+    org_models_result = await db.execute(org_models_stmt)
+
+    # org_id -> { model_id -> status }
+    org_model_map: dict[uuid.UUID, dict[str, str]] = {}
+    for row in org_models_result.all():
+        if row.org_id not in org_model_map:
+            org_model_map[row.org_id] = {}
+        org_model_map[row.org_id][row.model_id] = row.status
+
+    # Known legacy/deprecated Bedrock models (AWS marks these)
+    # We check the models table status + a static list for known deprecations
+    KNOWN_LEGACY = {
+        "anthropic.claude-sonnet-4-20250514-v1:0",
+        "anthropic.claude-3-sonnet-20240229-v1:0",
+        "anthropic.claude-3-opus-20240229-v1:0",
+        "anthropic.claude-instant-v1",
+    }
+
+    agents_out = []
+    deprecated_count = 0
+    no_route_count = 0
+
+    for row in rows:
+        agent = row[0]
+        org_name = row[1]
+        project_name = row[2]
+
+        model_id = agent.model_id or "auto"
+        available_models = org_model_map.get(agent.org_id, {})
+
+        # Determine health status
+        if model_id == "auto":
+            model_health = "ok"
+            health_detail = "Auto-routed"
+        elif model_id in KNOWN_LEGACY:
+            model_health = "deprecated"
+            health_detail = "Model marked LEGACY by provider — update required"
+            deprecated_count += 1
+        elif model_id in available_models:
+            model_status = available_models[model_id]
+            if model_status in ("active", "available"):
+                model_health = "ok"
+                health_detail = "Model available"
+            elif model_status == "access_required":
+                model_health = "warning"
+                health_detail = "Model requires access entitlement"
+            else:
+                model_health = "warning"
+                health_detail = f"Model status: {model_status}"
+        else:
+            # Model ID not found in any of this org's providers
+            model_health = "no_route"
+            health_detail = "No provider can route this model — will 502"
+            no_route_count += 1
+
+        agents_out.append({
+            "id": str(agent.id),
+            "name": agent.name,
+            "org_id": str(agent.org_id),
+            "org_name": org_name,
+            "project_name": project_name,
+            "model_id": model_id,
+            "model_health": model_health,
+            "health_detail": health_detail,
+            "status": agent.status,
+            "total_runs": agent.total_runs,
+            "total_cost": float(agent.total_cost),
+            "last_active_at": agent.last_active_at.isoformat() if agent.last_active_at else None,
+            "created_at": agent.created_at.isoformat() if agent.created_at else None,
+        })
+
+    return {
+        "agents": agents_out,
+        "summary": {
+            "total_agents": len(agents_out),
+            "healthy": len(agents_out) - deprecated_count - no_route_count,
+            "deprecated": deprecated_count,
+            "no_route": no_route_count,
+        },
+    }
+
+
 # ---------- Knowledge Base ----------
 
 @router.get("/kb")
