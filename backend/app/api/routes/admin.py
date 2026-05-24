@@ -801,6 +801,63 @@ async def get_agent_health(
     }
 
 
+# ---------- Vault Diagnostics ----------
+
+@router.get("/vault/diag")
+async def admin_vault_diag(
+    provider_id: Optional[uuid.UUID] = None,
+    _admin: User = Depends(require_superadmin),
+):
+    """Diagnose Vault connectivity: health, read test, write test.
+
+    If provider_id is given, also attempts to read that provider's secrets path.
+    """
+    from app.core.vault import vault_client
+    import os
+
+    results = {}
+
+    # 1. Health
+    results["health"] = await vault_client.health_check()
+
+    # 2. Write test
+    test_path = "_diag/write_test"
+    try:
+        await vault_client.put_secrets(test_path, {"ts": str(datetime.now(timezone.utc))})
+        results["write_test"] = "ok"
+    except Exception as e:
+        results["write_test"] = f"FAILED: {e}"
+
+    # 3. Read test
+    try:
+        data = await vault_client.get_secrets(test_path)
+        results["read_test"] = "ok" if data else "empty"
+    except Exception as e:
+        results["read_test"] = f"FAILED: {e}"
+
+    # 4. Provider credential check
+    if provider_id:
+        try:
+            data = await vault_client.get_secrets(f"providers/{provider_id}")
+            results["provider_vault"] = {
+                "path": f"providers/{provider_id}",
+                "found": bool(data),
+                "keys": list(data.keys()) if data else [],
+            }
+        except Exception as e:
+            results["provider_vault"] = {"path": f"providers/{provider_id}", "error": str(e)}
+
+    # 5. Env check
+    results["env"] = {
+        "VAULT_ADDR": os.getenv("VAULT_ADDR", "(not set)"),
+        "VAULT_TOKEN": "set" if os.getenv("VAULT_TOKEN") else "NOT SET",
+        "VAULT_MOUNT": os.getenv("VAULT_MOUNT", "secret"),
+        "SECRET_KEY": "set" if (os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")) else "NOT SET",
+    }
+
+    return results
+
+
 # ---------- Gateway Router Reset ----------
 
 @router.post("/gateway/reset-router")

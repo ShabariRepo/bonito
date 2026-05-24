@@ -375,10 +375,10 @@ async def get_openrouter_provider(provider_id: str) -> OpenRouterProvider:
 async def store_credentials(provider_id: str, credentials: dict, db_provider=None) -> str:
     """
     Store credentials in both Vault and encrypted DB column.
-    
+
     For managed mode, stores {"managed": true, "provider_type": "..."} instead of actual keys.
     Vault is primary (fast, cached). DB is durable fallback.
-    Returns the vault path.
+    Returns the vault path. Raises if BOTH storage backends fail.
     """
     import os
     from app.core.encryption import encrypt_credentials
@@ -390,17 +390,24 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
     if credentials.get("managed") is True:
         store_data = {"managed": True, "provider_type": credentials.get("provider_type", "")}
 
-    # 1. Try Vault
+    # 1. Vault (primary)
+    vault_ok = False
+    vault_error = None
     try:
         await vault_client.put_secrets(vault_path, store_data)
+        vault_ok = True
     except Exception as e:
-        logger.warning(f"Vault write failed for {provider_id}: {e}")
+        vault_error = e
+        logger.error(f"Vault write FAILED for provider {provider_id}: {e}")
 
-    # 2. Always store encrypted in DB
+    # 2. Encrypted DB column (always, as durable backup)
+    db_ok = False
+    db_error = None
     try:
         secret_key = os.getenv("SECRET_KEY") or os.getenv("ENCRYPTION_KEY")
         if secret_key and db_provider:
             db_provider.credentials_encrypted = encrypt_credentials(store_data, secret_key)
+            db_ok = True
         elif secret_key:
             from app.core.database import get_db_session
             from app.models.cloud_provider import CloudProvider as CPModel
@@ -412,8 +419,25 @@ async def store_credentials(provider_id: str, credentials: dict, db_provider=Non
                 if prov:
                     prov.credentials_encrypted = encrypt_credentials(store_data, secret_key)
                     await db.commit()
+                    db_ok = True
+        else:
+            logger.error(f"No SECRET_KEY configured — cannot store credentials in DB for {provider_id}")
     except Exception as e:
-        logger.warning(f"DB credential storage failed for {provider_id}: {e}")
+        db_error = e
+        logger.error(f"DB credential storage FAILED for provider {provider_id}: {e}")
+
+    # At least one storage backend must succeed
+    if not vault_ok and not db_ok:
+        raise RuntimeError(
+            f"Credential storage failed for provider {provider_id}: "
+            f"Vault error: {vault_error}, DB error: {db_error}"
+        )
+
+    if not vault_ok:
+        logger.warning(
+            f"Credentials for provider {provider_id} stored in DB only (Vault write failed: {vault_error}). "
+            f"This degrades performance — investigate Vault connectivity."
+        )
 
     return vault_path
 

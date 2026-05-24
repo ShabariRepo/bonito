@@ -440,8 +440,12 @@ async def connect_provider(data: ProviderConnect, db: AsyncSession = Depends(get
 
     try:
         await store_credentials_in_vault(str(provider_id), data.credentials)
+    except RuntimeError as e:
+        # Both Vault AND DB failed — credentials are lost, fail the request
+        raise HTTPException(status_code=500, detail=f"Failed to store credentials: {e}")
     except Exception as e:
-        logger.warning(f"Vault storage failed (DB fallback will be used): {e}")
+        # Vault failed but DB succeeded — warn but continue
+        logger.warning(f"Vault write failed for provider {provider_id} (DB fallback active): {e}")
 
     provider = CloudProvider(
         id=provider_id,
