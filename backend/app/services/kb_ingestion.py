@@ -646,16 +646,28 @@ async def process_document(
             
         except Exception as e:
             logger.error(f"Failed to process document {doc_id}: {e}")
-            
-            # Mark as error
-            doc.status = "error"
-            doc.error_message = str(e)[:1000]  # Truncate long error messages
-            doc.updated_at = datetime.now(timezone.utc)
-            
-            # Update KB status if this was the only document
-            if kb.document_count == 1:
+
+            # Rollback the failed transaction (e.g. pgvector dimension
+            # mismatch) so the session is usable again for the status update.
+            await db.rollback()
+
+            # Re-fetch doc and kb after rollback (detached from session)
+            doc_result = await db.execute(
+                select(KBDocument).where(KBDocument.id == doc_id)
+            )
+            doc = doc_result.scalar_one_or_none()
+            kb_result = await db.execute(
+                select(KnowledgeBase).where(KnowledgeBase.id == kb_id)
+            )
+            kb = kb_result.scalar_one_or_none()
+
+            if doc:
+                doc.status = "error"
+                doc.error_message = str(e)[:1000]
+                doc.updated_at = datetime.now(timezone.utc)
+            if kb and kb.document_count == 1:
                 kb.status = "error"
-            
+
             await db.commit()
             raise
 

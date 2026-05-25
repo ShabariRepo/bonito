@@ -22,7 +22,12 @@ def upgrade() -> None:
     # Drop HNSW index before altering column type
     op.execute("DROP INDEX IF EXISTS idx_kb_chunks_embedding")
 
-    # Ensure column is vector(1024) — idempotent if already 1024
+    # Clear existing embeddings — pgvector can't cast between dimensions,
+    # so we must NULL out any 768-dim vectors before changing to 1024.
+    # Chunk text is preserved; documents will need re-processing.
+    op.execute("UPDATE kb_chunks SET embedding = NULL WHERE embedding IS NOT NULL")
+
+    # Now safe to change column type (no non-null vectors to cast)
     op.execute(
         "ALTER TABLE kb_chunks "
         "ALTER COLUMN embedding TYPE vector(1024) "
