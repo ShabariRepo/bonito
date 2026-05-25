@@ -1,0 +1,35 @@
+{
+  "test_time": "2026-05-25T03:36:46.482808",
+  "duration_seconds": 54.0,
+  "total_tickets": 100,
+  "successful": 59,
+  "rate_limited": 41,
+  "errors": 0,
+  "quality": {
+    "good": 59,
+    "empty": 41,
+    "hallucinated": 0,
+    "error": 0
+  },
+  "routing": {
+    "correct": 52,
+    "misrouted": 2,
+    "accuracy_pct": 96.3
+  },
+  "scaling": {
+    "requests_with_scaling": 59,
+    "total_events": 5,
+    "effective_rpms_seen": [
+      25,
+      50
+    ]
+  },
+  "latency": {
+    "min_ms": 2230.0,
+    "median_ms": 4190.0,
+    "p95_ms": 7824.0,
+    "max_ms": 8650.0,
+    "avg_ms": 4378.0
+  },
+  "passed": false
+}
