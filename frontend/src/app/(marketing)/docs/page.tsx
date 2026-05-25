@@ -31,6 +31,7 @@ import {
   Code,
   Layers,
   Globe,
+  Activity,
 } from "lucide-react";
 
 /* ─── Sidebar sections ─── */
@@ -52,6 +53,7 @@ const sections = [
   { id: "declarative-config", label: "Declarative Config", icon: Code },
   { id: "bonbon", label: "BonBon Agents", icon: Bot },
   { id: "bonobot", label: "Bonobot", icon: Network },
+  { id: "agent-scaling", label: "Agent Scaling (HPA)", icon: Activity },
   { id: "code-review", label: "Code Review", icon: GitBranch },
   { id: "mcp", label: "MCP Integration", icon: Plug },
   { id: "knowledge-bases", label: "Knowledge Bases", icon: Database },
@@ -1288,6 +1290,150 @@ bonito bonobot classify --id bot_abc123 \\
   "synthesis_prompt": "Combine the following specialist responses into a single, coherent answer."
 }`}
           />
+
+          {/* ── Agent Scaling (HPA) ── */}
+          <SectionHeading id="agent-scaling" title="Agent Scaling (HPA)" />
+          <Paragraph>
+            Agent-level Horizontal Pod Autoscaling (HPA) dynamically adjusts an agent&apos;s capacity based on real-time utilization. When traffic spikes, the effective rate limit scales up automatically. When traffic subsides, it scales back down. No manual intervention needed.
+          </Paragraph>
+
+          <Callout variant="info">
+            Agent HPA is available on Enterprise and Scale plans. Free and Pro plans use fixed rate limits.
+          </Callout>
+
+          <SubHeading title="How it works" />
+          <StepList
+            steps={[
+              "Each agent has a base rate_limit_rpm (default: 30 requests per minute).",
+              "When utilization crosses the capacity threshold (default: 60%), the effective RPM doubles automatically.",
+              "If traffic continues to surge, it doubles again — up to max_replicas × base RPM.",
+              "A background process checks every 30 seconds for scale-down opportunities.",
+              "When utilization drops below 30% for the cooldown period (default: 5 minutes), the effective RPM halves back toward the base.",
+            ]}
+          />
+
+          <SubHeading title="Example: Bulletproof MSP" />
+          <Paragraph>
+            A Tier 1 support triage agent handling 50K tickets/month with a base of 30 RPM. Monday morning surge hits 18 RPM (60% utilization) — the agent auto-scales to 60 RPM. Surge continues to 36 RPM — scales to 120 RPM. With max_replicas=5, the ceiling is 150 RPM. After the surge, it gracefully scales back down.
+          </Paragraph>
+
+          <SubHeading title="Configuration via bonito.yaml" />
+          <CodeBlock
+            language="yaml"
+            code={`agents:
+  triage-router:
+    display_name: "Triage Router"
+    system_prompt: "agents/triage-router/system-prompt.md"
+    model: gpt-4o-mini
+    rate_limit_rpm: 30
+    scaling:
+      enabled: true
+      capacity_threshold: 0.6      # Scale up at 60% utilization
+      scale_down_threshold: 0.3    # Scale down below 30%
+      max_replicas: 5              # Max effective RPM = 5 × 30 = 150
+      scale_down_cooldown_seconds: 300  # Wait 5 min before scaling down
+      mode: virtual                # Phase 1: virtual scaling`}
+          />
+
+          <SubHeading title="Configuration via API" />
+          <CodeBlock
+            language="bash"
+            code={`# Enable autoscaling on an agent
+curl -X POST https://api.getbonito.com/api/agents/{agent_id}/scaling/configure \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "enabled": true,
+    "capacity_threshold": 0.6,
+    "scale_down_threshold": 0.3,
+    "max_replicas": 5,
+    "mode": "virtual"
+  }'
+
+# Check current scaling status
+curl https://api.getbonito.com/api/agents/{agent_id}/scaling \\
+  -H "Authorization: Bearer $TOKEN"
+
+# View scaling event history
+curl https://api.getbonito.com/api/agents/{agent_id}/scaling/events \\
+  -H "Authorization: Bearer $TOKEN"
+
+# Manual scale up/down (for testing or emergencies)
+curl -X POST https://api.getbonito.com/api/agents/{agent_id}/scaling/manual \\
+  -H "Authorization: Bearer $TOKEN" \\
+  -d '{"direction": "up"}'`}
+          />
+
+          <SubHeading title="CLI commands" />
+          <CodeBlock
+            code={`# Check scaling status
+bonito agents scaling status <agent-id>
+
+# Configure autoscaling
+bonito agents scaling configure <agent-id> \\
+  --threshold 0.6 \\
+  --max-replicas 5 \\
+  --mode virtual \\
+  --enable
+
+# View recent scaling events
+bonito agents scaling events <agent-id> --limit 20
+
+# Manual scale override
+bonito agents scaling manual <agent-id> up
+bonito agents scaling manual <agent-id> down`}
+          />
+
+          <SubHeading title="Scaling parameters" />
+          <div className="overflow-x-auto my-6">
+            <table className="w-full text-sm border border-[#1a1a1a] rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-[#111] text-left">
+                  <th className="px-4 py-2 text-[#888] font-medium">Parameter</th>
+                  <th className="px-4 py-2 text-[#888] font-medium">Default</th>
+                  <th className="px-4 py-2 text-[#888] font-medium">Range</th>
+                  <th className="px-4 py-2 text-[#888] font-medium">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1a1a1a]">
+                {[
+                  ["capacity_threshold", "0.6", "0.1 – 0.95", "Utilization % that triggers scale-up"],
+                  ["scale_down_threshold", "0.3", "0.05 – capacity_threshold", "Utilization % that triggers scale-down"],
+                  ["max_replicas", "5", "1 – 10", "Max multiplier for effective RPM"],
+                  ["scale_down_cooldown_seconds", "300", "60 – 3600", "Seconds to wait before scaling down"],
+                  ["mode", "virtual", "virtual", "Scaling mode (virtual raises RPM in Redis)"],
+                ].map(([param, def_, range_, desc], i) => (
+                  <tr key={i} className="text-[#ccc]">
+                    <td className="px-4 py-2 font-mono text-xs text-[#7c3aed]">{param}</td>
+                    <td className="px-4 py-2">{def_}</td>
+                    <td className="px-4 py-2 text-[#888]">{range_}</td>
+                    <td className="px-4 py-2">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <SubHeading title="Response metadata" />
+          <Paragraph>
+            When autoscaling is active, agent execution responses include additional metadata in the <code className="text-xs">security</code> object:
+          </Paragraph>
+          <CodeBlock
+            language="json"
+            code={`{
+  "security": {
+    "rate_limit_remaining": 42,
+    "effective_rpm": 60,
+    "scaling_active": true,
+    "tools_used": ["search_knowledge_base", "invoke_agent"],
+    "budget_remaining": 89.50
+  }
+}`}
+          />
+
+          <Callout variant="warning">
+            Virtual scaling raises the Bonito-side rate limit. If the upstream AI provider has its own rate limits (e.g., AWS Bedrock throttling), those still apply. Phase 2 (physical replicas across providers) is planned for provider-side bottlenecks.
+          </Callout>
 
           {/* ── Code Review ── */}
           <SectionHeading id="code-review" title="Code Review" />
