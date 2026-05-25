@@ -202,9 +202,9 @@ async def delete_knowledge_base(
     """Delete a knowledge base and all its documents and chunks."""
     await _require_ai_context(db, user)
     result = await db.execute(
-        select(KnowledgeBase).where(
-            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
-        )
+        select(KnowledgeBase)
+        .options(selectinload(KnowledgeBase.documents).selectinload(KBDocument.chunks), selectinload(KnowledgeBase.chunks))
+        .where(and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id))
     )
     kb = result.scalar_one_or_none()
     if not kb:
@@ -476,16 +476,16 @@ async def delete_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
 
     result = await db.execute(
-        select(KBDocument).where(
-            and_(KBDocument.id == doc_id, KBDocument.knowledge_base_id == kb_id)
-        )
+        select(KBDocument)
+        .options(selectinload(KBDocument.chunks))
+        .where(and_(KBDocument.id == doc_id, KBDocument.knowledge_base_id == kb_id))
     )
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
 
     doc_name = doc.file_name
-    chunk_count = doc.chunk_count
+    chunk_count = doc.chunk_count or 0
 
     # Delete from GCS if file was stored there
     if doc.file_path and doc.file_path.startswith("gs://"):
@@ -499,8 +499,8 @@ async def delete_document(
     await db.flush()
     
     # Update KB counters
-    kb.document_count = max(0, kb.document_count - 1)
-    kb.chunk_count = max(0, kb.chunk_count - chunk_count)
+    kb.document_count = max(0, (kb.document_count or 0) - 1)
+    kb.chunk_count = max(0, (kb.chunk_count or 0) - chunk_count)
     await db.flush()
     
     logger.info(f"Deleted document {doc_id} ({doc_name}) from KB {kb_id}")
