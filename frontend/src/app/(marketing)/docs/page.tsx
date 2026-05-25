@@ -1435,6 +1435,81 @@ bonito agents scaling manual <agent-id> down`}
             Virtual scaling raises the Bonito-side rate limit. If the upstream AI provider has its own rate limits (e.g., AWS Bedrock throttling), those still apply. Phase 2 (physical replicas across providers) is planned for provider-side bottlenecks.
           </Callout>
 
+          <SubHeading title="Overflow queue" />
+          <Paragraph>
+            When an agent hits its RPM ceiling — even after autoscaling to max_replicas — requests are queued rather than dropped. Callers receive an immediate <code className="text-xs">202 Accepted</code> response with a ticket they can poll, and the queue drains automatically as capacity frees up. Only agents with <code className="text-xs">autoscale_enabled: true</code> participate in overflow queuing.
+          </Paragraph>
+
+          <SubHeading title="Queued response shape" />
+          <CodeBlock
+            language="json"
+            code={`// POST /api/agents/{id}/execute  →  202 Accepted
+{
+  "queued": true,
+  "ticket_id": "q_01HXYZ...",
+  "position": 4,
+  "estimated_wait_seconds": 8,
+  "poll_url": "/api/agents/{id}/queue/q_01HXYZ..."
+}`}
+          />
+
+          <SubHeading title="Polling for results" />
+          <CodeBlock
+            language="bash"
+            code={`# Poll for result
+curl https://api.getbonito.com/api/agents/{agent_id}/queue/{ticket_id} \\
+  -H "Authorization: Bearer $TOKEN"
+
+# Response while queued
+{ "status": "queued", "position": 2 }
+
+# Response when processing
+{ "status": "processing" }
+
+# Response when complete
+{ "status": "completed", "result": { ...agent response... } }
+
+# Response on failure
+{ "status": "failed", "error": "upstream timeout" }
+
+# Check overall queue depth
+curl https://api.getbonito.com/api/agents/{agent_id}/queue \\
+  -H "Authorization: Bearer $TOKEN"
+# → { "depth": 12, "max_depth": 500 }`}
+          />
+
+          <SubHeading title="Queue behaviour" />
+          <div className="overflow-x-auto my-6">
+            <table className="w-full text-sm border border-[#1a1a1a] rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-[#111] text-left">
+                  <th className="px-4 py-2 text-[#888] font-medium">Property</th>
+                  <th className="px-4 py-2 text-[#888] font-medium">Value</th>
+                  <th className="px-4 py-2 text-[#888] font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1a1a1a]">
+                {[
+                  ["Max depth", "500 per agent", "Requests beyond 500 are rejected with 429"],
+                  ["Drain interval", "2 seconds", "Background drainer processes a batch of 3 every 2s"],
+                  ["Batch size", "3 requests", "Per drain cycle"],
+                  ["Result TTL", "1 hour", "Completed results stored in Redis for 1 hour"],
+                  ["Eligibility", "autoscale_enabled: true", "Queue inactive for agents without HPA enabled"],
+                ].map(([prop, val, note], i) => (
+                  <tr key={i} className="text-[#ccc]">
+                    <td className="px-4 py-2 font-mono text-xs text-[#7c3aed]">{prop}</td>
+                    <td className="px-4 py-2">{val}</td>
+                    <td className="px-4 py-2 text-[#888]">{note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <Callout variant="info">
+            The overflow queue is a safety valve, not a substitute for capacity planning. If your agent regularly hits the 500-item queue limit, consider raising <code className="text-xs">max_replicas</code> or increasing its base <code className="text-xs">rate_limit_rpm</code>.
+          </Callout>
+
           {/* ── Code Review ── */}
           <SectionHeading id="code-review" title="Code Review" />
           <Paragraph>
