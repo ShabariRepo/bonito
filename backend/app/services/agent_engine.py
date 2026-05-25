@@ -1122,7 +1122,7 @@ class AgentEngine:
                     kb_id=kb_uuid,
                     query=query,
                     limit=limit,
-                    similarity_threshold=0.7,
+                    similarity_threshold=0.5,
                     org_id=agent.org_id,
                     db=db
                 )
