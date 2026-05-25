@@ -186,7 +186,9 @@ async def create_agent(
         compaction_enabled=agent_data.compaction_enabled,
         max_session_messages=agent_data.max_session_messages,
         rate_limit_rpm=agent_data.rate_limit_rpm,
-        budget_alert_threshold=agent_data.budget_alert_threshold
+        budget_alert_threshold=agent_data.budget_alert_threshold,
+        autoscale_enabled=agent_data.autoscale_enabled or False,
+        autoscale_config=agent_data.autoscale_config,
     )
     
     db.add(agent)
@@ -1563,10 +1565,10 @@ async def configure_scaling(
     db: AsyncSession = Depends(get_db),
 ):
     """Configure autoscaling for an agent. Enterprise+ only."""
-    from app.services.feature_gate import FeatureGateService
+    from app.services.feature_gate import feature_gate
 
     # Feature gate check
-    await FeatureGateService.require_feature(db, str(current_user.org_id), "agent_hpa")
+    await feature_gate.require_feature(db, str(current_user.org_id), "agent_hpa")
 
     stmt = select(Agent).where(
         and_(Agent.id == agent_id, Agent.org_id == current_user.org_id)
@@ -1614,10 +1616,10 @@ async def manual_scale(
     db: AsyncSession = Depends(get_db),
 ):
     """Manually scale an agent up or down. Enterprise+ only."""
-    from app.services.feature_gate import FeatureGateService
+    from app.services.feature_gate import feature_gate
     from app.services.agent_autoscaler import get_effective_rpm, _log_scaling_event
 
-    await FeatureGateService.require_feature(db, str(current_user.org_id), "agent_hpa")
+    await feature_gate.require_feature(db, str(current_user.org_id), "agent_hpa")
 
     redis = await get_redis()
 
