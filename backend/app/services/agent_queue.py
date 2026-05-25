@@ -214,8 +214,9 @@ async def _drain_agent_queue(agent_id_str: str, redis: Redis):
                 logger.info(f"Queue drain: completed {ticket_id} for agent {agent_id_str}")
 
         except Exception as e:
+            from app.services.agent_engine import AgentRateLimitError
             err_msg = str(e)[:500]
-            is_rate_limit = "429" in err_msg or "rate limit" in err_msg.lower()
+            is_rate_limit = isinstance(e, AgentRateLimitError) or "429" in err_msg or "rate limit" in err_msg.lower()
             if is_rate_limit:
                 # Put it back at the front of the queue — not ready yet
                 await redis.lpush(queue_key, ticket_id)
@@ -231,7 +232,7 @@ async def _drain_agent_queue(agent_id_str: str, redis: Redis):
 
 async def _drain_loop():
     """Background loop that drains all agent queues."""
-    from app.core.redis_client import get_redis
+    from app.core.redis import get_redis
 
     logger.info("Agent queue drainer started")
 
