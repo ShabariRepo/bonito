@@ -533,15 +533,18 @@ async def main():
 
         # ─── 7. Final scaling status ───
         print(f"\n  Final Scaling Status:")
-        resp = await client.get(f"{BASE}/agents/{TRIAGE_ID}/scaling", headers=headers)
-        if resp.status_code == 200:
-            fstatus = resp.json()
-            print(f"    base_rpm={fstatus.get('base_rpm')}")
-            print(f"    effective_rpm={fstatus.get('effective_rpm')}")
-            print(f"    scaling_active={fstatus.get('scaling_active')}")
-            print(f"    utilization={fstatus.get('utilization')}")
-        else:
-            print(f"    (could not fetch: {resp.status_code})")
+        try:
+            resp = await client.get(f"{BASE}/agents/{TRIAGE_ID}/scaling", headers=headers)
+            if resp.status_code == 200:
+                fstatus = resp.json()
+                print(f"    base_rpm={fstatus.get('base_rpm')}")
+                print(f"    effective_rpm={fstatus.get('effective_rpm')}")
+                print(f"    scaling_active={fstatus.get('scaling_active')}")
+                print(f"    utilization={fstatus.get('utilization')}")
+            else:
+                print(f"    (could not fetch: {resp.status_code})")
+        except Exception as e:
+            print(f"    (error fetching final status: {e})")
 
         # ─── 8. Hallucination details ───
         if hallucinated:
