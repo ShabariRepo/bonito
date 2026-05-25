@@ -674,6 +674,40 @@ def scaling_events(
     console.print(table)
 
 
+@scaling_app.command("queue")
+def scaling_queue(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
+):
+    """Show current queue depth and status for an agent."""
+    ensure_authenticated()
+    try:
+        data = api.get(f"/agents/{agent_id}/queue")
+    except APIError as e:
+        print_error(f"Failed to get queue status: {e}")
+        raise typer.Exit(1)
+
+    if json_output:
+        console.print_json(json.dumps(data))
+        return
+
+    table = Table(title="Agent Queue Status", show_lines=True)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="white")
+
+    table.add_row("Queue Depth", str(data.get("depth", 0)))
+    table.add_row("Status", data.get("status", "unknown"))
+    if data.get("oldest_item_age_seconds") is not None:
+        age = data["oldest_item_age_seconds"]
+        table.add_row("Oldest Item Age", f"{age}s")
+    if data.get("estimated_wait_seconds") is not None:
+        table.add_row("Estimated Wait", f"{data['estimated_wait_seconds']}s")
+    if data.get("processing") is not None:
+        table.add_row("Currently Processing", str(data["processing"]))
+
+    console.print(table)
+
+
 @scaling_app.command("manual")
 def scaling_manual(
     agent_id: str = typer.Argument(..., help="Agent ID"),
