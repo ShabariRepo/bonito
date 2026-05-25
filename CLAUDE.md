@@ -166,6 +166,7 @@ cd frontend && vercel --prod
 
 ## Recent Changes (2026-05-06)
 
+- **KB search quality fix (2026-05-24):** `_tool_search_kb` threshold lowered from 0.7 → 0.5 (was filtering out relevant results that RAG injection at 0.4 would return). Added `MODEL_MAX_DIMENSIONS` map in `EmbeddingGenerator` to clamp requested dimensions to model's max — fixes silent ingestion failures when GCP `text-embedding-005` (768 max) is used with KB default of 1024 dims.
 - **Invite-only registration:** Access request flow (submit → admin approve → invite code → register). Controlled by `INVITE_REQUIRED` env var (default: true). Rate limited at 5 req/60s.
 - **Memwright hardening:** Fixed `clear()` lambda bug, added LRU eviction (256 max instances), graceful degradation when `agent_memory` not installed, removed startup pre-warm (caused SQLite locking with multi-worker uvicorn).
 - **Dockerfile fixes:** `HOME=/app`, `HF_HOME`/`TRANSFORMERS_CACHE` set, sentence-transformers model pre-downloaded at build time. Fixes ChromaDB vector_similarity layer in production.
