@@ -29,13 +29,16 @@ BUCKET_NAME = os.getenv("BONITO_KB_BUCKET", "bonito-kb-prod")
 #   2. BONITO_KB_SA_KEY_PATH env var (path to JSON file)
 #   3. Application Default Credentials (dev only)
 _client: Optional[gcs_storage.Client] = None
+_client_failed: bool = False  # Track if init already failed — don't retry
 
 
 def _get_client() -> gcs_storage.Client:
     """Lazy-init GCS client with service account credentials."""
-    global _client
+    global _client, _client_failed
     if _client is not None:
         return _client
+    if _client_failed:
+        raise RuntimeError("GCS client init previously failed — skipping retry")
 
     sa_json_str = os.getenv("BONITO_KB_SA_KEY")
     sa_key_path = os.getenv("BONITO_KB_SA_KEY_PATH")
@@ -51,10 +54,15 @@ def _get_client() -> gcs_storage.Client:
             info = json.load(f)
         _client = gcs_storage.Client(credentials=creds, project=info.get("project_id"))
         logger.info(f"GCS client initialized from key file {sa_key_path}")
-    else:
-        # Fall back to ADC (works locally with gcloud auth)
+    elif os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+        # Explicit ADC path set — safe to use
         _client = gcs_storage.Client()
         logger.info("GCS client initialized with Application Default Credentials")
+    else:
+        # No GCS credentials configured — fail fast instead of hanging
+        # on Compute Engine metadata server timeouts (Railway, etc.)
+        _client_failed = True
+        raise RuntimeError("No GCS credentials configured (BONITO_KB_SA_KEY, BONITO_KB_SA_KEY_PATH, or GOOGLE_APPLICATION_CREDENTIALS)")
 
     return _client
 
