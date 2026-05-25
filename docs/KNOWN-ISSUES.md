@@ -295,6 +295,20 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Fix**: Admin tier endpoints now auto-sync: free→(none,0), pro→(pro,25), enterprise→(enterprise,-1). Also added `bonobot_agent_limit` display in admin panel UI.
 **Impact**: All orgs upgraded via admin panel had broken agent creation until manually fixed via subscriptions API.
 
+### 35. KB search tool threshold too strict — agents can't find KB content
+**Date**: 2026-05-24
+**Symptom**: Agents calling `search_knowledge_base` tool return "no procedures found" even when relevant content exists in the KB. RAG context injection (automatic) works but explicit tool calls don't.
+**Cause**: `_tool_search_kb` used 0.7 similarity threshold while RAG context injection used 0.4. Results scoring 0.5-0.7 were filtered out from tool calls but visible in auto-injection.
+**Fix**: Lowered `_tool_search_kb` threshold to 0.5 to match the `search_knowledge_base` function default (PR #43037).
+**Impact**: Affected all agents using `search_knowledge_base` tool across all orgs.
+
+### 36. GCP embedding dimension mismatch — KB ingestion fails silently
+**Date**: 2026-05-24
+**Symptom**: KBs created with default settings (1024 dims) fail to embed documents when GCP Vertex AI is the cheapest embedding provider. Documents upload but chunks have no embeddings, so search returns nothing.
+**Cause**: GCP `text-embedding-005` maxes at 768 dims but KB default `embedding_dimensions` is 1024. Requesting 1024 dims from a 768-max model causes pgvector insert errors (`expected 1024 dimensions, not 768`).
+**Fix**: Added `MODEL_MAX_DIMENSIONS` lookup table in `EmbeddingGenerator` — dimensions are clamped to model's max before embedding calls (PR #43037).
+**Impact**: Affected any org with GCP Vertex AI as their cheapest embedding provider (first in priority list).
+
 ### 16. Alembic multiple migration heads — deploy fails
 **Date**: 2026-02-23
 **Symptom**: Railway deploy fails with `Multiple head revisions are present for given argument 'head'` followed by `DuplicateColumn: column "subscription_tier" of relation "organizations" already exists`.
