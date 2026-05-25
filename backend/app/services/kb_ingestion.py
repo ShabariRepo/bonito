@@ -317,6 +317,21 @@ class EmbeddingGenerator:
     PLATFORM_MODEL = "text-embedding-3-small"  # OpenAI, $0.02/1M tokens
     PLATFORM_DIMENSIONS = 768  # Match pgvector column width
 
+    # Max native dimensions per embedding model — prevents requesting
+    # dimensions that exceed a model's capability (e.g. GCP text-embedding-005
+    # maxes at 768 but KB default is 1024, which would cause pgvector insert errors)
+    MODEL_MAX_DIMENSIONS = {
+        "text-embedding-005": 768,
+        "text-multilingual-embedding-002": 768,
+        "gemini-embedding-001": 768,
+        "text-embedding-3-small": 1536,
+        "text-embedding-3-large": 3072,
+        "amazon.titan-embed-text-v2:0": 1024,
+        "amazon.titan-embed-text-v1": 1536,
+        "cohere.embed-english-v3": 1024,
+        "cohere.embed-v4:0": 1024,
+    }
+
     def __init__(self, org_id: uuid.UUID):
         self.org_id = org_id
         self._use_platform_key = False  # set True when falling back
@@ -435,6 +450,16 @@ class EmbeddingGenerator:
                 f"No embedding model available for org {self.org_id}. "
                 f"Connect a provider with embedding support (OpenAI, GCP Vertex AI, or AWS Bedrock)."
             )
+
+        # Clamp dimensions to model's max to prevent pgvector insert errors
+        # (e.g. GCP text-embedding-005 maxes at 768 but KB default is 1024)
+        if dimensions and model in self.MODEL_MAX_DIMENSIONS:
+            max_dims = self.MODEL_MAX_DIMENSIONS[model]
+            if dimensions > max_dims:
+                logger.warning(
+                    f"Requested {dimensions} dims but {model} maxes at {max_dims} — clamping"
+                )
+                dimensions = max_dims
 
         # Platform key fallback — call OpenAI directly, not through org router
         if self._use_platform_key:
