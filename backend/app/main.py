@@ -54,6 +54,10 @@ async def lifespan(app: FastAPI):
     from app.services.model_sync import start_model_sync
     await start_model_sync()
 
+    # Start agent autoscaler (HPA scale-down check every 30s)
+    from app.services.agent_autoscaler import start_autoscaler
+    await start_autoscaler()
+
     # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
     # Don't run them again here — with multiple workers they'd race each other.
 
@@ -89,6 +93,12 @@ async def lifespan(app: FastAPI):
     from app.services.model_sync import stop_model_sync
     try:
         await stop_model_sync()
+    except Exception:
+        pass
+
+    from app.services.agent_autoscaler import stop_autoscaler
+    try:
+        await stop_autoscaler()
     except Exception:
         pass
 

@@ -554,5 +554,144 @@ def list_triggers(
     console.print(table)
 
 
+# ─── Scaling / HPA Commands ───
+
+scaling_app = typer.Typer(help="Agent autoscaling (HPA) management")
+app.add_typer(scaling_app, name="scaling")
+
+
+@scaling_app.command("status")
+def scaling_status(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
+):
+    """Show current autoscaling status for an agent."""
+    ensure_authenticated()
+    try:
+        data = api.get(f"/agents/{agent_id}/scaling")
+    except APIError as e:
+        print_error(f"Failed to get scaling status: {e}")
+        raise typer.Exit(1)
+
+    if json_output:
+        console.print_json(json.dumps(data))
+        return
+
+    table = Table(title="Agent Scaling Status", show_lines=True)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="white")
+
+    table.add_row("Autoscale Enabled", "✅" if data["autoscale_enabled"] else "❌")
+    table.add_row("Base RPM", str(data["base_rpm"]))
+    table.add_row("Effective RPM", str(data["effective_rpm"]))
+    table.add_row("Scaling Active", "🔥 Yes" if data["scaling_active"] else "No")
+    table.add_row("Current Usage", f"{data['current_rpm_usage']} RPM")
+    table.add_row("Utilization", f"{data['utilization']:.0%}")
+    table.add_row("Replica Count", str(data["replica_count"]))
+    if data.get("last_scaled_at"):
+        table.add_row("Last Scaled", data["last_scaled_at"])
+
+    cfg = data.get("config", {})
+    table.add_row("Capacity Threshold", f"{cfg.get('capacity_threshold', 0.6):.0%}")
+    table.add_row("Scale-Down Threshold", f"{cfg.get('scale_down_threshold', 0.3):.0%}")
+    table.add_row("Max Replicas", str(cfg.get("max_replicas", 5)))
+    table.add_row("Mode", cfg.get("mode", "virtual"))
+
+    console.print(table)
+
+
+@scaling_app.command("configure")
+def scaling_configure(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    threshold: float = typer.Option(0.6, "--threshold", "-t", help="Capacity threshold (0.1-0.95)"),
+    scale_down: float = typer.Option(0.3, "--scale-down", help="Scale-down threshold"),
+    max_replicas: int = typer.Option(5, "--max-replicas", "-m", help="Max replicas (1-10)"),
+    cooldown: int = typer.Option(300, "--cooldown", help="Scale-down cooldown in seconds"),
+    mode: str = typer.Option("virtual", "--mode", help="Scaling mode: virtual or replica"),
+    enable: bool = typer.Option(True, "--enable/--disable", help="Enable or disable autoscaling"),
+):
+    """Configure autoscaling for an agent. Enterprise+ only."""
+    ensure_authenticated()
+    try:
+        data = api.post(f"/agents/{agent_id}/scaling/configure", {
+            "enabled": enable,
+            "capacity_threshold": threshold,
+            "scale_down_threshold": scale_down,
+            "max_replicas": max_replicas,
+            "scale_down_cooldown_seconds": cooldown,
+            "mode": mode,
+        })
+        print_success(f"Autoscaling {'enabled' if enable else 'disabled'} for agent {agent_id}")
+        if enable:
+            cfg = data.get("autoscale_config", {})
+            print_info(f"  Threshold: {cfg.get('capacity_threshold', 0.6):.0%} | Max replicas: {cfg.get('max_replicas', 5)} | Mode: {cfg.get('mode', 'virtual')}")
+    except APIError as e:
+        print_error(f"Failed to configure scaling: {e}")
+        raise typer.Exit(1)
+
+
+@scaling_app.command("events")
+def scaling_events(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    limit: int = typer.Option(20, "--limit", "-n", help="Number of events to show"),
+    json_output: bool = typer.Option(False, "--json", help="Output in JSON format"),
+):
+    """List recent scaling events for an agent."""
+    ensure_authenticated()
+    try:
+        data = api.get(f"/agents/{agent_id}/scaling/events", params={"limit": limit})
+    except APIError as e:
+        print_error(f"Failed to get scaling events: {e}")
+        raise typer.Exit(1)
+
+    if json_output:
+        console.print_json(json.dumps(data))
+        return
+
+    events = data.get("events", [])
+    if not events:
+        print_info("No scaling events found.")
+        return
+
+    table = Table(title=f"Scaling Events ({data.get('total', 0)} total)")
+    table.add_column("Time", style="dim")
+    table.add_column("Type", style="cyan")
+    table.add_column("Previous RPM", justify="right")
+    table.add_column("New RPM", justify="right")
+    table.add_column("Utilization", justify="right")
+
+    for e in events:
+        event_type = e["event_type"]
+        style = "green" if "up" in event_type else "yellow"
+        table.add_row(
+            format_timestamp(e.get("created_at")),
+            f"[{style}]{event_type}[/{style}]",
+            str(e["previous_capacity"]),
+            str(e["new_capacity"]),
+            f"{e['trigger_utilization']:.0%}",
+        )
+
+    console.print(table)
+
+
+@scaling_app.command("manual")
+def scaling_manual(
+    agent_id: str = typer.Argument(..., help="Agent ID"),
+    direction: str = typer.Argument(..., help="Scale direction: up or down"),
+):
+    """Manually scale an agent up or down. Enterprise+ only."""
+    ensure_authenticated()
+    if direction not in ("up", "down"):
+        print_error("Direction must be 'up' or 'down'")
+        raise typer.Exit(1)
+
+    try:
+        data = api.post(f"/agents/{agent_id}/scaling/manual", {"direction": direction})
+        print_success(f"Scaled {direction}: {data['previous_rpm']} → {data['new_rpm']} RPM")
+    except APIError as e:
+        print_error(f"Failed to scale: {e}")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

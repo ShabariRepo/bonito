@@ -5,7 +5,7 @@ Agent CRUD operations and execution endpoints
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 import uuid as uuid_lib
 
@@ -1471,4 +1471,195 @@ async def get_breadcrumb_edge_messages(
             }
             for msg in page
         ],
+    }
+
+
+# ─── Scaling / HPA Endpoints ───
+
+
+@router.get("/agents/{agent_id}/scaling")
+async def get_scaling_status(
+    agent_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get current autoscaling status for an agent."""
+    from app.services.agent_autoscaler import get_scaling_status as _get_scaling_status
+
+    redis = await get_redis()
+
+    stmt = select(Agent).where(
+        and_(Agent.id == agent_id, Agent.org_id == current_user.org_id)
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    return await _get_scaling_status(agent, redis)
+
+
+@router.get("/agents/{agent_id}/scaling/events")
+async def list_scaling_events(
+    agent_id: UUID,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List scaling events for an agent."""
+    from app.models.agent_scaling_event import AgentScalingEvent
+
+    # Verify agent access
+    stmt = select(Agent).where(
+        and_(Agent.id == agent_id, Agent.org_id == current_user.org_id)
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Count
+    count_stmt = select(func.count()).select_from(AgentScalingEvent).where(
+        AgentScalingEvent.agent_id == agent_id
+    )
+    total = (await db.execute(count_stmt)).scalar()
+
+    # Fetch
+    events_stmt = (
+        select(AgentScalingEvent)
+        .where(AgentScalingEvent.agent_id == agent_id)
+        .order_by(desc(AgentScalingEvent.created_at))
+        .offset(offset)
+        .limit(limit)
+    )
+    events = (await db.execute(events_stmt)).scalars().all()
+
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "events": [
+            {
+                "id": str(e.id),
+                "event_type": e.event_type,
+                "previous_capacity": e.previous_capacity,
+                "new_capacity": e.new_capacity,
+                "replica_count": e.replica_count,
+                "trigger_utilization": float(e.trigger_utilization),
+                "details": e.details,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in events
+        ],
+    }
+
+
+@router.post("/agents/{agent_id}/scaling/configure")
+async def configure_scaling(
+    agent_id: UUID,
+    config: Dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Configure autoscaling for an agent. Enterprise+ only."""
+    from app.services.feature_gate import FeatureGateService
+
+    # Feature gate check
+    await FeatureGateService.require_feature(db, str(current_user.org_id), "agent_hpa")
+
+    stmt = select(Agent).where(
+        and_(Agent.id == agent_id, Agent.org_id == current_user.org_id)
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Validate config values
+    threshold = config.get("capacity_threshold", 0.6)
+    scale_down = config.get("scale_down_threshold", 0.3)
+    max_replicas = config.get("max_replicas", 5)
+
+    if not (0.1 <= threshold <= 0.95):
+        raise HTTPException(status_code=422, detail="capacity_threshold must be between 0.1 and 0.95")
+    if not (0.05 <= scale_down < threshold):
+        raise HTTPException(status_code=422, detail="scale_down_threshold must be between 0.05 and less than capacity_threshold")
+    if not (1 <= max_replicas <= 10):
+        raise HTTPException(status_code=422, detail="max_replicas must be between 1 and 10")
+
+    enabled = config.get("enabled", True)
+    agent.autoscale_enabled = enabled
+    agent.autoscale_config = {
+        "capacity_threshold": threshold,
+        "scale_down_threshold": scale_down,
+        "scale_down_cooldown_seconds": config.get("scale_down_cooldown_seconds", 300),
+        "max_replicas": max_replicas,
+        "mode": config.get("mode", "virtual"),
+    }
+    await db.flush()
+
+    return {
+        "agent_id": str(agent.id),
+        "autoscale_enabled": agent.autoscale_enabled,
+        "autoscale_config": agent.autoscale_config,
+    }
+
+
+@router.post("/agents/{agent_id}/scaling/manual")
+async def manual_scale(
+    agent_id: UUID,
+    action: Dict,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually scale an agent up or down. Enterprise+ only."""
+    from app.services.feature_gate import FeatureGateService
+    from app.services.agent_autoscaler import get_effective_rpm, _log_scaling_event
+
+    await FeatureGateService.require_feature(db, str(current_user.org_id), "agent_hpa")
+
+    redis = await get_redis()
+
+    stmt = select(Agent).where(
+        and_(Agent.id == agent_id, Agent.org_id == current_user.org_id)
+    )
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    direction = action.get("direction", "up")
+    current_rpm = await get_effective_rpm(agent, redis)
+
+    if direction == "up":
+        max_rpm = (agent.autoscale_config or {}).get("max_replicas", 5) * agent.rate_limit_rpm
+        new_rpm = min(current_rpm * 2, max_rpm)
+    elif direction == "down":
+        new_rpm = max(agent.rate_limit_rpm, current_rpm // 2)
+    else:
+        raise HTTPException(status_code=422, detail="direction must be 'up' or 'down'")
+
+    import time
+    rpm_key = f"agent_hpa:rpm:{agent.id}"
+    if new_rpm <= agent.rate_limit_rpm:
+        await redis.delete(rpm_key)
+        new_rpm = agent.rate_limit_rpm
+    else:
+        await redis.set(rpm_key, str(new_rpm), ex=300)
+
+    await _log_scaling_event(
+        agent_id=agent.id,
+        org_id=agent.org_id,
+        event_type=f"manual_scale_{direction}",
+        previous_capacity=current_rpm,
+        new_capacity=new_rpm,
+        utilization=0.0,
+    )
+
+    return {
+        "agent_id": str(agent.id),
+        "previous_rpm": current_rpm,
+        "new_rpm": new_rpm,
+        "direction": direction,
     }

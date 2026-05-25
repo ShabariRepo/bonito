@@ -62,6 +62,9 @@ class AgentCreate(BaseModel):
     rate_limit_rpm: Optional[int] = Field(30, ge=1, le=1000)
     budget_alert_threshold: Optional[Decimal] = Field(Decimal("0.8"), ge=Decimal("0.1"), le=Decimal("1.0"))
     canvas_position: Optional[Dict[str, float]] = None
+    # HPA / Autoscaling
+    autoscale_enabled: Optional[bool] = False
+    autoscale_config: Optional[Dict[str, Any]] = None
 
 
 class AgentUpdate(BaseModel):
@@ -83,6 +86,9 @@ class AgentUpdate(BaseModel):
     budget_alert_threshold: Optional[Decimal] = Field(None, ge=Decimal("0.1"), le=Decimal("1.0"))
     status: Optional[str] = Field(None, pattern=r"^(active|paused|disabled)$")
     canvas_position: Optional[Dict[str, float]] = None
+    # HPA / Autoscaling
+    autoscale_enabled: Optional[bool] = None
+    autoscale_config: Optional[Dict[str, Any]] = None
 
 
 class AgentResponse(BaseModel):
@@ -111,6 +117,11 @@ class AgentResponse(BaseModel):
     widget_enabled: bool = False
     widget_config: Optional[Dict[str, Any]] = None
     canvas_position: Optional[Dict[str, float]] = None
+    # HPA / Autoscaling
+    autoscale_enabled: bool = False
+    autoscale_config: Optional[Dict[str, Any]] = None
+    primary_agent_id: Optional[UUID] = None
+    replica_index: Optional[int] = None
 
     status: str
     last_active_at: Optional[datetime]
@@ -254,6 +265,8 @@ class SecurityMetadata(BaseModel):
     input_sanitized: bool
     audit_id: UUID
     rate_limit_remaining: int
+    effective_rpm: Optional[int] = None
+    scaling_active: bool = False
 
 
 class AgentRunResult(BaseModel):

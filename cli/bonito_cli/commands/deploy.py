@@ -505,6 +505,28 @@ def _deploy_agents(
                 elif verbose:
                     console.print(f"    [dim yellow]! KB '{kb_name}' not found - skipping[/dim yellow]")
 
+            # Rate limit
+            if cfg.get("rate_limit_rpm"):
+                payload["rate_limit_rpm"] = cfg["rate_limit_rpm"]
+
+            # HPA / Autoscaling
+            scaling = cfg.get("scaling", {})
+            if scaling:
+                payload["autoscale_enabled"] = scaling.get("enabled", False)
+                autoscale_config = {}
+                if "capacity_threshold" in scaling:
+                    autoscale_config["capacity_threshold"] = scaling["capacity_threshold"]
+                if "scale_down_threshold" in scaling:
+                    autoscale_config["scale_down_threshold"] = scaling["scale_down_threshold"]
+                if "max_replicas" in scaling:
+                    autoscale_config["max_replicas"] = scaling["max_replicas"]
+                if "scale_down_cooldown_seconds" in scaling:
+                    autoscale_config["scale_down_cooldown_seconds"] = scaling["scale_down_cooldown_seconds"]
+                if "mode" in scaling:
+                    autoscale_config["mode"] = scaling["mode"]
+                if autoscale_config:
+                    payload["autoscale_config"] = autoscale_config
+
             # Note: agent secrets are managed via /api/secrets, not in the agent payload
 
             # Check if agent already exists — update instead of creating a duplicate

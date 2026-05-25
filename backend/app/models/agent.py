@@ -39,6 +39,12 @@ class Agent(Base):
     # Security & Rate Limiting
     rate_limit_rpm: Mapped[int] = mapped_column(Integer, nullable=False, default=30)  # requests per minute
     budget_alert_threshold: Mapped[Decimal] = mapped_column(Numeric(precision=3, scale=2), nullable=False, default=Decimal("0.8"))  # alert when 80% budget consumed
+
+    # HPA / Autoscaling
+    autoscale_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    autoscale_config: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # capacity_threshold, scale_down_threshold, max_replicas, mode
+    primary_agent_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"), nullable=True)
+    replica_index: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     
     # BonBon fields
     bonbon_template_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # which template was used, null for DIY
