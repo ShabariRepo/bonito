@@ -16,15 +16,17 @@ engine = create_async_engine(
 )
 
 
-@event.listens_for(engine.sync_engine, "connect")
-def _register_pgvector_type(dbapi_connection, connection_record):
-    """Register pgvector 'vector' type codec with asyncpg on each new connection.
-    
-    Without this, asyncpg raises 'Unknown PG numeric type: 24578' when reading
-    vector columns because it doesn't know pgvector's custom type OID.
+@event.listens_for(engine.sync_engine, "checkout")
+def _ensure_pgvector_codec(dbapi_connection, connection_record, connection_proxy):
+    """Register pgvector 'vector' type codec with asyncpg on first checkout.
+
+    Uses the 'checkout' event (not 'connect') because checkout always fires
+    within SQLAlchemy's async greenlet context. The 'connect' event can fire
+    during pool pre-ping or recycling outside the greenlet, causing
+    'greenlet_spawn has not been called' errors.
     """
-    # dbapi_connection is SQLAlchemy's AsyncAdapt_asyncpg_connection wrapper
-    # ._connection is the raw asyncpg connection
+    if connection_record.info.get("_pgvector_registered"):
+        return
     raw_conn = dbapi_connection._connection
     dbapi_connection.await_(
         raw_conn.set_type_codec(
@@ -35,6 +37,7 @@ def _register_pgvector_type(dbapi_connection, connection_record):
             format="text",
         )
     )
+    connection_record.info["_pgvector_registered"] = True
 
 
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
