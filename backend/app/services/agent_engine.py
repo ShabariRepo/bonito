@@ -59,6 +59,23 @@ from app.services.memwright_service import MemwrightService
 
 logger = logging.getLogger(__name__)
 
+
+class AgentRateLimitError(Exception):
+    """Raised when an agent exceeds its RPM limit.
+
+    Separate from HTTPException so the route handler can intercept it
+    for queue-eligible agents before the global exception handler
+    converts it to a JSON response.
+    """
+
+    def __init__(self, agent_name: str, effective_rpm: int):
+        self.agent_name = agent_name
+        self.effective_rpm = effective_rpm
+        super().__init__(
+            f"Rate limit exceeded. Agent {agent_name} allows {effective_rpm} requests per minute."
+        )
+
+
 # Maximum recursion depth for agent invocations (prevents infinite loops)
 MAX_AGENT_DEPTH = 3
 
@@ -1507,8 +1524,10 @@ class AgentEngine:
         """Enforce per-agent rate limiting with autoscale support.
 
         Returns (remaining, effective_rpm, scaling_active).
+        Raises AgentRateLimitError (not HTTPException) so the route handler
+        can intercept it for queue-eligible agents before the global
+        exception handler converts it to a JSON response.
         """
-        from fastapi import HTTPException
         from app.services.agent_autoscaler import get_effective_rpm, maybe_scale_up
 
         current_minute = int(time.time() // 60)
@@ -1526,9 +1545,9 @@ class AgentEngine:
         scaling_active = effective_rpm > agent.rate_limit_rpm
 
         if current_count >= effective_rpm:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Agent {agent.name} allows {effective_rpm} requests per minute."
+            raise AgentRateLimitError(
+                agent_name=agent.name,
+                effective_rpm=effective_rpm,
             )
 
         # Increment counter

@@ -58,6 +58,10 @@ async def lifespan(app: FastAPI):
     from app.services.agent_autoscaler import start_autoscaler
     await start_autoscaler()
 
+    # Start agent overflow queue drainer
+    from app.services.agent_queue import start_queue_drainer
+    await start_queue_drainer()
+
     # Note: Alembic migrations run in start-prod.sh BEFORE uvicorn starts.
     # Don't run them again here — with multiple workers they'd race each other.
 
@@ -99,6 +103,12 @@ async def lifespan(app: FastAPI):
     from app.services.agent_autoscaler import stop_autoscaler
     try:
         await stop_autoscaler()
+    except Exception:
+        pass
+
+    from app.services.agent_queue import stop_queue_drainer
+    try:
+        await stop_queue_drainer()
     except Exception:
         pass
 

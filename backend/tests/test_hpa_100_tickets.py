@@ -264,6 +264,9 @@ async def main():
 
         scaling_transitions = []  # Track when scaling kicks in
 
+        queued_tickets = []  # Track (ticket_id, queue_ticket_id, category, message)
+        queue_stats = {"queued": 0, "poll_success": 0, "poll_fail": 0}
+
         async def process_ticket(ticket_id: int, category: str, message: str) -> TicketResult:
             result = TicketResult(
                 ticket_id=ticket_id,
@@ -292,11 +295,24 @@ async def main():
                         result.effective_rpm = sec.get("effective_rpm")
                         result.scaling_active = sec.get("scaling_active", False)
                         result.rate_limit_remaining = sec.get("rate_limit_remaining")
+                    elif r.status_code == 202:
+                        # Request queued — will poll later
+                        data = r.json()
+                        qtid = data.get("ticket_id", "")
+                        pos = data.get("position", "?")
+                        queued_tickets.append((ticket_id, qtid, category, message, result))
+                        queue_stats["queued"] += 1
+                        result.error = None
+                        result.status_code = 202
+                        print(
+                            f"   #{ticket_id:3d} 📋 [{category:12s}] "
+                            f"QUEUED pos={pos} ticket={qtid[:8]}..."
+                        )
+                        return result
                     elif r.status_code == 429:
                         result.error = "429 Rate Limited"
                         result.response = ""
                     elif r.status_code == 500 and "rate limit" in r.text.lower():
-                        # Agent engine wraps 429 in 500
                         result.error = "429 Rate Limited (wrapped)"
                         result.status_code = 429
                         result.response = ""
@@ -309,33 +325,33 @@ async def main():
                     result.error = str(e)
 
                 assess_quality(result)
-
-                # Print progress
-                status_icon = {
-                    "good": "✅",
-                    "empty": "⚠️ ",
-                    "error": "❌",
-                    "hallucinated": "🚫",
-                    None: "❓",
-                }.get(result.response_quality, "❓")
-
-                scaling_tag = f" 🔥RPM={result.effective_rpm}" if result.scaling_active else ""
-                route_tag = ""
-                if result.routed_correctly is True:
-                    route_tag = " ✅routed"
-                elif result.routed_correctly is False:
-                    route_tag = " ❌misrouted"
-
-                err_tag = f" ERR={result.error}" if result.error else ""
-
-                print(
-                    f"   #{result.ticket_id:3d} {status_icon} "
-                    f"[{result.category:12s}] "
-                    f"{result.latency_ms:6.0f}ms"
-                    f"{scaling_tag}{route_tag}{err_tag}"
-                )
-
+                _print_result(result)
                 return result
+
+        def _print_result(result: TicketResult):
+            status_icon = {
+                "good": "✅",
+                "empty": "⚠️ ",
+                "error": "❌",
+                "hallucinated": "🚫",
+                None: "❓",
+            }.get(result.response_quality, "❓")
+
+            scaling_tag = f" 🔥RPM={result.effective_rpm}" if result.scaling_active else ""
+            route_tag = ""
+            if result.routed_correctly is True:
+                route_tag = " ✅routed"
+            elif result.routed_correctly is False:
+                route_tag = " ❌misrouted"
+
+            err_tag = f" ERR={result.error}" if result.error else ""
+
+            print(
+                f"   #{result.ticket_id:3d} {status_icon} "
+                f"[{result.category:12s}] "
+                f"{result.latency_ms:6.0f}ms"
+                f"{scaling_tag}{route_tag}{err_tag}"
+            )
 
         # ─── 4. Execute load test ───
         print("3. Executing 100 tickets...")
@@ -348,9 +364,77 @@ async def main():
         # Use gather with semaphore controlling concurrency
         results = await asyncio.gather(*tasks)
 
-        test_duration = time.monotonic() - test_start
+        initial_duration = time.monotonic() - test_start
         print(f"   {'─' * 60}")
-        print(f"   Completed in {test_duration:.1f}s\n")
+        print(f"   Initial pass: {initial_duration:.1f}s")
+        print(f"   Immediate: {len([r for r in results if r.status_code == 200])}")
+        print(f"   Queued:    {queue_stats['queued']}")
+        print()
+
+        # ─── 4b. Poll queued tickets ───
+        if queued_tickets:
+            print(f"4. Polling {len(queued_tickets)} queued tickets...")
+            print(f"   {'─' * 60}")
+            poll_start = time.monotonic()
+
+            MAX_POLL_WAIT = 300  # 5 min max
+            POLL_INTERVAL = 3.0
+
+            for ticket_id, qtid, category, message, result in queued_tickets:
+                poll_deadline = time.monotonic() + MAX_POLL_WAIT
+                while time.monotonic() < poll_deadline:
+                    try:
+                        pr = await client.get(
+                            f"{BASE}/agents/{TRIAGE_ID}/queue/{qtid}",
+                            headers=headers,
+                            timeout=30,
+                        )
+                        if pr.status_code != 200:
+                            await asyncio.sleep(POLL_INTERVAL)
+                            continue
+
+                        pdata = pr.json()
+                        pstatus = pdata.get("status", "")
+
+                        if pstatus == "completed":
+                            res = pdata.get("result", {})
+                            result.response = res.get("content", "")
+                            result.effective_rpm = res.get("effective_rpm")
+                            result.scaling_active = res.get("scaling_active", False)
+                            result.status_code = 200
+                            result.error = None
+                            result.latency_ms = (time.monotonic() - poll_start) * 1000
+                            assess_quality(result)
+                            queue_stats["poll_success"] += 1
+                            _print_result(result)
+                            break
+                        elif pstatus == "failed":
+                            result.error = pdata.get("error", "Queue processing failed")
+                            result.status_code = 500
+                            result.response_quality = "error"
+                            queue_stats["poll_fail"] += 1
+                            print(f"   #{ticket_id:3d} ❌ [{category:12s}] QUEUE FAILED: {result.error[:80]}")
+                            break
+                        else:
+                            # Still queued/processing
+                            await asyncio.sleep(POLL_INTERVAL)
+
+                    except Exception as e:
+                        await asyncio.sleep(POLL_INTERVAL)
+                else:
+                    result.error = "Queue poll timeout (5 min)"
+                    result.status_code = 408
+                    result.response_quality = "error"
+                    queue_stats["poll_fail"] += 1
+                    print(f"   #{ticket_id:3d} ⏰ [{category:12s}] POLL TIMEOUT")
+
+            poll_duration = time.monotonic() - poll_start
+            print(f"   {'─' * 60}")
+            print(f"   Queue drain: {poll_duration:.1f}s")
+            print(f"   Resolved: {queue_stats['poll_success']}  Failed: {queue_stats['poll_fail']}")
+            print()
+
+        test_duration = time.monotonic() - test_start
 
         # ─── 5. Analyze Results ───
         print("=" * 70)
@@ -360,12 +444,16 @@ async def main():
         # Status breakdown
         success = [r for r in results if r.status_code == 200]
         rate_limited = [r for r in results if r.status_code == 429]
-        errors = [r for r in results if r.error and r.status_code != 429]
+        errors = [r for r in results if r.error and r.status_code not in (429, 200)]
 
         print(f"\n  Status:")
         print(f"    Successful:    {len(success):3d} / 100")
         print(f"    Rate Limited:  {len(rate_limited):3d} / 100")
         print(f"    Errors:        {len(errors):3d} / 100")
+        if queue_stats["queued"]:
+            print(f"    Queued → resolved: {queue_stats['poll_success']}")
+            print(f"    Queued → failed:   {queue_stats['poll_fail']}")
+        print(f"    Total duration:    {test_duration:.1f}s")
 
         # Quality breakdown
         good = [r for r in results if r.response_quality == "good"]
@@ -446,11 +534,14 @@ async def main():
         # ─── 7. Final scaling status ───
         print(f"\n  Final Scaling Status:")
         resp = await client.get(f"{BASE}/agents/{TRIAGE_ID}/scaling", headers=headers)
-        status = resp.json()
-        print(f"    base_rpm={status['base_rpm']}")
-        print(f"    effective_rpm={status['effective_rpm']}")
-        print(f"    scaling_active={status['scaling_active']}")
-        print(f"    utilization={status['utilization']}")
+        if resp.status_code == 200:
+            fstatus = resp.json()
+            print(f"    base_rpm={fstatus.get('base_rpm')}")
+            print(f"    effective_rpm={fstatus.get('effective_rpm')}")
+            print(f"    scaling_active={fstatus.get('scaling_active')}")
+            print(f"    utilization={fstatus.get('utilization')}")
+        else:
+            print(f"    (could not fetch: {resp.status_code})")
 
         # ─── 8. Hallucination details ───
         if hallucinated:
@@ -501,7 +592,13 @@ async def main():
             verdicts.append(f"❌ No scaling events recorded")
             passed = False
         else:
-            verdicts.append(f"✅ {events['total']} scaling events recorded")
+            verdicts.append(f"✅ {events_total} scaling events recorded")
+
+        if queue_stats["queued"] > 0:
+            if queue_stats["poll_fail"] == 0:
+                verdicts.append(f"✅ Queue: {queue_stats['queued']} queued, {queue_stats['poll_success']} resolved, 0 lost")
+            else:
+                verdicts.append(f"⚠️  Queue: {queue_stats['poll_fail']} failed out of {queue_stats['queued']} queued")
 
         for v in verdicts:
             print(f"  {v}")
@@ -543,6 +640,11 @@ async def main():
                 "p95_ms": round(latencies[int(len(latencies) * 0.95)], 0) if latencies else None,
                 "max_ms": round(max(latencies), 0) if latencies else None,
                 "avg_ms": round(sum(latencies) / len(latencies), 0) if latencies else None,
+            },
+            "queue": {
+                "queued": queue_stats["queued"],
+                "resolved": queue_stats["poll_success"],
+                "failed": queue_stats["poll_fail"],
             },
             "passed": passed,
         }

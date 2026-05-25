@@ -108,6 +108,12 @@ Enable models directly from the Bonito UI. Handles Bedrock entitlements, Azure d
 ### 18. AI Copilot
 Groq-powered operations assistant with org-aware context and function-calling tools.
 
+### 19. Agent HPA (Autoscaling)
+Elastic agent capacity scaling. When an agent's RPM utilization crosses a configurable threshold (default 60%), the effective rate limit doubles automatically in Redis. Scales back down via background loop when utilization drops below 30%. Configurable via API, CLI (`bonito agents scaling`), and bonito.yaml `scaling` block. Enterprise+ only.
+
+### 20. Overflow Queue
+When agents hit their RPM ceiling — even after autoscaling to max_replicas — requests are queued rather than dropped. Callers receive 202 Accepted with a ticket_id and poll_url. Background drainer processes queued requests as capacity frees up. Max depth 500 per agent, results stored in Redis for 1 hour. CLI: `bonito agents scaling queue <agent-id>`.
+
 ## Supported AI Providers
 
 | Provider | Models | Features |

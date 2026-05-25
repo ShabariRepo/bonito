@@ -25,6 +25,7 @@ RATE_LIMIT_TIERS = [
     ("/api/providers/connect", 10, 60),
     ("/api/routing/invoke", 20, 60),
     ("/api/providers/", 60, 60),  # page loads use ~7 reqs; allow headroom for updates
+    ("/api/agents/", 500, 60),   # agent endpoints have their own per-agent RPM limiter
 ]
 DEFAULT_RATE_LIMIT = (100, 60)  # requests, window
 

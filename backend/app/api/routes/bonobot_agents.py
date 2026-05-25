@@ -10,6 +10,7 @@ from uuid import UUID
 import uuid as uuid_lib
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, func, and_, desc, or_, case, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -40,7 +41,7 @@ from app.schemas.bonobot import (
     AgentExecuteRequest,
     AgentExecuteResponse,
 )
-from app.services.agent_engine import AgentEngine
+from app.services.agent_engine import AgentEngine, AgentRateLimitError
 
 router = APIRouter()
 agent_engine = AgentEngine()
@@ -387,6 +388,8 @@ async def execute_agent(
             detail="Agent is not active"
         )
     
+    redis = await get_redis()
+
     try:
         # Execute via agent engine with user context
         result = await agent_engine.execute(
@@ -394,7 +397,7 @@ async def execute_agent(
             message=request.message,
             session_id=request.session_id,
             db=db,
-            redis=await get_redis(),
+            redis=redis,
             user_id=current_user.id
         )
 
@@ -443,7 +446,35 @@ async def execute_agent(
             security=result.security,
             created_at=agent.last_active_at or agent.updated_at
         )
-        
+
+    except AgentRateLimitError:
+        # ── Overflow queue: enqueue instead of dropping ──
+        if agent.autoscale_enabled:
+            from app.services.agent_queue import enqueue_request
+            queue_result = await enqueue_request(
+                agent_id=agent_id,
+                org_id=current_user.org_id,
+                user_id=current_user.id,
+                message=request.message,
+                session_id=request.session_id,
+                parent_agent_id=request.parent_agent_id,
+                redis=redis,
+            )
+            if queue_result.get("queued"):
+                return JSONResponse(
+                    status_code=202,
+                    content={
+                        "status": "queued",
+                        "ticket_id": queue_result["ticket_id"],
+                        "position": queue_result["position"],
+                        "estimated_wait_seconds": queue_result["estimated_wait_seconds"],
+                        "poll_url": f"/api/agents/{agent_id}/queue/{queue_result['ticket_id']}",
+                        "message": f"Agent at capacity. Request queued at position {queue_result['position']}.",
+                    },
+                )
+        # No queue or queue full — return 429
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -451,6 +482,33 @@ async def execute_agent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Agent execution failed: {str(e)}"
         )
+
+
+@router.get("/agents/{agent_id}/queue/{ticket_id}")
+async def get_queue_status_endpoint(
+    agent_id: UUID,
+    ticket_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Poll status of a queued agent execution request."""
+    from app.services.agent_queue import get_queue_status
+    redis = await get_redis()
+    result = await get_queue_status(ticket_id, redis)
+    if result["status"] == "not_found":
+        raise HTTPException(status_code=404, detail="Queue ticket not found")
+    return result
+
+
+@router.get("/agents/{agent_id}/queue")
+async def get_agent_queue_info(
+    agent_id: UUID,
+    current_user: User = Depends(get_current_user),
+):
+    """Get queue depth and status for an agent."""
+    from app.services.agent_queue import get_agent_queue_depth
+    redis = await get_redis()
+    depth = await get_agent_queue_depth(agent_id, redis)
+    return {"agent_id": str(agent_id), "queue_depth": depth}
 
 
 @router.get("/agents/{agent_id}/sessions", response_model=List[AgentSessionResponse])
