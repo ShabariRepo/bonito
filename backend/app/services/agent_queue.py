@@ -180,7 +180,8 @@ async def _drain_agent_queue(agent_id_str: str, redis: Redis):
                     continue
 
                 # Execute via agent engine
-                from app.services.agent_engine import agent_engine
+                from app.services.agent_engine import AgentEngine
+                agent_engine = AgentEngine()
                 user_id_str = req_data.get("user_id", "")
                 session_id_str = req_data.get("session_id", "")
 
