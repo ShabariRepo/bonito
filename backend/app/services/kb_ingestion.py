@@ -332,6 +332,21 @@ class EmbeddingGenerator:
         "cohere.embed-v4:0": 1024,
     }
 
+    # Models that don't accept a 'dimensions' parameter at all —
+    # they always return their native dimension. Passing dimensions
+    # causes Bedrock 400 "Malformed input request" errors.
+    SKIP_DIMENSIONS_PARAM = {
+        "amazon.titan-embed-text-v2:0",  # native 1024, Bedrock rejects dimensions param via LiteLLM
+        "amazon.titan-embed-text-v1",    # native 1536
+        "amazon.titan-embed-g1-text-02", # native 1536
+        "amazon.titan-embed-image-v1",
+        "amazon.titan-embed-image-v1:0",
+        "cohere.embed-english-v3",
+        "cohere.embed-english-v3:0:512",
+        "cohere.embed-multilingual-v3",
+        "cohere.embed-multilingual-v3:0:512",
+    }
+
     def __init__(self, org_id: uuid.UUID):
         self.org_id = org_id
         self._use_platform_key = False  # set True when falling back
@@ -450,6 +465,15 @@ class EmbeddingGenerator:
                 f"No embedding model available for org {self.org_id}. "
                 f"Connect a provider with embedding support (OpenAI, GCP Vertex AI, or AWS Bedrock)."
             )
+
+        # Some models (Bedrock Titan, Cohere) don't accept a dimensions param
+        # at all — passing it causes 400 "Malformed input request" errors.
+        # Strip it entirely for these models.
+        if dimensions and model in self.SKIP_DIMENSIONS_PARAM:
+            logger.info(
+                f"Model {model} does not accept dimensions param — using native output"
+            )
+            dimensions = None
 
         # Clamp dimensions to model's max to prevent pgvector insert errors
         # (e.g. GCP text-embedding-005 maxes at 768 but KB default is 1024)
