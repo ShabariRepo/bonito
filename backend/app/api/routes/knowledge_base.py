@@ -12,7 +12,7 @@ from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, and_, desc, func
+from sqlalchemy import select, and_, desc, func, delete as sa_delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -202,9 +202,9 @@ async def delete_knowledge_base(
     """Delete a knowledge base and all its documents and chunks."""
     await _require_ai_context(db, user)
     result = await db.execute(
-        select(KnowledgeBase)
-        .options(selectinload(KnowledgeBase.documents).selectinload(KBDocument.chunks), selectinload(KnowledgeBase.chunks))
-        .where(and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id))
+        select(KnowledgeBase).where(
+            and_(KnowledgeBase.id == kb_id, KnowledgeBase.org_id == user.org_id)
+        )
     )
     kb = result.scalar_one_or_none()
     if not kb:
@@ -221,9 +221,13 @@ async def delete_knowledge_base(
     except Exception as e:
         logger.warning(f"GCS cleanup failed for KB {kb_id} (continuing with DB delete): {e}")
 
-    await db.delete(kb)
+    # Delete via raw SQL to avoid loading pgvector embedding columns
+    # (SQLAlchemy ARRAY(Float) can't deserialize pgvector vector type OID)
+    await db.execute(sa_delete(KBChunk).where(KBChunk.knowledge_base_id == kb_id))
+    await db.execute(sa_delete(KBDocument).where(KBDocument.knowledge_base_id == kb_id))
+    await db.execute(sa_delete(KnowledgeBase).where(KnowledgeBase.id == kb_id))
     await db.flush()
-    
+
     logger.info(f"Deleted knowledge base {kb_id} ({kb_name}) for org {user.org_id}")
 
 
@@ -476,9 +480,9 @@ async def delete_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
 
     result = await db.execute(
-        select(KBDocument)
-        .options(selectinload(KBDocument.chunks))
-        .where(and_(KBDocument.id == doc_id, KBDocument.knowledge_base_id == kb_id))
+        select(KBDocument).where(
+            and_(KBDocument.id == doc_id, KBDocument.knowledge_base_id == kb_id)
+        )
     )
     doc = result.scalar_one_or_none()
     if not doc:
@@ -494,15 +498,17 @@ async def delete_document(
             await gcs_delete(user.org_id, kb_id, doc.id, doc.file_name)
         except Exception as e:
             logger.warning(f"GCS delete failed for doc {doc_id} (continuing with DB delete): {e}")
-    
-    await db.delete(doc)
+
+    # Delete chunks via SQL to avoid loading pgvector embedding columns
+    await db.execute(sa_delete(KBChunk).where(KBChunk.document_id == doc_id))
+    await db.execute(sa_delete(KBDocument).where(KBDocument.id == doc_id))
     await db.flush()
-    
+
     # Update KB counters
     kb.document_count = max(0, (kb.document_count or 0) - 1)
     kb.chunk_count = max(0, (kb.chunk_count or 0) - chunk_count)
     await db.flush()
-    
+
     logger.info(f"Deleted document {doc_id} ({doc_name}) from KB {kb_id}")
 
 
