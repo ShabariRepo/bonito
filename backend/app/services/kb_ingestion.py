@@ -313,7 +313,7 @@ class EmbeddingGenerator:
     they only have Groq or Anthropic (which don't offer embedding endpoints).
     """
 
-    EMBEDDING_TIMEOUT = 30  # seconds per batch — fail fast, don't hang
+    EMBEDDING_TIMEOUT = 90  # seconds per batch — Bedrock can be slow under rate limits
     PLATFORM_MODEL = "text-embedding-3-small"  # OpenAI, $0.02/1M tokens
     PLATFORM_DIMENSIONS = 768  # Match pgvector column width
 
