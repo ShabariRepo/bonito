@@ -114,6 +114,9 @@ Elastic agent capacity scaling. When an agent's RPM utilization crosses a config
 ### 20. Overflow Queue
 When agents hit their RPM ceiling — even after autoscaling to max_replicas — requests are queued rather than dropped. Callers receive 202 Accepted with a ticket_id and poll_url. Background drainer processes queued requests as capacity frees up. Max depth 500 per agent, results stored in Redis for 1 hour. CLI: `bonito agents scaling queue <agent-id>`.
 
+### 21. Token Efficiency Metrics
+Gateway dashboard shows cost per 1K tokens at three levels: overall stat card, per-model breakdown, and per-request in the logs table. Enables side-by-side comparison of model cost-effectiveness across providers.
+
 ## Supported AI Providers
 
 | Provider | Models | Features |
