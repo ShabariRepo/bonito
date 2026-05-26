@@ -281,7 +281,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── Token Efficiency ── */}
-      {efficiency && (efficiency.by_model?.length > 0 || efficiency.by_provider?.length > 0) && (
+      {efficiency && (
         <>
           <div className="flex items-center gap-4 pt-4">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
@@ -326,7 +326,11 @@ export default function AnalyticsPage() {
                     Efficiency by Model
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent>
+                  {(!efficiency.by_model || efficiency.by_model.length === 0) ? (
+                    <div className="text-center text-muted-foreground py-8">No model efficiency data yet. Route requests through the gateway to start tracking.</div>
+                  ) : (
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                   {efficiency.by_model?.map((m: any, i: number) => {
                     const maxCost = Math.max(...efficiency.by_model.map((x: any) => x.cost_per_1k_tokens));
                     const minCost = Math.min(...efficiency.by_model.map((x: any) => x.cost_per_1k_tokens));
@@ -373,6 +377,8 @@ export default function AnalyticsPage() {
                       </motion.div>
                     );
                   })}
+                  </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -386,7 +392,11 @@ export default function AnalyticsPage() {
                     Efficiency by Provider
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent>
+                  {(!efficiency.by_provider || efficiency.by_provider.length === 0) ? (
+                    <div className="text-center text-muted-foreground py-8">No provider efficiency data yet.</div>
+                  ) : (
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                   {efficiency.by_provider?.map((p: any, i: number) => {
                     const maxCost = Math.max(...efficiency.by_provider.map((x: any) => x.cost_per_1k_tokens));
                     const minCost = Math.min(...efficiency.by_provider.map((x: any) => x.cost_per_1k_tokens));
@@ -432,6 +442,8 @@ export default function AnalyticsPage() {
                       </motion.div>
                     );
                   })}
+                  </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
