@@ -213,4 +213,60 @@ _Gateway runs in customer's own cloud. Data never leaves their network._
 
 ---
 
+---
+
+## Agent-Level Autoscaling (HPA) — Phase 19
+
+_Added: 2026-05-25_
+
+Separate from infrastructure scaling, agent-level HPA scales an individual agent's capacity based on utilization. This is critical for customers like Bulletproof (50K tickets/month) where a single Triage Router agent can hit its RPM ceiling during surges.
+
+### Phase 1: Virtual Scaling (Implemented)
+
+No replica agents. Dynamically adjusts the effective `rate_limit_rpm` in Redis.
+
+**How it works:**
+1. On every request, `_check_rate_limit()` checks utilization = `current_count / effective_rpm`
+2. If utilization >= `capacity_threshold` (default 60%), effective RPM doubles in Redis
+3. Hard cap: `max_replicas × base_rpm` (default 5 × 30 = 150 RPM)
+4. Background loop (30s, advisory lock 839272) scales down when utilization < 30% for 5 min
+5. Redis key `agent_hpa:rpm:{agent_id}` auto-expires after 5 min if no traffic
+
+**Redis keys:**
+| Key | TTL | Purpose |
+|-----|-----|---------|
+| `agent_hpa:rpm:{agent_id}` | 300s | Current effective RPM |
+| `agent_hpa:scaled_at:{agent_id}` | 600s | Last scale event timestamp |
+
+**Configuration (bonito.yaml):**
+```yaml
+agents:
+  triage-router:
+    rate_limit_rpm: 30
+    scaling:
+      enabled: true
+      capacity_threshold: 0.6
+      scale_down_threshold: 0.3
+      max_replicas: 5
+      mode: virtual
+```
+
+**CLI:** `bonito agents scaling status|configure|events|manual <agent-id>`
+
+**Feature gate:** Enterprise+ (`agent_hpa`)
+
+### Phase 2: Physical Replicas (Planned)
+
+For when upstream provider rate limits are the bottleneck (not just Bonito's RPM guard).
+
+- Create clone agent rows with identical config
+- Load-balance requests across primary + replicas (least-loaded)
+- Session affinity (sticky sessions per session_id)
+- Graceful scale-down (drain active sessions before deleting replica)
+- Replicas can route through different provider credentials
+
+**Not yet implemented.** Phase 1 covers 90% of use cases.
+
+---
+
 _This is a living doc. Update as architecture evolves._

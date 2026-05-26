@@ -75,7 +75,7 @@ bonito/
 5. Anthropic (direct)
 6. Groq (fast OSS inference)
 
-## Core Features (All 18 Phases Complete)
+## Core Features (19 Phases)
 
 1. **Multi-cloud gateway** — OpenAI-compatible API proxy (`POST /v1/chat/completions`), LiteLLM-backed, `bn-` prefix API keys
 2. **Auto cross-region inference** — Bedrock models transparently routed via `us.` prefix when needed
@@ -95,6 +95,8 @@ bonito/
 16. **Model playground** — Live testing, parameter tuning, side-by-side comparison (max 4)
 17. **One-click model activation** — Enable models from Bonito UI (Bedrock entitlements, Azure deployments, GCP API enable)
 18. **AI Copilot** — Groq-powered operations assistant with org-aware context and function-calling tools
+19. **Agent HPA (Autoscaling)** — Elastic agent capacity scaling. Virtual mode doubles effective RPM in Redis when utilization crosses threshold (default 60%). Scale-down via background loop (30s). Configurable via API, CLI (`bonito agents scaling`), and bonito.yaml `scaling` block. Enterprise+ only. Migration 043.
+20. **Overflow Queue** — When agents hit RPM ceiling (even after HPA max_replicas), requests are queued not dropped. Returns 202 Accepted with ticket_id + poll_url. Background drainer (2s interval, batch 3) processes queued requests as capacity frees up. Max depth 500/agent, results in Redis (1h TTL). CLI: `bonito agents scaling queue`. Requires `autoscale_enabled: true`.
 
 ## Pricing Tiers
 
@@ -204,3 +206,5 @@ cd frontend && vercel --prod
 - VectorBoost: Wire compression pipeline into KB ingestion (currently endpoint-only, not functional)
 - Vault org-namespacing: Move credential paths from `providers/{provider_id}` to `providers/{org_id}/{provider_id}` for proper tenant isolation
 - ~~Gateway Vault fallback~~ ✅ Done (2026-05-24): `_get_provider_credentials()` now uses `_get_provider_secrets()` with Vault → encrypted DB fallback chain
+- ~~Agent HPA~~ ✅ Done (2026-05-25): Phase 1 virtual scaling — reactive scale-up in `_check_rate_limit`, background scale-down loop (30s, advisory lock 839272). Agent model gains `autoscale_enabled`, `autoscale_config`, `primary_agent_id`, `replica_index`. New `agent_scaling_events` audit table (migration 043). API endpoints: `GET/POST /agents/{id}/scaling/*`. CLI: `bonito agents scaling status/configure/events/manual`. YAML: `scaling` block in agent config. Feature-gated to Enterprise+ (`agent_hpa`). Phase 2 (physical replicas with load balancer) planned but not yet built.
+- **Overflow queue (2026-05-25):** Redis-backed FIFO queue per agent (`agent_queue.py`). When `_check_rate_limit` raises `AgentRateLimitError`, execute endpoint enqueues and returns 202 Accepted with ticket_id + poll_url. Background drainer (2s interval, batch 3) retries queued requests as RPM capacity frees up. Poll via `GET /agents/{id}/queue/{ticket_id}`. Queue depth via `GET /agents/{id}/queue`. CLI: `bonito agents scaling queue <id>`. Max depth 500, result TTL 1h. Only active for agents with `autoscale_enabled: true`. IP rate limit for `/api/agents/` raised to 500/60s to avoid middleware interference.

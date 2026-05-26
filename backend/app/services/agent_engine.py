@@ -59,6 +59,23 @@ from app.services.memwright_service import MemwrightService
 
 logger = logging.getLogger(__name__)
 
+
+class AgentRateLimitError(Exception):
+    """Raised when an agent exceeds its RPM limit.
+
+    Separate from HTTPException so the route handler can intercept it
+    for queue-eligible agents before the global exception handler
+    converts it to a JSON response.
+    """
+
+    def __init__(self, agent_name: str, effective_rpm: int):
+        self.agent_name = agent_name
+        self.effective_rpm = effective_rpm
+        super().__init__(
+            f"Rate limit exceeded. Agent {agent_name} allows {effective_rpm} requests per minute."
+        )
+
+
 # Maximum recursion depth for agent invocations (prevents infinite loops)
 MAX_AGENT_DEPTH = 3
 
@@ -125,8 +142,8 @@ class AgentEngine:
     ) -> AgentRunResult:
         """Run a single agent turn with comprehensive security controls."""
         
-        # SECURITY STEP 1: Rate limiting check
-        await self._check_rate_limit(agent, redis)
+        # SECURITY STEP 1: Rate limiting check (with HPA autoscale)
+        _rl_remaining, _rl_effective_rpm, _rl_scaling_active = await self._check_rate_limit(agent, redis)
         
         # SECURITY STEP 2: Budget enforcement (hard stop)
         await self._enforce_budget_limit(agent, db)
@@ -735,13 +752,16 @@ class AgentEngine:
             budget_remaining = project.budget_monthly - project.budget_spent
             budget_percent_used = project.budget_spent / project.budget_monthly
         
-        # Get current rate limit remaining
+        # Get current rate limit remaining (HPA-aware)
+        from app.services.agent_autoscaler import get_effective_rpm
         current_minute = int(time.time() // 60)
         key = f"agent_rate:{agent.id}:{current_minute}"
         current_count = await redis.get(key)
         current_count = int(current_count) if current_count else 0
-        rate_limit_remaining = max(0, agent.rate_limit_rpm - current_count)
-        
+        effective_rpm = await get_effective_rpm(agent, redis)
+        rate_limit_remaining = max(0, effective_rpm - current_count)
+        scaling_active = effective_rpm > agent.rate_limit_rpm
+
         return AgentRunResult(
             content=assistant_message.get("content"),
             tokens=total_tokens,
@@ -755,7 +775,9 @@ class AgentEngine:
                 budget_percent_used=budget_percent_used,
                 input_sanitized=False,  # Will be updated by caller
                 audit_id=audit_id,
-                rate_limit_remaining=rate_limit_remaining
+                rate_limit_remaining=rate_limit_remaining,
+                effective_rpm=effective_rpm,
+                scaling_active=scaling_active,
             )
         )
 
@@ -1498,29 +1520,43 @@ class AgentEngine:
 
     # ─── SECURITY METHODS ───
 
-    async def _check_rate_limit(self, agent: Agent, redis: Redis) -> int:
-        """Enforce per-agent rate limiting. Returns remaining requests."""
-        from fastapi import HTTPException
-        
+    async def _check_rate_limit(self, agent: Agent, redis: Redis) -> tuple[int, int, bool]:
+        """Enforce per-agent rate limiting with autoscale support.
+
+        Returns (remaining, effective_rpm, scaling_active).
+        Raises AgentRateLimitError (not HTTPException) so the route handler
+        can intercept it for queue-eligible agents before the global
+        exception handler converts it to a JSON response.
+        """
+        from app.services.agent_autoscaler import get_effective_rpm, maybe_scale_up
+
         current_minute = int(time.time() // 60)
         key = f"agent_rate:{agent.id}:{current_minute}"
-        
+
         current_count = await redis.get(key)
         current_count = int(current_count) if current_count else 0
-        
-        if current_count >= agent.rate_limit_rpm:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Agent {agent.name} allows {agent.rate_limit_rpm} requests per minute."
+
+        # Get effective RPM (may be scaled up from base)
+        effective_rpm = await get_effective_rpm(agent, redis)
+
+        # Check if we need to scale up (reactive — runs on every request)
+        effective_rpm = await maybe_scale_up(agent, current_count, effective_rpm, redis)
+
+        scaling_active = effective_rpm > agent.rate_limit_rpm
+
+        if current_count >= effective_rpm:
+            raise AgentRateLimitError(
+                agent_name=agent.name,
+                effective_rpm=effective_rpm,
             )
-        
+
         # Increment counter
         pipeline = redis.pipeline()
         pipeline.incr(key)
         pipeline.expire(key, 60)  # Expire after 1 minute
         await pipeline.execute()
-        
-        return agent.rate_limit_rpm - current_count - 1
+
+        return effective_rpm - current_count - 1, effective_rpm, scaling_active
 
     async def _enforce_budget_limit(self, agent: Agent, db: AsyncSession):
         """Hard budget enforcement - 402 error when exceeded."""

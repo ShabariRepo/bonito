@@ -22,6 +22,7 @@ import {
   BarChart3,
   ArrowRight,
   Network,
+  Gauge,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -309,12 +310,24 @@ export default function GatewayPage() {
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Total Requests", value: usage?.total_requests?.toLocaleString() ?? "0", icon: Activity, color: "text-blue-500" },
           { label: "Input Tokens", value: (usage?.total_input_tokens ?? 0).toLocaleString(), icon: Zap, color: "text-amber-500" },
           { label: "Output Tokens", value: (usage?.total_output_tokens ?? 0).toLocaleString(), icon: Zap, color: "text-green-500" },
           { label: "Total Cost", value: `$${(usage?.total_cost ?? 0).toFixed(4)}`, icon: DollarSign, color: "text-violet-500" },
+          {
+            label: "Token Efficiency",
+            value: (() => {
+              const outTok = usage?.total_output_tokens ?? 0;
+              const cost = usage?.total_cost ?? 0;
+              if (cost === 0 || outTok === 0) return "—";
+              const costPer1k = (cost / outTok) * 1000;
+              return `$${costPer1k < 0.01 ? costPer1k.toFixed(4) : costPer1k.toFixed(2)}/1K out`;
+            })(),
+            icon: Gauge,
+            color: "text-cyan-500",
+          },
         ].map((stat) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Card>
@@ -340,16 +353,24 @@ export default function GatewayPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {usage.by_model.map((m) => (
-                <div key={m.model} className="flex items-center justify-between text-sm">
-                  <span className="font-mono text-foreground">{m.model}</span>
-                  <div className="flex items-center gap-4 text-muted-foreground">
-                    <span>{m.requests.toLocaleString()} reqs</span>
-                    <span>{m.tokens.toLocaleString()} tokens</span>
-                    <span className="text-violet-500 font-medium">${m.cost.toFixed(4)}</span>
+              {usage.by_model.map((m) => {
+                const eff = m.tokens > 0 && m.cost > 0 ? (m.cost / m.tokens) * 1000 : null;
+                return (
+                  <div key={m.model} className="flex items-center justify-between text-sm">
+                    <span className="font-mono text-foreground">{m.model}</span>
+                    <div className="flex items-center gap-4 text-muted-foreground">
+                      <span>{m.requests.toLocaleString()} reqs</span>
+                      <span>{m.tokens.toLocaleString()} tokens</span>
+                      <span className="text-violet-500 font-medium">${m.cost.toFixed(4)}</span>
+                      {eff !== null && (
+                        <span className="text-cyan-500 font-medium" title="Cost per 1K tokens">
+                          ${eff < 0.01 ? eff.toFixed(4) : eff.toFixed(2)}/1K
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -465,6 +486,7 @@ export default function GatewayPage() {
                     <th className="pb-2 font-medium">Provider</th>
                     <th className="pb-2 font-medium">Tokens</th>
                     <th className="pb-2 font-medium">Cost</th>
+                    <th className="pb-2 font-medium">$/1K tok</th>
                     <th className="pb-2 font-medium">Latency</th>
                     <th className="pb-2 font-medium">Status</th>
                     <th className="pb-2 font-medium">Time</th>
@@ -481,6 +503,14 @@ export default function GatewayPage() {
                         {log.input_tokens + log.output_tokens}
                       </td>
                       <td className="py-2 text-xs text-violet-500">${log.cost.toFixed(6)}</td>
+                      <td className="py-2 text-xs text-cyan-500">
+                        {(() => {
+                          const total = log.input_tokens + log.output_tokens;
+                          if (total === 0 || log.cost === 0) return "—";
+                          const eff = (log.cost / total) * 1000;
+                          return `$${eff < 0.01 ? eff.toFixed(4) : eff.toFixed(2)}`;
+                        })()}
+                      </td>
                       <td className="py-2 text-xs text-muted-foreground">{log.latency_ms}ms</td>
                       <td className="py-2">
                         <Badge
