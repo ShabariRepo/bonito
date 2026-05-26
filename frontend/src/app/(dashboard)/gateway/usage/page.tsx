@@ -421,7 +421,9 @@ export default function GatewayUsagePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ModelBreakdown data={usage?.by_model || []} />
+            <div className="max-h-[500px] overflow-y-auto pr-1">
+              <ModelBreakdown data={usage?.by_model || []} />
+            </div>
           </CardContent>
         </Card>
       </div>
