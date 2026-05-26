@@ -1,40 +1,42 @@
 {
-  "test_time": "2026-05-25T05:37:10.574900",
-  "duration_seconds": 109.3,
+  "test_time": "2026-05-25T08:30:17.059700",
+  "duration_seconds": 15127.7,
   "total_tickets": 100,
-  "successful": 100,
+  "successful": 50,
   "rate_limited": 0,
-  "errors": 0,
+  "errors": 50,
   "quality": {
-    "good": 100,
+    "good": 50,
     "empty": 0,
     "hallucinated": 0,
-    "error": 0
+    "error": 50
   },
   "routing": {
-    "correct": 89,
-    "misrouted": 0,
-    "accuracy_pct": 100.0
+    "correct": 45,
+    "misrouted": 1,
+    "accuracy_pct": 97.8
   },
   "scaling": {
-    "requests_with_scaling": 100,
-    "total_events": 43,
+    "requests_with_scaling": 50,
+    "total_events": 0,
     "effective_rpms_seen": [
-      25,
+      12,
+      24,
+      48,
       50
     ]
   },
   "latency": {
-    "min_ms": 1108.0,
-    "median_ms": 4097.0,
-    "p95_ms": 7249.0,
-    "max_ms": 27511.0,
-    "avg_ms": 4514.0
+    "min_ms": 827.0,
+    "median_ms": 3714.0,
+    "p95_ms": 6416.0,
+    "max_ms": 7291.0,
+    "avg_ms": 3763.0
   },
   "queue": {
-    "queued": 2,
-    "resolved": 2,
-    "failed": 0
+    "queued": 50,
+    "resolved": 0,
+    "failed": 50
   },
-  "passed": true
+  "passed": false
 }
