@@ -100,47 +100,71 @@ function UsageChart({ data }: { data: { date: string; requests: number; cost: nu
 function ModelBreakdown({ data }: { data: { model: string; requests: number; cost: number; tokens: number }[] }) {
   if (!data || data.length === 0) return <div className="text-center text-muted-foreground py-8">No model usage data</div>;
 
-  const sortedData = [...data].sort((a, b) => b.cost - a.cost);
-  const maxCost = Math.max(...sortedData.map(d => d.cost));
+  // Sort by efficiency (cheapest $/1K first)
+  const withEfficiency = data.map(m => ({
+    ...m,
+    costPer1k: m.tokens > 0 ? (m.cost / m.tokens) * 1000 : 0,
+  }));
+  const sortedData = [...withEfficiency].sort((a, b) => a.costPer1k - b.costPer1k);
+  const maxRate = Math.max(...sortedData.map(d => d.costPer1k));
+  const minRate = Math.min(...sortedData.filter(d => d.costPer1k > 0).map(d => d.costPer1k));
 
   return (
     <div className="space-y-4">
-      {sortedData.map((model, index) => (
-        <motion.div
-          key={model.model}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: index * 0.1 }}
-          className="p-4 bg-accent/30 rounded-lg"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <code className="text-sm font-mono font-semibold">{model.model}</code>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs">
-                {model.requests.toLocaleString()} req
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                {model.tokens.toLocaleString()} tok
-              </Badge>
-              <Badge className="bg-violet-600 text-xs">
-                ${model.cost.toFixed(6)}
-              </Badge>
+      {sortedData.map((model, index) => {
+        const isFirst = index === 0 && model.costPer1k > 0;
+        const isLast = index === sortedData.length - 1 && sortedData.length > 1;
+        const color = model.costPer1k <= minRate * 1.5
+          ? "#10b981"
+          : model.costPer1k >= maxRate * 0.7
+            ? "#ef4444"
+            : "#f59e0b";
+        const pct = maxRate > 0 ? (model.costPer1k / maxRate) * 100 : 0;
+        return (
+          <motion.div
+            key={model.model}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="p-4 bg-accent/30 rounded-lg"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <code className="text-sm font-mono font-semibold truncate">{model.model}</code>
+                {isFirst && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 whitespace-nowrap">Most Efficient</span>}
+                {isLast && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 whitespace-nowrap">Least Efficient</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {model.requests.toLocaleString()} req
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {model.tokens.toLocaleString()} tok
+                </Badge>
+                <Badge className="bg-violet-600 text-xs">
+                  ${model.cost.toFixed(6)}
+                </Badge>
+                <Badge className="text-xs" style={{ backgroundColor: `${color}22`, color }}>
+                  ${model.costPer1k < 0.01 ? model.costPer1k.toFixed(4) : model.costPer1k.toFixed(2)}/1K
+                </Badge>
+              </div>
             </div>
-          </div>
-          <div className="h-2 bg-accent rounded-full overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(model.cost / maxCost) * 100}%` }}
-              transition={{ duration: 0.8, delay: index * 0.1 }}
-              className="h-full bg-gradient-to-r from-violet-600 to-violet-400"
-            />
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground mt-1">
-            <span>{((model.cost / maxCost) * 100).toFixed(1)}% of total cost</span>
-            <span>{(model.cost / model.requests).toFixed(6)} per request</span>
-          </div>
-        </motion.div>
-      ))}
+            <div className="h-2 bg-accent rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 0.8, delay: index * 0.1 }}
+                className="h-full rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span style={{ color }}>{model.costPer1k < 0.01 ? model.costPer1k.toFixed(4) : model.costPer1k.toFixed(2)} per 1K tokens</span>
+              <span>{(model.cost / model.requests).toFixed(6)} per request</span>
+            </div>
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -393,7 +417,7 @@ export default function GatewayUsagePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Activity className="h-4 w-4" />
-              Usage by Model
+              Model Efficiency Ranking
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -423,6 +447,7 @@ export default function GatewayUsagePage() {
                     <th className="pb-2 font-medium">Provider</th>
                     <th className="pb-2 font-medium">Tokens</th>
                     <th className="pb-2 font-medium">Cost</th>
+                    <th className="pb-2 font-medium">$/1K tok</th>
                     <th className="pb-2 font-medium">Latency</th>
                     <th className="pb-2 font-medium">Status</th>
                   </tr>
@@ -441,6 +466,14 @@ export default function GatewayUsagePage() {
                         {(log.input_tokens + log.output_tokens).toLocaleString()}
                       </td>
                       <td className="py-2 text-xs text-violet-500">${log.cost.toFixed(6)}</td>
+                      <td className="py-2 text-xs text-cyan-500">
+                        {(() => {
+                          const total = log.input_tokens + log.output_tokens;
+                          if (total === 0 || log.cost === 0) return "—";
+                          const eff = (log.cost / total) * 1000;
+                          return `$${eff < 0.01 ? eff.toFixed(4) : eff.toFixed(2)}`;
+                        })()}
+                      </td>
                       <td className="py-2 text-xs text-muted-foreground">{log.latency_ms}ms</td>
                       <td className="py-2">
                         <Badge

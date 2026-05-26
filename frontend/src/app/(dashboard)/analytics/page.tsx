@@ -16,6 +16,7 @@ import {
   TrendingDown,
   Minus,
   Zap,
+  Gauge,
 } from "lucide-react";
 import { apiRequest } from "@/lib/auth";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -112,8 +113,9 @@ export default function AnalyticsPage() {
   const { data: usage, isLoading: uLoad, mutate: mutateUsage } = useAPI<any>(`/api/analytics/usage?period=${period}`);
   const { data: costs, isLoading: cLoad } = useAPI<any>("/api/analytics/costs");
   const { data: trends, isLoading: tLoad } = useAPI<any>("/api/analytics/trends");
+  const { data: efficiency, isLoading: eLoad } = useAPI<any>("/api/analytics/efficiency");
 
-  const loading = oLoad || uLoad || cLoad || tLoad;
+  const loading = oLoad || uLoad || cLoad || tLoad || eLoad;
   const error = oErr ? "Failed to load analytics data. Please check your connection and try again." : null;
   const loadAnalytics = () => { mutateOverview(); mutateUsage(); };
 
@@ -277,6 +279,165 @@ export default function AnalyticsPage() {
           </Card>
         </motion.div>
       </div>
+
+      {/* ── Token Efficiency ── */}
+      {efficiency && (efficiency.by_model?.length > 0 || efficiency.by_provider?.length > 0) && (
+        <>
+          <div className="flex items-center gap-4 pt-4">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+            <div className="flex items-center gap-2 text-cyan-500">
+              <Gauge className="h-5 w-5" />
+              <span className="text-sm font-semibold uppercase tracking-wider">Token Efficiency</span>
+            </div>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+          </div>
+
+          {/* Overall efficiency stat */}
+          {efficiency.overall && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="border-cyan-500/20">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Overall Cost per 1K Tokens</p>
+                      <p className="text-3xl font-bold text-cyan-500 mt-1">
+                        ${efficiency.overall.cost_per_1k_tokens < 0.01
+                          ? efficiency.overall.cost_per_1k_tokens.toFixed(4)
+                          : efficiency.overall.cost_per_1k_tokens.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {efficiency.overall.total_tokens.toLocaleString()} total tokens · ${efficiency.overall.total_cost.toFixed(4)} total cost
+                      </p>
+                    </div>
+                    <Gauge className="h-10 w-10 text-cyan-500 opacity-50" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Efficiency by Model */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-cyan-500" />
+                    Efficiency by Model
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {efficiency.by_model?.map((m: any, i: number) => {
+                    const maxCost = Math.max(...efficiency.by_model.map((x: any) => x.cost_per_1k_tokens));
+                    const minCost = Math.min(...efficiency.by_model.map((x: any) => x.cost_per_1k_tokens));
+                    const isFirst = i === 0;
+                    const isLast = i === efficiency.by_model.length - 1 && efficiency.by_model.length > 1;
+                    const pct = maxCost > 0 ? (m.cost_per_1k_tokens / maxCost) * 100 : 0;
+                    // Color: green for cheapest, amber for mid, red for expensive
+                    const color = m.cost_per_1k_tokens <= minCost * 1.5
+                      ? "#10b981"
+                      : m.cost_per_1k_tokens >= maxCost * 0.7
+                        ? "#ef4444"
+                        : "#f59e0b";
+                    return (
+                      <motion.div
+                        key={`${m.model}-${m.provider}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 + i * 0.08 }}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <code className="text-xs font-mono truncate">{m.model}</code>
+                            {isFirst && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Most Efficient</span>}
+                            {isLast && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Least Efficient</span>}
+                          </div>
+                          <span className="font-semibold whitespace-nowrap" style={{ color }}>
+                            ${m.cost_per_1k_tokens < 0.01 ? m.cost_per_1k_tokens.toFixed(4) : m.cost_per_1k_tokens.toFixed(2)}/1K
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-accent/50 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: color }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, delay: 0.2 + i * 0.08 }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{m.provider}</span>
+                          <span>{m.requests.toLocaleString()} reqs · {m.total_tokens.toLocaleString()} tok</span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Efficiency by Provider */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Gauge className="h-4 w-4 text-cyan-500" />
+                    Efficiency by Provider
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {efficiency.by_provider?.map((p: any, i: number) => {
+                    const maxCost = Math.max(...efficiency.by_provider.map((x: any) => x.cost_per_1k_tokens));
+                    const minCost = Math.min(...efficiency.by_provider.map((x: any) => x.cost_per_1k_tokens));
+                    const isFirst = i === 0;
+                    const isLast = i === efficiency.by_provider.length - 1 && efficiency.by_provider.length > 1;
+                    const pct = maxCost > 0 ? (p.cost_per_1k_tokens / maxCost) * 100 : 0;
+                    const color = p.cost_per_1k_tokens <= minCost * 1.5
+                      ? "#10b981"
+                      : p.cost_per_1k_tokens >= maxCost * 0.7
+                        ? "#ef4444"
+                        : "#f59e0b";
+                    return (
+                      <motion.div
+                        key={p.provider}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + i * 0.08 }}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{p.provider}</span>
+                            {isFirst && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Cheapest</span>}
+                            {isLast && <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Most Expensive</span>}
+                          </div>
+                          <span className="font-semibold whitespace-nowrap" style={{ color }}>
+                            ${p.cost_per_1k_tokens < 0.01 ? p.cost_per_1k_tokens.toFixed(4) : p.cost_per_1k_tokens.toFixed(2)}/1K
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-accent/50 overflow-hidden">
+                          <motion.div
+                            className="h-full rounded-full"
+                            style={{ backgroundColor: color }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, delay: 0.3 + i * 0.08 }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{p.requests.toLocaleString()} requests</span>
+                          <span>{p.total_tokens.toLocaleString()} tokens · ${p.cost.toFixed(4)} total</span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </>
+      )}
 
       {/* Team usage table */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
