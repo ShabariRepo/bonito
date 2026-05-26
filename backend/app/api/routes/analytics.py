@@ -52,6 +52,15 @@ async def get_trends(
     return await analytics_service.get_trends(db, user.org_id)
 
 
+@router.get("/efficiency")
+async def get_token_efficiency(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_feature("analytics")),
+):
+    await _require_analytics(db, user)
+    return await analytics_service.get_token_efficiency(db, user.org_id)
+
+
 @router.get("/digest")
 async def get_digest(
     db: AsyncSession = Depends(get_db),

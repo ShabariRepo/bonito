@@ -474,5 +474,92 @@ class UsageAnalytics:
         }
 
 
+    async def get_token_efficiency(self, db: AsyncSession, org_id) -> dict:
+        """Token efficiency breakdown by model and by provider."""
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+
+        # By model
+        model_rows = await db.execute(
+            select(
+                GatewayRequest.model_used,
+                GatewayRequest.provider,
+                func.count(GatewayRequest.id).label("requests"),
+                func.coalesce(func.sum(GatewayRequest.input_tokens), 0).label("input_tokens"),
+                func.coalesce(func.sum(GatewayRequest.output_tokens), 0).label("output_tokens"),
+                func.coalesce(func.sum(GatewayRequest.cost), 0).label("cost"),
+            ).where(
+                GatewayRequest.org_id == org_id,
+                GatewayRequest.created_at >= thirty_days_ago,
+                GatewayRequest.model_used.isnot(None),
+                GatewayRequest.status == "success",
+            ).group_by(GatewayRequest.model_used, GatewayRequest.provider)
+            .order_by(func.sum(GatewayRequest.cost).desc())
+        )
+        by_model = []
+        for row in model_rows:
+            total_tokens = int(row.input_tokens) + int(row.output_tokens)
+            cost = float(row.cost)
+            cost_per_1k = (cost / total_tokens) * 1000 if total_tokens > 0 else 0
+            by_model.append({
+                "model": row.model_used,
+                "provider": row.provider or "unknown",
+                "requests": row.requests,
+                "input_tokens": int(row.input_tokens),
+                "output_tokens": int(row.output_tokens),
+                "total_tokens": total_tokens,
+                "cost": round(cost, 6),
+                "cost_per_1k_tokens": round(cost_per_1k, 6),
+            })
+        # Sort by efficiency (cheapest first)
+        by_model.sort(key=lambda x: x["cost_per_1k_tokens"])
+
+        # By provider (aggregate)
+        prov_rows = await db.execute(
+            select(
+                GatewayRequest.provider,
+                func.count(GatewayRequest.id).label("requests"),
+                func.coalesce(func.sum(GatewayRequest.input_tokens), 0).label("input_tokens"),
+                func.coalesce(func.sum(GatewayRequest.output_tokens), 0).label("output_tokens"),
+                func.coalesce(func.sum(GatewayRequest.cost), 0).label("cost"),
+            ).where(
+                GatewayRequest.org_id == org_id,
+                GatewayRequest.created_at >= thirty_days_ago,
+                GatewayRequest.provider.isnot(None),
+                GatewayRequest.status == "success",
+            ).group_by(GatewayRequest.provider)
+            .order_by(func.sum(GatewayRequest.cost).desc())
+        )
+        by_provider = []
+        for row in prov_rows:
+            total_tokens = int(row.input_tokens) + int(row.output_tokens)
+            cost = float(row.cost)
+            cost_per_1k = (cost / total_tokens) * 1000 if total_tokens > 0 else 0
+            by_provider.append({
+                "provider": row.provider,
+                "requests": row.requests,
+                "input_tokens": int(row.input_tokens),
+                "output_tokens": int(row.output_tokens),
+                "total_tokens": total_tokens,
+                "cost": round(cost, 6),
+                "cost_per_1k_tokens": round(cost_per_1k, 6),
+            })
+        by_provider.sort(key=lambda x: x["cost_per_1k_tokens"])
+
+        # Overall
+        total_tokens_all = sum(m["total_tokens"] for m in by_model)
+        total_cost_all = sum(m["cost"] for m in by_model)
+        overall_cost_per_1k = (total_cost_all / total_tokens_all) * 1000 if total_tokens_all > 0 else 0
+
+        return {
+            "overall": {
+                "total_tokens": total_tokens_all,
+                "total_cost": round(total_cost_all, 6),
+                "cost_per_1k_tokens": round(overall_cost_per_1k, 6),
+            },
+            "by_model": by_model,
+            "by_provider": by_provider,
+        }
+
+
 # Singleton
 analytics_service = UsageAnalytics()
