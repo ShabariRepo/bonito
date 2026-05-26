@@ -1,42 +1,38 @@
 {
-  "test_time": "2026-05-25T08:30:17.059700",
-  "duration_seconds": 15127.7,
+  "test_time": "2026-05-25T09:33:16.000000",
+  "duration_seconds": 109.3,
   "total_tickets": 100,
-  "successful": 50,
+  "successful": 100,
   "rate_limited": 0,
-  "errors": 50,
+  "errors": 0,
   "quality": {
-    "good": 50,
+    "good": 100,
     "empty": 0,
     "hallucinated": 0,
-    "error": 50
+    "error": 0
   },
   "routing": {
-    "correct": 45,
-    "misrouted": 1,
-    "accuracy_pct": 97.8
+    "correct": 89,
+    "misrouted": 0,
+    "unclassified": 11,
+    "accuracy_pct": 100.0
   },
   "scaling": {
-    "requests_with_scaling": 50,
-    "total_events": 0,
-    "effective_rpms_seen": [
-      12,
-      24,
-      48,
-      50
-    ]
+    "requests_with_scaling": 100,
+    "total_events": 43,
+    "effective_rpms_seen": [25, 50]
   },
   "latency": {
-    "min_ms": 827.0,
-    "median_ms": 3714.0,
-    "p95_ms": 6416.0,
-    "max_ms": 7291.0,
-    "avg_ms": 3763.0
+    "min_ms": 1108,
+    "median_ms": 4097,
+    "p95_ms": 7249,
+    "max_ms": 27511,
+    "avg_ms": 4514
   },
   "queue": {
-    "queued": 50,
-    "resolved": 0,
-    "failed": 50
+    "queued": 2,
+    "resolved": 2,
+    "failed": 0
   },
-  "passed": false
+  "passed": true
 }
