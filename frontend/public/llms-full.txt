@@ -263,7 +263,7 @@ PATs carry your user permissions and work on both `/api/*` and `/v1/*` endpoints
 ```
 Authorization: Bearer bj-your-token-here
 ```
-Project tokens restrict access to a specific project's resources. Create them in project settings or via API. Useful for CI/CD pipelines and team-specific automation.
+Project tokens restrict access to a specific project's resources. Only org admins can create and revoke project tokens. Create them via API (`POST /api/projects/{id}/tokens`). Useful for CI/CD pipelines and team-specific automation.
 
 **Common mistake:** Using a `bn-` gateway key on `/api/*` endpoints returns 401. Use a PAT (`bp-...`) or session token instead.
 
@@ -386,7 +386,7 @@ with open("output.mp4", "wb") as f:
 | `/api/gateway/keys` | GET/POST | Manage gateway API keys |
 | `/api/tokens` | GET/POST | Manage personal access tokens |
 | `/api/tokens/{id}` | DELETE | Revoke a personal access token |
-| `/api/projects/{id}/tokens` | GET/POST | Manage project tokens (Pro+) |
+| `/api/projects/{id}/tokens` | GET/POST | Manage project tokens (Pro+, admin-only create/revoke) |
 | `/api/subscriptions/current` | GET | Current subscription tier and usage |
 
 ### Available Models
