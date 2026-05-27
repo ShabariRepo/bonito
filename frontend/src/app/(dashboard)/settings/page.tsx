@@ -435,7 +435,7 @@ export default function SettingsPage() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{k.key_prefix}</code>
+                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs cursor-help" title="Gateway key (bn-) — LLM proxy only. Works on /v1/* endpoints (chat completions, embeddings, images). Does NOT work on /api/* platform endpoints.">{k.key_prefix}</code>
                           <span className="ml-2">Created {new Date(k.created_at).toLocaleDateString()}</span>
                           <span className="ml-2">· {k.rate_limit} req/min</span>
                         </p>
@@ -548,7 +548,7 @@ export default function SettingsPage() {
                           ))}
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{t.token_prefix}</code>
+                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs cursor-help" title="Personal access token (bp-) — works on ALL endpoints: /api/* (platform) and /v1/* (gateway). Carries your user permissions.">{t.token_prefix}</code>
                           <span className="ml-2">Expires {new Date(t.expires_at).toLocaleDateString()}</span>
                           {t.last_used_at && <span className="ml-2">· Last used {new Date(t.last_used_at).toLocaleDateString()}</span>}
                           <span className="ml-2">· {t.rate_limit} req/min</span>

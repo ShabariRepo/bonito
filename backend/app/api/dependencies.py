@@ -181,7 +181,7 @@ async def require_enterprise(
 ) -> User:
     """Shortcut dependency for Enterprise-only features"""
     subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
-    
+
     if subscription["tier"].value != "enterprise":
         detail = {
             "message": "This feature requires an Enterprise plan. Upgrade at getbonito.com/pricing",
@@ -189,5 +189,24 @@ async def require_enterprise(
             "upgrade_url": "https://getbonito.com/pricing"
         }
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-    
+
     return user
+
+
+def check_project_scope(user: User, project_id: uuid.UUID) -> None:
+    """Enforce project token scope.
+
+    Call this in any route that takes a project_id path param.
+    If the user authenticated with a project token (bj-), this ensures
+    the requested project_id matches the token's project_id.
+    PATs and JWTs pass through unrestricted.
+    Raises 403 if the token's project doesn't match.
+    """
+    scoped_project = getattr(user, "_project_scope", None)
+    if scoped_project is None:
+        return  # JWT or PAT — no restriction
+    if str(scoped_project) != str(project_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Project token does not have access to this project",
+        )
