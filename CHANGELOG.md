@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Agent HPA Autoscaling
+- **Agent-Level Autoscaling** — Phase 1 virtual scaling with agent workers
+  - Auto-create agents based on load (virtual workers per agent)
+  - Configurable min/max replicas per agent
+  - Scale-up trigger: queue depth > 10, scale-down trigger: queue empty for 60s
+  - Feature gates per org: `AGENT_AUTOSCALING_ENABLED`
+- **Overflow Queue** — Backpressure handling for rate-limited agent requests
+  - Redis-capped queue with TTL (5min default)
+  - `AgentRateLimitError` explicit handling with queue drainer
+  - CLI: `bonito scaling queue [status|drain|stats]`
+  - Drainer lock prevents concurrent drain race conditions
+
+### Added - Token Efficiency Analytics
+- **Per-Model Token Tracking** — Track input/output tokens per model variant
+  - `token_efficiency_logs` table with org, model, provider, token counts, cost
+  - Background job drains logs every 15min (configurable via `TOKEN_EFFICIENCY_INTERVAL_MINUTES`)
+  - Gateway dashboard: token efficiency widget with by-model and by-provider breakdown
+  - Feature gate: `TOKEN_EFFICIENCY_ANALYTICS_ENABLED`
+- **Per-Provider Efficiency** — Cost-per-token analysis across providers
+  - Aggregate views: total tokens, total cost, avg cost per 1M tokens
+  - Model-level grouping for cross-provider comparison
+
+### Technical Implementation
+- **Database Migrations**: 042 (token_efficiency_logs), 043 (scaling queue state), 044 (agent autoscale config)
+- **Load Testing**: 100-ticket agentic load test, 100% pass rate, $0.25 total cost
+- **Railway**: Updated worker count and restart policies for HPA
+
 ## [2.5.0] - 2026-04-07
 
 ### Added - Shared Conversational Memory (Memwright)
