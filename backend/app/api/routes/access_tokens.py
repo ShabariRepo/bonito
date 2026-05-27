@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.api.dependencies import get_current_user, require_pro_or_enterprise
+from app.api.dependencies import get_current_user, require_pro_or_enterprise, require_admin
 from app.models.user import User
 from app.schemas.access_token import (
     AccessTokenCreate,
@@ -115,6 +115,12 @@ async def create_project_token(
     user: User = Depends(require_pro_or_enterprise),
     db: AsyncSession = Depends(get_db),
 ):
+    # Only org admins can create project tokens
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only organization admins can create project tokens",
+        )
     # Verify project belongs to org
     from app.models.project import Project
     from sqlalchemy import select
@@ -159,6 +165,12 @@ async def revoke_project_token(
     user: User = Depends(require_pro_or_enterprise),
     db: AsyncSession = Depends(get_db),
 ):
+    # Only org admins can revoke project tokens
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only organization admins can revoke project tokens",
+        )
     token = await access_token_service.revoke_token(db, token_id, user.org_id)
     if not token:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token not found")
