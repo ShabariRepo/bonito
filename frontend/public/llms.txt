@@ -49,11 +49,13 @@ Bonito solves the multi-provider AI management problem. Companies using AI from 
 
 ## Authentication
 
-Bonito has two auth systems:
+Bonito has four auth methods:
 - **Gateway keys (bn-...)** — for LLM proxy only (`/v1/chat/completions`, `/v1/embeddings`, etc.). Created in Settings.
 - **Session tokens (JWT)** — for the platform API (`/api/*` — KB, agents, settings). Obtained via `bonito auth login` (CLI) or `POST /api/auth/login`.
+- **Personal access tokens (bp-...)** — for programmatic access to ALL endpoints (`/api/*` and `/v1/*`). Created in Settings or via CLI (`bonito auth token create`). Carries user permissions. Tier limits: Free=2, Pro=10, Enterprise+=unlimited.
+- **Project tokens (bj-...)** — scoped to a single project (Pro+ only). For CI/CD and team automation.
 
-Using a `bn-` key on `/api/*` endpoints returns 401. Use the CLI or session token for platform operations.
+Using a `bn-` key on `/api/*` endpoints returns 401. Use a PAT (`bp-...`) or session token for platform operations.
 
 ## Competitive Positioning
 

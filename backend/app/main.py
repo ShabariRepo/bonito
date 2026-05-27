@@ -219,6 +219,10 @@ app.include_router(contact.router, prefix="/api")
 from app.api.routes import discover
 app.include_router(discover.router, prefix="/api")
 
+# Access tokens (PAT + project tokens)
+from app.api.routes import access_tokens
+app.include_router(access_tokens.router, prefix="/api")
+
 # Gateway routes — mounted at root (not /api) because /v1/* is OpenAI-compatible
 app.include_router(gateway.router)
 

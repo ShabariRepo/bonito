@@ -75,7 +75,7 @@ bonito/
 5. Anthropic (direct)
 6. Groq (fast OSS inference)
 
-## Core Features (19 Phases)
+## Core Features (22 Phases)
 
 1. **Multi-cloud gateway** — OpenAI-compatible API proxy (`POST /v1/chat/completions`), LiteLLM-backed, `bn-` prefix API keys
 2. **Auto cross-region inference** — Bedrock models transparently routed via `us.` prefix when needed
@@ -108,7 +108,7 @@ bonito/
 
 ## Key Architectural Patterns
 
-- **Auth:** JWT bearer tokens via `Depends(get_current_user)`. Gateway uses separate `bn-` prefix API keys.
+- **Auth:** JWT bearer tokens via `Depends(get_current_user)`. Gateway uses separate `bn-` prefix API keys. Personal access tokens (`bp-`) and project tokens (`bj-`) also resolved in `get_current_user()` — PATs work on all endpoints, project tokens enforce `_project_scope`.
 - **Multi-tenancy:** Every table has `org_id` FK with `ondelete="CASCADE"`. ALL queries filter by `user.org_id`.
 - **Credentials:** Stored in Vault (`providers/{provider_id}`), encrypted DB column as fallback.
 - **Database:** Async SQLAlchemy with `AsyncSession`. Use `selectinload()` for eager loading. `flush()` within transaction, `commit()` after.
@@ -215,3 +215,4 @@ cd frontend && vercel --prod
 - **UX onboarding improvements (2026-05-27):** Settings page now shows subscription tier badge (Crown icon, Free/Pro/Enterprise/Scale with per-tier colors). Sidebar nav items that require a higher tier show "Pro" or "Ent" badges and redirect to settings when clicked. KB cards show yellow guidance banner when pending with 0 documents ("Upload documents to activate"). `/api/auth/me` now returns `subscription_tier` field.
 - **KB linked-agents fix (2026-05-27):** `GET /api/knowledge-bases/{id}/linked-agents` was throwing `CannotCoerceError: cannot cast type jsonb to text[]`. Fixed to use JSONB `@>` containment operator via `type_coerce` instead of `CAST(... AS TEXT[])`.
 - **Queue drainer noise fix (2026-05-27):** Agent overflow queue drainer was running Redis `SCAN agent_queue:*` every 2 seconds even when completely idle. Added adaptive polling: 2s when active, backs off to 30s after 3 idle cycles.
+- **Personal Access Tokens & Project Tokens (2026-05-27):** New `access_tokens` table (migration 044). PATs (`bp-` prefix) carry user permissions and work on ALL endpoints (`/api/*` + `/v1/*`). Project tokens (`bj-` prefix, Pro+) scoped to a single project — only org admins (`user.role == "admin"`) can create/revoke project tokens. `check_project_scope()` enforces that `bj-` tokens can only access their assigned project (403 on cross-project). Auth dependency (`get_current_user`) handles bp-/bj- prefixes alongside JWT. Gateway `get_auth_context` supports bp- for `/v1/*`. API: `GET/POST /api/tokens`, `DELETE /api/tokens/{id}`, `GET/POST /api/projects/{id}/tokens`. CLI: `bonito auth token create/list/revoke/login`. Frontend: PAT card in Settings with tooltips. Tier limits: Free=2, Pro=10, Enterprise+=unlimited.

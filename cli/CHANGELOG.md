@@ -2,6 +2,12 @@
 
 All notable changes to the Bonito CLI will be documented in this file.
 
+## [0.8.0] - 2026-05-27
+
+### Added
+- **Personal access tokens**: `bonito auth token create`, `bonito auth token list`, `bonito auth token revoke` — manage PATs (bp-...) for programmatic API access
+- **Token login**: `bonito auth token login --token bp-...` — authenticate using a PAT instead of email/password
+
 ## [0.6.0] - 2026-05-07
 
 ### Added
