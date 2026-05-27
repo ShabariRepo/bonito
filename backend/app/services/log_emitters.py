@@ -31,6 +31,7 @@ def _emit_to_gcs(
     duration_ms: Optional[int] = None,
     cost: Optional[float] = None,
     trace_id: Optional[uuid.UUID] = None,
+    feature: Optional[str] = None,
 ) -> None:
     """Forward a log event to the GCS sink for Helios ingestion."""
     try:
@@ -41,6 +42,7 @@ def _emit_to_gcs(
             message=message or f"{log_type}.{event_type}",
             logger_name=f"bonito.{log_type}",
             log_type=log_type,
+            feature=feature or event_type,
             user_id=str(user_id) if user_id else None,
             org_id=str(org_id) if org_id else None,
             extra={

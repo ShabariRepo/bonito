@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 BUCKET_NAME = os.getenv("BONITO_LOGS_BUCKET", "bonito-logs-prod")
 _SERVER_NAME = os.getenv("BONITO_SERVER_NAME", socket.gethostname())
 
-VALID_LOG_TYPES = {"gateway", "auth", "agent", "kb", "admin", "deployment"}
+VALID_LOG_TYPES = {
+    "gateway", "auth", "agent", "kb", "admin",
+    "deployment", "billing", "compliance", "approval", "system",
+}
 
 
 class GCSLogSink:
@@ -120,6 +123,7 @@ class GCSLogSink:
         *,
         logger_name: str = "bonito",
         log_type: str = "gateway",
+        feature: Optional[str] = None,
         request_id: Optional[str] = None,
         user_id: Optional[str] = None,
         org_id: Optional[str] = None,
@@ -137,12 +141,14 @@ class GCSLogSink:
         Emit a structured log event, routed to the correct org/log_type buffer.
 
         org_id and log_type determine the GCS path. Events without an org_id
-        are written to a shared "_system" prefix.
+        are written to a shared "_system" prefix. The `feature` field tags the
+        sub-feature within the log_type (e.g. "failover" within "gateway").
         """
         event = self._build_event(
             level=level,
             message=message,
             logger_name=logger_name,
+            feature=feature,
             request_id=request_id,
             user_id=user_id,
             org_id=org_id,
@@ -233,6 +239,7 @@ class GCSLogSink:
         level: str,
         message: str,
         logger_name: str,
+        feature: Optional[str],
         request_id: Optional[str],
         user_id: Optional[str],
         org_id: Optional[str],
@@ -246,7 +253,7 @@ class GCSLogSink:
         exception: Optional[Dict[str, Any]],
         extra: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Build a Sentry-compatible event dict."""
+        """Build a Sentry-compatible event dict with feature tag."""
         event_id = str(uuid.uuid4())
         timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -259,6 +266,10 @@ class GCSLogSink:
             "server_name": self.server_name,
             "message": message,
         }
+
+        # Feature sub-tag (e.g. "failover" within gateway, "scheduler" within agent)
+        if feature:
+            event["feature"] = feature
 
         # Tags — used for Sentry's grouping / Helios fingerprinting
         tags: Dict[str, str] = {}
