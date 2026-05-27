@@ -35,6 +35,19 @@ interface GatewayKey {
   revoked_at: string | null;
 }
 
+interface AccessToken {
+  id: string;
+  token_type: string;
+  name: string;
+  token_prefix: string;
+  scopes: string[] | null;
+  rate_limit: number;
+  expires_at: string;
+  last_used_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
+}
+
 const tierConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   free: { label: "Free", color: "text-zinc-300", bg: "bg-zinc-500/10", border: "border-zinc-500/30" },
   pro: { label: "Pro", color: "text-violet-300", bg: "bg-violet-500/10", border: "border-violet-500/30" },
@@ -55,6 +68,13 @@ export default function SettingsPage() {
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyResult, setNewKeyResult] = useState<string | null>(null);
   const [creatingKey, setCreatingKey] = useState(false);
+
+  // Personal Access Tokens
+  const [pats, setPats] = useState<AccessToken[]>([]);
+  const [patsLoading, setPatsLoading] = useState(true);
+  const [newPatName, setNewPatName] = useState("");
+  const [newPatResult, setNewPatResult] = useState<string | null>(null);
+  const [creatingPat, setCreatingPat] = useState(false);
 
   const [notifications, setNotifications] = useState({
     deployments: true,
@@ -137,6 +157,44 @@ export default function SettingsPage() {
   const revokeKey = async (id: string) => {
     await apiRequest(`/api/gateway/keys/${id}`, { method: "DELETE" });
     fetchKeys();
+  };
+
+  // Load PATs
+  const fetchPats = async () => {
+    setPatsLoading(true);
+    try {
+      const res = await apiRequest("/api/tokens");
+      if (res.ok) setPats(await res.json());
+    } catch {} finally {
+      setPatsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchPats(); }, []);
+
+  const createPat = async () => {
+    if (!newPatName.trim()) return;
+    setCreatingPat(true);
+    try {
+      const res = await apiRequest("/api/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newPatName }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNewPatResult(data.token);
+        setNewPatName("");
+        fetchPats();
+      }
+    } finally {
+      setCreatingPat(false);
+    }
+  };
+
+  const revokePat = async (id: string) => {
+    await apiRequest(`/api/tokens/${id}`, { method: "DELETE" });
+    fetchPats();
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -377,7 +435,7 @@ export default function SettingsPage() {
                           )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs">{k.key_prefix}</code>
+                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs cursor-help" title="Gateway key (bn-) — LLM proxy only. Works on /v1/* endpoints (chat completions, embeddings, images). Does NOT work on /api/* platform endpoints.">{k.key_prefix}</code>
                           <span className="ml-2">Created {new Date(k.created_at).toLocaleDateString()}</span>
                           <span className="ml-2">· {k.rate_limit} req/min</span>
                         </p>
@@ -386,6 +444,120 @@ export default function SettingsPage() {
                         {!k.revoked_at && (
                           <button
                             onClick={() => revokeKey(k.id)}
+                            className="text-muted-foreground hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Personal Access Tokens */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-emerald-500" />
+              Personal Access Tokens
+            </CardTitle>
+            <CardDescription>Tokens for programmatic access to the full Bonito API</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md bg-emerald-500/10 border border-emerald-500/20 p-3 mb-4 text-xs text-emerald-300">
+              <strong>Personal access tokens (bp-...)</strong> authenticate programmatic access to the full Bonito API.
+              Unlike gateway keys, PATs carry your user permissions and work on <strong>all endpoints</strong> — both <code className="bg-secondary px-1 rounded">/api/*</code> and <code className="bg-secondary px-1 rounded">/v1/*</code>.
+            </div>
+            {/* Create PAT */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Token name..."
+                value={newPatName}
+                onChange={(e) => setNewPatName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && createPat()}
+                className="flex-1 bg-accent/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <button
+                onClick={createPat}
+                disabled={creatingPat || !newPatName.trim()}
+                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                {creatingPat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Generate Token
+              </button>
+            </div>
+
+            {/* New PAT banner */}
+            <AnimatePresence>
+              {newPatResult && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4"
+                >
+                  <p className="text-xs text-green-400 mb-1 font-medium">
+                    Copy your personal access token now — it won&apos;t be shown again!
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-mono text-green-300 break-all flex-1">{newPatResult}</code>
+                    <button onClick={() => copyToClipboard(newPatResult, "new-pat")} className="p-1.5 rounded hover:bg-accent transition-colors">
+                      {copiedKey === "new-pat" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Use as: <code className="bg-secondary px-1 rounded">Authorization: Bearer bp-...</code> — or via CLI: <code className="bg-secondary px-1 rounded">bonito auth token login --token bp-...</code>
+                  </p>
+                  <button onClick={() => setNewPatResult(null)} className="text-xs text-muted-foreground mt-2 hover:text-foreground">Dismiss</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {patsLoading ? (
+              <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="space-y-3">
+                {pats.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No personal access tokens yet.</p>
+                ) : (
+                  pats.map((t, i) => (
+                    <motion.div
+                      key={t.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center justify-between rounded-lg border border-border p-4 hover:border-emerald-500/20 transition-colors group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{t.name}</p>
+                          {t.revoked_at ? (
+                            <Badge variant="destructive" className="text-xs">Revoked</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Active</Badge>
+                          )}
+                          {t.scopes && t.scopes.map(s => (
+                            <Badge key={s} variant="outline" className="text-xs">{s}</Badge>
+                          ))}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          <code className="bg-secondary px-1.5 py-0.5 rounded text-xs cursor-help" title="Personal access token (bp-) — works on ALL endpoints: /api/* (platform) and /v1/* (gateway). Carries your user permissions.">{t.token_prefix}</code>
+                          <span className="ml-2">Expires {new Date(t.expires_at).toLocaleDateString()}</span>
+                          {t.last_used_at && <span className="ml-2">· Last used {new Date(t.last_used_at).toLocaleDateString()}</span>}
+                          <span className="ml-2">· {t.rate_limit} req/min</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!t.revoked_at && (
+                          <button
+                            onClick={() => revokePat(t.id)}
                             className="text-muted-foreground hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                           >
                             <Trash2 className="h-4 w-4" />

@@ -42,6 +42,7 @@ const sections = [
   { id: "model-management", label: "Model Management", icon: Box },
   { id: "deployments", label: "Deployments", icon: Rocket },
   { id: "gateway-api", label: "Gateway API", icon: Key },
+  { id: "access-tokens", label: "Access Tokens", icon: Shield },
   { id: "routing-policies", label: "Routing Policies", icon: Route },
   { id: "cross-region", label: "Cross-Region Inference", icon: Globe },
   { id: "model-aliases", label: "Model Aliases", icon: Layers },
@@ -599,6 +600,50 @@ print(response.choices[0].message.content)`}
           </Paragraph>
           <Paragraph>
             When using a routing policy, pass the policy name as the model field instead of a specific model ID.
+          </Paragraph>
+
+          {/* ── Access Tokens ── */}
+          <SectionHeading id="access-tokens" title="Access Tokens" />
+          <Paragraph>
+            Bonito has four authentication methods. Choose the right one for your use case:
+          </Paragraph>
+
+          <SubHeading title="Gateway Keys (bn-...)" />
+          <Paragraph>
+            Gateway keys authenticate LLM proxy requests to <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">/v1/*</code> endpoints only (chat completions, embeddings, images, video). They resolve to an org but carry no user identity. Create them in Settings → Gateway API Keys.
+          </Paragraph>
+          <Callout variant="warning">
+            Using a <code>bn-</code> key on <code>/api/*</code> endpoints returns 401. Use a PAT or session token for platform operations.
+          </Callout>
+
+          <SubHeading title="Personal Access Tokens (bp-...)" />
+          <Paragraph>
+            PATs carry your full user permissions and work on <strong>all endpoints</strong> — both <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">/api/*</code> (platform) and <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">/v1/*</code> (gateway). They are ideal for CI/CD pipelines, scripts, and CLI automation.
+          </Paragraph>
+          <StepList steps={[
+            "Go to Settings → Personal Access Tokens",
+            "Enter a name and click Generate Token",
+            "Copy the token immediately — it is shown only once",
+            "Use it as: Authorization: Bearer bp-...",
+          ]} />
+          <Paragraph>
+            <strong>CLI:</strong> Create tokens with <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito auth token create --name my-token</code>, then authenticate with <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito auth token login --token bp-...</code>.
+          </Paragraph>
+          <Paragraph>
+            <strong>Tier limits:</strong> Free = 2 PATs, Pro = 10, Enterprise+ = unlimited. Tokens expire after 90 days by default (max 365). Revoke anytime in Settings or via <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito auth token revoke &lt;id&gt;</code>.
+          </Paragraph>
+
+          <SubHeading title="Project Tokens (bj-...)" />
+          <Paragraph>
+            Project tokens are scoped to a single project. They are created by an org admin and restrict access to only the agents, knowledge bases, and resources within that project. Ideal for giving external teams or CI pipelines access to a specific project without exposing the full org.
+          </Paragraph>
+          <Paragraph>
+            <strong>Requires:</strong> Pro plan or above. Create via API: <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">POST /api/projects/&#123;id&#125;/tokens</code>.
+          </Paragraph>
+
+          <SubHeading title="Session Tokens (JWT)" />
+          <Paragraph>
+            Session tokens are used by the dashboard automatically when you log in. You can also obtain them via <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">bonito auth login</code> (CLI) or <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">POST /api/auth/login</code>. They expire after 24 hours and auto-refresh.
           </Paragraph>
 
           {/* ── Routing Policies ── */}

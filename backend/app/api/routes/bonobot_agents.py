@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.redis import get_redis
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, check_project_scope
 from app.models.user import User
 from app.models.organization import Organization
 from app.models.project import Project
@@ -54,6 +54,7 @@ async def list_agents_in_project(
     db: AsyncSession = Depends(get_db)
 ):
     """List agents in a project."""
+    check_project_scope(current_user, project_id)
     # Verify project exists and user has access
     stmt = select(Project).where(
         and_(
@@ -63,7 +64,7 @@ async def list_agents_in_project(
     )
     result = await db.execute(stmt)
     project = result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,6 +87,7 @@ async def create_agent(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new agent in a project."""
+    check_project_scope(current_user, project_id)
     # Feature gate: check bonobot_plan and agent limit
     stmt = select(Organization).where(Organization.id == current_user.org_id)
     result = await db.execute(stmt)
@@ -375,13 +377,16 @@ async def execute_agent(
     )
     result = await db.execute(stmt)
     agent = result.scalar_one_or_none()
-    
+
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
-    
+
+    # Enforce project token scope — bj- tokens can only execute agents in their project
+    check_project_scope(current_user, agent.project_id)
+
     if agent.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -937,6 +942,7 @@ async def get_project_breadcrumbs(
     Produces nodes (agents) and edges (connections with interaction counts)
     suitable for rendering a React Flow diagram.
     """
+    check_project_scope(current_user, project_id)
     # Parse date filters
     dt_from = _parse_iso_date(date_from)
     dt_to = _parse_iso_date(date_to, end_of_day=True)

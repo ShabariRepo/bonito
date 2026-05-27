@@ -51,4 +51,7 @@ from app.models.discover_log import DiscoverLog
 # Agent HPA
 from app.models.agent_scaling_event import AgentScalingEvent
 
-__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage", "CodeReviewSnapshot", "OrgSecret", "KnowledgeBase", "KBDocument", "KBChunk", "DiscoverLog", "AgentScalingEvent"]
+# Access tokens (PAT + project tokens)
+from app.models.access_token import AccessToken
+
+__all__ = ["Organization", "CloudProvider", "Model", "Deployment", "CostRecord", "User", "Policy", "AuditLog", "OnboardingProgress", "GatewayRequest", "GatewayKey", "GatewayRateLimit", "GatewayConfig", "Notification", "AlertRule", "NotificationPreference", "SSOConfig", "Project", "Agent", "AgentSession", "AgentMessage", "AgentConnection", "AgentTrigger", "AgentMCPServer", "AgentGroup", "Role", "RoleAssignment", "LogIntegration", "PlatformLog", "LogExportJob", "LogAggregation", "AgentMemory", "AgentSchedule", "ScheduledExecution", "AgentApprovalAction", "AgentApprovalConfig", "GitHubAppInstallation", "GitHubReviewUsage", "CodeReviewSnapshot", "OrgSecret", "KnowledgeBase", "KBDocument", "KBChunk", "DiscoverLog", "AgentScalingEvent", "AccessToken"]
