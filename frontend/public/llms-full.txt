@@ -238,9 +238,22 @@ https://api.getbonito.com
 ```
 
 ### Authentication
+
+Bonito has two authentication systems:
+
+**1. Gateway API Keys (bn-...)** — for LLM proxy requests only
 ```
 Authorization: Bearer bn-your-api-key-here
 ```
+Gateway keys authenticate requests to `/v1/*` endpoints (chat completions, embeddings, images, video). They resolve to an org_id but carry no user identity. Create them in Settings > Gateway API Keys.
+
+**2. Session Tokens (JWT)** — for the platform API
+```
+Authorization: Bearer eyJhbG...
+```
+Session tokens authenticate requests to `/api/*` endpoints (knowledge bases, agents, settings, team, etc.). Obtain them via `bonito auth login` (CLI) or `POST /api/auth/login` (API). The dashboard uses these automatically when you're logged in.
+
+**Common mistake:** Using a `bn-` gateway key on `/api/*` endpoints returns 401. Use the CLI or a session token instead.
 
 ### Chat Completions (cURL)
 ```bash
@@ -335,6 +348,8 @@ with open("output.mp4", "wb") as f:
 
 ### Supported API Endpoints
 
+**Gateway endpoints (use `bn-` API key):**
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/v1/chat/completions` | POST | Chat completions (supports streaming) |
@@ -344,6 +359,20 @@ with open("output.mp4", "wb") as f:
 | `/v1/videos` | POST | Video generation (Sora, Veo) |
 | `/v1/videos/{id}` | GET | Check video generation status |
 | `/v1/videos/{id}/content` | GET | Download generated video |
+
+**Platform API endpoints (use JWT session token — via CLI or login):**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/login` | POST | Get session token (JWT) |
+| `/api/auth/me` | GET | Current user profile + subscription tier |
+| `/api/providers` | GET/POST | Manage AI provider connections |
+| `/api/knowledge-bases` | GET/POST | Manage knowledge bases |
+| `/api/knowledge-bases/{id}/documents` | POST | Upload documents to a KB |
+| `/api/agents` | GET/POST | Manage AI agents |
+| `/api/agents/{id}/execute` | POST | Execute an agent |
+| `/api/gateway/keys` | GET/POST | Manage gateway API keys |
+| `/api/subscriptions/current` | GET | Current subscription tier and usage |
 
 ### Available Models
 
