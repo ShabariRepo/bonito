@@ -8,6 +8,7 @@ export interface AuthUser {
   role: string;
   email_verified: boolean;
   is_platform_admin?: boolean;
+  subscription_tier?: string;
   org?: { name: string };
 }
 

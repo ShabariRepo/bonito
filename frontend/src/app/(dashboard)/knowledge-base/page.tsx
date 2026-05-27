@@ -241,6 +241,19 @@ export default function KnowledgeBasePage() {
                       </p>
                     )}
 
+                    {/* Empty KB guidance */}
+                    {kb.status === "pending" && kb.document_count === 0 && (
+                      <div className="rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3 mb-4 flex items-start gap-2">
+                        <Upload className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-yellow-300 font-medium">Upload documents to activate</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Click to open, then upload files. You can also use the CLI: <code className="bg-secondary px-1 rounded text-[10px]">bonito kb upload</code>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4 border-t border-border pt-4">
                       <div>

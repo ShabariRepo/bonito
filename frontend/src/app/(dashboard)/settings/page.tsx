@@ -23,6 +23,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/auth";
+import { useAuth } from "@/components/auth/auth-context";
+import { Crown } from "lucide-react";
 
 interface GatewayKey {
   id: string;
@@ -33,7 +35,15 @@ interface GatewayKey {
   revoked_at: string | null;
 }
 
+const tierConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  free: { label: "Free", color: "text-zinc-300", bg: "bg-zinc-500/10", border: "border-zinc-500/30" },
+  pro: { label: "Pro", color: "text-violet-300", bg: "bg-violet-500/10", border: "border-violet-500/30" },
+  enterprise: { label: "Enterprise", color: "text-amber-300", bg: "bg-amber-500/10", border: "border-amber-500/30" },
+  scale: { label: "Scale", color: "text-emerald-300", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
+};
+
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [orgName, setOrgName] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
@@ -207,6 +217,52 @@ export default function SettingsPage() {
             <button className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition-colors">
               Save Changes
             </button>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Subscription Tier */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-violet-500" />
+              Subscription
+            </CardTitle>
+            <CardDescription>Your current plan and access tier</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const tier = user?.subscription_tier || "free";
+                  const config = tierConfig[tier] || tierConfig.free;
+                  return (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold border ${config.bg} ${config.border} ${config.color}`}>
+                      <Crown className="h-3.5 w-3.5" />
+                      {config.label}
+                    </span>
+                  );
+                })()}
+                <span className="text-sm text-muted-foreground">
+                  {user?.subscription_tier === "free" && "3 providers, 25K requests/mo, 3 seats"}
+                  {user?.subscription_tier === "pro" && "5 providers, 500K requests/mo, unlimited seats"}
+                  {user?.subscription_tier === "enterprise" && "Unlimited providers, requests, and seats"}
+                  {user?.subscription_tier === "scale" && "Dedicated infrastructure, custom limits"}
+                  {!user?.subscription_tier && "3 providers, 25K requests/mo, 3 seats"}
+                </span>
+              </div>
+              {(user?.subscription_tier === "free" || !user?.subscription_tier) && (
+                <a
+                  href="https://getbonito.com/pricing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 transition-colors"
+                >
+                  Upgrade
+                </a>
+              )}
+            </div>
           </CardContent>
         </Card>
       </motion.div>

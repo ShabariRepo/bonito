@@ -35,6 +35,8 @@ import {
   UserPlus,
   Footprints,
   HeartPulse,
+  Lock,
+  Crown,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -45,6 +47,9 @@ const topNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
+// Tier hierarchy for comparison
+const TIER_RANK: Record<string, number> = { free: 0, pro: 1, enterprise: 2, scale: 3 };
+
 // Setup — provider/model/infra configuration
 const setupNavigation = [
   { name: "Providers", href: "/providers", icon: Cloud },
@@ -52,7 +57,7 @@ const setupNavigation = [
   { name: "Deployments", href: "/deployments", icon: Rocket },
   { name: "API Gateway", href: "/gateway", icon: Radio },
   { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
-  { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
+  { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen, requiredTier: "pro" as const },
   { name: "Playground", href: "/playground", icon: Play },
   { name: "Team", href: "/team", icon: Users },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -60,13 +65,13 @@ const setupNavigation = [
 
 // Observability — monitoring, compliance, logs
 const observabilityNavigation = [
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Governance", href: "/governance", icon: Shield },
+  { name: "Analytics", href: "/analytics", icon: BarChart3, requiredTier: "pro" as const },
+  { name: "Governance", href: "/governance", icon: Shield, requiredTier: "enterprise" as const },
   { name: "Logs", href: "/logs", icon: FileText },
-  { name: "Audit", href: "/audit", icon: ScrollText },
+  { name: "Audit", href: "/audit", icon: ScrollText, requiredTier: "pro" as const },
   { name: "Code Review", href: "/code-review", icon: GitPullRequest },
-  { name: "Notifications", href: "/notifications", icon: Bell },
-  { name: "Alerts", href: "/alerts", icon: AlertTriangle },
+  { name: "Notifications", href: "/notifications", icon: Bell, requiredTier: "pro" as const },
+  { name: "Alerts", href: "/alerts", icon: AlertTriangle, requiredTier: "pro" as const },
 ];
 
 // Spend — cost tracking and optimization
@@ -96,6 +101,13 @@ export function Sidebar() {
   const { isCollapsed, isMobile, isOpen, setOpen } = useSidebar();
   const { user, logout } = useAuth();
   const [setupIncomplete, setSetupIncomplete] = useState(false);
+
+  const userTier = user?.subscription_tier || "free";
+
+  const isFeatureLocked = (requiredTier?: string) => {
+    if (!requiredTier) return false;
+    return (TIER_RANK[userTier] ?? 0) < (TIER_RANK[requiredTier] ?? 0);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -258,9 +270,10 @@ export function Sidebar() {
         </AnimatePresence>
         {setupNavigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const locked = isFeatureLocked(item.requiredTier);
           return (
-            <Link key={item.name} href={item.href} className="relative block">
-              {isActive && (
+            <Link key={item.name} href={locked ? "/settings" : item.href} className="relative block" title={locked ? `Requires ${item.requiredTier === "pro" ? "Pro" : "Enterprise"} plan` : undefined}>
+              {isActive && !locked && (
                 <motion.div
                   layoutId="sidebar-active"
                   className="absolute inset-0 rounded-md bg-accent"
@@ -270,6 +283,7 @@ export function Sidebar() {
               <div
                 className={cn(
                   "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  locked ? "text-muted-foreground/40 cursor-not-allowed" :
                   isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
                   isCollapsed && !isMobile && "justify-center"
                 )}
@@ -283,8 +297,17 @@ export function Sidebar() {
                       animate="expanded"
                       exit="collapsed"
                       transition={{ duration: 0.2 }}
+                      className="flex items-center justify-between flex-1"
                     >
                       {item.name}
+                      {locked && (
+                        <span className={cn(
+                          "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                          item.requiredTier === "pro" ? "bg-violet-500/10 text-violet-400" : "bg-amber-500/10 text-amber-400"
+                        )}>
+                          {item.requiredTier === "pro" ? "Pro" : "Ent"}
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -311,9 +334,10 @@ export function Sidebar() {
         </AnimatePresence>
         {observabilityNavigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const locked = isFeatureLocked(item.requiredTier);
           return (
-            <Link key={item.name} href={item.href} className="relative block">
-              {isActive && (
+            <Link key={item.name} href={locked ? "/settings" : item.href} className="relative block" title={locked ? `Requires ${item.requiredTier === "pro" ? "Pro" : "Enterprise"} plan` : undefined}>
+              {isActive && !locked && (
                 <motion.div
                   layoutId="sidebar-active"
                   className="absolute inset-0 rounded-md bg-accent"
@@ -323,6 +347,7 @@ export function Sidebar() {
               <div
                 className={cn(
                   "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                  locked ? "text-muted-foreground/40 cursor-not-allowed" :
                   isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
                   isCollapsed && !isMobile && "justify-center"
                 )}
@@ -336,8 +361,17 @@ export function Sidebar() {
                       animate="expanded"
                       exit="collapsed"
                       transition={{ duration: 0.2 }}
+                      className="flex items-center justify-between flex-1"
                     >
                       {item.name}
+                      {locked && (
+                        <span className={cn(
+                          "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                          item.requiredTier === "pro" ? "bg-violet-500/10 text-violet-400" : "bg-amber-500/10 text-amber-400"
+                        )}>
+                          {item.requiredTier === "pro" ? "Pro" : "Ent"}
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>

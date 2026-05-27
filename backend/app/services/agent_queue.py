@@ -231,15 +231,26 @@ async def _drain_agent_queue(agent_id_str: str, redis: Redis):
     return processed
 
 
+DRAIN_IDLE_INTERVAL = 30.0  # Seconds between scans when no queues found
+
+
 async def _drain_loop():
-    """Background loop that drains all agent queues."""
+    """Background loop that drains all agent queues.
+
+    Uses adaptive polling: fast (DRAIN_INTERVAL) when queues have items,
+    slow (DRAIN_IDLE_INTERVAL) when idle — avoids Redis SCAN noise.
+    """
     from app.core.redis import get_redis
 
     logger.info("Agent queue drainer started")
 
+    idle_cycles = 0
+
     while True:
         try:
-            await asyncio.sleep(DRAIN_INTERVAL)
+            # Adaptive sleep: 2s when active, 30s when idle
+            sleep_time = DRAIN_IDLE_INTERVAL if idle_cycles >= 3 else DRAIN_INTERVAL
+            await asyncio.sleep(sleep_time)
 
             redis = await get_redis()
 
@@ -251,17 +262,21 @@ async def _drain_loop():
                 if "req" not in key and "result" not in key:
                     queue_keys.append(key)
 
+            found_work = False
             for queue_key in queue_keys:
                 depth = await redis.llen(queue_key)
                 if depth == 0:
                     continue
 
+                found_work = True
                 # Extract agent_id from key
                 agent_id_str = queue_key.replace("agent_queue:", "")
                 try:
                     await _drain_agent_queue(agent_id_str, redis)
                 except Exception as e:
                     logger.error(f"Queue drain error for {agent_id_str}: {e}")
+
+            idle_cycles = 0 if found_work else idle_cycles + 1
 
         except asyncio.CancelledError:
             logger.info("Agent queue drainer stopping")

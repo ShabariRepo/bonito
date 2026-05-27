@@ -400,6 +400,10 @@ async def me(
     admin_emails = [e.strip() for e in settings.admin_emails.split(",") if e.strip()]
     is_platform_admin = user.email in admin_emails
 
+    subscription_tier = None
+    if org:
+        subscription_tier = org.subscription_tier
+
     return {
         "id": str(user.id),
         "org_id": str(user.org_id),
@@ -409,6 +413,7 @@ async def me(
         "avatar_url": user.avatar_url,
         "email_verified": user.email_verified,
         "is_platform_admin": is_platform_admin,
+        "subscription_tier": subscription_tier,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "org": {"name": org_name} if org_name else None,
     }

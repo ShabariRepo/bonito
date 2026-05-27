@@ -793,16 +793,17 @@ async def get_linked_agents(
 
     # Find all agents that reference this KB
     from app.models.agent import Agent
-    from sqlalchemy.dialects.postgresql import ARRAY
-    from sqlalchemy import cast, Text
-    
-    # Query agents where knowledge_base_ids JSON array contains our KB ID
+    from sqlalchemy import type_coerce
+    from sqlalchemy.types import JSON as SA_JSON
+
+    # Use JSONB @> containment: knowledge_base_ids @> '["<uuid>"]'::jsonb
+    kb_id_list = type_coerce([str(kb_id)], SA_JSON)
     result = await db.execute(
         select(Agent.id, Agent.name, Agent.description, Agent.status)
         .where(
             and_(
                 Agent.org_id == user.org_id,
-                cast(Agent.knowledge_base_ids, ARRAY(Text)).contains([str(kb_id)])
+                Agent.knowledge_base_ids.op("@>")(kb_id_list)
             )
         )
         .order_by(Agent.name)
