@@ -612,7 +612,7 @@ print(response.choices[0].message.content)`}
           <Paragraph>
             Gateway keys authenticate LLM proxy requests to <code className="bg-[#0a0a0a] px-1.5 py-0.5 rounded text-xs text-[#7c3aed]">/v1/*</code> endpoints only (chat completions, embeddings, images, video). They resolve to an org but carry no user identity. Create them in Settings → Gateway API Keys.
           </Paragraph>
-          <Callout type="warning">
+          <Callout variant="warning">
             Using a <code>bn-</code> key on <code>/api/*</code> endpoints returns 401. Use a PAT or session token for platform operations.
           </Callout>
 
