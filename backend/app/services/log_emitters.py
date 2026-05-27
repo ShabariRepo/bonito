@@ -32,11 +32,26 @@ def _emit_to_gcs(
     cost: Optional[float] = None,
     trace_id: Optional[uuid.UUID] = None,
     feature: Optional[str] = None,
+    resource_id: Optional[uuid.UUID] = None,
+    resource_type: Optional[str] = None,
 ) -> None:
     """Forward a log event to the GCS sink for Helios ingestion."""
     try:
         from app.core.gcs_log_sink import get_gcs_sink
         sink = get_gcs_sink()
+
+        extra_data: Dict[str, Any] = {
+            "log_type": log_type,
+            "event_type": event_type,
+            "trace_id": str(trace_id) if trace_id else None,
+            **(metadata or {}),
+        }
+        # Include resource identifiers so GCS logs can be traced to specific agents, KBs, etc.
+        if resource_id:
+            extra_data["resource_id"] = str(resource_id)
+        if resource_type:
+            extra_data["resource_type"] = resource_type
+
         sink.emit(
             level=severity,
             message=message or f"{log_type}.{event_type}",
@@ -45,12 +60,7 @@ def _emit_to_gcs(
             feature=feature or event_type,
             user_id=str(user_id) if user_id else None,
             org_id=str(org_id) if org_id else None,
-            extra={
-                "log_type": log_type,
-                "event_type": event_type,
-                "trace_id": str(trace_id) if trace_id else None,
-                **(metadata or {}),
-            },
+            extra=extra_data,
         )
     except Exception:
         pass  # GCS emission is best-effort; never block the caller
@@ -89,7 +99,7 @@ async def emit_gateway_event(
         cost=cost,
         trace_id=trace_id,
     )
-    _emit_to_gcs("gateway", event_type, severity, message, org_id, user_id, metadata, duration_ms, cost, trace_id)
+    _emit_to_gcs("gateway", event_type, severity, message, org_id, user_id, metadata, duration_ms, cost, trace_id, resource_id=resource_id, resource_type=resource_type)
 
 
 # ── Auth Events ──
@@ -116,7 +126,7 @@ async def emit_auth_event(
         message=message,
         metadata=metadata,
     )
-    _emit_to_gcs("auth", event_type, severity, message, org_id, user_id, metadata)
+    _emit_to_gcs("auth", event_type, severity, message, org_id, user_id, metadata, resource_id=user_id, resource_type="user")
 
 
 # ── Agent Events ──
@@ -150,7 +160,7 @@ async def emit_agent_event(
         cost=cost,
         trace_id=trace_id,
     )
-    _emit_to_gcs("agent", event_type, severity, message, org_id, user_id, metadata, duration_ms, cost, trace_id)
+    _emit_to_gcs("agent", event_type, severity, message, org_id, user_id, metadata, duration_ms, cost, trace_id, resource_id=resource_id, resource_type="agent")
 
 
 # ── Knowledge Base Events ──
@@ -181,7 +191,7 @@ async def emit_kb_event(
         metadata=metadata,
         duration_ms=duration_ms,
     )
-    _emit_to_gcs("kb", event_type, severity, message, org_id, user_id, metadata, duration_ms)
+    _emit_to_gcs("kb", event_type, severity, message, org_id, user_id, metadata, duration_ms, resource_id=resource_id, resource_type="knowledge_base")
 
 
 # ── Admin Events ──
@@ -211,7 +221,7 @@ async def emit_admin_event(
         message=message,
         metadata=metadata,
     )
-    _emit_to_gcs("admin", event_type, severity, message, org_id, user_id, metadata)
+    _emit_to_gcs("admin", event_type, severity, message, org_id, user_id, metadata, resource_id=resource_id, resource_type=resource_type)
 
 
 # ── Deployment Events ──
@@ -242,4 +252,4 @@ async def emit_deployment_event(
         metadata=metadata,
         duration_ms=duration_ms,
     )
-    _emit_to_gcs("deployment", event_type, severity, message, org_id, user_id, metadata, duration_ms)
+    _emit_to_gcs("deployment", event_type, severity, message, org_id, user_id, metadata, duration_ms, resource_id=resource_id, resource_type="deployment")
