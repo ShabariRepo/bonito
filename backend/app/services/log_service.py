@@ -50,6 +50,14 @@ FLUSH_INTERVAL_SECONDS = 2
 FLUSH_BATCH_SIZE = 100
 MAX_BUFFER_SIZE = 10_000
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
+
+# Per-tier retention limits (days)
+TIER_RETENTION_DAYS = {
+    "free": 30,
+    "pro": 60,
+    "enterprise": 90,
+    "scale": 90,
+}
 WAL_PATH = Path(os.getenv("LOG_WAL_PATH", "/tmp/bonito_log_wal.ndjson"))
 INTEGRATION_MAX_RETRIES = 3
 
@@ -440,26 +448,45 @@ class LogService:
                 logger.error("Retention cleanup error: %s", e, exc_info=True)
 
     async def _cleanup_old_logs(self):
-        """Delete platform_logs and log_aggregations older than retention period."""
-        cutoff = datetime.now(timezone.utc) - timedelta(days=LOG_RETENTION_DAYS)
+        """Delete platform_logs and log_aggregations per org based on tier retention limits."""
+        from app.models.organization import Organization
+
+        now = datetime.now(timezone.utc)
+        total_logs = 0
+        total_aggs = 0
+
         try:
             async with get_db_session() as session:
-                # Delete old platform logs
+                # Get all orgs and their tiers
                 result = await session.execute(
-                    delete(PlatformLog).where(PlatformLog.created_at < cutoff)
+                    select(Organization.id, Organization.subscription_tier)
                 )
-                log_count = result.rowcount
+                orgs = result.all()
 
-                # Delete old aggregations
-                result = await session.execute(
-                    delete(LogAggregation).where(LogAggregation.date_bucket < cutoff.date())
-                )
-                agg_count = result.rowcount
+                for org_id, tier in orgs:
+                    retention = TIER_RETENTION_DAYS.get(tier, LOG_RETENTION_DAYS)
+                    cutoff = now - timedelta(days=retention)
 
-            if log_count or agg_count:
+                    result = await session.execute(
+                        delete(PlatformLog).where(
+                            PlatformLog.org_id == org_id,
+                            PlatformLog.created_at < cutoff,
+                        )
+                    )
+                    total_logs += result.rowcount
+
+                    result = await session.execute(
+                        delete(LogAggregation).where(
+                            LogAggregation.org_id == org_id,
+                            LogAggregation.date_bucket < cutoff.date(),
+                        )
+                    )
+                    total_aggs += result.rowcount
+
+            if total_logs or total_aggs:
                 logger.info(
-                    "Retention cleanup: deleted %d logs, %d aggregations older than %d days",
-                    log_count, agg_count, LOG_RETENTION_DAYS,
+                    "Retention cleanup: deleted %d logs, %d aggregations across %d orgs (tier-based)",
+                    total_logs, total_aggs, len(orgs),
                 )
         except Exception as e:
             logger.error("Retention cleanup failed: %s", e)
