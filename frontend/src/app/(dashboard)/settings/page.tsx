@@ -300,11 +300,15 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5 text-violet-500" />
-              API Keys
+              Gateway API Keys
             </CardTitle>
             <CardDescription>Manage API keys for programmatic access to the gateway</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="rounded-md bg-blue-500/10 border border-blue-500/20 p-3 mb-4 text-xs text-blue-300">
+              <strong>Gateway keys (bn-...)</strong> authenticate LLM proxy requests to <code className="bg-secondary px-1 rounded">POST /v1/chat/completions</code> only.
+              For the platform API (knowledge bases, agents, settings), use the CLI (<code className="bg-secondary px-1 rounded">bonito auth login</code>) or your dashboard session.
+            </div>
             {/* Create key */}
             <div className="flex gap-2 mb-4">
               <input
@@ -335,7 +339,7 @@ export default function SettingsPage() {
                   className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 mb-4"
                 >
                   <p className="text-xs text-green-400 mb-1 font-medium">
-                    ⚠️ Copy your API key now — it won&apos;t be shown again!
+                    ⚠️ Copy your gateway key now — it won&apos;t be shown again! Use this for LLM requests via <code className="bg-secondary px-1 rounded">/v1/chat/completions</code>.
                   </p>
                   <div className="flex items-center gap-2">
                     <code className="text-sm font-mono text-green-300 break-all flex-1">{newKeyResult}</code>
