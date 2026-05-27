@@ -137,6 +137,24 @@ async def get_auth_context(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid routing policy key")
         return None, policy
     
+    # Check for personal access token (bp- format) — PATs work on gateway too
+    elif raw_key.startswith("bp-"):
+        from app.services.access_token_service import validate_access_token, update_last_used
+        token = await validate_access_token(db, raw_key)
+        if not token or token.token_type != "personal":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired personal access token")
+        await update_last_used(db, token, request.headers.get("x-forwarded-for", request.client.host if request.client else None))
+        # Wrap as a GatewayKey-compatible object for downstream code
+        pat_key = GatewayKey(
+            id=token.id,
+            org_id=token.org_id,
+            key_hash=token.token_hash,
+            key_prefix=token.token_prefix,
+            name=f"PAT: {token.name}",
+            rate_limit=token.rate_limit,
+        )
+        return pat_key, None
+
     # Check for regular gateway key (bn- format)
     elif raw_key.startswith("bn-"):
         key = await gateway_service.validate_api_key(db, raw_key)
@@ -149,9 +167,9 @@ async def get_auth_context(
             raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded")
 
         return key, None
-    
+
     else:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key format")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key format. Use bn- (gateway), bp- (personal access token), or rt- (routing policy).")
 
 
 # ─── OpenAI-compatible endpoints (/v1/*) ───

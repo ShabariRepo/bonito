@@ -12,6 +12,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from ..api import api, APIError
+from ..utils.auth import ensure_authenticated
 from ..config import (
     clear_credentials,
     is_authenticated,
@@ -275,3 +276,154 @@ def status():
         console.print(f"[red]✗ API error: {exc}[/red]")
         if exc.status_code == 401:
             console.print("  Token may be expired. Run: [cyan]bonito auth login[/cyan]")
+
+
+# ── token management ─────────────────────────────────────────
+
+token_app = typer.Typer(help="🔑 Personal access token management")
+app.add_typer(token_app, name="token")
+
+
+@token_app.command("create")
+def token_create(
+    name: str = typer.Option(..., "--name", "-n", help="Token name"),
+    scopes: Optional[str] = typer.Option(None, "--scopes", "-s", help="Comma-separated scopes (omit for full access)"),
+    expires_in: int = typer.Option(90, "--expires-in", help="Expiry in days (1-365)"),
+):
+    """Create a personal access token (bp-...)."""
+    ensure_authenticated()
+
+    body = {"name": name, "expires_in_days": expires_in}
+    if scopes:
+        body["scopes"] = [s.strip() for s in scopes.split(",")]
+
+    try:
+        with console.status("[cyan]Creating token…[/cyan]"):
+            result = api.post("/tokens", json=body)
+
+        raw_token = result.get("token", "")
+        console.print(
+            Panel(
+                f"[green]✓ Token created[/green]\n\n"
+                f"  [bold yellow]{raw_token}[/bold yellow]\n\n"
+                f"  [dim]Copy this now — it won't be shown again.[/dim]\n"
+                f"  Name: {result.get('name')}\n"
+                f"  Prefix: {result.get('token_prefix')}\n"
+                f"  Expires: {result.get('expires_at', '')[:10]}",
+                title="🔑 Personal Access Token",
+                border_style="green",
+            )
+        )
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
+@token_app.command("list")
+def token_list():
+    """List your personal access tokens."""
+    ensure_authenticated()
+
+    try:
+        with console.status("[cyan]Fetching tokens…[/cyan]"):
+            tokens = api.get("/tokens")
+
+        if not tokens:
+            console.print("[yellow]No personal access tokens found.[/yellow]")
+            console.print("  Create one: [cyan]bonito auth token create --name my-token[/cyan]")
+            return
+
+        table = Table(title="Personal Access Tokens", border_style="dim")
+        table.add_column("Name", style="cyan")
+        table.add_column("Prefix")
+        table.add_column("Expires")
+        table.add_column("Last Used")
+        table.add_column("Status")
+        table.add_column("ID", style="dim")
+
+        for t in tokens:
+            status_str = "[red]Revoked[/red]" if t.get("revoked_at") else "[green]Active[/green]"
+            expires = t.get("expires_at", "")[:10]
+            last_used = t.get("last_used_at", "")
+            last_used = last_used[:10] if last_used else "Never"
+            table.add_row(
+                t.get("name", "—"),
+                t.get("token_prefix", "—"),
+                expires,
+                last_used,
+                status_str,
+                str(t.get("id", ""))[:8] + "…",
+            )
+
+        console.print(table)
+
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
+@token_app.command("revoke")
+def token_revoke(
+    token_id: str = typer.Argument(..., help="Token ID to revoke"),
+):
+    """Revoke a personal access token."""
+    ensure_authenticated()
+
+    try:
+        with console.status("[cyan]Revoking token…[/cyan]"):
+            api.delete(f"/tokens/{token_id}")
+        console.print("[green]✓ Token revoked[/green]")
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
+@token_app.command("login")
+def token_login(
+    token: str = typer.Option(..., "--token", "-t", help="Personal access token (bp-...)"),
+):
+    """Authenticate using a personal access token instead of email/password."""
+    if not token.startswith("bp-"):
+        console.print("[red]✗ Token must start with 'bp-' (personal access token)[/red]")
+        raise typer.Exit(1)
+
+    # Verify the token works
+    try:
+        with console.status("[cyan]Verifying token…[/cyan]"):
+            resp = httpx.get(
+                f"{api.base_url}/api/auth/me",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+
+        if resp.status_code != 200:
+            console.print("[red]✗ Token verification failed. Check the token and try again.[/red]")
+            raise typer.Exit(1)
+
+        me = resp.json()
+
+        # Store the PAT as the access_token in credentials
+        creds = {
+            "access_token": token,
+            "email": me.get("email", ""),
+            "user": me,
+        }
+        save_credentials(creds)
+
+        # Reset HTTP client
+        if api._client and not api._client.is_closed:
+            api._client.close()
+        api._client = None
+
+        console.print(
+            Panel(
+                f"[green]✓ Authenticated via PAT as [bold]{me.get('email', '')}[/bold][/green]\n"
+                f"  Organization: {me.get('org', {}).get('name', '—')}",
+                title="🔑 Token Login",
+                border_style="green",
+            )
+        )
+
+    except httpx.RequestError as exc:
+        console.print(f"[red]✗ Connection failed: {exc}[/red]")
+        raise typer.Exit(1)

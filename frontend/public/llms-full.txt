@@ -253,7 +253,19 @@ Authorization: Bearer eyJhbG...
 ```
 Session tokens authenticate requests to `/api/*` endpoints (knowledge bases, agents, settings, team, etc.). Obtain them via `bonito auth login` (CLI) or `POST /api/auth/login` (API). The dashboard uses these automatically when you're logged in.
 
-**Common mistake:** Using a `bn-` gateway key on `/api/*` endpoints returns 401. Use the CLI or a session token instead.
+**3. Personal Access Tokens (bp-...)** — for programmatic access to ALL endpoints
+```
+Authorization: Bearer bp-your-token-here
+```
+PATs carry your user permissions and work on both `/api/*` and `/v1/*` endpoints. Create them in Settings > Personal Access Tokens or via CLI (`bonito auth token create`). Max expiry: 365 days. Tier limits: Free=2, Pro=10, Enterprise+=unlimited.
+
+**4. Project Tokens (bj-...)** — scoped to a single project (Pro+ only)
+```
+Authorization: Bearer bj-your-token-here
+```
+Project tokens restrict access to a specific project's resources. Create them in project settings or via API. Useful for CI/CD pipelines and team-specific automation.
+
+**Common mistake:** Using a `bn-` gateway key on `/api/*` endpoints returns 401. Use a PAT (`bp-...`) or session token instead.
 
 ### Chat Completions (cURL)
 ```bash
@@ -360,7 +372,7 @@ with open("output.mp4", "wb") as f:
 | `/v1/videos/{id}` | GET | Check video generation status |
 | `/v1/videos/{id}/content` | GET | Download generated video |
 
-**Platform API endpoints (use JWT session token — via CLI or login):**
+**Platform API endpoints (use JWT session token, PAT `bp-...`, or project token `bj-...`):**
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -372,6 +384,9 @@ with open("output.mp4", "wb") as f:
 | `/api/agents` | GET/POST | Manage AI agents |
 | `/api/agents/{id}/execute` | POST | Execute an agent |
 | `/api/gateway/keys` | GET/POST | Manage gateway API keys |
+| `/api/tokens` | GET/POST | Manage personal access tokens |
+| `/api/tokens/{id}` | DELETE | Revoke a personal access token |
+| `/api/projects/{id}/tokens` | GET/POST | Manage project tokens (Pro+) |
 | `/api/subscriptions/current` | GET | Current subscription tier and usage |
 
 ### Available Models

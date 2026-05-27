@@ -20,8 +20,40 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    raw = credentials.credentials
+
+    # ── Personal Access Token (bp-) ──
+    if raw.startswith("bp-"):
+        from app.services.access_token_service import validate_access_token, update_last_used
+        token = await validate_access_token(db, raw)
+        if not token or token.token_type != "personal":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired personal access token")
+        await update_last_used(db, token)
+        user = await get_user_by_id(db, token.user_id)
+        if not user or not user.email_verified:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or suspended")
+        user._access_token = token  # type: ignore[attr-defined]
+        sentry_sdk.set_user({"id": str(user.id), "email": user.email, "username": user.name, "org_id": str(user.org_id)})
+        return user
+
+    # ── Project Token (bj-) ──
+    if raw.startswith("bj-"):
+        from app.services.access_token_service import validate_access_token, update_last_used
+        token = await validate_access_token(db, raw)
+        if not token or token.token_type != "project":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired project token")
+        await update_last_used(db, token)
+        user = await get_user_by_id(db, token.created_by_id)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token creator not found")
+        user._access_token = token  # type: ignore[attr-defined]
+        user._project_scope = token.project_id  # type: ignore[attr-defined]
+        sentry_sdk.set_user({"id": str(user.id), "email": user.email, "username": user.name, "org_id": str(user.org_id)})
+        return user
+
+    # ── JWT session token (existing path) ──
     try:
-        payload = decode_token(credentials.credentials)
+        payload = decode_token(raw)
         if payload.get("type") != "access":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
         user_id = uuid.UUID(payload["sub"])
