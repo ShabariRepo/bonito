@@ -23,6 +23,23 @@ from app.core.gcs_log_sink import get_gcs_sink
 logger = logging.getLogger(__name__)
 
 
+def _infer_log_type(path: str) -> str:
+    """Infer the log_type from the request path for GCS routing."""
+    if path.startswith("/v1/"):
+        return "gateway"
+    if "/agents/" in path or "/bonobot/" in path:
+        return "agent"
+    if "/knowledge-bases/" in path or "/kb/" in path:
+        return "kb"
+    if "/auth/" in path:
+        return "auth"
+    if "/deploy" in path:
+        return "deployment"
+    if "/admin/" in path:
+        return "admin"
+    return "gateway"
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -99,11 +116,15 @@ class LogEmitMiddleware(BaseHTTPMiddleware):
         # Get the GCS sink
         sink = get_gcs_sink()
 
+        # Infer log type from path for GCS routing
+        log_type = _infer_log_type(request.url.path)
+
         # Emit request_start event (non-blocking)
         sink.emit(
             level="info",
             message=f"{request.method} {request.url.path}",
             logger_name="bonito.http",
+            log_type=log_type,
             request_id=request_id,
             endpoint=request.url.path,
             method=request.method,
@@ -149,6 +170,7 @@ class LogEmitMiddleware(BaseHTTPMiddleware):
             level=level,
             message=f"{request.method} {request.url.path} {status_code} {duration_ms}ms",
             logger_name="bonito.http",
+            log_type=log_type,
             request_id=request_id,
             user_id=user_id,
             org_id=org_id,

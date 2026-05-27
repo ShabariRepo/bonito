@@ -2,10 +2,12 @@
 GCS Log Sink — streams structured Bonito events to Google Cloud Storage.
 
 Format: newline-delimited JSON (NDJSON), one event per line.
-Path: gs://{bucket}/logs/{YYYY}/{MM}/{DD}/{HH}/{server_name}_{event_id}.ndjson
+Path: gs://{bucket}/{org_id}/{log_type}/{YYYY}/{MM}/{DD}/{HH}.ndjson
 
-The NDJSON format allows Helios (on the Orin) to stream logs in real-time
-using GCS's watch mechanism, while also supporting batch reads for historical analysis.
+Organized by org and feature so that:
+  - Per-org retention policies can use GCS lifecycle rules on prefix
+  - Helios can subscribe to specific org/feature paths
+  - Each log type (gateway, agent, auth, kb, admin, deployment) gets its own file
 
 Sentry-compatible event schema — Bonito events map directly to Sentry's event
 format so existing Sentry-style tooling can ingest them.
@@ -20,8 +22,9 @@ import os
 import socket
 import time
 import uuid
+from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -34,25 +37,24 @@ logger = logging.getLogger(__name__)
 BUCKET_NAME = os.getenv("BONITO_LOGS_BUCKET", "bonito-logs-prod")
 _SERVER_NAME = os.getenv("BONITO_SERVER_NAME", socket.gethostname())
 
-# GCS REST API base (no SDK needed — token available via metadata server)
-_GCS_UPLOAD_URL = "https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o"
-_GCS_RESUMABLE_URL = "https://storage.googleapis.com/upload/storage/v1/b/{bucket}/o/{object_name}/compose"
+VALID_LOG_TYPES = {"gateway", "auth", "agent", "kb", "admin", "deployment"}
 
 
 class GCSLogSink:
     """
     Async GCS log sink that writes NDJSON events to GCS.
 
-    Each event is a Sentry-compatible structured log entry.
-    Events are buffered in memory and flushed every `flush_interval` seconds
-    or when `flush_size` bytes are accumulated — whichever comes first.
+    Events are buffered per (org_id, log_type) and flushed every
+    `flush_interval` seconds or when any single buffer exceeds
+    `flush_size` bytes — whichever comes first.
 
     Path format:
-      logs/{YYYY}/{MM}/{DD}/{HH}/{server_name}_{event_id}.ndjson
+      {org_id}/{log_type}/{YYYY}/{MM}/{DD}/{HH}.ndjson
 
-    GCS object is created/replaced each hour with a predictable name,
-    allowing Helios to use GCS notifications (object finalize) for real-time
-    event delivery without polling.
+    Each org/feature combination gets its own hourly file, enabling:
+      - GCS lifecycle rules per org prefix for tier-based retention
+      - Feature-level log isolation for Helios processing
+      - Clean separation for compliance and audit requirements
     """
 
     def __init__(
@@ -60,7 +62,7 @@ class GCSLogSink:
         bucket: str = BUCKET_NAME,
         server_name: str = _SERVER_NAME,
         flush_interval_seconds: float = 5.0,
-        flush_size_bytes: int = 100_000,  # ~100KB
+        flush_size_bytes: int = 100_000,  # ~100KB per buffer
         max_buffer_events: int = 1000,
     ):
         self.bucket = bucket
@@ -69,10 +71,9 @@ class GCSLogSink:
         self.flush_size = flush_size_bytes
         self.max_buffer_events = max_buffer_events
 
-        self._buffer: list[str] = []
-        self._buffer_bytes = 0
-        self._last_flush = datetime.now(timezone.utc)
-        self._current_hour = self._hour_key()
+        # Buffers keyed by (org_id, log_type)
+        self._buffers: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+        self._buffer_bytes: Dict[Tuple[str, str], int] = defaultdict(int)
         self._client: Optional[httpx.AsyncClient] = None
         self._flush_task: Optional[asyncio.Task] = None
 
@@ -90,7 +91,7 @@ class GCSLogSink:
         self._flush_task = asyncio.create_task(self._periodic_flush())
         auth_method = "service_account" if self._sa_credentials else "metadata_server"
         logger.info(
-            "GCSLogSink started",
+            "GCSLogSink started (org-partitioned)",
             extra={
                 "bucket": self.bucket,
                 "server_name": self.server_name,
@@ -100,7 +101,7 @@ class GCSLogSink:
         )
 
     async def stop(self) -> None:
-        """Flush remaining buffer and close."""
+        """Flush remaining buffers and close."""
         if self._flush_task:
             self._flush_task.cancel()
             try:
@@ -118,6 +119,7 @@ class GCSLogSink:
         message: str,
         *,
         logger_name: str = "bonito",
+        log_type: str = "gateway",
         request_id: Optional[str] = None,
         user_id: Optional[str] = None,
         org_id: Optional[str] = None,
@@ -132,10 +134,10 @@ class GCSLogSink:
         extra: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
-        Emit a structured log event.
+        Emit a structured log event, routed to the correct org/log_type buffer.
 
-        All fields are optional but should be filled in for request-scoped logs.
-        The resulting event is Sentry-compatible.
+        org_id and log_type determine the GCS path. Events without an org_id
+        are written to a shared "_system" prefix.
         """
         event = self._build_event(
             level=level,
@@ -158,28 +160,73 @@ class GCSLogSink:
         line = json.dumps(event, ensure_ascii=False)
         event_size = len(line.encode("utf-8"))
 
-        self._buffer.append(line)
-        self._buffer_bytes += event_size
+        # Route to the correct buffer
+        resolved_org = org_id or "_system"
+        resolved_type = log_type if log_type in VALID_LOG_TYPES else "general"
+        key = (resolved_org, resolved_type)
 
-        # Check flush conditions
+        self._buffers[key].append(line)
+        self._buffer_bytes[key] += event_size
+
+        # Check flush conditions for this specific buffer
         should_flush = (
-            self._buffer_bytes >= self.flush_size
-            or len(self._buffer) >= self.max_buffer_events
-            or self._hour_key() != self._current_hour
+            self._buffer_bytes[key] >= self.flush_size
+            or len(self._buffers[key]) >= self.max_buffer_events
         )
 
         if should_flush:
-            # Fire-and-forget flush — don't block the request
-            asyncio.create_task(self.flush())
+            asyncio.create_task(self._flush_buffer(key))
 
     async def _periodic_flush(self) -> None:
-        """Background task that flushes the buffer every flush_interval seconds."""
+        """Background task that flushes all buffers every flush_interval seconds."""
         while True:
             await asyncio.sleep(self.flush_interval)
-            if self._buffer:
-                await self.flush()
+            await self.flush()
+
+    async def flush(self) -> None:
+        """Flush all non-empty buffers to GCS."""
+        keys = list(self._buffers.keys())
+        for key in keys:
+            if self._buffers[key]:
+                await self._flush_buffer(key)
 
     # ── Private ─────────────────────────────────────────────────────────────
+
+    async def _flush_buffer(self, key: Tuple[str, str]) -> None:
+        """Flush a single (org_id, log_type) buffer to its GCS path."""
+        if not self._buffers[key] or not self._client:
+            return
+
+        buffer = self._buffers[key]
+        self._buffers[key] = []
+        self._buffer_bytes[key] = 0
+
+        org_id, log_type = key
+
+        try:
+            content = "\n".join(buffer).encode("utf-8") + b"\n"
+            object_name = self._gcs_object_name(org_id, log_type)
+
+            await self._gcs_put_object(object_name, content)
+
+            logger.debug(
+                "GCSLogSink flushed",
+                extra={
+                    "event_count": len(buffer),
+                    "bytes": len(content),
+                    "object": object_name,
+                    "org_id": org_id,
+                    "log_type": log_type,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                "GCSLogSink flush failed: %s (org=%s, type=%s, events=%d)",
+                str(e), org_id, log_type, len(buffer),
+            )
+            # Re-add to buffer on failure (best-effort)
+            if not self._buffers[key]:
+                self._buffers[key] = buffer
 
     def _build_event(
         self,
@@ -225,14 +272,12 @@ class GCSLogSink:
             tags["endpoint"] = endpoint
         if method:
             tags["method"] = method
-        # Enrich with log_type, model, provider, trace_id from extra (Phase 5)
         if extra:
             for tag_key in ("log_type", "event_type", "model", "provider", "trace_id"):
                 if extra.get(tag_key):
                     tags[tag_key] = str(extra[tag_key])
         if status_code:
             tags["status_code"] = str(status_code)
-            # Sentry uses this for grouping
             if status_code >= 500:
                 tags["is_error"] = "1"
         if level in ("error", "critical"):
@@ -241,7 +286,7 @@ class GCSLogSink:
         if tags:
             event["tags"] = tags
 
-        # User context — all PII goes here (not in extra)
+        # User context
         user: Dict[str, Any] = {}
         if user_id:
             user["id"] = str(user_id)
@@ -265,7 +310,7 @@ class GCSLogSink:
         if request:
             event["request"] = request
 
-        # Exception (only when level is error/critical)
+        # Exception
         if exception:
             event["exception"] = {
                 "values": [
@@ -277,7 +322,7 @@ class GCSLogSink:
                 ]
             }
 
-        # Extra — all additional structured data
+        # Extra
         if extra:
             event["extra"] = extra
 
@@ -287,61 +332,28 @@ class GCSLogSink:
         return event
 
     def _hour_key(self) -> str:
-        """Return YYYY/MM/DD/HH for the current UTC hour — used in GCS path."""
+        """Return YYYY/MM/DD/HH for the current UTC hour."""
         now = datetime.now(timezone.utc)
         return f"{now.year}/{now.month:02d}/{now.day:02d}/{now.hour:02d}"
 
-    def _gcs_object_name(self) -> str:
-        """Return the GCS object name for the current hour's buffer file."""
-        return f"logs/{self._hour_key()}/{self.server_name}_buffer.ndjson"
+    def _gcs_object_name(self, org_id: str, log_type: str) -> str:
+        """
+        GCS object path for a given org and log type.
 
-    async def flush(self) -> None:
-        """Write buffered events to GCS (append-style via chunked upload)."""
-        if not self._buffer or not self._client:
-            return
-
-        buffer = self._buffer[:]
-        self._buffer = []
-        self._buffer_bytes = 0
-        self._current_hour = self._hour_key()
-
-        try:
-            content = "\n".join(buffer).encode("utf-8") + b"\n"
-            object_name = self._gcs_object_name()
-
-            # Use GCS resumable upload for reliability
-            await self._gcs_put_object(object_name, content)
-
-            # Update last flush timestamp
-            self._last_flush = datetime.now(timezone.utc)
-            logger.debug(
-                "GCSLogSink flushed",
-                extra={"event_count": len(buffer), "bytes": len(content), "object": object_name},
-            )
-        except Exception as e:
-            logger.error("GCSLogSink flush failed: %s (events=%d)", str(e), len(buffer))
-            # Re-add to buffer on failure (best-effort, don't block)
-            if len(self._buffer) == 0:
-                self._buffer = buffer
+        Format: {org_id}/{log_type}/{YYYY}/{MM}/{DD}/{HH}.ndjson
+        Example: 550e8400-e29b-41d4-a716-446655440000/gateway/2026/05/27/14.ndjson
+        """
+        return f"{org_id}/{log_type}/{self._hour_key()}.ndjson"
 
     async def _gcs_put_object(self, object_name: str, content: bytes) -> None:
-        """
-        Upload an object to GCS using the metadata-metadata server for auth.
-
-        This avoids needing the GCS SDK — we use the built-in service account
-        token from the metadata server at 100.100.100.253.
-        """
+        """Upload an object to GCS."""
         if not self._client:
             raise RuntimeError("GCSLogSink not started")
 
-        # Get access token from metadata server
         token = await self._get_access_token()
         if not token:
-            raise RuntimeError("Could not obtain GCS access token from metadata server")
+            raise RuntimeError("Could not obtain GCS access token")
 
-        url = f"https://storage.googleapis.com/upload/storage/v1/b/{self.bucket}/o?uploadType=media&name={object_name}"
-
-        # Try simple upload first (for buffers < 5MB)
         if len(content) < 5 * 1024 * 1024:
             url = f"https://storage.googleapis.com/upload/storage/v1/b/{self.bucket}/o"
             resp = await self._client.post(
@@ -355,20 +367,6 @@ class GCSLogSink:
                 },
             )
         else:
-            # For larger buffers, use resumable upload
-            resp = await self._client.post(
-                "https://storage.googleapis.com/resumable/upload/storage/v1/b/{self.bucket}/o",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json; charset=utf-8",
-                },
-                json={
-                    "name": object_name,
-                    "contentType": "application/octet-stream",
-                },
-            )
-            # Would need to handle resumable upload — simplified here
-            # For Bonito, buffer flushes are < 5MB, so simple upload path is fine
             raise RuntimeError("Buffer too large for simple upload — increase flush_size")
 
         if resp.status_code not in (200, 201):
@@ -401,7 +399,6 @@ class GCSLogSink:
     def _create_jwt(self, sa: Dict[str, Any]) -> str:
         """Create a signed JWT for Google OAuth2 token exchange."""
         import base64
-        import hashlib
 
         try:
             from cryptography.hazmat.primitives import hashes, serialization
@@ -434,7 +431,6 @@ class GCSLogSink:
         if not self._sa_credentials or not self._client:
             return None
 
-        # Return cached token if still valid (5 min buffer)
         if self._sa_token and time.time() < self._sa_token_expiry - 300:
             return self._sa_token
 
@@ -463,15 +459,13 @@ class GCSLogSink:
         """
         Get a GCS access token.
 
-        Priority: service account JWT → GCP metadata server.
+        Priority: service account JWT -> GCP metadata server.
         """
-        # Try service account first (works on Railway, any non-GCP host)
         if self._sa_credentials:
             token = await self._get_sa_token()
             if token:
                 return token
 
-        # Fall back to metadata server (works on GCP VMs, Cloud Run, GKE)
         try:
             resp = await self._client.get(
                 "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
