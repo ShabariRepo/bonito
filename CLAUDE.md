@@ -199,6 +199,7 @@ cd frontend && vercel --prod
 
 ## What's Planned
 
+- **System Observer** — Two-layer observability: L1 wires `emit_agent_event` into agent engine (execution, tool_use, delegation, error lifecycle events with agent_id). L2 is a Bonito-internal Haiku/Groq agent per org (6h schedule) that reads aggregated metrics and produces structured health/governance findings. See `docs/SYSTEM-OBSERVER-ROADMAP.md`.
 - SOC-2 Type II certification
 - Smart routing (complexity-aware model selection)
 - VPC Gateway Agent (enterprise self-hosted data plane)
