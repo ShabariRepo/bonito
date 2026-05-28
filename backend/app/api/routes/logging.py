@@ -585,6 +585,7 @@ async def ingest_frontend_events(
             level=event.level,
             message=event.message,
             logger_name=event.logger,
+            log_type=event.extra.get("log_type", "admin") if event.extra else "admin",
             request_id=event.request_id,
             user_id=str(user.id),
             org_id=str(user.org_id),

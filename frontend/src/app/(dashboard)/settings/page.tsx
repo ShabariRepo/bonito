@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/auth";
 import { useAuth } from "@/components/auth/auth-context";
-import { Crown } from "lucide-react";
+import { Crown, Lock } from "lucide-react";
 
 interface GatewayKey {
   id: string;
@@ -89,7 +89,10 @@ export default function SettingsPage() {
     sso: false,
     ipAllowlist: false,
   });
-  const [retention, setRetention] = useState("90");
+  const tierRetentionMax: Record<string, string> = { free: "30", pro: "60", enterprise: "90", scale: "90" };
+  const currentTier = user?.subscription_tier || "free";
+  const maxRetention = tierRetentionMax[currentTier] || "90";
+  const [retention, setRetention] = useState(maxRetention);
 
   // Load org name from auth profile
   useEffect(() => {
@@ -714,23 +717,30 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Log retention period</label>
               <div className="flex gap-2 flex-wrap">
-                {["30", "60", "90", "180", "365"].map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setRetention(d)}
-                    className={`rounded-full px-3 py-1.5 text-sm font-medium border transition-all ${
-                      retention === d
-                        ? "border-violet-500/50 bg-violet-500/10 text-foreground"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {d} days
-                  </button>
-                ))}
+                {["30", "60", "90"].map(d => {
+                  const locked = Number(d) > Number(maxRetention);
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => !locked && setRetention(d)}
+                      disabled={locked}
+                      className={`rounded-full px-3 py-1.5 text-sm font-medium border transition-all ${
+                        locked
+                          ? "border-border text-muted-foreground/40 cursor-not-allowed"
+                          : retention === d
+                            ? "border-violet-500/50 bg-violet-500/10 text-foreground"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                      title={locked ? `Requires ${Number(d) <= 60 ? "Pro" : "Enterprise"} plan` : `${d} day retention`}
+                    >
+                      {d} days{locked && <Lock className="inline h-3 w-3 ml-1" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Logs older than {retention} days will be automatically archived and deleted.
+              Your <span className="font-medium capitalize">{currentTier}</span> plan includes up to {maxRetention} days of log retention. Logs older than {retention} days are automatically deleted.
             </p>
           </CardContent>
         </Card>

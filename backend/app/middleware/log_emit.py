@@ -23,6 +23,75 @@ from app.core.gcs_log_sink import get_gcs_sink
 logger = logging.getLogger(__name__)
 
 
+def _infer_log_type(path: str) -> str:
+    """Infer the log_type from the request path for GCS routing."""
+    if path.startswith("/v1/"):
+        return "gateway"
+    if "/agents/" in path or "/bonobot/" in path:
+        return "agent"
+    if "/knowledge-bases/" in path or "/kb/" in path:
+        return "kb"
+    if "/auth/" in path:
+        return "auth"
+    if "/deploy" in path:
+        return "deployment"
+    if "/admin/" in path:
+        return "admin"
+    if "/billing/" in path or "/subscription" in path:
+        return "billing"
+    if "/compliance/" in path:
+        return "compliance"
+    if "/approval/" in path:
+        return "approval"
+    return "gateway"
+
+
+def _infer_feature(path: str) -> str:
+    """Infer sub-feature from the request path for log tagging."""
+    # Gateway sub-features
+    if "/v1/videos" in path:
+        return "video"
+    if "/v1/chat" in path or "/v1/completions" in path:
+        return "chat"
+    if "/v1/embeddings" in path:
+        return "embeddings"
+    if "/v1/images" in path:
+        return "images"
+    # Agent sub-features
+    if "/execute" in path:
+        return "execution"
+    if "/memory" in path:
+        return "memory"
+    if "/scaling" in path or "/queue" in path:
+        return "hpa"
+    if "/schedule" in path:
+        return "scheduler"
+    if "/mcp" in path:
+        return "mcp"
+    # KB sub-features
+    if "/search" in path:
+        return "search"
+    if "/upload" in path or "/documents" in path:
+        return "upload"
+    if "/sync" in path:
+        return "sync"
+    # Auth sub-features
+    if "/tokens" in path:
+        return "pat"
+    if "/sso" in path or "/saml" in path:
+        return "sso"
+    if "/login" in path:
+        return "login"
+    # Admin sub-features
+    if "/secrets" in path:
+        return "secrets"
+    if "/providers" in path:
+        return "providers"
+    if "/models" in path:
+        return "model_activation"
+    return "request"
+
+
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -99,11 +168,17 @@ class LogEmitMiddleware(BaseHTTPMiddleware):
         # Get the GCS sink
         sink = get_gcs_sink()
 
+        # Infer log type and sub-feature from path for GCS routing
+        log_type = _infer_log_type(request.url.path)
+        feature = _infer_feature(request.url.path)
+
         # Emit request_start event (non-blocking)
         sink.emit(
             level="info",
-            message=f"{request.method} {request.url.path}",
+            message=f"[{feature}] {request.method} {request.url.path}",
             logger_name="bonito.http",
+            log_type=log_type,
+            feature=feature,
             request_id=request_id,
             endpoint=request.url.path,
             method=request.method,
@@ -147,8 +222,10 @@ class LogEmitMiddleware(BaseHTTPMiddleware):
         # Emit request_end event
         sink.emit(
             level=level,
-            message=f"{request.method} {request.url.path} {status_code} {duration_ms}ms",
+            message=f"[{feature}] {request.method} {request.url.path} {status_code} {duration_ms}ms",
             logger_name="bonito.http",
+            log_type=log_type,
+            feature=feature,
             request_id=request_id,
             user_id=user_id,
             org_id=org_id,
