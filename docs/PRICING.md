@@ -10,32 +10,57 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 
 | Feature | Included |
 |---|---|
-| Cloud provider connections | 1 |
+| Cloud provider connections | 3 |
 | Gateway requests | 25,000/month |
-| Team seats | 1 |
-| Knowledge Base (AI Context) | 1 KB, 100 documents, 10K chunks, manual sync |
-| Support | Community (GitHub Issues) |
-| Analytics | Basic (7-day retention) |
+| Team seats | 3 |
+| BonBon agents | 1 (rate-limited) |
+| CLI access | ✅ |
+| Support | Community (Discord) |
+| Log retention | 30 days |
 | Governance | — |
-| API gateway | — |
+| AI Context (RAG) | — |
 
 ---
 
-### Pro — $499/month
+### Starter — $199/month
 
-For teams adopting AI across multiple providers who need visibility, routing, and governance.
+For small teams getting serious about multi-cloud AI. The "swipe your card without procurement" tier.
 
 | Feature | Included |
 |---|---|
 | Cloud provider connections | 3 |
-| Gateway requests | 250,000/month included |
-| Overage | $0.001/request beyond 250K |
-| Team seats | 10 included ($25/seat/mo additional) |
-| Knowledge Base (AI Context) | 5 KBs, unlimited documents, 500K chunks, scheduled sync |
-| Support | Email (business hours) |
-| Analytics | Full (90-day retention) |
-| Governance | Basic policies + cost alerts |
-| API gateway | ✅ with smart routing, auto cross-region inference, multi-provider failover |
+| Gateway requests | 100,000/month |
+| Team seats | 5 |
+| BonBon agents | 2 included |
+| AI Context (RAG) | 2 knowledge bases |
+| Cost analytics & budget alerts | ✅ |
+| Audit trail | ✅ |
+| CLI access | ✅ |
+| AI Copilot | ✅ |
+| Support | Email |
+| Log retention | 45 days |
+| PATs | 5 |
+
+---
+
+### Pro — $999/month
+
+For teams shipping AI products across multiple providers who need full routing, analytics, and agent capacity.
+
+| Feature | Included |
+|---|---|
+| Cloud provider connections | 5 |
+| Gateway requests | 500,000/month |
+| Team seats | Unlimited |
+| BonBon agents | 5 included |
+| AI Context (RAG) | 5 knowledge bases |
+| Advanced routing & load balancing | ✅ |
+| Deployment provisioning | ✅ |
+| Cost analytics & budget alerts | ✅ |
+| Audit trail | ✅ |
+| Support | Email (24h response) |
+| Log retention | 60 days |
+| PATs | 10 |
 
 ---
 

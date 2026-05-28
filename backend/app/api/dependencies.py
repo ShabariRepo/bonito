@@ -126,12 +126,12 @@ def require_tier(min_tier: str):
     ) -> User:
         subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
         
-        tier_hierarchy = {"free": 0, "pro": 2, "enterprise": 3}
+        tier_hierarchy = {"free": 0, "starter": 1, "pro": 2, "enterprise": 3, "scale": 4}
         current_tier_level = tier_hierarchy.get(subscription["tier"].value, 0)
         required_tier_level = tier_hierarchy.get(min_tier, 3)
-        
+
         if current_tier_level < required_tier_level:
-            tier_names = {"free": "Free", "pro": "Pro", "enterprise": "Enterprise"}
+            tier_names = {"free": "Free", "starter": "Starter", "pro": "Pro", "enterprise": "Enterprise", "scale": "Scale"}
             required_name = tier_names.get(min_tier, "Enterprise")
             message = f"This feature requires a {required_name} plan. Upgrade at getbonito.com/pricing"
             
@@ -164,7 +164,7 @@ async def require_pro_or_enterprise(
     """Shortcut dependency for Pro+ features"""
     subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
     
-    if subscription["tier"].value == "free":
+    if subscription["tier"].value in ("free", "starter"):
         detail = {
             "message": "This feature requires a Pro or Enterprise plan. Upgrade at getbonito.com/pricing",
             "required_tier": "pro",
@@ -182,7 +182,7 @@ async def require_enterprise(
     """Shortcut dependency for Enterprise-only features"""
     subscription = await feature_gate.get_organization_subscription(db, str(user.org_id))
 
-    if subscription["tier"].value != "enterprise":
+    if subscription["tier"].value not in ("enterprise", "scale"):
         detail = {
             "message": "This feature requires an Enterprise plan. Upgrade at getbonito.com/pricing",
             "required_tier": "enterprise",

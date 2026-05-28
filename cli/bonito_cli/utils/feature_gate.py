@@ -31,10 +31,11 @@ def require_feature(feature: str):
             
             tier_display = {
                 "free": "Free",
-                "pro": "Pro", 
+                "starter": "Starter",
+                "pro": "Pro",
                 "enterprise": "Enterprise"
             }
-            
+
             current_name = tier_display.get(current_tier, current_tier.title())
             required_name = tier_display.get(required_tier, required_tier.title())
             
@@ -75,14 +76,15 @@ def require_tier(min_tier: str):
         response = api.get("/api/subscriptions/current")
         current_tier = response.get("tier", "free")
         
-        tier_hierarchy = {"free": 0, "pro": 1, "enterprise": 2}
+        tier_hierarchy = {"free": 0, "starter": 1, "pro": 2, "enterprise": 3, "scale": 4}
         current_level = tier_hierarchy.get(current_tier, 0)
-        required_level = tier_hierarchy.get(min_tier, 2)
-        
+        required_level = tier_hierarchy.get(min_tier, 3)
+
         if current_level < required_level:
             tier_display = {
                 "free": "Free",
-                "pro": "Pro", 
+                "starter": "Starter",
+                "pro": "Pro",
                 "enterprise": "Enterprise"
             }
             

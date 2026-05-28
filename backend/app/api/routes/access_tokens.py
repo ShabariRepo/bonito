@@ -19,7 +19,7 @@ from app.services import access_token_service
 router = APIRouter()
 
 # ── PAT tier limits (active, non-revoked) ──
-PAT_LIMITS = {"free": 2, "pro": 10, "enterprise": 999, "scale": 999}
+PAT_LIMITS = {"free": 2, "starter": 5, "pro": 10, "enterprise": 999, "scale": 999}
 
 
 # ─────────────────── Personal Access Tokens ───────────────────

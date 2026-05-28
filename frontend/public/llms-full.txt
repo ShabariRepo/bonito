@@ -257,7 +257,7 @@ Session tokens authenticate requests to `/api/*` endpoints (knowledge bases, age
 ```
 Authorization: Bearer bp-your-token-here
 ```
-PATs carry your user permissions and work on both `/api/*` and `/v1/*` endpoints. Create them in Settings > Personal Access Tokens or via CLI (`bonito auth token create`). Max expiry: 365 days. Tier limits: Free=2, Pro=10, Enterprise+=unlimited.
+PATs carry your user permissions and work on both `/api/*` and `/v1/*` endpoints. Create them in Settings > Personal Access Tokens or via CLI (`bonito auth token create`). Max expiry: 365 days. Tier limits: Free=2, Starter=5, Pro=10, Enterprise+=unlimited.
 
 **4. Project Tokens (bj-...)** — scoped to a single project (Pro+ only)
 ```

@@ -102,7 +102,8 @@ bonito/
 ## Pricing Tiers
 
 - **Free** — 3 providers, 25K requests/mo, 3 seats, 1 agent, basic failover, invite-only
-- **Pro** — $999/mo, 5 providers, 500K requests/mo, unlimited seats, 5 agents, advanced routing, RAG, analytics, audit trail
+- **Starter** — $199/mo, 3 providers, 100K requests/mo, 5 seats, 2 agents, RAG (2 KBs), analytics, audit trail, CLI, email support. "Swipe your card" tier — no procurement approval needed.
+- **Pro** — $999/mo, 5 providers, 500K requests/mo, unlimited seats, 5 agents, advanced routing, RAG (5 KBs), analytics, audit trail
 - **Enterprise** — $10K-$20K/mo, unlimited providers/requests/seats, SSO/SAML, RBAC, compliance, 99.9% SLA
 - **Scale** — Custom ($200K+/yr), dedicated infra, multi-region, 99.99% SLA, custom fine-tuning, dedicated account team
 
@@ -169,6 +170,7 @@ cd frontend && vercel --prod
 
 ## Recent Changes (2026-05-06)
 
+- **Starter tier (2026-05-28):** New $199/mo tier between Free and Pro. 3 providers, 100K requests/mo, 5 seats, 2 agents, RAG (2 KBs), analytics, audit trail, CLI, email support. Bridges the $0→$999 gap for teams that want to swipe a card without procurement approval. Updated: `feature_gate.py` (enum + TIER_CONFIG), `dependencies.py` (tier hierarchy), `access_tokens.py` (PAT limits: 5), `log_service.py` (retention: 45d), CLI tier displays, frontend settings/sidebar/pricing page, admin org page, PRICING.md.
 - **KB search quality fix (2026-05-24):** `_tool_search_kb` threshold lowered from 0.7 → 0.5 (was filtering out relevant results that RAG injection at 0.4 would return). Added `MODEL_MAX_DIMENSIONS` map in `EmbeddingGenerator` to clamp requested dimensions to model's max — fixes silent ingestion failures when GCP `text-embedding-005` (768 max) is used with KB default of 1024 dims.
 - **Invite-only registration:** Access request flow (submit → admin approve → invite code → register). Controlled by `INVITE_REQUIRED` env var (default: true). Rate limited at 5 req/60s.
 - **Memwright hardening:** Fixed `clear()` lambda bug, added LRU eviction (256 max instances), graceful degradation when `agent_memory` not installed, removed startup pre-warm (caused SQLite locking with multi-worker uvicorn).
