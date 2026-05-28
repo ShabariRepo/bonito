@@ -47,6 +47,7 @@ def show_plan(
         
         tier_display = {
             "free": "Free",
+            "starter": "Starter",
             "pro": "Pro",
             "enterprise": "Enterprise"
         }
@@ -135,9 +136,10 @@ def show_features(
         table = Table(show_header=True, header_style="bold")
         table.add_column("Feature")
         table.add_column("Free", style="dim" if current_tier != "free" else "bold green")
-        table.add_column("Pro", style="dim" if current_tier != "pro" else "bold green") 
+        table.add_column("Starter", style="dim" if current_tier != "starter" else "bold green")
+        table.add_column("Pro", style="dim" if current_tier != "pro" else "bold green")
         table.add_column("Enterprise", style="dim" if current_tier != "enterprise" else "bold green")
-        
+
         # Feature mapping for display
         feature_names = {
             "models": "AI Models",
@@ -157,17 +159,18 @@ def show_features(
             "custom_integrations": "Custom Integrations",
             "dedicated_support": "Dedicated Support"
         }
-        
+
         # Get features from one tier (they should all have the same keys)
         features = tiers.get("free", {}).get("features", {})
-        
+
         for feature_key, display_name in feature_names.items():
             if feature_key in features:
                 free_val = "✅" if tiers.get("free", {}).get("features", {}).get(feature_key, False) else "❌"
+                starter_val = "✅" if tiers.get("starter", {}).get("features", {}).get(feature_key, False) else "❌"
                 pro_val = "✅" if tiers.get("pro", {}).get("features", {}).get(feature_key, False) else "❌"
                 ent_val = "✅" if tiers.get("enterprise", {}).get("features", {}).get(feature_key, False) else "❌"
-                
-                table.add_row(display_name, free_val, pro_val, ent_val)
+
+                table.add_row(display_name, free_val, starter_val, pro_val, ent_val)
         
         console.print(table)
 
@@ -177,44 +180,48 @@ def show_features(
         limits_table = Table(show_header=True, header_style="bold")
         limits_table.add_column("Resource")
         limits_table.add_column("Free", style="dim" if current_tier != "free" else "bold green")
+        limits_table.add_column("Starter", style="dim" if current_tier != "starter" else "bold green")
         limits_table.add_column("Pro", style="dim" if current_tier != "pro" else "bold green")
         limits_table.add_column("Enterprise", style="dim" if current_tier != "enterprise" else "bold green")
-        
-        for tier_name in ["free", "pro", "enterprise"]:
-            tier_data = tiers.get(tier_name, {})
-            
+
         # Providers
         free_providers = tiers.get("free", {}).get("providers", 0)
-        pro_providers = tiers.get("pro", {}).get("providers", 0) 
+        starter_providers = tiers.get("starter", {}).get("providers", 0)
+        pro_providers = tiers.get("pro", {}).get("providers", 0)
         ent_providers = tiers.get("enterprise", {}).get("providers", 0)
-        
+
         limits_table.add_row(
             "Providers",
             str(free_providers) if free_providers != float('inf') else "Unlimited",
-            str(pro_providers) if pro_providers != float('inf') else "Unlimited", 
+            str(starter_providers) if starter_providers != float('inf') else "Unlimited",
+            str(pro_providers) if pro_providers != float('inf') else "Unlimited",
             str(ent_providers) if ent_providers != float('inf') else "Unlimited"
         )
-        
+
         # Gateway calls
         free_calls = tiers.get("free", {}).get("gateway_calls", 0)
+        starter_calls = tiers.get("starter", {}).get("gateway_calls", 0)
         pro_calls = tiers.get("pro", {}).get("gateway_calls", 0)
         ent_calls = tiers.get("enterprise", {}).get("gateway_calls", 0)
-        
+
         limits_table.add_row(
             "Gateway Calls/Month",
             f"{free_calls:,}" if free_calls != float('inf') else "Unlimited",
+            f"{starter_calls:,}" if starter_calls != float('inf') else "Unlimited",
             f"{pro_calls:,}" if pro_calls != float('inf') else "Unlimited",
             f"{ent_calls:,}" if ent_calls != float('inf') else "Unlimited"
         )
-        
+
         # Members
         free_members = tiers.get("free", {}).get("members", 0)
+        starter_members = tiers.get("starter", {}).get("members", 0)
         pro_members = tiers.get("pro", {}).get("members", 0)
         ent_members = tiers.get("enterprise", {}).get("members", 0)
-        
+
         limits_table.add_row(
-            "Team Members", 
+            "Team Members",
             str(free_members) if free_members != float('inf') else "Unlimited",
+            str(starter_members) if starter_members != float('inf') else "Unlimited",
             str(pro_members) if pro_members != float('inf') else "Unlimited",
             str(ent_members) if ent_members != float('inf') else "Unlimited"
         )

@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionTier(str, Enum):
     FREE = "free"
+    STARTER = "starter"
     PRO = "pro"
     ENTERPRISE = "enterprise"
     SCALE = "scale"
@@ -85,6 +86,33 @@ class TierLimits:
                 "custom_integrations": False,
                 "dedicated_support": False,
                 "bonbon_agents": 1,  # 1 rate-limited BonBon Simple agent
+            }
+        },
+
+        SubscriptionTier.STARTER: {
+            "providers": 3,
+            "gateway_calls_per_month": 100000,
+            "members": 5,
+            "features": {
+                "models": True,
+                "playground": True,
+                "routing": True,
+                "ai_context": True,
+                "analytics": True,
+                "cli": True,
+                "audit": True,
+                "notifications": True,
+                "budget_alerts": True,
+                "vectorboost": False,
+                "agent_hpa": False,
+                "sso": False,
+                "rbac": False,
+                "iac_templates": False,
+                "compliance": False,
+                "on_premise": False,
+                "custom_integrations": False,
+                "dedicated_support": False,
+                "bonbon_agents": 2,
             }
         },
 
@@ -183,7 +211,7 @@ class TierLimits:
     @classmethod
     def get_required_tier_for_feature(cls, feature: str) -> Optional[SubscriptionTier]:
         """Get the minimum tier required for a feature"""
-        for tier in [SubscriptionTier.FREE, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE, SubscriptionTier.SCALE]:
+        for tier in [SubscriptionTier.FREE, SubscriptionTier.STARTER, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE, SubscriptionTier.SCALE]:
             if cls.get_feature_access(tier, feature):
                 return tier
         return None
@@ -241,11 +269,14 @@ class FeatureGateService:
             if required_tier:
                 tier_names = {
                     SubscriptionTier.FREE: "Free",
-                    SubscriptionTier.PRO: "Pro", 
+                    SubscriptionTier.STARTER: "Starter",
+                    SubscriptionTier.PRO: "Pro",
                     SubscriptionTier.ENTERPRISE: "Enterprise"
                 }
-                
-                if required_tier == SubscriptionTier.PRO:
+
+                if required_tier == SubscriptionTier.STARTER:
+                    message = f"This feature requires a Starter plan or higher. Upgrade at getbonito.com/pricing"
+                elif required_tier == SubscriptionTier.PRO:
                     message = f"This feature requires a Pro or Enterprise plan. Upgrade at getbonito.com/pricing"
                 elif required_tier == SubscriptionTier.ENTERPRISE:
                     message = f"This feature requires an Enterprise plan. Upgrade at getbonito.com/pricing"

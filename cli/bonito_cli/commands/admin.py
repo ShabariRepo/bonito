@@ -45,7 +45,7 @@ def verify_user(
 def set_tier(
     email: Optional[str] = typer.Option(None, "--email", "-e", help="User email (to look up org)"),
     org_id: Optional[str] = typer.Option(None, "--org", help="Organization ID"),
-    tier: str = typer.Option(..., "--tier", "-t", help="Tier: free, pro, enterprise"),
+    tier: str = typer.Option(..., "--tier", "-t", help="Tier: free, starter, pro, enterprise"),
     reason: str = typer.Option("Set via CLI", "--reason", help="Reason for tier change"),
     json_output: bool = typer.Option(False, "--json", help="JSON output"),
 ):
@@ -58,8 +58,8 @@ def set_tier(
     """
     ensure_authenticated()
 
-    if tier not in ("free", "pro", "enterprise"):
-        print_error("Tier must be: free, pro, or enterprise")
+    if tier not in ("free", "starter", "pro", "enterprise"):
+        print_error("Tier must be: free, starter, pro, or enterprise")
         raise typer.Exit(1)
 
     if not org_id and not email:

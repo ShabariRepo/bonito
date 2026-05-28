@@ -48,7 +48,7 @@ const topNavigation = [
 ];
 
 // Tier hierarchy for comparison
-const TIER_RANK: Record<string, number> = { free: 0, pro: 1, enterprise: 2, scale: 3 };
+const TIER_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, enterprise: 3, scale: 4 };
 
 // Setup — provider/model/infra configuration
 const setupNavigation = [

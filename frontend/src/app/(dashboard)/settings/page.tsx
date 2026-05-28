@@ -50,6 +50,7 @@ interface AccessToken {
 
 const tierConfig: Record<string, { label: string; color: string; bg: string; border: string }> = {
   free: { label: "Free", color: "text-zinc-300", bg: "bg-zinc-500/10", border: "border-zinc-500/30" },
+  starter: { label: "Starter", color: "text-blue-300", bg: "bg-blue-500/10", border: "border-blue-500/30" },
   pro: { label: "Pro", color: "text-violet-300", bg: "bg-violet-500/10", border: "border-violet-500/30" },
   enterprise: { label: "Enterprise", color: "text-amber-300", bg: "bg-amber-500/10", border: "border-amber-500/30" },
   scale: { label: "Scale", color: "text-emerald-300", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
@@ -89,7 +90,7 @@ export default function SettingsPage() {
     sso: false,
     ipAllowlist: false,
   });
-  const tierRetentionMax: Record<string, string> = { free: "30", pro: "60", enterprise: "90", scale: "90" };
+  const tierRetentionMax: Record<string, string> = { free: "30", starter: "45", pro: "60", enterprise: "90", scale: "90" };
   const currentTier = user?.subscription_tier || "free";
   const maxRetention = tierRetentionMax[currentTier] || "90";
   const [retention, setRetention] = useState(maxRetention);

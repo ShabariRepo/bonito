@@ -54,6 +54,7 @@ LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "90"))
 # Per-tier retention limits (days)
 TIER_RETENTION_DAYS = {
     "free": 30,
+    "starter": 45,
     "pro": 60,
     "enterprise": 90,
     "scale": 90,
