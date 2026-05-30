@@ -29,10 +29,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aggregate views: total tokens, total cost, avg cost per 1M tokens
   - Model-level grouping for cross-provider comparison
 
+### Added - Personal and Project Access Tokens
+- **Personal Access Tokens (PATs)** — `bp-` prefixed long-lived tokens
+  - Carry full user permissions (all /api/* + /v1/* endpoints)
+  - Created via settings page UI or `bonito auth token create`
+  - Expiry options: 30d, 90d, 1yr, never
+- **Project Tokens** — `bj-` prefixed, Pro+ feature
+  - Scoped to a single project for OPS automation
+  - Lower blast radius than PATs for script/integration use
+- **Backend**: `access_tokens` table (migration 044), service layer, API routes
+- **CLI**: `bonito auth token [create|list|revoke]`
+- **Settings UI**: Token management panel at `/settings`
+
 ### Technical Implementation
-- **Database Migrations**: 042 (token_efficiency_logs), 043 (scaling queue state), 044 (agent autoscale config)
+- **Database Migrations**: 042 (token_efficiency_logs), 043 (scaling queue state), 044 (access_tokens)
 - **Load Testing**: 100-ticket agentic load test, 100% pass rate, $0.25 total cost
 - **Railway**: Updated worker count and restart policies for HPA
+- **Docs**: llms.txt and llms-full.txt updated, UI clarification on gateway keys vs session tokens
 
 ## [2.5.0] - 2026-04-07
 
