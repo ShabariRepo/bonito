@@ -98,6 +98,7 @@ bonito/
 19. **Agent HPA (Autoscaling)** — Elastic agent capacity scaling. Virtual mode doubles effective RPM in Redis when utilization crosses threshold (default 60%). Scale-down via background loop (30s). Configurable via API, CLI (`bonito agents scaling`), and bonito.yaml `scaling` block. Enterprise+ only. Migration 043.
 20. **Overflow Queue** — When agents hit RPM ceiling (even after HPA max_replicas), requests are queued not dropped. Returns 202 Accepted with ticket_id + poll_url. Background drainer (2s interval, batch 3) processes queued requests as capacity frees up. Max depth 500/agent, results in Redis (1h TTL). CLI: `bonito agents scaling queue`. Requires `autoscale_enabled: true`.
 21. **Token Efficiency Metrics** — Gateway dashboard shows cost per 1K tokens: overall stat card, per-model breakdown, and per-request in logs table. Enables comparison of model cost-effectiveness across providers.
+22. **Custom Error Pages** — Branded error pages with bonito fish theme for better UX. Covers 404 (not found), 403 (forbidden), 500 (server error), 503 (service unavailable), and general errors. Each page features unique fish-themed ASCII art, animations via Framer Motion, and contextual messaging.
 
 ## Pricing Tiers
 
@@ -170,6 +171,7 @@ cd frontend && vercel --prod
 
 ## Recent Changes (2026-05-06)
 
+- **Custom error pages (2026-05-30):** Bonito-themed error pages for better UX. Added 5 error page variations: 404 (swimming fish with bubbles), 403 (locked treasure with fish), 500 (belly-up fish with sinking bubbles), 503 (fish in drydock with 60s auto-retry countdown), and global error (catastrophic fish). Each page uses Framer Motion animations, fish ASCII art, and contextual messaging. Updated `global-error.tsx` from plain HTML to bonito theme. Files: `frontend/src/app/{not-found,error,global-error,403/page,500/page,503/page}.tsx`.
 - **Starter tier (2026-05-28):** New $199/mo tier between Free and Pro. 3 providers, 100K requests/mo, 5 seats, 2 agents, RAG (2 KBs), analytics, audit trail, CLI, email support. Bridges the $0→$999 gap for teams that want to swipe a card without procurement approval. Updated: `feature_gate.py` (enum + TIER_CONFIG), `dependencies.py` (tier hierarchy), `access_tokens.py` (PAT limits: 5), `log_service.py` (retention: 45d), CLI tier displays, frontend settings/sidebar/pricing page, admin org page, PRICING.md.
 - **KB search quality fix (2026-05-24):** `_tool_search_kb` threshold lowered from 0.7 → 0.5 (was filtering out relevant results that RAG injection at 0.4 would return). Added `MODEL_MAX_DIMENSIONS` map in `EmbeddingGenerator` to clamp requested dimensions to model's max — fixes silent ingestion failures when GCP `text-embedding-005` (768 max) is used with KB default of 1024 dims.
 - **Invite-only registration:** Access request flow (submit → admin approve → invite code → register). Controlled by `INVITE_REQUIRED` env var (default: true). Rate limited at 5 req/60s.
