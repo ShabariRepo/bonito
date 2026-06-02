@@ -7,7 +7,13 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import pytest
 from httpx import AsyncClient
 
-from app.services.gateway import generate_api_key, hash_api_key, PolicyViolation, _generate_model_aliases
+from app.services.gateway import (
+    generate_api_key,
+    hash_api_key,
+    PolicyViolation,
+    _generate_model_aliases,
+    _is_retriable_provider_error,
+)
 
 
 class TestModelAliases:
@@ -304,3 +310,63 @@ class TestGatewayUsage:
         assert data["total_input_tokens"] == 0
         assert data["total_output_tokens"] == 0
         assert data["total_cost"] == 0.0
+
+
+class _FakeNotFoundError(Exception):
+    """Mimics litellm.NotFoundError by exception name only — the detector
+    uses string match on the class name, so we don't need to import litellm."""
+
+
+class TestFailoverDetector:
+    """Tests for `_is_retriable_provider_error` — specifically the
+    model-not-found / cross-provider failover cases.
+
+    Existing behavior (rate limits, timeouts, 5xx, the original model-
+    unavailability strings) is not re-tested here; this suite only covers
+    the additive branches and their guards.
+    """
+
+    # ── new branch 1: Vertex AI "Publisher Model ... not found" ──
+    def test_vertex_publisher_model_not_found_triggers_failover(self):
+        # Real shape returned by Vertex when a model isn't entitled
+        exc = Exception(
+            "Vertex_aiException - { \"error\": { \"code\": 404, "
+            "\"message\": \"Publisher Model `projects/p1/locations/us-central1/"
+            "publishers/google/models/gemini-2.0-flash-001` not found.\" } }"
+        )
+        assert _is_retriable_provider_error(exc) is True
+
+    # ── new branch 2: LiteLLM NotFoundError caught by exc_type ──
+    def test_litellm_notfound_with_model_term_triggers_failover(self):
+        exc = _FakeNotFoundError("the requested model 'foo' was not found")
+        assert _is_retriable_provider_error(exc) is True
+
+    def test_litellm_notfound_with_publisher_term_triggers_failover(self):
+        exc = _FakeNotFoundError("Publisher resource not available")
+        assert _is_retriable_provider_error(exc) is True
+
+    # ── guard: NotFoundError without model/publisher/deployment must NOT retry ──
+    # Protects against retrying auth-shaped 404s (which would just fail again
+    # with the same creds on a different provider).
+    def test_litellm_notfound_without_model_term_does_not_failover(self):
+        exc = _FakeNotFoundError("API key not found")
+        assert _is_retriable_provider_error(exc) is False
+
+    # ── guard: a generic 4xx that isn't model-not-found stays unhandled ──
+    def test_generic_404_unrelated_to_model_does_not_failover(self):
+        exc = Exception("404 — record not in database")
+        assert _is_retriable_provider_error(exc) is False
+
+    # ── guard: auth errors stay unhandled (existing behavior preserved) ──
+    def test_auth_error_does_not_failover(self):
+        exc = Exception("401 Unauthorized — invalid api key")
+        assert _is_retriable_provider_error(exc) is False
+
+    # ── pre-existing branches that should still pass (smoke checks) ──
+    def test_existing_model_not_ready_still_triggers_failover(self):
+        exc = Exception("model not ready, try again")
+        assert _is_retriable_provider_error(exc) is True
+
+    def test_existing_5xx_still_triggers_failover(self):
+        exc = Exception("503 service unavailable")
+        assert _is_retriable_provider_error(exc) is True

@@ -274,7 +274,22 @@ def _is_retriable_provider_error(exc: Exception) -> bool:
     if any(k in err_str for k in (
         "model not ready", "model is not available", "model_not_found",
         "deployment not found", "resource not found",
+        # Vertex AI returns: "Publisher Model `projects/.../models/X` not found"
+        # which doesn't match any of the strings above. Added so a non-entitled
+        # Vertex model triggers cross-provider failover instead of bubbling a
+        # 404 to the customer.
+        "publisher model",
     )):
+        return True
+
+    # LiteLLM raises NotFoundError when the upstream provider says the model
+    # doesn't exist (Vertex 404, Anthropic 404, some OpenAI 404s, etc.).
+    # Only treat it as retriable if the error string is actually about a model
+    # — guards against retrying auth-related NotFoundErrors on another
+    # provider (which would just fail again with a different creds error).
+    if "NotFoundError" in exc_type and any(
+        k in err_str for k in ("model", "publisher", "deployment")
+    ):
         return True
 
     return False
