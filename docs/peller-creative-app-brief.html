@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peller — AI-Powered Creative Studio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #1a1a1a;
+    --border: #222222;
+    --text: #f5f0e8;
+    --text-muted: #888888;
+    --text-dim: #555555;
+    --accent: #7c3aed;
+    --accent-light: #a78bfa;
+    --accent-glow: rgba(124, 58, 237, 0.15);
+    --green: #22c55e;
+    --amber: #f59e0b;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 60px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .slide-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .slide-number {
+    position: absolute;
+    top: 32px;
+    right: 60px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-light);
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: clamp(48px, 7vw, 88px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 32px;
+  }
+
+  h1 .accent {
+    color: var(--accent-light);
+  }
+
+  h2 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+
+  h3 {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .subtitle {
+    font-size: 20px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 720px;
+    margin-bottom: 32px;
+  }
+
+  .subtitle-wide { max-width: 900px; }
+
+  p { font-size: 16px; line-height: 1.7; color: var(--text-muted); margin-bottom: 20px; }
+  p strong { color: var(--text); }
+
+  .cover {
+    background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+  }
+
+  .cover-bottom {
+    margin-top: auto;
+    padding-top: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .cover-meta {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .cover-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .cover-logo img {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  /* Six-stage grid */
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 40px;
+  }
+
+  .stage-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    position: relative;
+  }
+
+  .stage-card.featured {
+    border-color: rgba(124, 58, 237, 0.4);
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), transparent);
+  }
+
+  .stage-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stage-name {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .stage-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .stage-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 12px;
+  }
+
+  .stage-tag.you-use {
+    color: var(--green);
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.08);
+  }
+
+  .stage-tag.we-handle {
+    color: var(--accent-light);
+    border-color: rgba(124, 58, 237, 0.3);
+    background: rgba(124, 58, 237, 0.08);
+  }
+
+  /* Three pillars */
+  .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 40px;
+  }
+
+  .pillar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+  }
+
+  .pillar-num {
+    font-size: 40px;
+    font-weight: 800;
+    color: var(--accent-light);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .pillar h3 { margin-bottom: 12px; }
+
+  .pillar-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* Workflow */
+  .workflow-list {
+    margin-top: 32px;
+  }
+
+  .workflow-step {
+    display: flex;
+    gap: 24px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .workflow-step:last-child { border-bottom: none; }
+
+  .workflow-num {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    color: var(--accent-light);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .workflow-content { flex: 1; }
+  .workflow-content h4 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .workflow-content p { font-size: 14px; margin-bottom: 0; }
+
+  /* Table */
+  .input-table {
+    width: 100%;
+    margin-top: 32px;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .input-table th {
+    text-align: left;
+    padding: 16px 20px;
+    background: var(--surface-2);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .input-table td {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .input-table tr:last-child td { border-bottom: none; }
+
+  .input-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .input-desc {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* Timeline */
+  .timeline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 40px;
+  }
+
+  .timeline-week {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .timeline-week.live {
+    border-color: rgba(34, 197, 94, 0.3);
+    background: rgba(34, 197, 94, 0.05);
+  }
+
+  .timeline-week-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .timeline-week.live .timeline-week-label { color: var(--green); }
+
+  .timeline-week-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .cta-slide {
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+    text-align: center;
+  }
+
+  .cta-slide .slide-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cta-contact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 32px;
+  }
+
+  .cta-contact a {
+    color: var(--accent-light);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .divider {
+    width: 80px;
+    height: 2px;
+    background: var(--accent);
+    margin: 32px 0;
+  }
+
+  @media (max-width: 768px) {
+    .slide { padding: 60px 24px; }
+    .stage-grid, .pillars, .timeline { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 1: COVER -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide cover">
+  <div class="slide-inner">
+    <div>
+      <div class="tag">For Peller</div>
+      <h1>AI-Powered<br><span class="accent">Creative Studio</span></h1>
+      <p class="subtitle">
+        Your brand voice, captured once. Production-ready creative every campaign — generated, reviewed, and tracked through a guided studio built around how your team actually works.
+      </p>
+    </div>
+    <div class="cover-bottom">
+      <div class="cover-meta">
+        Prepared for Peller<br>
+        June 2026
+      </div>
+      <div class="cover-logo">
+        <img src="https://getbonito.com/bonito-icon.png" alt="Bonito" />
+        Bonito AI
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 2: THE PROBLEM -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">02</span>
+  <div class="slide-inner">
+    <div class="tag">The Problem</div>
+    <h2>Creative production<br>is a moving target.</h2>
+    <p>Every campaign starts at zero. New briefs, new asset requirements, new rounds of back-and-forth. You wait days for first looks, weeks for revisions, and by the time something reaches market, the moment has often shifted.</p>
+    <p>AI tools promised to speed this up. In practice they introduced new problems. Each one has its own interface, its own quirks, and none of them know your brand — your voice, your visual grammar, your audience. The output looks generic. The brand starts to feel like everyone else's brand.</p>
+    <p><strong>More creative speed is theoretically available. Unlocking it requires either becoming an AI expert yourself or trusting a tool that doesn't know your brand.</strong> Neither option works for a marketing team trying to ship campaigns.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 3: WHAT WE'RE BUILDING -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">03</span>
+  <div class="slide-inner">
+    <div class="tag">What We're Building</div>
+    <h2>A studio that knows<br>your brand.</h2>
+    <p class="subtitle subtitle-wide">
+      A guided creative app built around the Peller brand specifically. Your team produces on-brand campaign assets in minutes, step by step, with no AI expertise required.
+    </p>
+    <p>Your brand voice, visual style, and strategic principles are captured once. From there, every campaign starts from that foundation. Your team works through a guided flow: pick a campaign type, choose from a curated library of prompts tuned to your brand, generate variations, mark the ones you love, and publish.</p>
+    <p><strong>Every asset gets tracked. Every favorite gets remembered. Every published campaign teaches the system what works for Peller</strong> — so the next campaign starts smarter than the last.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 4: ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">04</span>
+  <div class="slide-inner">
+    <div class="tag">Architecture</div>
+    <h2>Six layers. You touch three.</h2>
+    <p class="subtitle subtitle-wide">
+      The strategic foundation is built and maintained for you. Your team interacts with the layers that matter: prompts, production, and review.
+    </p>
+
+    <div class="stage-grid">
+      <div class="stage-card">
+        <div class="stage-num">Layer 1</div>
+        <div class="stage-name">Brand Rules</div>
+        <div class="stage-desc">Your tone, voice, visual grammar, and distinctive brand assets — captured in a structured profile the system uses on every generation. Set up at onboarding, refined over time.</div>
+        <span class="stage-tag we-handle">Set up for you</span>
+      </div>
+      <div class="stage-card featured">
+        <div class="stage-num">Layer 2</div>
+        <div class="stage-name">Prompt Library</div>
+        <div class="stage-desc">A growing library of reusable prompts tuned to the Peller brand. Each prompt is a starting point. Your team picks one, customizes it if needed, and goes.</div>
+        <span class="stage-tag you-use">You use this</span>
+      </div>
+      <div class="stage-card">
+        <div class="stage-num">Layer 3</div>
+        <div class="stage-name">Insight Engine</div>
+        <div class="stage-desc">Automated research and cultural scanning — what's trending in wine, what your audience is reacting to — feeds suggestions into your campaign briefs.</div>
+        <span class="stage-tag we-handle">Runs quietly</span>
+      </div>
+      <div class="stage-card">
+        <div class="stage-num">Layer 4</div>
+        <div class="stage-name">Multi-Tool Orchestration</div>
+        <div class="stage-desc">The system routes each asset type to the right AI model. Photography to one model, product shots to another, video to a third. You don't pick the tool — you pick the result.</div>
+        <span class="stage-tag we-handle">Handled for you</span>
+      </div>
+      <div class="stage-card featured">
+        <div class="stage-num">Layer 5</div>
+        <div class="stage-name">Production Pipeline</div>
+        <div class="stage-desc">Your team's main interface. Submit a brief, watch it generate, review variations side by side, mark favorites, publish or hand off to design.</div>
+        <span class="stage-tag you-use">Your home base</span>
+      </div>
+      <div class="stage-card featured">
+        <div class="stage-num">Layer 6</div>
+        <div class="stage-name">Creative QA + Human Taste</div>
+        <div class="stage-desc">Your team always has the final say. Every asset is reviewed and approved before it ships. The system makes the work faster — you keep the creative judgment.</div>
+        <span class="stage-tag you-use">Yours, always</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 5: THE THREE PILLARS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">05</span>
+  <div class="slide-inner">
+    <div class="tag">What Makes It Different</div>
+    <h2>Three systems<br>that compound.</h2>
+    <p class="subtitle subtitle-wide">
+      Most AI tools are one-shot generators. You get an image, you save it, you move on. This studio is built around three systems that get more valuable the longer you use them.
+    </p>
+
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-num">01</div>
+        <h3>Brand Rules</h3>
+        <p class="pillar-desc">The foundation. Your brand is captured as structured rules the system follows on every generation. Tone, palette, voice, visual constraints. No more "AI-generated but generic." Every output starts on-brand.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">02</div>
+        <h3>Prompt Library</h3>
+        <p class="pillar-desc">Institutional memory. Every prompt that ever worked for your brand becomes a reusable starting point. Your team builds a vocabulary over time. New marketers onboard fast because the prompts are right there, waiting.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-num">03</div>
+        <h3>Performance Loop</h3>
+        <p class="pillar-desc">The learning system. Every asset gets a unique ID. You mark the ones you love. Once campaigns go to market, upload performance data and the system shows you which prompts and styles delivered the best results — for Peller specifically.</p>
+      </div>
+    </div>
+
+    <p style="margin-top: 40px; max-width: 800px;"><strong>The Performance Loop is the one that matters most a year from now.</strong> Without it, you have a generation tool. With it, you have a creative intelligence system that gets better the more you use it.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 6: WORKFLOW -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">06</span>
+  <div class="slide-inner">
+    <div class="tag">How Your Team Uses It</div>
+    <h2>From brief to publish<br>in one guided flow.</h2>
+
+    <div class="workflow-list">
+      <div class="workflow-step">
+        <div class="workflow-num">1</div>
+        <div class="workflow-content">
+          <h4>Pick a campaign type</h4>
+          <p>Choose what you're building — social carousel, hero banner, email creative, seasonal campaign. The studio knows what assets each one needs.</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-num">2</div>
+        <div class="workflow-content">
+          <h4>Choose from the prompt library, or write your own</h4>
+          <p>Browse the Peller-tuned prompts your studio came pre-loaded with. Customize one, or start from scratch. Brand-safety guardrails are always on.</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-num">3</div>
+        <div class="workflow-content">
+          <h4>Generate variations</h4>
+          <p>The system produces multiple options per asset, routing each to the best AI model for the job. Watch them come in side by side.</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-num">4</div>
+        <div class="workflow-content">
+          <h4>Mark favorites, add notes</h4>
+          <p>Star the ones you love. Tag what's working. Every preference is captured and fed back into the prompt library for next time.</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-num">5</div>
+        <div class="workflow-content">
+          <h4>Approve and publish</h4>
+          <p>Final review by your team. Hand off to design, send to your asset library, or mark ready for posting. Every asset carries its own ID for downstream tracking.</p>
+        </div>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-num">6</div>
+        <div class="workflow-content">
+          <h4>Close the loop</h4>
+          <p>After a campaign runs, upload its performance data. The studio matches it back to the assets, and shows you which prompts and styles performed best. Every campaign teaches the system what works for Peller.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 7: WHAT YOUR TEAM USES IT FOR -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">07</span>
+  <div class="slide-inner">
+    <div class="tag">Use Cases</div>
+    <h2>Built for the campaigns<br>your team runs every month.</h2>
+
+    <div class="stage-grid" style="margin-top: 32px;">
+      <div class="stage-card">
+        <div class="stage-name">Social campaigns</div>
+        <div class="stage-desc">Instagram, TikTok, LinkedIn — generated, reviewed, ready for post. Multi-format from a single brief.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-name">Email + landing-page creative</div>
+        <div class="stage-desc">Hero images, headers, supporting visuals. Brand-consistent without sending every asset back to the agency.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-name">Seasonal &amp; event campaigns</div>
+        <div class="stage-desc">Harvest, holiday, wine releases, partnership activations. Pre-built templates speed up recurring campaign types.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-name">Concept exploration</div>
+        <div class="stage-desc">Before committing to a full shoot, generate 20 directions, pick the strongest one, then brief the production team with confidence.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-name">Co-branded creative</div>
+        <div class="stage-desc">Fast turnaround for partnership and collaboration campaigns where speed is the difference between launching and missing the moment.</div>
+      </div>
+      <div class="stage-card">
+        <div class="stage-name">A/B variant generation</div>
+        <div class="stage-desc">Need 5 versions of the same hero image to test? The studio produces variants designed to A/B against each other.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 8: WHAT WE NEED FROM PELLER -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">08</span>
+  <div class="slide-inner">
+    <div class="tag">Onboarding</div>
+    <h2>What we need<br>from your team.</h2>
+    <p class="subtitle">A small set of inputs at onboarding. Nothing technical — just the documents you already have.</p>
+
+    <table class="input-table">
+      <thead>
+        <tr>
+          <th>Input</th>
+          <th>Used For</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="input-name">Brand guidelines</div>
+            <div class="input-desc">Logos, fonts, colour palette, tone of voice documentation</div>
+          </td>
+          <td><span style="color: var(--accent-light);">Brand Rules profile</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="input-name">10-20 past campaign assets</div>
+            <div class="input-desc">Recent creative your team is proud of — for style reference</div>
+          </td>
+          <td><span style="color: var(--accent-light);">Reference material for style matching</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="input-name">Brand voice / messaging docs</div>
+            <div class="input-desc">Whatever tone guides or messaging frameworks your team uses</div>
+          </td>
+          <td><span style="color: var(--accent-light);">Tone calibration</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="input-name">Product / SKU portfolio</div>
+            <div class="input-desc">Which wines, which collections, which seasons to feature first</div>
+          </td>
+          <td><span style="color: var(--accent-light);">Campaign briefing context</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="input-name">One or two recent briefs</div>
+            <div class="input-desc">A campaign brief in your usual format, for reference</div>
+          </td>
+          <td><span style="color: var(--accent-light);">Briefing template structure</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top: 32px;">Much of this likely already lives with your creative agency. We can take it from there.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 9: TIMELINE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">09</span>
+  <div class="slide-inner">
+    <div class="tag">Timeline</div>
+    <h2>From kickoff to live<br>in five weeks.</h2>
+
+    <div class="timeline">
+      <div class="timeline-week">
+        <div class="timeline-week-label">Week 1</div>
+        <div class="timeline-week-title">Discovery</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 0;">Brand assets, voice, campaign formats</p>
+      </div>
+      <div class="timeline-week">
+        <div class="timeline-week-label">Week 2</div>
+        <div class="timeline-week-title">Setup</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 0;">Brand Rules, Prompt Library, configuration</p>
+      </div>
+      <div class="timeline-week">
+        <div class="timeline-week-label">Week 3</div>
+        <div class="timeline-week-title">Build</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 0;">Studio assembled, integrations wired</p>
+      </div>
+      <div class="timeline-week">
+        <div class="timeline-week-label">Week 4</div>
+        <div class="timeline-week-title">Test</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 0;">Internal testing with your marketing team</p>
+      </div>
+      <div class="timeline-week live">
+        <div class="timeline-week-label">Week 5</div>
+        <div class="timeline-week-title">Launch</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 0;">Go-live + team training session</p>
+      </div>
+    </div>
+
+    <p style="margin-top: 40px;"><strong>30-day post-launch support included.</strong> Weekly check-ins for the first month so your team has a direct line as they get into the workflow.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 10: WHAT THIS LOOKS LIKE IN SIX MONTHS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide">
+  <span class="slide-number">10</span>
+  <div class="slide-inner">
+    <div class="tag">The Compound</div>
+    <h2>What this looks like<br>in six months.</h2>
+    <p>Your team is producing campaign assets in hours instead of days. New marketers ramp in a week because the brand foundation is already encoded. You have a library of prompts and styles that <strong>you know perform</strong> — not because someone told you, but because you have the data.</p>
+    <p>Your creative output is more on-brand, more consistent, and faster to produce. Your agency partnership shifts from "production help" to "strategic creative direction" — the part that requires their actual expertise.</p>
+    <p><strong>And every campaign you run from that point on gets a little smarter.</strong></p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SLIDE 11: NEXT STEPS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="slide cta-slide">
+  <div class="slide-inner">
+    <h2>Ready to walk through it?</h2>
+    <p class="subtitle" style="margin: 0 auto;">
+      A 30-minute working session — we'll show you a live version of the studio with sample brand assets and answer any questions about the build, the timeline, or how it fits your existing workflow.
+    </p>
+    <div class="divider"></div>
+    <div class="cta-contact">
+      <a href="mailto:shabari@bonito.ai">shabari@bonito.ai</a>
+      <span>Bonito AI &mdash; AI Operations Platform</span>
+      <span style="margin-top: 8px; color: var(--text-dim);">getbonito.com</span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
