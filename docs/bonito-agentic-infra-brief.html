@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bonito — Agentic Infrastructure</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface-2: #1a1a1a;
+    --surface-3: #222222;
+    --border: #222222;
+    --border-light: #2a2a2a;
+    --text: #f5f0e8;
+    --text-muted: #888888;
+    --text-dim: #555555;
+    --accent: #7c3aed;
+    --accent-light: #a78bfa;
+    --accent-glow: rgba(124, 58, 237, 0.15);
+    --green: #22c55e;
+    --green-glow: rgba(34, 197, 94, 0.12);
+    --amber: #f59e0b;
+    --blue: #3b82f6;
+    --blue-glow: rgba(59, 130, 246, 0.12);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+  }
+
+  .section {
+    min-height: 100vh;
+    padding: 100px 60px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .section-number {
+    position: relative;
+    top: -16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    margin-bottom: 24px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-light);
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: clamp(48px, 7vw, 80px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 32px;
+  }
+
+  h1 .accent { color: var(--accent-light); }
+
+  h2 {
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+
+  h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .subtitle {
+    font-size: 18px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 720px;
+    margin-bottom: 48px;
+  }
+
+  /* Cover */
+  .cover {
+    background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .cover-meta {
+    margin-top: 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .cover-meta .right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .cover-meta .right img {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  /* Node — the core diagram building block */
+  .node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .node[open] {
+    border-color: var(--accent);
+  }
+
+  .node summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    user-select: none;
+  }
+
+  .node summary::-webkit-details-marker { display: none; }
+
+  .node summary:hover { background: var(--surface-2); }
+
+  .node-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .node-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--accent-light);
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+
+  .node-icon.green { background: var(--green-glow); border-color: rgba(34, 197, 94, 0.25); color: var(--green); }
+  .node-icon.blue { background: var(--blue-glow); border-color: rgba(59, 130, 246, 0.25); color: var(--blue); }
+  .node-icon.amber { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.25); color: var(--amber); }
+
+  .node-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .node-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .node-toggle {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+
+  .node[open] .node-toggle {
+    transform: rotate(45deg);
+    color: var(--accent-light);
+    border-color: rgba(124, 58, 237, 0.3);
+  }
+
+  .node-body {
+    padding: 0 20px 18px 64px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .node-body p { margin-bottom: 12px; }
+  .node-body p:last-child { margin-bottom: 0; }
+  .node-body code {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 12px;
+    color: var(--accent-light);
+  }
+
+  .node-body pre {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    overflow-x: auto;
+    margin: 10px 0;
+  }
+
+  .node-body ul { padding-left: 18px; margin: 8px 0; }
+  .node-body li { margin-bottom: 6px; }
+
+  /* Flow diagram */
+  .flow {
+    margin: 48px 0;
+    position: relative;
+  }
+
+  .flow-row {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .flow-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .flow-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .flow-row.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .flow-arrow {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 20px;
+    margin: 8px 0 24px 0;
+    letter-spacing: 8px;
+  }
+
+  .flow-source {
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .flow-source-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .flow-source-name {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .flow-source-desc {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* Stepped numbered flow */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .step-row {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 44px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 18px;
+    font-weight: 800;
+    color: var(--accent-light);
+    font-size: 18px;
+  }
+
+  .step-content { flex: 1; }
+
+  /* Callout cards (governance section) */
+  .callout-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 32px;
+  }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .callout-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent-light);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .callout-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+
+  .callout-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .callout-desc code {
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-light);
+  }
+
+  /* CTA */
+  .cta-section {
+    background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .cta-section h2 { margin-bottom: 16px; }
+
+  .cta-contact {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .cta-contact a {
+    color: var(--accent-light);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 16px;
+  }
+
+  .divider {
+    width: 60px;
+    height: 2px;
+    background: var(--accent);
+    margin: 24px auto;
+  }
+
+  /* Hint banner */
+  .hint {
+    background: rgba(124, 58, 237, 0.06);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hint::before {
+    content: "+";
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-light);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 800px) {
+    .section { padding: 60px 24px; }
+    .flow-row { grid-template-columns: 1fr !important; }
+    .callout-grid { grid-template-columns: 1fr; }
+    .node-body { padding-left: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- COVER -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section cover">
+  <div class="section-inner">
+    <div class="tag">Architecture Brief</div>
+    <h1>Bonito as<br><span class="accent">Agentic Infrastructure</span></h1>
+    <p class="subtitle">
+      How a developer using an AI coding harness connects to Bonito, deploys agents, and ships production AI features without rebuilding the plumbing.
+    </p>
+    <div class="cover-meta">
+      <div>June 2026</div>
+      <div class="right">
+        <img src="https://getbonito.com/bonito-icon.png" alt="Bonito" />
+        Bonito AI
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 1: CONNECTION PATHWAYS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-number">01 / CONNECT</div>
+    <h2>How a harness talks to Bonito.</h2>
+    <p class="subtitle">Three pathways, one platform. Pick whichever fits how your harness works today. Tap any node to expand.</p>
+
+    <div class="hint">Every node below expands. Tap the <strong>+</strong> to see what each pathway actually authorizes and which endpoint it routes through.</div>
+
+    <div class="flow">
+      <div class="flow-row" style="grid-template-columns: 1fr;">
+        <div class="flow-source">
+          <div class="flow-source-label">Source</div>
+          <div class="flow-source-name">Your AI Harness</div>
+          <div class="flow-source-desc">Claude Code, OpenClaw, Hermes, or any harness with file-system + terminal + env-var access</div>
+        </div>
+      </div>
+
+      <div class="flow-arrow">▼ &nbsp; ▼ &nbsp; ▼</div>
+
+      <div class="flow-row cols-3">
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon green">⌘</div>
+              <div>
+                <div class="node-title">CLI</div>
+                <div class="node-sub"><code>bonito-cli</code></div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The harness shells out to <code>bonito</code> commands to manage agents, knowledge bases, and credentials. Authenticated by a token in the environment.</p>
+            <p><strong>What it does:</strong> deploys agents from YAML, uploads KBs, lists models, fetches logs.</p>
+            <p><strong>Endpoint surface:</strong> talks to <code>/api/*</code> on the Bonito backend.</p>
+            <p><strong>Token:</strong> <code>bp-</code> (personal access) or <code>bj-</code> (project-scoped).</p>
+            <pre>$ bonito deploy -f bonito.yaml
+$ bonito agents list
+$ bonito kb upload my-docs ./docs/*.md</pre>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon blue">⇋</div>
+              <div>
+                <div class="node-title">HTTP API</div>
+                <div class="node-sub">OpenAI-compatible</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The harness makes direct HTTP calls to Bonito's gateway, using the OpenAI SDK or plain <code>fetch</code>. This is how production apps actually run AI workloads through Bonito.</p>
+            <p><strong>What it does:</strong> chat completions, image generation, video generation, embeddings — routed across providers.</p>
+            <p><strong>Endpoint surface:</strong> <code>POST /v1/chat/completions</code>, <code>/v1/embeddings</code>, <code>/v1/images/generations</code>, <code>/v1/videos</code>.</p>
+            <p><strong>Token:</strong> <code>bn-</code> (gateway) or <code>bp-</code>.</p>
+            <pre>POST https://api.getbonito.com/v1/chat/completions
+Authorization: Bearer bn-...
+{ "model": "gpt-4o", "messages": [...] }</pre>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon amber">⚙</div>
+              <div>
+                <div class="node-title">MCP Server</div>
+                <div class="node-sub"><code>bonito-mcp</code></div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>For harnesses that speak the Model Context Protocol, Bonito ships an MCP server. The harness calls Bonito tools natively as if they were built-in functions.</p>
+            <p><strong>What it does:</strong> list providers, list models, create agents, create KBs, fetch logs and costs — all as tool calls in the harness's own loop.</p>
+            <p><strong>Configured in</strong> the harness's MCP settings with <code>BONITO_API_KEY</code> in env.</p>
+            <pre>{
+  "mcpServers": {
+    "bonito": {
+      "command": "uvx",
+      "args": ["bonito-mcp"]
+    }
+  }
+}</pre>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 2: SETUP FLOW -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-number">02 / SET UP</div>
+    <h2>From zero to first agent.</h2>
+    <p class="subtitle">Linear flow. Each step expands to show the actual command or call the harness would make.</p>
+
+    <div class="steps">
+
+      <div class="step-row">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <details class="node">
+            <summary>
+              <div class="node-label">
+                <div>
+                  <div class="node-title">Authenticate</div>
+                  <div class="node-sub">Token in environment</div>
+                </div>
+              </div>
+              <div class="node-toggle">+</div>
+            </summary>
+            <div class="node-body">
+              <p>The harness reads <code>BONITO_API_KEY</code> from <code>.env</code>. No browser login required — the token is the auth.</p>
+              <p>Token prefixes signal scope: <code>bn-</code> for gateway-only, <code>bp-</code> for everything-as-this-user, <code>bj-</code> for project-scoped.</p>
+              <pre># .env
+BONITO_API_KEY=bp-...
+BONITO_API_URL=https://api.getbonito.com</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <details class="node">
+            <summary>
+              <div class="node-label">
+                <div>
+                  <div class="node-title">Connect a provider</div>
+                  <div class="node-sub">OpenAI, Anthropic, Vertex, Bedrock, Azure, Groq</div>
+                </div>
+              </div>
+              <div class="node-toggle">+</div>
+            </summary>
+            <div class="node-body">
+              <p>One-time setup per org. Each provider's credentials live in Bonito's secrets vault, never in your code.</p>
+              <p>Once connected, every Bonito agent and every gateway call can route to that provider's models. Adding a new provider later is a config change, not a code change.</p>
+              <pre>$ bonito providers connect openai \
+    --api-key sk-...</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <details class="node">
+            <summary>
+              <div class="node-label">
+                <div>
+                  <div class="node-title">First gateway call</div>
+                  <div class="node-sub">Verify the auth + routing works</div>
+                </div>
+              </div>
+              <div class="node-toggle">+</div>
+            </summary>
+            <div class="node-body">
+              <p>The harness fires a minimal chat completion. If it comes back, the auth, the providers, and the routing are all working end to end.</p>
+              <pre>curl -X POST https://api.getbonito.com/v1/chat/completions \
+  -H "Authorization: Bearer $BONITO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role":"user","content":"hello"}]
+  }'</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <details class="node">
+            <summary>
+              <div class="node-label">
+                <div>
+                  <div class="node-title">Deploy an agent</div>
+                  <div class="node-sub">From YAML, idempotent</div>
+                </div>
+              </div>
+              <div class="node-toggle">+</div>
+            </summary>
+            <div class="node-body">
+              <p>The harness writes a <code>bonito.yaml</code>, runs <code>bonito deploy</code>, and the agent is live. Re-running the deploy is idempotent — edit the YAML, ship again.</p>
+              <pre>version: "1"
+name: my-first-agent
+agents:
+  helper:
+    display_name: "Helper"
+    model_id: gpt-4o
+    system_prompt: |
+      You are a concise, factual assistant.
+    tools:
+      mode: allowlist
+      allowed:
+        - kb_search
+        - http</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <details class="node">
+            <summary>
+              <div class="node-label">
+                <div>
+                  <div class="node-title">Execute the agent</div>
+                  <div class="node-sub">From the harness, from prod, from anywhere</div>
+                </div>
+              </div>
+              <div class="node-toggle">+</div>
+            </summary>
+            <div class="node-body">
+              <p>The harness calls the agent execute endpoint with a message. The agent runs through its configured tools and model on the Bonito side. Every call is logged, costed, and observable.</p>
+              <pre>POST /api/agents/{agent_id}/execute
+{ "message": "what time is it in Tokyo?" }</pre>
+            </div>
+          </details>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 3: AGENT ARCHITECTURE -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-number">03 / AGENTS</div>
+    <h2>What runs when an agent executes.</h2>
+    <p class="subtitle">A request enters the agent boundary. Inside that boundary: a system prompt, configured tools, a session, and a gateway hop to a provider. Expand any node to see what it does.</p>
+
+    <div class="flow">
+
+      <div class="flow-row" style="grid-template-columns: 1fr;">
+        <div class="flow-source">
+          <div class="flow-source-label">Request</div>
+          <div class="flow-source-name">Harness → /api/agents/{id}/execute</div>
+        </div>
+      </div>
+
+      <div class="flow-arrow">▼</div>
+
+      <div class="flow-row cols-2">
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">A</div>
+              <div>
+                <div class="node-title">Agent boundary</div>
+                <div class="node-sub">System prompt + config</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>Each agent carries its own system prompt, model selection, model config (temperature, max_tokens), tool policy, and optional knowledge-base bindings.</p>
+            <p>The agent boundary is what gives the harness a stable contract: one stable agent ID, one stable behavior, regardless of how providers, models, or routing change underneath.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">S</div>
+              <div>
+                <div class="node-title">Session memory</div>
+                <div class="node-sub">Per-conversation context</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The agent can run with optional shared conversational memory across turns. Memory is tier-gated and per-session, so a chat-style harness can keep context across requests without rebuilding state.</p>
+            <p>For persistent context that survives sessions, agents can use long-term agent memory backed by vector search.</p>
+          </div>
+        </details>
+
+      </div>
+
+      <div class="flow-arrow">▼ tool calls</div>
+
+      <div class="flow-row cols-3">
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon green">kb</div>
+              <div>
+                <div class="node-title">search_kb</div>
+                <div class="node-sub">RAG over linked KBs</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>Searches one or more knowledge bases the agent is bound to. Returns cited passages the agent can use in its answer.</p>
+            <p>Vector similarity via pgvector HNSW. Embeddings handled at ingest time, transparent to the harness.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon blue">⇨</div>
+              <div>
+                <div class="node-title">http</div>
+                <div class="node-sub">Outbound HTTP calls</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>Agent makes outbound HTTP requests to URLs explicitly listed in its <code>http_allowlist</code>. SSRF protection and default-deny are baked in.</p>
+            <p>Useful for calling your own backend, third-party APIs, or webhook-style integrations.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon amber">⇉</div>
+              <div>
+                <div class="node-title">invoke_agent</div>
+                <div class="node-sub">Agent-to-agent delegation</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>An agent can call another agent. Useful when one agent is a generalist and another is a specialist — the generalist hands off without leaking that complexity to the caller.</p>
+            <p>Delegation calls are logged in the parent's execution trace, so the harness gets a clean breadcrumb of who called whom.</p>
+          </div>
+        </details>
+
+      </div>
+
+      <div class="flow-arrow">▼</div>
+
+      <div class="flow-row cols-2">
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">G</div>
+              <div>
+                <div class="node-title">Gateway</div>
+                <div class="node-sub">Multi-provider routing</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The agent's model call lands at the gateway. The gateway picks the right provider (the org's configured credentials), enforces policy (model allow-lists, spend caps), and handles cross-provider failover when things go wrong upstream.</p>
+            <p>The agent doesn't know which provider answered. It just gets a response. Provider-switching is operational, not architectural.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">P</div>
+              <div>
+                <div class="node-title">Provider</div>
+                <div class="node-sub">OpenAI, Anthropic, Vertex, Bedrock, Azure, Groq</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The actual model serves the inference. Cost is captured per-request, tokens are counted, latency is measured.</p>
+            <p>If the provider fails (rate limit, timeout, model unavailable), the gateway routes to an equivalent model on another provider. The harness sees a successful response either way.</p>
+          </div>
+        </details>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 4: GATEWAY OPERATIONS -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-number">04 / GATEWAY</div>
+    <h2>What the gateway does for you.</h2>
+    <p class="subtitle">A thin wrapper that handles the unglamorous operational problems so the harness doesn't have to. Tap any to expand.</p>
+
+    <div class="flow">
+      <div class="flow-row cols-2">
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">R</div>
+              <div>
+                <div class="node-title">Routing</div>
+                <div class="node-sub">Model → provider, per-request</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>The gateway maps a model name to the right provider based on your org's connected credentials and any routing policies attached to the key.</p>
+            <p>Routing strategies available: cost-optimized, latency-optimized, balanced, failover-first, A/B test. Configured per-key or per-policy.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">F</div>
+              <div>
+                <div class="node-title">Failover</div>
+                <div class="node-sub">Cross-provider retry</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>When a provider fails — rate limit, timeout, model not available — the gateway automatically retries on an equivalent model from another provider.</p>
+            <p>The harness sees a successful response. The failed attempt is logged in the audit trail so ops can see what happened later.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">$</div>
+              <div>
+                <div class="node-title">Cost capture</div>
+                <div class="node-sub">Per-request, per-model, per-key</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>Every call writes a row: provider, model, tokens in, tokens out, latency, cost. Searchable, exportable, attributable to a key, a project, or a team.</p>
+            <p>Real-time dashboards aggregate the rows so you see spend trends, model efficiency (cost per 1K tokens), and per-customer attribution as it happens.</p>
+          </div>
+        </details>
+
+        <details class="node">
+          <summary>
+            <div class="node-label">
+              <div class="node-icon">L</div>
+              <div>
+                <div class="node-title">Rate limits</div>
+                <div class="node-sub">Per-key, per-org, per-agent</div>
+              </div>
+            </div>
+            <div class="node-toggle">+</div>
+          </summary>
+          <div class="node-body">
+            <p>Each gateway key has its own RPM ceiling. Each agent has its own RPM ceiling. Each org has a tier-based total.</p>
+            <p>Breaching a limit returns a clean 429, not a provider-specific error. The harness handles one error shape regardless of which provider was being routed to.</p>
+          </div>
+        </details>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- SECTION 5: GOVERNANCE + OBSERVABILITY -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section" style="background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);">
+  <div class="section-inner">
+    <div class="section-number">05 / GOVERNANCE + OBSERVABILITY</div>
+    <h2>What you see, what you control.</h2>
+    <p class="subtitle">The layer that turns an experimental AI app into something you can ship to enterprise without rebuilding it. Not optional add-ons — these are part of the platform.</p>
+
+    <div class="callout-grid">
+
+      <div class="callout">
+        <div class="callout-title">Trace</div>
+        <div class="callout-name">Breadcrumbs</div>
+        <p class="callout-desc">Every agent run produces a structured trace: which agent was called, which tools it invoked, which sub-agents it delegated to, which provider answered, what the model returned, how much it cost. Visible in the dashboard as a tree, searchable by session, attributable to a request. The same data feeds debugging, billing, and audit.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Audit</div>
+        <div class="callout-name">Per-token, per-action</div>
+        <p class="callout-desc">Every API call, agent execution, KB upload, provider connection, and policy change is written to an immutable audit trail. <code>who did what when</code>, with token attribution and IP. Retention windows are tier-gated; export is one click. SOC-2 evidence package generated on demand.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Policy</div>
+        <div class="callout-name">Model allow-lists + spend caps</div>
+        <p class="callout-desc">Each gateway key carries its own model allow-list, spend cap, and rate limit. Build a key for an internal team with different ceilings than a key for a customer-facing app. Policy lives at the edge — the gateway enforces it before the call ever leaves Bonito's boundary.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Compliance</div>
+        <div class="callout-name">SOC-2, HIPAA, GDPR scanning</div>
+        <p class="callout-desc">Compliance checks run across the org's connected providers and policy state, flagging gaps before they become findings. PII handling, retention, data residency, access scope — surfaced as actionable warnings, not buried in audit logs.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Cost</div>
+        <div class="callout-name">Real-time intelligence</div>
+        <p class="callout-desc">Cost per 1K tokens by model, by request, by project. Forecasts based on trajectory. Optimization recommendations (cheaper equivalent model, prompt-length suggestions, routing tweaks). The data you need to defend an AI line item in a board deck.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Identity</div>
+        <div class="callout-name">SSO, SAML, RBAC</div>
+        <p class="callout-desc">Okta, Azure AD, Google Workspace, custom SAML. Role-based access (admin, member, viewer), SSO enforcement, JIT provisioning. Break-glass admin paths for incident response. Token prefixes (<code>bn-</code>, <code>bp-</code>, <code>bj-</code>) carry their own permission surface, baked into the auth layer.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Approval</div>
+        <div class="callout-name">Human-in-the-loop queue</div>
+        <p class="callout-desc">For high-risk agent actions, the platform pauses execution and surfaces an approval request. Risk assessment, auto-approve conditions, timeout handling, audit trail of every decision. Useful when an agent has access to spend money, send email, or modify production data.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Health</div>
+        <div class="callout-name">System Observer</div>
+        <p class="callout-desc">A scheduled internal observer agent reviews aggregated metrics per org and produces structured health and governance findings — degraded provider, drifting cost, model deprecation impact, anomalous traffic. The observability layer that watches the observability layer.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CTA -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<section class="section cta-section">
+  <div class="section-inner">
+    <h2>Ready to point your harness at it?</h2>
+    <p class="subtitle" style="margin-left: auto; margin-right: auto;">
+      A walkthrough takes 30 minutes. You leave with a working agent, a key in hand, and an honest read on whether Bonito fits your build.
+    </p>
+    <div class="divider"></div>
+    <div class="cta-contact">
+      <a href="mailto:shabari@bonito.ai">shabari@bonito.ai</a>
+      <span style="font-size: 13px; color: var(--text-muted);">Bonito AI &mdash; Enterprise AI Operations Platform</span>
+      <span style="font-size: 13px; color: var(--text-dim);">getbonito.com</span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
