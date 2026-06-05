@@ -485,7 +485,7 @@
 
     <p>Everly V1 is structurally identical to a wheel-model agent architecture we have already built in production: a per-tenant orchestrator agent, a shared roster of specialist capabilities, a per-tenant knowledge base, session memory, and a voice layer — all running on a multi-provider gateway with observability, governance, and audit baked in.</p>
 
-    <p>That substrate is Bonito. Everly runs on it free. The cost is hosting the Everly application layer on top — the web app, the database, the Stripe integration, the marketing surface. That bill is small.</p>
+    <p>That substrate is Bonito. The platform layer is comped under the partnership — gateway, agent framework, KB, memory, voice, observability, governance. Everly still owns its own provider API keys (OpenAI, Anthropic, your TTS / STT provider) and the inference cost is pass-through to whichever provider you've connected. What Everly pays for on the build side is the application layer above the platform — the web app, the database, the Stripe integration, the marketing surface. That bill is small.</p>
 
     <p>This brief covers:</p>
 
@@ -695,7 +695,7 @@
   <div class="section-inner">
     <div class="section-number">04 / STACK + COST</div>
     <h2>What it costs to run, line by line.</h2>
-    <p class="subtitle">Steady-state monthly infra costs for V1 — 10 to 100 tenants — broken out by component. AI inference (LLM tokens, image gen, voice synthesis, embeddings) and gateway operations are absorbed by Bonito at no cost to Everly.</p>
+    <p class="subtitle">Steady-state monthly infra costs for V1 — 10 to 100 tenants — broken out by component. AI inference (LLM tokens, voice synthesis, embeddings) is pass-through: Everly's own provider keys, billed directly by the provider. Bonito's platform layer (gateway, agents, KB, memory, observability) is comped under the partnership.</p>
 
     <table class="cost-table">
       <thead>
@@ -726,10 +726,10 @@
           <td>Tenants, users, configs, conversations, billing state. Branching for dev/staging.</td>
         </tr>
         <tr>
-          <td><strong>Vector store (KB)</strong></td>
+          <td><strong>Vector store (KB hosting)</strong></td>
           <td>Bonito-managed</td>
           <td class="free">$0</td>
-          <td>Per-tenant pgvector HNSW. Embeddings via Bonito gateway.</td>
+          <td>Per-tenant pgvector HNSW, included in the platform. Embedding inference is provider-billed (counted under LLM inference).</td>
         </tr>
         <tr>
           <td><strong>Object storage</strong></td>
@@ -745,15 +745,15 @@
         </tr>
         <tr>
           <td><strong>LLM inference</strong></td>
-          <td>Bonito gateway</td>
-          <td>—</td>
-          <td>Multi-provider routing, failover, per-tenant cost capture — all included.</td>
+          <td>Everly's provider keys, routed via Bonito</td>
+          <td>usage-based</td>
+          <td>Provider bills Everly directly. Bonito routes, fails over, and captures per-tenant cost — pass-through, no platform markup.</td>
         </tr>
         <tr>
           <td><strong>Voice (TTS + STT)</strong></td>
-          <td>Bonito gateway (managed TTS / STT)</td>
+          <td>Everly's TTS / STT keys, routed via Bonito</td>
           <td>$80 - $250</td>
-          <td>Estimate scales with voice-mode usage. Streaming TTS, brand voice consistency, transcribed back to KB substrate.</td>
+          <td>Estimate scales with voice-mode usage. Provider bills Everly directly. Streaming TTS, brand voice consistency, transcribed back to KB substrate.</td>
         </tr>
         <tr>
           <td><strong>Background jobs</strong></td>
@@ -788,15 +788,16 @@
         <tr class="total-row">
           <td colspan="2"><strong>Total estimated monthly infra (V1, 10-100 tenants)</strong></td>
           <td><strong>$205 - $570 / mo</strong></td>
-          <td><strong>Excluding Stripe transaction fees and LLM inference.</strong></td>
+          <td><strong>Hosting and tooling only. Excludes Stripe transaction fees and LLM inference (provider-billed directly to Everly).</strong></td>
         </tr>
       </tbody>
     </table>
 
     <div class="callout green">
-      <div class="callout-title">What Bonito eats — and what that's worth</div>
-      <p><strong>Gateway, agents, KB, memory, voice, observability.</strong> Standalone, those subsystems would cost $400-$2,000+/mo at modest scale (LLM provider fees, vector DB hosting, voice API subscriptions, observability tooling) and 12-16 weeks of engineering to build to production quality. At V1 scale that's roughly $5K-$24K saved annually on infra alone, plus 3-4 months of build time you don't spend.</p>
-      <p>At 100 tenants paying $750-1,000/mo, you're running gross-margin-positive on day one. The cost stack stays predictable as you scale because the AI layer is fixed-cost from Everly's perspective.</p>
+      <div class="callout-title">What Bonito covers — and what that's worth</div>
+      <p><strong>The platform layer.</strong> Multi-provider gateway routing, the agentic framework runtime, the KB / vector infrastructure, session and persistent memory, the voice gateway, governance, observability, audit. Bonito's Pro / Enterprise tier covers all of it, comped under the partnership terms. Everly does not pay a platform subscription fee for any of this.</p>
+      <p><strong>What Everly still pays for, directly.</strong> Provider API keys — OpenAI, Anthropic, Google, your TTS / STT provider — sit in Everly's own accounts and bill Everly directly. Bonito routes calls through those keys; the inference and voice costs are pass-through to whichever provider you've connected. This is by design: you stay in control of your own provider relationships, and the unit economics per tenant are transparent to you, not abstracted behind a platform markup.</p>
+      <p><strong>What this saves.</strong> Standalone, building the platform layer above to production quality is roughly 12-16 weeks of engineering and ongoing maintenance overhead. That's the time saved. The provider bill is still the provider bill.</p>
     </div>
 
   </div>
