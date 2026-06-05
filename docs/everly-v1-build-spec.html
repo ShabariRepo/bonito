@@ -478,7 +478,7 @@
     <div class="section-number">01 / SUMMARY</div>
     <h2>What this brief argues.</h2>
 
-    <p>The Everly V1 PRD specifies 36 requirements across tenant lifecycle, identity, onboarding, knowledge base, conversational interface, capabilities, permissions, voice and brand discipline, pricing, observability, and training-data substrate. The two-week timeline is aggressive but feasible — <em>conditional on not rebuilding the AI plumbing from scratch</em>.</p>
+    <p>The Everly V1 PRD specifies 36 requirements across tenant lifecycle, identity, onboarding, knowledge base, conversational interface, capabilities, permissions, voice and brand discipline, pricing, observability, and training-data substrate. The PRD's target timeline is aggressive but feasible — <em>conditional on not rebuilding the AI plumbing from scratch</em>.</p>
 
     <p>Everly V1 is structurally identical to a wheel-model agent architecture we have already built in production: a per-tenant orchestrator agent, a shared roster of specialist capabilities, a per-tenant knowledge base, session memory, and a voice layer — all running on a multi-provider gateway with observability, governance, and audit baked in.</p>
 
@@ -491,7 +491,7 @@
       <li>The hosting and infra costs, line by line, with Bonito as a zero-cost dependency</li>
       <li>The capability-to-agent topology (which specialist owns which V1 capability)</li>
       <li>The Lindy.ai competitive picture — what they actually do, where they fall short of Everly's positioning, and what we can credibly deliver that they cannot</li>
-      <li>The build sequence for a two-week V1, with the load-bearing principles preserved</li>
+      <li>The build sequence for V1, with the load-bearing principles preserved</li>
     </ul>
   </div>
 </section>
@@ -560,14 +560,14 @@
       <div class="arch-arrow">▼ runs on</div>
 
       <div class="arch-layer">
-        <div class="arch-label">Bonito Platform (free — Shabari involved)</div>
+        <div class="arch-label">Bonito Platform</div>
         <div class="arch-row cols-4">
           <div class="arch-box amber">
             <div class="arch-box-name">Gateway</div>
             <div class="arch-box-sub">Multi-provider routing, failover, cost capture per tenant</div>
           </div>
           <div class="arch-box amber">
-            <div class="arch-box-name">Bonobot Agents</div>
+            <div class="arch-box-name">Agentic Framework</div>
             <div class="arch-box-sub">Orchestrator + 5 specialists, agent-to-agent delegation</div>
           </div>
           <div class="arch-box amber">
@@ -576,7 +576,7 @@
           </div>
           <div class="arch-box amber">
             <div class="arch-box-name">Memory + Voice</div>
-            <div class="arch-box-sub">Memwright session memory, ElevenLabs TTS/STT, voice eval</div>
+            <div class="arch-box-sub">Session + persistent memory, TTS / STT, voice eval</div>
           </div>
         </div>
       </div>
@@ -743,14 +743,14 @@
         <tr>
           <td><strong>LLM inference</strong></td>
           <td>Bonito gateway</td>
-          <td class="free">$0</td>
+          <td>—</td>
           <td>Multi-provider routing, failover, per-tenant cost capture — all included.</td>
         </tr>
         <tr>
           <td><strong>Voice (TTS + STT)</strong></td>
-          <td>Bonito gateway → ElevenLabs / Whisper</td>
-          <td class="free">$0</td>
-          <td>Voice persona, brand voice consistency, streaming TTS.</td>
+          <td>Bonito gateway (managed TTS / STT)</td>
+          <td>$80 - $250</td>
+          <td>Estimate scales with voice-mode usage. Streaming TTS, brand voice consistency, transcribed back to KB substrate.</td>
         </tr>
         <tr>
           <td><strong>Background jobs</strong></td>
@@ -784,8 +784,8 @@
         </tr>
         <tr class="total-row">
           <td colspan="2"><strong>Total estimated monthly infra (V1, 10-100 tenants)</strong></td>
-          <td><strong>$125 - $320 / mo</strong></td>
-          <td><strong>Excluding Stripe transaction fees.</strong></td>
+          <td><strong>$205 - $570 / mo</strong></td>
+          <td><strong>Excluding Stripe transaction fees and LLM inference.</strong></td>
         </tr>
       </tbody>
     </table>
@@ -805,7 +805,7 @@
 <section class="section">
   <div class="section-inner">
     <div class="section-number">05 / BUILD SEQUENCE</div>
-    <h2>The two-week V1 path.</h2>
+    <h2>The V1 path.</h2>
     <p class="subtitle">Working backwards from "first paying customer in under an hour from signup." The load-bearing principles (multi-tenant isolation, voice discipline, ask-before-acting, no-card onboarding, transparent data) are preserved. UI polish and conversational onboarding can slip to V1.1 if the timeline forces a cut.</p>
 
     <div class="steps">
@@ -813,7 +813,7 @@
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <h4>Foundation (days 1-3)</h4>
+          <h4>Foundation</h4>
           <p>Next.js scaffold, Postgres schema (tenants, users, configs), NextAuth magic-link auth, public sign-up page (no card, Req 4), tenant provisioning service (Req 1), per-tenant Bonito org + orchestrator created at signup via the same pattern OuchGPT uses today.</p>
         </div>
       </div>
@@ -821,7 +821,7 @@
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-content">
-          <h4>KB pipeline (days 3-5)</h4>
+          <h4>KB pipeline</h4>
           <p>Document upload UI, file ingestion service → Bonito KB API (Req 8, 11), citation rendering in answers (Req 12), per-tenant isolation enforced at the Bonito org boundary, admin transparency view stub (Req 10).</p>
         </div>
       </div>
@@ -829,7 +829,7 @@
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-content">
-          <h4>Conversational surface + voice (days 5-8)</h4>
+          <h4>Conversational surface + voice</h4>
           <p>Chat UI streaming responses (Req 15), per-user thread persistence (Req 16), voice mode toggle (Req 14) wired to Bonito's ElevenLabs/Whisper gateway, voice persona configured to brand spec, three-layer voice enforcement (system prompt + runtime sanitizer + build-time linter, Req 27).</p>
         </div>
       </div>
@@ -837,7 +837,7 @@
       <div class="step">
         <div class="step-num">4</div>
         <div class="step-content">
-          <h4>Specialists + capabilities (days 6-11)</h4>
+          <h4>Specialists + capabilities</h4>
           <p>Five specialist agents deployed via <code>bonito.yaml</code> — marketing-drafter, scheduler, call-summarizer, data-hygienist, email-drafter. Orchestrator wired to delegate via <code>invoke_agent</code>. Ask-before-acting enforced through Bonito's approval-queue primitive (Req 23). "Worth noting" sentinel parser in the web UI (Req 17). No-go list enforcement in system prompt + tool absence (Req 25).</p>
         </div>
       </div>
@@ -845,7 +845,7 @@
       <div class="step">
         <div class="step-num">5</div>
         <div class="step-content">
-          <h4>Integrations (days 8-12)</h4>
+          <h4>Integrations</h4>
           <p>Google Workspace OAuth (Calendar read + Gmail draft push), HubSpot OAuth (read + propose-only writes). Tools added to specialist allowlists. Per-tenant OAuth tokens stored in Bonito secrets vault.</p>
         </div>
       </div>
@@ -853,7 +853,7 @@
       <div class="step">
         <div class="step-num">6</div>
         <div class="step-content">
-          <h4>Conversational onboarding (days 10-13)</h4>
+          <h4>Conversational onboarding</h4>
           <p>15-20 min discovery interview, structured question script (CPO deliverable), output feeds the per-tenant KB. Available in text and voice. Per the PRD, this is non-negotiable for V1.</p>
         </div>
       </div>
@@ -861,7 +861,7 @@
       <div class="step">
         <div class="step-num">7</div>
         <div class="step-content">
-          <h4>Admin + observability + billing (days 11-13)</h4>
+          <h4>Admin + observability + billing</h4>
           <p>Admin surface (Req 33): tenant config, team invites with content tiers (Req 7), integration management, KB document management, transparency view. Per-tenant cost/tokens/latency dashboard fed by Bonito gateway metrics (Req 34). Engagement signal for quiet-failure detection (Req 35). Stripe card capture flow for day-30 conversion (Req 31), usage-tier metering (Req 32). Tenant deletion + export (Req 3).</p>
         </div>
       </div>
@@ -869,7 +869,7 @@
       <div class="step">
         <div class="step-num">8</div>
         <div class="step-content">
-          <h4>Voice eval + ship (day 14)</h4>
+          <h4>Voice eval + ship</h4>
           <p>15-prompt voice eval suite (Req 29) running in CI, blocking ship on failure. Vocal eval for voice mode brand alignment before ship. AI disclosure verified on every outbound surface (Req 28).</p>
         </div>
       </div>
@@ -878,8 +878,8 @@
 
     <div class="callout amber">
       <div class="callout-title">Honest read on the timeline</div>
-      <p>Two weeks is achievable for a wedge V1 that ships exactly what the PRD names as non-negotiable. Anything cosmetic or convenience-oriented — visual analytics polish, integration polish beyond what's listed, multi-modal extras — slides to V1.1. The load-bearing pieces (multi-tenant isolation, ask-before-acting, voice discipline, transparent data, no-card onboarding) stay in V1 because they are the wedge.</p>
-      <p>If we discover during build that we need an extra week, the call is between CPO and engineering. The wedge is not negotiable; the polish is.</p>
+      <p>A wedge V1 is achievable when it ships exactly what the PRD names as non-negotiable. Anything cosmetic or convenience-oriented — visual analytics polish, integration polish beyond what's listed, multi-modal extras — slides to V1.1. The load-bearing pieces (multi-tenant isolation, ask-before-acting, voice discipline, transparent data, no-card onboarding) stay in V1 because they are the wedge.</p>
+      <p>If we discover during build that the scope needs to flex, the call is between CPO and engineering. The wedge is not negotiable; the polish is.</p>
     </div>
 
   </div>
@@ -976,7 +976,8 @@
     <div class="callout">
       <div class="callout-title">The honest framing</div>
       <p><strong>Lindy is broader. Everly is deeper.</strong> Lindy wins on integration count and outbound voice today. Everly wins on every dimension that defines the wedge: the SMB business identity, zero-config onboarding, trust-before-access, voice discipline, ask-before-acting as a runtime constraint, and the growth arc framing.</p>
-      <p>The competitive question isn't "can we match Lindy's surface area." It's "can the SMB market we're targeting be acquired by the wedge before Lindy notices the lane." The PRD's two-week timeline assumes the answer is yes.</p>
+      <p>Honestly, going broad after going deep is easier than the inverse. Going deep first means the agents accumulate real expertise inside a specific business, and breadth shows up as adding integrations and capabilities the orchestrator already knows how to delegate to. Going broad first means the opposite — you ship a generalist surface and then have to retrain agents to be specialists per domain. The depth-first path compounds; the breadth-first path resets.</p>
+      <p>The competitive question isn't "can we match Lindy's surface area." It's "can the SMB market we're targeting be acquired by the wedge before Lindy notices the lane." The PRD's timeline assumes the answer is yes.</p>
     </div>
 
   </div>
@@ -1047,20 +1048,19 @@
       <div class="card">
         <div class="card-label">Question 1</div>
         <h3>Voice persona finalization</h3>
-        <p style="text-align: left;">The CPO drives brand characterization; engineering recommends TTS candidates. Decision needed before Day 8 of the build. Bonito ships with ElevenLabs voices wired; a 30-minute joint call to pick the voice unblocks Step 3 of the sequence.</p>
+        <p style="text-align: left;">The CPO drives brand characterization; engineering recommends TTS candidates. Decision needed before the conversational-surface step kicks off. Bonito ships with managed TTS voices wired; a 30-minute joint call to pick the voice unblocks the build.</p>
       </div>
       <div class="card">
         <div class="card-label">Question 2</div>
         <h3>Pricing tier spec</h3>
-        <p style="text-align: left;">PRD Req 32 leaves tier definitions open (starter, growth, top end at $750-$1,000). Bonito's per-tenant cost data will inform tier triggers, but the customer-facing tier feature gates are a CPO call. Decision needed before Day 11.</p>
+        <p style="text-align: left;">PRD Req 32 leaves tier definitions open (starter, growth, top end at $750-$1,000). Bonito's per-tenant cost data will inform tier triggers, but the customer-facing tier feature gates are a CPO call. Decision needed before the admin + billing step kicks off.</p>
       </div>
     </div>
 
     <div class="divider"></div>
     <div class="cta-contact">
-      <a href="mailto:shabari@bonito.ai">shabari@bonito.ai</a>
-      <span style="font-size: 13px; color: var(--text-muted);">Engineering · Bonito AI</span>
-      <span style="font-size: 13px; color: var(--text-dim);">getbonito.com</span>
+      <a href="mailto:shabari.cs@gmail.com">shabari.cs@gmail.com</a>
+      <span style="font-size: 13px; color: var(--text-muted);">Shabari Shenoy · Engineering</span>
     </div>
   </div>
 </section>
