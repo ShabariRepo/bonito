@@ -347,5 +347,108 @@ def project_graph(
     console.print(f"\n[dim]💡 Use --json to get full graph data for React Flow or other visualization tools.[/dim]")
 
 
+# ── project token management ─────────────────────────────────────
+# Mirrors auth.token_app shape, but for bj- project-scoped tokens.
+
+token_app = typer.Typer(help="🔑 Project-scoped access token management (bj-)")
+app.add_typer(token_app, name="token")
+
+
+@token_app.command("create")
+def project_token_create(
+    project_id: str = typer.Argument(..., help="Project ID to scope the token to"),
+    name: str = typer.Option(..., "--name", "-n", help="Token name"),
+    expires_in: int = typer.Option(90, "--expires-in", help="Expiry in days (1-365)"),
+):
+    """Create a project-scoped access token (bj-...)."""
+    ensure_authenticated()
+
+    body = {"name": name, "expires_in_days": expires_in}
+
+    try:
+        with console.status("[cyan]Creating project token…[/cyan]"):
+            result = api.post(f"/projects/{project_id}/tokens", data=body)
+
+        raw_token = result.get("token", "")
+        console.print(
+            Panel(
+                f"[green]✓ Project token created[/green]\n\n"
+                f"  [bold yellow]{raw_token}[/bold yellow]\n\n"
+                f"  [dim]Copy this now — it won't be shown again.[/dim]\n"
+                f"  Name: {result.get('name')}\n"
+                f"  Project: {result.get('project_id')}\n"
+                f"  Prefix: {result.get('token_prefix')}\n"
+                f"  Expires: {result.get('expires_at', '')[:10]}",
+                title="🔑 Project Access Token",
+                border_style="green",
+            )
+        )
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
+@token_app.command("list")
+def project_token_list(
+    project_id: str = typer.Argument(..., help="Project ID to list tokens for"),
+):
+    """List project-scoped access tokens for a project."""
+    ensure_authenticated()
+
+    try:
+        with console.status("[cyan]Fetching project tokens…[/cyan]"):
+            tokens = api.get(f"/projects/{project_id}/tokens")
+
+        if not tokens:
+            console.print(f"[yellow]No project tokens found for project {project_id}.[/yellow]")
+            console.print(f"  Create one: [cyan]bonito projects token create {project_id} --name my-token[/cyan]")
+            return
+
+        table = Table(title=f"Project Tokens — {project_id[:8]}…", border_style="dim")
+        table.add_column("Name", style="cyan")
+        table.add_column("Prefix")
+        table.add_column("Expires")
+        table.add_column("Last Used")
+        table.add_column("Status")
+        table.add_column("ID", style="dim")
+
+        for t in tokens:
+            status_str = "[red]Revoked[/red]" if t.get("revoked_at") else "[green]Active[/green]"
+            expires = t.get("expires_at", "")[:10]
+            last_used = t.get("last_used_at", "")
+            last_used = last_used[:10] if last_used else "Never"
+            table.add_row(
+                t.get("name", "—"),
+                t.get("token_prefix", "—"),
+                expires,
+                last_used,
+                status_str,
+                str(t.get("id", ""))[:8] + "…",
+            )
+
+        console.print(table)
+
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
+@token_app.command("revoke")
+def project_token_revoke(
+    project_id: str = typer.Argument(..., help="Project ID the token belongs to"),
+    token_id: str = typer.Argument(..., help="Token ID to revoke"),
+):
+    """Revoke a project-scoped access token."""
+    ensure_authenticated()
+
+    try:
+        with console.status("[cyan]Revoking project token…[/cyan]"):
+            api.delete(f"/projects/{project_id}/tokens/{token_id}")
+        console.print("[green]✓ Project token revoked[/green]")
+    except APIError as exc:
+        console.print(f"[red]✗ {exc}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

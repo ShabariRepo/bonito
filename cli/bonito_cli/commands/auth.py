@@ -299,7 +299,7 @@ def token_create(
 
     try:
         with console.status("[cyan]Creating token…[/cyan]"):
-            result = api.post("/tokens", json=body)
+            result = api.post("/tokens", data=body)
 
         raw_token = result.get("token", "")
         console.print(
