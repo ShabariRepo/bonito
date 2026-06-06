@@ -169,7 +169,8 @@ with overage potential.
 | Deployment provisioning | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **Origami (conversational interface)** | | | | | | |
 | Origami chat access | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Origami turns / month (est.) | 50 | 500 | 2,500 | 10,000 | Unlimited | Unlimited |
+| Origami turns / month (base) | 50 | 100 | 300 | 1,000 | 5,000 | Custom |
+| Overage rate (per turn over base) | hard cap | $0.10 | $0.10 | $0.10 | $0.08 | Custom |
 | Opus 4.7 escalation (vs Sonnet-only) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Plan card upgrade-in-place CTA | ✅ | ✅ | ✅ | ✅ | n/a | n/a |
 | Embeddable / white-label Origami | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
@@ -214,21 +215,43 @@ Numbers below are first-pass estimates from token-count math, not real benchmark
 | Sonnet + Opus 4.7 escalation (20% of turns) | mixed | ~$0.066 average |
 | Opus 4.7 only (heavy planning) | 7K in / 1K out | ~$0.18 |
 
-### Monthly COGS at quota (worst case)
+### Monthly COGS at base quota
 
-| Tier | Quota | Model | Monthly COGS | Tier price | COGS % |
+Quotas calibrated for *realistic Origami use*, not abuse ceiling. Origami is structured assist (4-6 turns per agent build, plan card → deploy), not open-ended chat. A heavy Pro user doing 3 builds/day = ~450 turns/mo, well under the 1K cap.
+
+| Tier | Base quota | Model mix | Base COGS at cap | Tier price | % of revenue |
 |---|---|---|---|---|---|
-| Free | 50 turns | Sonnet only | $1.80 | $0 | n/a (absorbed) |
-| Builder | 500 turns | mixed | $33 | ~$99 | 33% |
-| Growth | 2,500 turns | mixed | $165 | ~$349 | 47% |
-| Pro | 10,000 turns | mixed | $660 | $999 | 66% |
-| Enterprise | unlimited | mixed | varies | $10K-$20K | <10% typically |
+| Free | 50 | Sonnet only | $3.30 | $0 | absorbed |
+| Builder | 100 | mixed | $6.60 | ~$99 | ~7% |
+| Growth | 300 | mixed | $20 | ~$349 | ~6% |
+| Pro | 1,000 | mixed | $66 | $999 | ~7% |
+| Enterprise | 5,000 | mixed | $330 | $10K-$20K | ~2-3% |
+| Scale | Custom | mixed | — | $200K+/yr | — |
 
-**Builder is the tightest tier on COGS.** 33% COGS-to-price at quota is uncomfortable for SaaS but acceptable because:
+### Realistic per-user numbers (not at cap)
 
-1. Almost nobody hits quota. Real usage will likely be 10-20% of cap — actual COGS more like $3-7 on Builder.
-2. Provider costs are zero (BYOK). Origami is Bonito's only marginal cost.
-3. The non-Origami value (gateway, KBs, agents, failover) is already locked into the tier price independent of Origami usage.
+| Usage profile | Turns/mo | COGS/mo |
+|---|---|---|
+| Casual (1-2 builds/week) | 30-50 | $2-3 |
+| Active (1 build/day) | 150 | $10 |
+| Heavy (3 builds/day) | 450 | $30 |
+| Power user (5+ builds/day) | 750+ | $50+ |
+
+Most Pro users will land in $10-30/mo COGS. Origami pays for itself with room to spare.
+
+### Overage model
+
+Free is a hard cap — when users hit 50 turns, plan cards show "upgrade to Builder to keep building." That's the upgrade lever.
+
+Builder / Growth / Pro overage at **$0.10/turn** (1.5x blended COGS, ~33% margin on overage usage). Customers stay under cap if they want, scale smoothly if they don't. No hard wall.
+
+Enterprise gets **$0.08/turn** overage (volume discount). Scale is fully custom.
+
+### Why this works
+
+1. **BYOK kills the cost of everything else.** Customer's keys pay for gateway requests, agent executions, embedding calls. Origami is the only place Bonito burns its own tokens.
+2. **Tier price covers a 22-feature bundle.** $999 Pro isn't paying for 1K Origami turns — it's paying for 1M gateway requests + 200 agents + 20 KBs + advanced routing + analytics + Origami. Origami is one line item.
+3. **Quotas calibrated for real use, not abuse ceiling.** Old plan had Pro at 10K turns (abuse ceiling) which made COGS look scary. New plan has Pro at 1K (5x realistic heavy use) which makes COGS honest.
 
 ### Tier-decision rationale
 
