@@ -86,9 +86,12 @@ The knowledge KB is internal-only (`bonito-knowledge`), not visible to customers
 11. `mint_gateway_key` — `bn-` key for the user's app
 12. `link_kb_to_agent` — attach KB as agent tool
 
+**Setup / delegated (browser-side modal handoff):**
+
+13. `delegate_provider_connection` — Origami opens the existing connection modal in-place mid-conversation. User completes credential entry in the secure modal (Origami never sees the creds). On modal close, Origami reads the new provider state and resumes the narrative thread.
+
 **Excluded from MVP tool surface (Phase 2):**
 
-- `connect_provider` — requires browser-side credential capture
 - `set_routing_policy` — visual builder lives in UI
 - `configure_autoscaler` — Enterprise feature, low-frequency
 - `set_approval_queue` — Enterprise feature
@@ -182,7 +185,96 @@ Orchestrator executes tool sequence → reports in chat
 
 1. **Right-side panel** (always available) — `Cmd+K` toggles. Persists across tabs.
 2. **Dedicated route** `/origami` — full-screen mode for onboarding.
-3. **Onboarding redirect** — new orgs land on Origami first, not the dashboard. Opening line: "Hi, what are we building today?"
+3. **Onboarding redirect** — new orgs land on Origami first, not the dashboard. Opening line varies by setup state (see state machine below).
+
+---
+
+## Onboarding state machine
+
+Origami can't build anything without providers connected, so first-launch behavior is **gated on platform readiness**. Origami checks org state on every session-open and routes to the right behavior:
+
+| State | Trigger | Origami's opening behavior |
+|---|---|---|
+| `NO_PROVIDERS` | `len(org.providers) == 0` | "Welcome to Bonito. To build anything you'll need at least one AI provider connected. I can walk you through it — which cloud are you on?" + provider picker buttons (Bedrock / Azure / Vertex / OpenAI / Anthropic / Groq). Selecting one fires `delegate_provider_connection`. |
+| `PROVIDERS_NO_MODELS` | Providers connected but `available_models == []` | "Your provider is connected but no models synced yet — give me 30 seconds." Polls `model_sync` then transitions. |
+| `READY_NO_AGENTS` | Models available, no agents yet | "You're set up. What do you want to build? A support bot? A KB-backed assistant? Tell me the use case." |
+| `READY_HAS_AGENTS` | Returning user | "Welcome back. You've got `{n}` agents running. Want to build something new, tweak an existing one, or look at logs?" |
+
+State transitions happen mid-conversation. Each tool call refreshes the snapshot of `org_state` so Origami stays in sync without restarting.
+
+This makes Origami the **narrative thread through the whole onboarding flow**, not a separate wizard. Provider connection, model sync, first agent build — one continuous conversation.
+
+---
+
+## Upgrade-in-place UX
+
+When a build needs a feature gated above the user's tier, Origami **does not bounce the user to `/pricing`**. Instead, the plan card itself becomes the upgrade surface.
+
+**Pattern:**
+
+```
+[Plan card]
+  Intent: "Customer support agent with autoscaling"
+
+  Changes:
+    ✓ Create KB "support-docs"  (within Builder tier)
+    ✓ Create agent "support-bot"  (within Builder tier)
+    ⚠ Enable autoscaling          (requires Enterprise — currently on Builder)
+
+  Tier impact: This build needs Enterprise.
+
+  [Upgrade to Enterprise and deploy →]   ← single CTA
+  [Ship without autoscaling on Builder]
+  [Cancel]
+```
+
+Clicking the upgrade CTA:
+
+1. Opens an in-chat Stripe Checkout modal (`@stripe/stripe-js` inline embed, no redirect)
+2. On `payment_succeeded`, the org's tier flips
+3. Origami auto-executes the deferred plan
+4. Reports back: "Upgraded to Enterprise and your build is live. Logs are at `/agents/support-bot`."
+
+The motion is: **one click → upgrade + deploy in a single user gesture.** No context switch, no "go to pricing then come back," no abandoned cart.
+
+For users who say "ship without it on Builder," Origami silently degrades the plan, removes the gated lines, and re-renders the card.
+
+---
+
+## Audit trail (hardened)
+
+New table `origami_audit_log`, immutable + append-only, one row per Origami action.
+
+```sql
+CREATE TABLE origami_audit_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
+  user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id      UUID NOT NULL,
+  plan_card_id    UUID,                          -- nullable for read-only turns
+  intent_summary  TEXT NOT NULL,                 -- parsed user intent
+  tool_name       TEXT NOT NULL,                 -- e.g. 'create_agent'
+  tool_params     JSONB NOT NULL,                -- as-called params, redacted creds
+  tier_at_time    TEXT NOT NULL,                 -- frozen at action time
+  confirmation    TEXT NOT NULL,                 -- 'auto' (read-only) | 'user_clicked' | 'upgrade_then_auto'
+  status          TEXT NOT NULL,                 -- 'success' | 'failed' | 'partial'
+  error           TEXT,
+  created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_origami_audit_org_time ON origami_audit_log(org_id, created_at DESC);
+CREATE INDEX idx_origami_audit_user ON origami_audit_log(user_id, created_at DESC);
+```
+
+**Hardening:**
+
+- **No UPDATE/DELETE allowed** — row-level security policy denies non-INSERT verbs even for service accounts. Append-only.
+- **Cred redaction** — `tool_params` strips anything matching credential patterns before insert.
+- **GCS sink** — every row also writes async to `{org_id}/origami/{YYYY}/{MM}/{DD}/{HH}.ndjson` via the existing structured log sink. Same per-tier retention as other logs.
+- **Admin-viewable** — `/admin/origami-audit` page lets platform admins inspect across orgs. Customer-facing `/audit` page shows their own org only.
+- **Sentry context** — every Origami tool call adds breadcrumbs to Sentry for in-the-moment debugging when something fails.
+
+This is the multi-tenancy guarantee: Origami runs in `system-org` but is *constitutionally* incapable of acting without a logged, attributed trace.
 
 ---
 
@@ -238,18 +330,22 @@ Orchestrator executes tool sequence → reports in chat
 
 - New FastAPI routes: `POST /api/origami/turn`, `POST /api/origami/execute_plan`
 - System-org provisioned with Origami as a Bonobot
-- 12 tool wrappers around existing internal API
-- Tier injection per-turn (read `user.subscription_tier`)
+- **13 tool wrappers** around existing internal API (12 build/read + `delegate_provider_connection`)
+- Tier injection per-turn (read `user.subscription_tier` live)
 - Persistent Agent Memory namespace per user
 - Streaming response support
+- **Setup state machine** — `NO_PROVIDERS` / `PROVIDERS_NO_MODELS` / `READY_NO_AGENTS` / `READY_HAS_AGENTS` branches in the orchestrator
+- **Migration 045: `origami_audit_log` table** with RLS policy (append-only)
+- Audit-log write helper invoked from every tool call
 
 ### Phase 2 — Plan card UX (Week 3-4)
 
 - Structured response schema (`message`, `plan_card`)
-- Plan card React component
-- Deploy / Edit / Cancel flow
+- Plan card React component (Deploy / Edit / Cancel)
+- **Upgrade-in-place flow** — Stripe Checkout inline modal triggered from gated plan card; on `payment_succeeded` webhook → tier flip → auto-execute deferred plan
+- "Ship without [feature]" silent-degrade branch
 - Execute + report-back
-- Error states (partial failure mid-deploy)
+- Error states (partial failure mid-deploy with rollback)
 
 ### Phase 3 — Chat surface (Week 4-5)
 
@@ -270,14 +366,14 @@ Orchestrator executes tool sequence → reports in chat
 
 ---
 
-## Open questions
+## Decisions (locked 2026-06-06)
 
-1. **Model for planning** — Sonnet 4.6 vs Opus 4.7? Sonnet recommended for cost + latency. Opus for ambiguous/complex builds only.
-2. **Token type** — Should Origami have its own `og-` prefix tokens for programmatic access in Phase 2? Or reuse `bp-` (PAT).
-3. **Onboarding aggressiveness** — Is auto-redirecting new orgs to Origami too aggressive for technical users? Probably A/B.
-4. **Public page placement** — Hero section, dedicated `/origami` marketing page, or both?
-5. **Upgrade-prompt UX** — Modal? Inline card? Embedded `/pricing` iframe in chat?
-6. **System-org isolation** — Origami runs in `system-org` but acts under user auth. Need a hardened audit trail for "Origami did X on behalf of Y" to keep multi-tenancy clean.
+1. **Model routing** — Sonnet 4.6 default for chat + planning. Opus 4.7 for ambiguous / complex builds (router escalation based on intent complexity classifier).
+2. **No separate token.** Origami operates with the user's session auth at **full org scope** — same permissions the user already has. Every write action is gated by a yes/no button click in the chat UI. There is no programmatic `og-` token. Phase 2 doesn't need one either — if someone wants programmatic Origami access, they use a `bp-` PAT and call `/api/origami/turn` directly.
+3. **Step-by-step onboarding gated on platform readiness.** Origami can't deliver value if providers aren't connected, so first-launch enters a **setup state machine** (see below). New orgs land on Origami after signup, but Origami's opening behavior depends on what's already wired up.
+4. **Both hero + dedicated `/origami` marketing page.** Hero gets the demo loop (typed prompt → plan card → deploy animation). Dedicated page gets the full pitch + use case gallery + signup CTA.
+5. **Upgrade-in-place via the plan card itself** (see "Upgrade-in-place UX" below). No modal, no `/pricing` redirect — the upgrade is a button on the plan card, Stripe Checkout fires inline, on success the plan auto-deploys. Single motion, no context switch.
+6. **Hardened audit trail confirmed.** New `origami_audit_log` table, immutable + append-only, with per-action rows logging intent, plan card, tier-at-time, tool calls, and confirmation. Also writes to GCS sink under `{org_id}/origami/...`. Admin-viewable.
 
 ---
 
