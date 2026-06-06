@@ -26,23 +26,47 @@ const plans = [
     highlighted: true,
   },
   {
-    name: "Starter",
-    price: "$199",
-    period: "/mo",
-    description: "For small teams getting serious about multi-cloud AI.",
+    name: "Builder",
+    price: "TBD",
+    period: "",
+    description: "For solo builders and indie devs shipping their first agentic app.",
+    badge: "NEW · COMING SOON",
     features: [
       "Up to 3 cloud providers",
       "100,000 gateway API calls / month",
-      "AI Context — 2 knowledge bases",
-      "Cost analytics & budget alerts",
-      "Audit trail & compliance logging",
-      "2 BonBon agents included",
-      "AI Code Review — 20 reviews / month",
+      "1 project, 1 team member",
+      "Up to 10 agents",
+      "AI Context — 1 knowledge base",
+      "Memwright conversational memory",
+      "Cost analytics dashboard",
+      "Stripe billing integration",
       "CLI access",
       "Email support",
-      "5 team members",
+      "30-day audit log retention",
     ],
-    cta: "Start Free Trial",
+    cta: "Notify Me",
+    highlighted: false,
+  },
+  {
+    name: "Growth",
+    price: "TBD",
+    period: "",
+    description: "For small teams scaling agents across multiple workstreams.",
+    badge: "NEW · COMING SOON",
+    features: [
+      "Up to 5 cloud providers",
+      "250,000 gateway API calls / month",
+      "3 projects, up to 5 team members",
+      "Up to 50 agents",
+      "AI Context — 5 knowledge bases",
+      "Persistent agent memory + vector search",
+      "Approval queue / human-in-the-loop",
+      "Org secrets store (Vault-backed)",
+      "Scheduled autonomous execution",
+      "Token efficiency metrics",
+      "60-day audit log retention",
+    ],
+    cta: "Notify Me",
     highlighted: false,
   },
   {
@@ -51,20 +75,20 @@ const plans = [
     period: "/mo",
     description: "For teams shipping AI products across multiple providers.",
     features: [
-      "Up to 5 cloud providers",
-      "500,000 gateway API calls / month",
+      "All cloud providers (OpenAI, Anthropic, AWS, Azure, GCP, Groq)",
+      "1,000,000 gateway API calls / month",
+      "5 projects, unlimited team members",
+      "Up to 200 agents",
+      "AI Context — 20 knowledge bases",
       "Advanced routing & load balancing",
-      "Deployment provisioning (AWS, Azure, GCP)",
       "One-click model activation",
-      "AI Context — knowledge base with RAG",
-      "Cost analytics & budget alerts",
       "AI copilot assistant",
+      "Custom prompts library",
       "AI Code Review — 100 reviews / month",
-      "5 BonBon agents included",
-      "Audit trail & compliance logging",
-      "In-app & email notifications",
+      "Project tokens (bj-) for isolated workspaces",
+      "Audit trail export",
+      "90-day audit log retention",
       "Email support (24h response)",
-      "Unlimited team members",
     ],
     cta: "Start Free Trial",
     highlighted: false,
@@ -192,69 +216,69 @@ const agentPlans = [
 
 const comparisonFeatures = [
   // ── Core Platform
-  { category: "Core Platform", name: "Cloud Providers", free: "3", starter: "3", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Gateway API Calls / month", free: "25,000", starter: "100,000", pro: "500,000", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Team Members", free: "3", starter: "5", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Core Platform", name: "Model Catalog & Playground", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Core Platform", name: "One-Click Model Activation", free: true, starter: true, pro: true, enterprise: true, scale: true },
+  { category: "Core Platform", name: "Cloud Providers", free: "3", builder: "3", growth: "3", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Gateway API Calls / month", free: "25,000", builder: "100,000", growth: "250,000", pro: "1,000,000", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Team Members", free: "3", builder: "5", growth: "5", pro: "Unlimited", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Core Platform", name: "Model Catalog & Playground", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Core Platform", name: "One-Click Model Activation", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
   // ── AI Gateway
-  { category: "AI Gateway", name: "Unified API Endpoint (OpenAI-compatible)", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Automatic Failover Routing", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Advanced Routing (cost, latency, A/B)", free: false, starter: false, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Deployment Provisioning", free: false, starter: false, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Per-Key Model Restrictions", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Rate Limiting (per key & org)", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Advanced Load Balancing", free: false, starter: false, pro: true, enterprise: true, scale: true },
-  { category: "AI Gateway", name: "Multi-Region Routing", free: false, starter: false, pro: false, enterprise: false, scale: true },
+  { category: "AI Gateway", name: "Unified API Endpoint (OpenAI-compatible)", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Automatic Failover Routing", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Advanced Routing (cost, latency, A/B)", free: false, builder: false, growth: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Deployment Provisioning", free: false, builder: false, growth: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Per-Key Model Restrictions", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Rate Limiting (per key & org)", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Advanced Load Balancing", free: false, builder: false, growth: false, pro: true, enterprise: true, scale: true },
+  { category: "AI Gateway", name: "Multi-Region Routing", free: false, builder: false, growth: false, pro: false, enterprise: false, scale: true },
   // ── AI Context (RAG)
-  { category: "AI Context (RAG)", name: "Knowledge Base Upload & Indexing", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Context (RAG)", name: "Vector Search (pgvector)", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Context (RAG)", name: "Context Injection at Query Time", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Context (RAG)", name: "Knowledge Bases per Org", free: false, starter: "2", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "AI Context (RAG)", name: "Team-Isolated Knowledge Bases", free: false, starter: false, pro: false, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Knowledge Base Upload & Indexing", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Vector Search (pgvector)", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Context Injection at Query Time", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Context (RAG)", name: "Knowledge Bases per Org", free: false, builder: "2", growth: "2", pro: "5", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "AI Context (RAG)", name: "Team-Isolated Knowledge Bases", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
   // ── Analytics & Cost
-  { category: "Analytics & Cost", name: "Cost Analytics & Breakdown", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Analytics & Cost", name: "Budget Alerts & Spend Caps", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Analytics & Cost", name: "Usage Trends & Forecasting", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Analytics & Cost", name: "Per-Team Cost Attribution", free: false, starter: false, pro: false, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Cost Analytics & Breakdown", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Budget Alerts & Spend Caps", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Usage Trends & Forecasting", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Analytics & Cost", name: "Per-Team Cost Attribution", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
   // ── Security & Compliance
-  { category: "Security & Compliance", name: "Audit Trail", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "SSO / SAML", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "Role-Based Access Control (RBAC)", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "IaC Templates (Terraform)", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "SLA Guarantee", free: false, starter: false, pro: false, enterprise: "99.9%", scale: "99.99%" },
-  { category: "Security & Compliance", name: "Compliance-ready architecture (audit trails, RBAC)", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "On-Premise Deployment", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Security & Compliance", name: "Custom Compliance Frameworks", free: false, starter: false, pro: false, enterprise: false, scale: true },
+  { category: "Security & Compliance", name: "Audit Trail", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "SSO / SAML", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "Role-Based Access Control (RBAC)", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "IaC Templates (Terraform)", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "SLA Guarantee", free: false, builder: false, growth: false, pro: false, enterprise: "99.9%", scale: "99.99%" },
+  { category: "Security & Compliance", name: "Compliance-ready architecture (audit trails, RBAC)", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "On-Premise Deployment", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Security & Compliance", name: "Custom Compliance Frameworks", free: false, builder: false, growth: false, pro: false, enterprise: false, scale: true },
   // ── AI Code Review
-  { category: "AI Code Review", name: "GitHub PR Reviews / month", free: "6", starter: "20", pro: "100", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "AI Code Review", name: "Security & Bug Detection", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "AI Code Review", name: "Custom Review Personas", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "AI Code Review", name: "Private Repo Support", free: true, starter: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Code Review", name: "GitHub PR Reviews / month", free: "6", builder: "20", growth: "20", pro: "100", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "AI Code Review", name: "Security & Bug Detection", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "AI Code Review", name: "Custom Review Personas", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "AI Code Review", name: "Private Repo Support", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
   // ── Tools & Integrations
-  { category: "Tools & Integrations", name: "AI Copilot Assistant", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Tools & Integrations", name: "CLI Tool (bonito-cli)", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Tools & Integrations", name: "In-App & Email Notifications", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, starter: false, pro: false, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "AI Copilot Assistant", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "CLI Tool (bonito-cli)", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "In-App & Email Notifications", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Tools & Integrations", name: "Custom Integrations & Webhooks", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
   // ── BonBon (Managed Agents)
-  { category: "BonBon Agents", name: "Pre-built Agent Templates", free: "1 (rate-limited)", starter: "2 included", pro: "5 included", enterprise: "$49/mo extra", scale: "Included" },
-  { category: "BonBon Agents", name: "Built-in RAG & Chat Widget", free: "1 agent", starter: "2 agents", pro: "5 agents", enterprise: "Simple+", scale: "Included" },
-  { category: "BonBon Agents", name: "MCP Tools & Triggers", free: false, starter: false, pro: "$99/mo extra", enterprise: "$99/mo extra", scale: "Included" },
+  { category: "BonBon Agents", name: "Pre-built Agent Templates", free: "1 (rate-limited)", builder: "2 included", growth: "2 included", pro: "5 included", enterprise: "$49/mo extra", scale: "Included" },
+  { category: "BonBon Agents", name: "Built-in RAG & Chat Widget", free: "1 agent", builder: "2 agents", growth: "2 agents", pro: "5 agents", enterprise: "Simple+", scale: "Included" },
+  { category: "BonBon Agents", name: "MCP Tools & Triggers", free: false, builder: false, growth: false, pro: "$99/mo extra", enterprise: "$99/mo extra", scale: "Included" },
   // ── Bonobot (Custom Agents)
-  { category: "Bonobot Custom Agents", name: "Visual Agent Canvas", free: false, starter: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot Custom Agents", name: "Agent Execution Engine", free: false, starter: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot Custom Agents", name: "Per-Agent AI Context & Budget", free: false, starter: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot Custom Agents", name: "Agent-to-Agent Orchestration", free: false, starter: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
-  { category: "Bonobot Custom Agents", name: "Resource Connectors", free: false, starter: false, pro: "5 / agent", enterprise: "Unlimited", scale: "Unlimited" },
-  { category: "Bonobot Custom Agents", name: "VPC-Deployed Agents", free: false, starter: false, pro: false, enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Visual Agent Canvas", free: false, builder: false, growth: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Agent Execution Engine", free: false, builder: false, growth: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Per-Agent AI Context & Budget", free: false, builder: false, growth: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Agent-to-Agent Orchestration", free: false, builder: false, growth: false, pro: "Add-on", enterprise: "Add-on", scale: "Included" },
+  { category: "Bonobot Custom Agents", name: "Resource Connectors", free: false, builder: false, growth: false, pro: "5 / agent", enterprise: "Unlimited", scale: "Unlimited" },
+  { category: "Bonobot Custom Agents", name: "VPC-Deployed Agents", free: false, builder: false, growth: false, pro: false, enterprise: "Add-on", scale: "Included" },
   // ── Support
-  { category: "Support", name: "Community Discord", free: true, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Support", name: "Email Support (24h)", free: false, starter: true, pro: true, enterprise: true, scale: true },
-  { category: "Support", name: "Dedicated Support Engineer", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Support", name: "Priority Feature Requests", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Support", name: "Quarterly Business Reviews", free: false, starter: false, pro: false, enterprise: true, scale: true },
-  { category: "Support", name: "24/7 Premium Support", free: false, starter: false, pro: false, enterprise: false, scale: true },
-  { category: "Support", name: "Dedicated Account Team", free: false, starter: false, pro: false, enterprise: false, scale: true },
+  { category: "Support", name: "Community Discord", free: true, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Support", name: "Email Support (24h)", free: false, builder: true, growth: true, pro: true, enterprise: true, scale: true },
+  { category: "Support", name: "Dedicated Support Engineer", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "Priority Feature Requests", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "Quarterly Business Reviews", free: false, builder: false, growth: false, pro: false, enterprise: true, scale: true },
+  { category: "Support", name: "24/7 Premium Support", free: false, builder: false, growth: false, pro: false, enterprise: false, scale: true },
+  { category: "Support", name: "Dedicated Account Team", free: false, builder: false, growth: false, pro: false, enterprise: false, scale: true },
 ];
 
 const faqs = [
@@ -342,19 +366,28 @@ export default function PricingPage() {
       </section>
 
       {/* Platform Plan Cards */}
-      <section className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-7xl mx-auto pb-16">
+      <section className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 max-w-7xl mx-auto pb-16">
         {plans.map((plan, i) => (
           <motion.div
             key={plan.name}
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
-            className={`rounded-xl p-8 border flex flex-col ${
+            className={`relative rounded-xl p-8 border flex flex-col ${
               plan.highlighted
                 ? "bg-[#7c3aed]/5 border-[#7c3aed]/40 ring-1 ring-[#7c3aed]/20"
+                : (plan as any).badge
+                ? "bg-[#0e0a18] border-[#7c3aed]/35 ring-1 ring-[#7c3aed]/10"
                 : "bg-[#111] border-[#1a1a1a]"
             }`}
           >
+            {(plan as any).badge && (
+              <div
+                className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-[#7c3aed] text-white shadow-[0_0_18px_rgba(124,58,237,0.65)] ring-2 ring-[#0a0a0a]"
+              >
+                {(plan as any).badge}
+              </div>
+            )}
             <h3 className="text-lg font-semibold">{plan.name}</h3>
             <p className="text-sm text-[#888] mt-1">{plan.description}</p>
             <div className="mt-6 mb-6">
@@ -370,10 +403,16 @@ export default function PricingPage() {
               ))}
             </ul>
             <Link
-              href={plan.name === "Enterprise" || plan.name === "Scale" ? "/contact" : "/register"}
+              href={
+                plan.name === "Enterprise" || plan.name === "Scale" || (plan as any).badge
+                  ? "/contact"
+                  : "/register"
+              }
               className={`block text-center py-3 rounded-lg font-semibold transition ${
                 plan.highlighted
                   ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                  : (plan as any).badge
+                  ? "bg-[#7c3aed]/15 border border-[#7c3aed]/40 hover:bg-[#7c3aed]/25 text-[#a78bfa]"
                   : "bg-[#1a1a1a] hover:bg-[#222] text-[#f5f0e8]"
               }`}
             >
@@ -509,7 +548,8 @@ export default function PricingPage() {
               <tr className="border-b border-[#1a1a1a]">
                 <th className="text-left py-4 px-4 text-sm font-semibold text-[#999]">Feature</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Free</th>
-                <th className="text-center py-4 px-4 text-sm font-semibold">Starter</th>
+                <th className="text-center py-4 px-4 text-sm font-semibold relative">Builder<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[8px] font-bold tracking-wider rounded bg-[#7c3aed] text-white whitespace-nowrap">NEW</span></th>
+                <th className="text-center py-4 px-4 text-sm font-semibold relative">Growth<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[8px] font-bold tracking-wider rounded bg-[#7c3aed] text-white whitespace-nowrap">NEW</span></th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Pro</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Enterprise</th>
                 <th className="text-center py-4 px-4 text-sm font-semibold">Scale</th>
