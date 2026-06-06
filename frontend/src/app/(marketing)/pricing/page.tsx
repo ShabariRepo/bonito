@@ -559,7 +559,7 @@ export default function PricingPage() {
               {categories.map((category) => (
                 <Fragment key={`cat-${category}`}>
                   <tr className="border-b border-[#1a1a1a]">
-                    <td colSpan={6} className="pt-6 pb-2 px-4 text-xs font-bold uppercase tracking-wider text-[#7c3aed]">
+                    <td colSpan={7} className="pt-6 pb-2 px-4 text-xs font-bold uppercase tracking-wider text-[#7c3aed]">
                       {category}
                     </td>
                   </tr>
@@ -569,7 +569,8 @@ export default function PricingPage() {
                       <tr key={f.name} className="border-b border-[#1a1a1a]/50 hover:bg-[#111] transition">
                         <td className="py-3.5 px-4 text-sm text-[#ccc]">{f.name}</td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.free} /></td>
-                        <td className="py-3.5 px-4 text-center"><CellValue value={f.starter} /></td>
+                        <td className="py-3.5 px-4 text-center"><CellValue value={f.builder} /></td>
+                        <td className="py-3.5 px-4 text-center"><CellValue value={f.growth} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.pro} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.enterprise} /></td>
                         <td className="py-3.5 px-4 text-center"><CellValue value={f.scale} /></td>
