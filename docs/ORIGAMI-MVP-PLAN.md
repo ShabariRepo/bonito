@@ -155,37 +155,178 @@ Origami **never silently degrades**. Always explicit about what tier blocks and 
 ```
 User (browser)
    │
-   ▼  Cmd+K or panel toggle
-Origami chat panel (Next.js, /app/origami)
+   ▼  Cmd+J (panel) or navigate to /origami (full workspace)
+Origami chat panel + workspace (Next.js)
    │
-   ▼  POST /api/origami/turn  { message, conversation_id }
+   ▼  POST /api/origami/turn (SSE response)
+   │  { message, conversation_id }
 FastAPI route handler
    │
-   ▼  delegate to system-org Bonobot
-Origami orchestrator (Bonobot in system-org)
+   ▼  authenticated via og- token (org_id frozen)
+Origami orchestrator (Bonobot in system-org, hand-rolled on Bonito gateway)
    │
-   ├─ Model router: Haiku for Q&A, Sonnet for planning
-   ├─ Tools: 12 wrappers around internal API (run as user)
+   ├─ Model router: Sonnet 4.6 default, Opus 4.7 escalation for complex builds
+   ├─ Tools: 13 wrappers around internal API (org_id injected server-side, never trusted from model)
    ├─ KB: bonito-knowledge (pgvector HNSW)
-   ├─ Memory: Persistent Agent Memory (per-user namespace)
-   └─ Tier context: injected per-turn from user.subscription_tier
+   ├─ Memory: Persistent Agent Memory + Memwright (per-user namespace)
+   ├─ Tier context: injected per-turn from user.subscription_tier (live, no cache)
+   ├─ LLM calls: routed through Bonito gateway (api.getbonito.com), not direct to provider
+   └─ Prompt caching: Anthropic's cache-control on static portions (system prompt + tool schemas + tier matrix)
    │
-   ▼
-Structured response { message, plan_card? }
+   ▼  emits SSE event stream
+{ message_token, plan_ready, tool_started, tool_progress,
+  tool_completed, execution_done, tier_check, upgrade_offered, error }
    │
-   ▼  User clicks Deploy
-Orchestrator executes tool sequence → reports in chat
+   ▼  Frontend reducer → workspace state updates
+Chat populates, plan card appears, resources grid fills,
+activity log streams. On Deploy → execution events flow.
+   │
+   ▼  audit
+Every tool call → origami_audit_log (immutable, GCS-sunk)
 ```
 
-**Key design choice:** Origami IS a Bonobot. Same agent runtime, same tool framework, same memory. This proves the platform on every interaction AND means improvements to the Bonobot framework automatically improve Origami.
+**Key design choices:**
+
+1. **Hand-rolled orchestrator, not `claude-agent-sdk`.** Spike (2026-06-06) measured 18.9× token overhead with the SDK plus inability to route through Bonito gateway. See `ORIGAMI-ADVERSARIAL-REVIEW.md` and `spikes/origami-sdk/notes.md`. Hand-rolled preserves margin, multi-provider freedom, and the gateway-dogfood story.
+
+2. **Origami IS a Bonobot** running on Bonito's gateway. Proves the platform on every interaction. Improvements to the Bonobot framework automatically improve Origami.
+
+3. **SSE event vocabulary is Bonito-native.** Not bound to any SDK's schema. We can extend with Bonito-specific events (`tier_check`, `upgrade_offered`, future `voice_started`, `compliance_check`) without breaking compatibility.
+
+4. **Prompt caching** on static portions (system prompt, tool schemas, tier matrix) — first turn pays full input cost, subsequent turns within cache TTL pay ~10% on cached portions. Makes per-turn cost flatten quickly.
 
 ---
 
 ## UX surfaces
 
-1. **Right-side panel** (always available) — `Cmd+K` toggles. Persists across tabs.
-2. **Dedicated route** `/origami` — full-screen mode for onboarding.
-3. **Onboarding redirect** — new orgs land on Origami first, not the dashboard. Opening line varies by setup state (see state machine below).
+1. **Dedicated route** `/origami` — full-screen split-pane workspace (primary surface, see "Workspace UX" below). For onboarding and any substantive build work.
+2. **Embedded panel** — collapsible right-side panel available from anywhere in the app. `Cmd+J` toggles. Quick chat with no workspace pane; clicking "show workspace" promotes the conversation to the full `/origami` route.
+3. **Onboarding redirect** — new orgs land on `/origami` first, not the dashboard. Opening line varies by setup state (see state machine below).
+
+---
+
+## Workspace UX (Replit-style interactive build view)
+
+**The defining UX choice:** Origami is not a chatbot. It's an interactive workspace where you watch Origami build. Chat on the left, live workspace on the right. Replit Agent is the visual reference; Origami is the same shape but simpler — fewer panels, no file editor, focused on Bonito resources.
+
+### Layout
+
+```
+┌─────────────────────────────┬─────────────────────────────┐
+│  Chat panel                 │  Workspace pane             │
+│  (width: 40%)               │  (width: 60%)               │
+│                             │                             │
+│  You:                       │  📦 Resources building      │
+│  > Build me a support       │  ┌───────────────────────┐  │
+│    agent for shopify        │  │ 🟡 support-bot        │  │
+│                             │  │   Sonnet 4.6          │  │
+│  Origami:                   │  │   creating...         │  │
+│  Got it — clarify:          │  └───────────────────────┘  │
+│  KB from your docs?         │  ┌───────────────────────┐  │
+│                             │  │ 🟡 support-help-kb    │  │
+│  You: yes                   │  │   2/3 docs uploaded   │  │
+│                             │  │   ████████████░░ 67%  │  │
+│  ─── Plan card ───          │  └───────────────────────┘  │
+│  ✓ Create KB                │  ┌───────────────────────┐  │
+│  ✓ Create agent             │  │ ✅ shopify-project    │  │
+│  ✓ Link KB to agent         │  │   created             │  │
+│  ⚠ uses 1/2 KBs on Builder  │  └───────────────────────┘  │
+│  [Deploy] [Edit] [Cancel]   │                             │
+│                             │  ━━━━━━━━━━━━━━━━━━━━━━━━  │
+│                             │                             │
+│                             │  📋 Activity log            │
+│                             │  ▸ create_project (180ms)   │
+│                             │  ▸ create_kb (240ms)        │
+│                             │  ▸ upload_to_kb [2/3]       │
+│                             │     chunking doc 2 ⋯        │
+│                             │  ⋯                           │
+└─────────────────────────────┴─────────────────────────────┘
+```
+
+### Components
+
+| Component | Lives in | Responsibility |
+|---|---|---|
+| **Chat panel** | left pane | User messages, Origami responses, plan cards, upgrade-in-place CTAs. Standard chat affordances. |
+| **Resources grid** | top-right | Each agent / KB / project Origami is creating gets a card. State icon (🟡 creating, ✅ done, ❌ error). Click to open the real resource page. Tier impact shown when relevant. |
+| **Activity log** | bottom-right | Every tool call appears as a line. Collapsed by default for non-technical users, expandable for power users. Shows tool name, duration, status, parameters on expand. |
+| **Plan card** | inline in chat | Structured plan with Deploy / Edit / Cancel. Renders the tier-impact line. On Deploy, transitions to "executing" state and workspace fills in. |
+| **Progress header** | top of workspace | "Step 2 of 4: uploading documents" during execution. Fades on completion. |
+| **Result preview** | inline in chat after execution | Summary card with links to the resources just created. "Your support-bot is live → [Open agent] [Get gateway key] [Test in playground]" |
+
+### Workspace state model
+
+```typescript
+type OrigamiSessionState = {
+  status: 'idle' | 'planning' | 'awaiting_confirmation' | 'executing' | 'done' | 'error';
+  conversation: ChatMessage[];
+  plan: PlanCard | null;
+  resources: Resource[];           // agents, KBs, projects being created
+  activity: ToolCallLog[];         // every tool call event
+  currentStep: number | null;
+  totalSteps: number | null;
+  tierImpact: TierImpact | null;
+  result: ResultPreview | null;
+};
+
+type Resource = {
+  id: string;                      // local UUID until real ID assigned
+  type: 'agent' | 'kb' | 'project' | 'gateway_key';
+  name: string;
+  state: 'queued' | 'creating' | 'done' | 'error';
+  progress?: { current: number; total: number };  // for multi-step (KB uploads)
+  realId?: string;                 // assigned after creation
+  meta: Record<string, any>;
+};
+
+type ToolCallLog = {
+  id: string;
+  toolName: string;
+  startedAt: number;
+  completedAt?: number;
+  status: 'running' | 'success' | 'error';
+  paramsRedacted: Record<string, any>;
+  result?: any;
+};
+```
+
+### SSE event schema (server → client)
+
+Origami's `/api/origami/turn` endpoint streams Server-Sent Events. Frontend reducer maps events to state updates.
+
+| Event | Payload | Triggers |
+|---|---|---|
+| `message_token` | `{ token: string }` | Append to current assistant message |
+| `message_complete` | `{ message_id, full_text }` | Finalize message |
+| `plan_ready` | `{ plan_card: PlanCard }` | Show plan card in chat, populate `resources[]` as "queued" |
+| `awaiting_confirmation` | `{ plan_card_id }` | Lock UI, show Deploy button |
+| `execution_started` | `{ total_steps }` | Set progress header |
+| `tool_started` | `{ tool_call_id, tool_name, params_redacted, step }` | Add to activity log, mark resource as "creating" |
+| `tool_progress` | `{ tool_call_id, progress: { current, total } }` | Update resource progress bar (e.g. KB upload 2/3) |
+| `tool_completed` | `{ tool_call_id, duration_ms, result }` | Mark tool success, mark resource as "done", store real ID |
+| `tool_failed` | `{ tool_call_id, error }` | Mark tool error, mark resource as "error" |
+| `tier_check` | `{ feature, allowed, message }` | Surface in plan card if blocking |
+| `upgrade_offered` | `{ from_tier, to_tier, price }` | Show upgrade CTA on plan card |
+| `execution_done` | `{ result_preview }` | Show result preview card, clear progress header |
+| `error` | `{ code, message, recovery_options }` | Show error state with recovery actions |
+
+This event vocabulary is Bonito-native. We can extend it for future Bonito features (e.g. `voice_started`, `compliance_check`, `routing_decision`) without breaking the schema — no SDK constraints in the way.
+
+### Why this is *better* than chatbot-only
+
+1. **Non-technical buyers see progress visually.** Replit's whole growth lever is "look at what the agent is doing." Same here.
+2. **Power users get inspection.** Activity log is collapsible — closed for non-tech, open for devs who want to see every tool call.
+3. **The plan card has visual feedback** — as Origami stages the build, the resources grid populates with queued cards. The user sees the plan land before they click Deploy.
+4. **Errors are contextual.** Resource turns red, activity log shows the failing tool call, recovery options appear inline. No "something went wrong" generic toast.
+5. **Demo gravity.** Workshop demo becomes "watch Origami build this support agent in 90 seconds" with visible motion. Strictly stronger than chat-only.
+
+### Build implications for the spec
+
+- Phase 1 orchestrator must emit the event schema above, not just final responses
+- Phase 2 plan card UX expands to the full workspace layout
+- Phase 3 chat surfaces split into two: the embedded panel (chat-only, simpler) and the `/origami` route (full split-pane workspace)
+- Frontend gets a `useOrigamiSession()` hook with the reducer over SSE events
+- Activity log component reused across resource cards (different filters)
 
 ---
 
@@ -382,19 +523,24 @@ This is the multi-tenancy guarantee: Origami runs in `system-org` but is *consti
 - Wrap OpenAPI spec as queryable KB entries
 - Curate first 10 use case patterns (support agent, Q&A bot, lead qualifier, etc.)
 
-### Phase 1 — Orchestrator (Week 2-3)
+### Phase 1 — Orchestrator (Week 2-4)
 
-- New FastAPI routes: `POST /api/origami/turn`, `POST /api/origami/execute_plan`
+- New FastAPI routes: `POST /api/origami/turn` (SSE response), `POST /api/origami/execute_plan` (SSE response)
+- **Hand-rolled orchestrator** on raw chat completions through Bonito gateway (not `claude-agent-sdk`)
 - System-org provisioned with Origami as a Bonobot
 - **13 tool wrappers** around existing internal API (12 build/read + `delegate_provider_connection`)
 - **`og-` token type** added to `access_tokens` table; auto-mint on first Origami session-open; revocable from Settings
-- **`get_origami_context` auth dependency** — enforces `og-` prefix + strict `(user_id, org_id)` binding at the perimeter
-- Tier injection per-turn (read `user.subscription_tier` live)
-- Persistent Agent Memory namespace per user
-- Streaming response support
-- **Setup state machine** — `NO_PROVIDERS` / `PROVIDERS_NO_MODELS` / `READY_NO_AGENTS` / `READY_HAS_AGENTS` branches in the orchestrator
-- **Migration 045: `origami_audit_log` table** with RLS policy (append-only), `og_token_id` FK
-- Audit-log write helper invoked from every tool call
+- **`get_origami_context` auth dependency** — enforces `og-` prefix + strict `(user_id, org_id)` binding at the perimeter; `org_id` read from token, NEVER from request or model output
+- **Tool schema hardening** — `org_id` stripped from every tool's JSON schema; injected server-side from `OrigamiContext.org_id` post-parse, pre-execute; pytest asserts mismatched-token-vs-session returns 403
+- Tier injection per-turn (read `user.subscription_tier` live, project only `{tier, hit_limits, gated_features}` summary — not full `TIER_CONFIG` dict)
+- Persistent Agent Memory + Memwright namespace per user
+- **SSE event emission** — `message_token`, `plan_ready`, `tool_started`, `tool_progress`, `tool_completed`, `tier_check`, `upgrade_offered`, `execution_done`, `error` (see Workspace UX section for full schema)
+- **Prompt caching** via Anthropic's `cache_control` on static portions (system prompt, tool schemas, tier summary)
+- **Setup state machine** — `NO_PROVIDERS` / `PROVIDERS_NO_MODELS` / `READY_NO_AGENTS` / `READY_HAS_AGENTS` / (new) `PROVIDERS_PARTIALLY_BROKEN` branches; opening copy adapts to state
+- **Migration 046: `origami_audit_log` table** (was 045 — 045 was already taken by `add_user_id_isolation`). Either RLS via dedicated `origami_writer` Postgres role with `INSERT`-only grant, OR drop "DB-enforced append-only" claim and document app-enforced. Decide before migration writes.
+- Audit-log write helper invoked from every tool call with `og_token_id` FK
+- Cred redaction allowlist (per-param schema flag), NOT regex
+- GCS audit sink writes async via Redis stream — never block tool execute on GCS
 
 ### Phase 2 — Plan card UX (Week 3-4)
 
@@ -405,13 +551,33 @@ This is the multi-tenancy guarantee: Origami runs in `system-org` but is *consti
 - Execute + report-back
 - Error states (partial failure mid-deploy with rollback)
 
-### Phase 3 — Chat surface (Week 4-5)
+### Phase 3 — Chat surfaces + workspace UX (Week 5-7)
 
-- Right-side panel (persistent across tabs)
-- `Cmd+K` open
-- Full-screen `/origami` route
-- Onboarding redirect for new orgs
-- Conversation history sidebar
+**Two surfaces, shared session state:**
+
+- **`/origami` full-screen route** (primary) — split-pane workspace:
+  - Chat panel (left, 40%)
+  - Resources grid (top-right)
+  - Activity log (bottom-right, collapsible)
+  - Progress header during execution
+  - Result preview card on completion
+- **Embedded panel** (secondary) — `Cmd+J` toggles. Chat-only, no workspace pane. "Show workspace" button promotes the conversation to `/origami`.
+
+**Frontend pieces:**
+
+- `useOrigamiSession()` hook — reducer over SSE event stream, produces `OrigamiSessionState`
+- `<ResourceCard>` component — animated state transitions (queued → creating → done / error)
+- `<ActivityLog>` component — collapsible, expandable per-row
+- `<PlanCard>` component — Deploy / Edit / Cancel, plus upgrade-in-place CTA when tier-gated
+- `<ProgressHeader>` — step counter + animated progress bar during execution
+- `<ResultPreview>` — summary card with links to created resources, gateway key reveal, "test in playground" CTA
+- Conversation history sidebar (last 30 days, click to reload session)
+
+**Onboarding routing:**
+
+- New orgs redirect to `/origami` on first login (full-screen)
+- Setup state machine drives opening copy and CTA buttons
+- Provider connection modal (delegated tool) opens in a focused iframe
 
 ### Phase 4 — Polish + ship (Week 6)
 
@@ -420,11 +586,13 @@ This is the multi-tenancy guarantee: Origami runs in `system-org` but is *consti
 - Public launch via Product Hunt + Twitter + LinkedIn
 - Demo video for sales
 
-**Total: ~6 weeks to ship MVP.**
+**Total: ~9-10 weeks to ship MVP** (recalibrated 2026-06-06 — old 6-week target was optimistic per adversarial review). Phase 1 expanded from 2 weeks → 3 weeks (event schema + state machine + audit migration), Phase 3 expanded from 2 weeks → 3 weeks (workspace UX is meatier than chat-only).
 
 ---
 
 ## Decisions (locked 2026-06-06)
+
+0. **Hand-roll the orchestrator on Bonito gateway, do NOT use `claude-agent-sdk`.** Spike measured 18.9× token overhead and the SDK is hardwired to Anthropic's API format — pointing it at `api.getbonito.com` 404s, killing the dogfood story. Hand-rolled approach preserves margin (~85% gross), multi-provider freedom (failover pitch intact), and gateway dogfood. Saved estimated engineering: 2 days (the adversarial reviewer estimated 3 weeks of savings — recalibrated by measurement). See `spikes/origami-sdk/notes.md` for full numbers.
 
 1. **Model routing** — Sonnet 4.6 default for chat + planning. Opus 4.7 for ambiguous / complex builds (router escalation based on intent complexity classifier).
 2. **Dedicated `og-` token, strictly org-scoped.** Origami gets its own token prefix. Each token is bound to **exactly one** `(user_id, org_id)` pair, immutable at creation, and cannot be elevated or re-scoped. Even if Origami's orchestrator had a bug that tried to query across orgs, the token would 403 at the auth dependency. Tokens auto-mint on first Origami session-open. Every write action is still gated by a yes/no button click in the chat UI — the token unlocks Origami access, the button unlocks each individual action. See "Token model" section below.
