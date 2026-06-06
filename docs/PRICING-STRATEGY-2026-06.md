@@ -167,6 +167,13 @@ with overage potential.
 | Custom prompts library | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | One-click model activation | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Deployment provisioning | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Origami (conversational interface)** | | | | | | |
+| Origami chat access | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Origami turns / month (est.) | 50 | 500 | 2,500 | 10,000 | Unlimited | Unlimited |
+| Opus 4.7 escalation (vs Sonnet-only) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Plan card upgrade-in-place CTA | ✅ | ✅ | ✅ | ✅ | n/a | n/a |
+| Embeddable / white-label Origami | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Origami API (`og-` token programmatic access) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Security & Compliance** | | | | | | |
 | CLI access | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Audit trail | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -193,7 +200,63 @@ with overage potential.
 
 ---
 
-## Competitive Benchmarks (Request Volume)
+## Origami COGS & Tier Decision
+
+Origami (the conversational platform interface, spec at `docs/ORIGAMI-MVP-PLAN.md`) is **the only feature in Bonito with non-trivial per-use Bonito-side COGS** — every turn is a Sonnet or Opus call we pay for, not a passthrough on the customer's BYOK provider. The tier decision below is the result of working through the unit economics.
+
+### Per-turn cost (estimate, pending validation)
+
+Numbers below are first-pass estimates from token-count math, not real benchmarks. Validate against real Origami sessions before locking quotas in code.
+
+| Tier path | Tokens (in/out, est.) | Cost / turn |
+|---|---|---|
+| Sonnet 4.6 only | 7K in / 1K out | ~$0.036 |
+| Sonnet + Opus 4.7 escalation (20% of turns) | mixed | ~$0.066 average |
+| Opus 4.7 only (heavy planning) | 7K in / 1K out | ~$0.18 |
+
+### Monthly COGS at quota (worst case)
+
+| Tier | Quota | Model | Monthly COGS | Tier price | COGS % |
+|---|---|---|---|---|---|
+| Free | 50 turns | Sonnet only | $1.80 | $0 | n/a (absorbed) |
+| Builder | 500 turns | mixed | $33 | ~$99 | 33% |
+| Growth | 2,500 turns | mixed | $165 | ~$349 | 47% |
+| Pro | 10,000 turns | mixed | $660 | $999 | 66% |
+| Enterprise | unlimited | mixed | varies | $10K-$20K | <10% typically |
+
+**Builder is the tightest tier on COGS.** 33% COGS-to-price at quota is uncomfortable for SaaS but acceptable because:
+
+1. Almost nobody hits quota. Real usage will likely be 10-20% of cap — actual COGS more like $3-7 on Builder.
+2. Provider costs are zero (BYOK). Origami is Bonito's only marginal cost.
+3. The non-Origami value (gateway, KBs, agents, failover) is already locked into the tier price independent of Origami usage.
+
+### Tier-decision rationale
+
+**Why every tier gets Origami chat access (even Free):**
+
+Origami IS the SMB wedge. Gating it kills the value-prop for the buyers the new ladder was designed for. Free + Builder users *need* Origami to onboard at all — without it, they're back to "stare at 22 tabs and figure it out." Chat access is the sales surface, not the upsell.
+
+**Why Free gets only 50 turns + Sonnet-only:**
+
+Caps prevent runaway scripted abuse (someone setting up an org just to burn Sonnet via Origami). 50 turns is plenty for first-day onboarding + 1-2 simple agent builds. Opus escalation gated to Builder+ because Opus at Free scale is the one COGS path that could actually hurt — $0.18/turn times an abusing user gets ugly fast.
+
+**Why Growth+ gets `og-` programmatic access:**
+
+Builder is a single-user / small-team tier where chat-only is fine. Growth+ users want to embed Origami in their own ops scripts (CI/CD agent rebuilds, slack `/origami` commands), which needs the `og-` token API. This naturally upgrades the SMB power user into Growth.
+
+**Why Enterprise+ gets embeddable / white-label:**
+
+Phase 3 only. Memory Creative (Peller end-users) and similar agency partners want to deploy a custom-branded Origami to their end-users. Per-end-user `og-` tokens make this work, but the operational complexity (custom theming, brand voice tuning, SLA) belongs in Enterprise+.
+
+### Quotas to lock before Phase 1 build
+
+- Real Origami session token counts (system prompt + KB context + history + response). Math-based estimate above assumes 7K/1K — could be off by 2-3x either direction.
+- Opus escalation rate in practice. 20% is a guess. If router classifier escalates 50% of turns, COGS doubles.
+- Quota enforcement strategy: hard cutoff with upgrade prompt, or soft warning + meter past cap.
+
+### Marketing line (when prices firm up)
+
+"Origami included on every plan." Strong sales line. Pairs with the "you bring your own providers" BYOK story — Bonito gives you the chat that builds, you pay providers for what the agent does. Clean.
 
 | Platform | Tier / Price | Requests included | $/1K equivalent |
 |---|---|---|---|
