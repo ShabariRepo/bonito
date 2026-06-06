@@ -60,18 +60,20 @@ Different verticals each — but Origami Risk does dominate some SERPs even thou
 - Pronounceable in non-English markets (Brazil GTM in flight)
 - Voice: friendly, builder-coded, not corporate
 
-## Candidate brainstorm (for Shabari to react to)
+## Shortlist (Shabari, 2026-06-06)
 
-- **Loom** — weave-things-together metaphor. Risk: collision with `loom.com` (video).
-- **Forge** — build/craft. Risk: many "Forge" SaaS already.
-- **Helm** — steering the platform. Clean.
-- **Atlas** — mapping the platform. Risk: OpenAI Atlas project, many "Atlas" tools.
-- **Cobalt** — color + element. Risk: Cobalt API exists.
-- **Skiff** — small fast craft. Risk: Skiff Mail was a known product (acquired).
-- **Lumen** — light/unit. Risk: many.
-- **Pier** — embarkation point. Quirky, novel.
-- **Pilot** — direct. Risk: many.
-- **Tinker** — playful builder voice. Novel-ish.
-- **Cobble** — DIY-coded.
+Three candidates to vet, all Japanese craft / precision lineage matching Bonito's voice:
 
-None of these are vetted yet. When the user picks a finalist, run a fresh collision check.
+1. **Kigumi** (木組み) — Japanese wood joinery. Pieces cut at exact angles, no nails, structures last 1,000+ years (Horyu-ji ~1,400 yrs and counting). Maps to: precision tools interlock into durable deployments. Three syllables, novel in AI/SaaS.
+
+2. **Kunai** (苦無) — multi-purpose ninja blade / utility tool. Maps to: sharp, focused, one tool many jobs. Two syllables, punchy.
+
+3. **Jutsu** (術) — technique / skill / art. Maps to: the *practice* of building with Bonito. Two syllables, familiar to English ears via ninjutsu/jiu-jitsu.
+
+**Run fresh collision check on each before picking** — same web search pattern as Origami had. Specifically look for: AI agent products, dev tools, SaaS platforms. If two are clean, pick on voice/brand fit. If only one is clean, that's the call.
+
+## Earlier brainstorm (not Shabari's pick, keeping for reference)
+
+- Loom, Forge, Helm, Atlas, Cobalt, Skiff, Lumen, Pier, Pilot, Tinker, Cobble
+
+None vetted.
