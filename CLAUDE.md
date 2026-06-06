@@ -203,6 +203,7 @@ cd frontend && vercel --prod
 
 ## What's Planned
 
+- **Origami (conversational platform interface)** — Bonito's in-app chat that knows the full platform, the user's org context, and their tier. Plans builds via structured plan cards, deploys with a button click. Runs as a Bonobot in `system-org` (eats own dog food). 12-tool MVP surface (agents, KBs, projects, keys, usage). Tier-gated with upgrade prompts. SMB wedge validated by Danny Pantuso (Mucker) 2026-06-06. Full spec in `docs/ORIGAMI-MVP-PLAN.md`. Branch `origami-mvp`. Target: 6 weeks to ship.
 - **System Observer** — Two-layer observability: L1 wires `emit_agent_event` into agent engine (execution, tool_use, delegation, error lifecycle events with agent_id). L2 is a Bonito-internal Haiku/Groq agent per org (6h schedule) that reads aggregated metrics and produces structured health/governance findings. See `docs/SYSTEM-OBSERVER-ROADMAP.md`.
 - SOC-2 Type II certification
 - Smart routing (complexity-aware model selection)
