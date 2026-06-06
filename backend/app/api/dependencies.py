@@ -51,6 +51,25 @@ async def get_current_user(
         sentry_sdk.set_user({"id": str(user.id), "email": user.email, "username": user.name, "org_id": str(user.org_id)})
         return user
 
+    # ── Origami Token (og-) ──
+    if raw.startswith("og-"):
+        from app.services.access_token_service import validate_access_token, update_last_used
+        token = await validate_access_token(db, raw)
+        if not token or token.token_type != "origami":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired origami token")
+        await update_last_used(db, token)
+        user = await get_user_by_id(db, token.user_id)
+        if not user or not user.email_verified:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or suspended")
+        # org_id check: og- tokens are immutably bound to one org at creation.
+        # If token.org_id != user.org_id (e.g. user was moved between orgs after token mint),
+        # reject — the token no longer represents valid access.
+        if token.org_id != user.org_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Origami token org no longer matches user org")
+        user._access_token = token  # type: ignore[attr-defined]
+        sentry_sdk.set_user({"id": str(user.id), "email": user.email, "username": user.name, "org_id": str(user.org_id)})
+        return user
+
     # ── JWT session token (existing path) ──
     try:
         payload = decode_token(raw)
