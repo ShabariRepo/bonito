@@ -170,7 +170,7 @@ with overage potential.
 | **Origami (conversational interface)** | | | | | | |
 | Origami chat access | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Origami turns / month (base) | 50 | 100 | 300 | 1,000 | 5,000 | Custom |
-| Overage rate (per turn over base) | hard cap | $0.10 | $0.10 | $0.10 | $0.08 | Custom |
+| Overage rate (per turn over base) | hard cap | $0.12 | $0.12 | $0.12 | $0.10 | Custom |
 | Opus 4.7 escalation (vs Sonnet-only) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Plan card upgrade-in-place CTA | ✅ | ✅ | ✅ | ✅ | n/a | n/a |
 | Embeddable / white-label Origami | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
@@ -243,9 +243,14 @@ Most Pro users will land in $10-30/mo COGS. Origami pays for itself with room to
 
 Free is a hard cap — when users hit 50 turns, plan cards show "upgrade to Builder to keep building." That's the upgrade lever.
 
-Builder / Growth / Pro overage at **$0.10/turn** (1.5x blended COGS, ~33% margin on overage usage). Customers stay under cap if they want, scale smoothly if they don't. No hard wall.
+Builder / Growth / Pro overage at **$0.12/turn** (~1.8x blended COGS, ~45% margin on overage usage). Customers stay under cap if they want, scale smoothly if they don't. No hard wall.
 
-Enterprise gets **$0.08/turn** overage (volume discount). Scale is fully custom.
+Enterprise gets **$0.10/turn** overage (volume discount). Scale is fully custom.
+
+**Competitive context** (verified 2026-06-06):
+- Cursor Pro overage: $0.04/request (1 LLM call)
+- Replit Agent typical: $0.25+/checkpoint, complex jobs $5+
+- Origami turn (1-3 internal calls) at $0.12 sits cleanly between them — 3x Cursor's per-call rate (because we do more per turn) and ~2x cheaper than Replit's typical (because plan cards are lighter than code-gen checkpoints).
 
 ### Why this works
 
