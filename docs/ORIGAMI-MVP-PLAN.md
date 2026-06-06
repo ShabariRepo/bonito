@@ -189,6 +189,60 @@ Orchestrator executes tool sequence → reports in chat
 
 ---
 
+## Token model
+
+Origami uses its own access token prefix `og-`. Sits alongside `bn-` (gateway), `bp-` (PAT), `bj-` (project) in the existing `access_tokens` table.
+
+**Properties:**
+
+- **Prefix:** `og-`
+- **Scope:** exactly one `(user_id, org_id)` pair, immutable on the token
+- **Cannot cross orgs.** Even if the user belongs to multiple orgs, each org gets its own `og-` token. No multi-org token, ever.
+- **Permissions:** inherits the user's role within that org (admin gets admin tools, member gets member tools). Tier-gating applied on top.
+- **Auto-minted** on first Origami session-open. User never sees the token unless they explicitly request it (Settings → Origami token).
+- **Revocable** from Settings — kills that user's Origami access in that org, full stop.
+- **TTL:** 90 days, auto-rotates on each new session if expired.
+
+**Why a dedicated prefix (vs reusing `bp-`):**
+
+1. **Hard org-scope at the auth layer.** The auth dependency for `/api/origami/*` checks token prefix is `og-` AND `token.org_id == request.org_id`. Multi-tenancy guarantee at the perimeter, not just in app logic.
+2. **Clean revocation.** Kill one token, kill that Origami session permanently. Doesn't affect the user's other access.
+3. **Audit isolation.** Every audit log row references the exact `og-` token used. If someone abuses Origami, we have a single revocable identifier to kill.
+4. **Phase 3 enablement.** White-label Origami (Memory Creative, Peller embedding their own branded Origami for their end-users) needs per-end-user tokens. The `og-` model maps cleanly: each end-user gets their own `og-` token bound to a single org.
+5. **CLI / programmatic access** — `bonito origami chat "build me a support agent"` becomes possible Phase 2 using the user's `og-` token.
+
+**Auth dependency** (FastAPI):
+
+```python
+async def get_origami_context(
+    authorization: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+) -> OrigamiContext:
+    if not authorization.startswith("Bearer og-"):
+        raise HTTPException(401, "Origami endpoints require og- token")
+    token = authorization.removeprefix("Bearer ")
+    record = await db.scalar(
+        select(AccessToken).where(
+            AccessToken.token_hash == hash_token(token),
+            AccessToken.prefix == "og-",
+            AccessToken.revoked_at.is_(None),
+            AccessToken.expires_at > func.now(),
+        )
+    )
+    if not record:
+        raise HTTPException(401, "Invalid or expired og- token")
+    return OrigamiContext(
+        user_id=record.user_id,
+        org_id=record.org_id,    # <-- frozen at token creation, untouchable
+        role=record.metadata["role"],
+        token_id=record.id,
+    )
+```
+
+Note `org_id` is read **from the token**, never from the request. The user cannot pass an `org_id` query param to switch orgs — the token determines it.
+
+---
+
 ## Onboarding state machine
 
 Origami can't build anything without providers connected, so first-launch behavior is **gated on platform readiness**. Origami checks org state on every session-open and routes to the right behavior:
@@ -250,6 +304,7 @@ CREATE TABLE origami_audit_log (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id          UUID NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
   user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  og_token_id     UUID NOT NULL REFERENCES access_tokens(id),  -- exact og- token used
   session_id      UUID NOT NULL,
   plan_card_id    UUID,                          -- nullable for read-only turns
   intent_summary  TEXT NOT NULL,                 -- parsed user intent
@@ -264,6 +319,7 @@ CREATE TABLE origami_audit_log (
 
 CREATE INDEX idx_origami_audit_org_time ON origami_audit_log(org_id, created_at DESC);
 CREATE INDEX idx_origami_audit_user ON origami_audit_log(user_id, created_at DESC);
+CREATE INDEX idx_origami_audit_token ON origami_audit_log(og_token_id);
 ```
 
 **Hardening:**
@@ -331,11 +387,13 @@ This is the multi-tenancy guarantee: Origami runs in `system-org` but is *consti
 - New FastAPI routes: `POST /api/origami/turn`, `POST /api/origami/execute_plan`
 - System-org provisioned with Origami as a Bonobot
 - **13 tool wrappers** around existing internal API (12 build/read + `delegate_provider_connection`)
+- **`og-` token type** added to `access_tokens` table; auto-mint on first Origami session-open; revocable from Settings
+- **`get_origami_context` auth dependency** — enforces `og-` prefix + strict `(user_id, org_id)` binding at the perimeter
 - Tier injection per-turn (read `user.subscription_tier` live)
 - Persistent Agent Memory namespace per user
 - Streaming response support
 - **Setup state machine** — `NO_PROVIDERS` / `PROVIDERS_NO_MODELS` / `READY_NO_AGENTS` / `READY_HAS_AGENTS` branches in the orchestrator
-- **Migration 045: `origami_audit_log` table** with RLS policy (append-only)
+- **Migration 045: `origami_audit_log` table** with RLS policy (append-only), `og_token_id` FK
 - Audit-log write helper invoked from every tool call
 
 ### Phase 2 — Plan card UX (Week 3-4)
@@ -369,7 +427,7 @@ This is the multi-tenancy guarantee: Origami runs in `system-org` but is *consti
 ## Decisions (locked 2026-06-06)
 
 1. **Model routing** — Sonnet 4.6 default for chat + planning. Opus 4.7 for ambiguous / complex builds (router escalation based on intent complexity classifier).
-2. **No separate token.** Origami operates with the user's session auth at **full org scope** — same permissions the user already has. Every write action is gated by a yes/no button click in the chat UI. There is no programmatic `og-` token. Phase 2 doesn't need one either — if someone wants programmatic Origami access, they use a `bp-` PAT and call `/api/origami/turn` directly.
+2. **Dedicated `og-` token, strictly org-scoped.** Origami gets its own token prefix. Each token is bound to **exactly one** `(user_id, org_id)` pair, immutable at creation, and cannot be elevated or re-scoped. Even if Origami's orchestrator had a bug that tried to query across orgs, the token would 403 at the auth dependency. Tokens auto-mint on first Origami session-open. Every write action is still gated by a yes/no button click in the chat UI — the token unlocks Origami access, the button unlocks each individual action. See "Token model" section below.
 3. **Step-by-step onboarding gated on platform readiness.** Origami can't deliver value if providers aren't connected, so first-launch enters a **setup state machine** (see below). New orgs land on Origami after signup, but Origami's opening behavior depends on what's already wired up.
 4. **Both hero + dedicated `/origami` marketing page.** Hero gets the demo loop (typed prompt → plan card → deploy animation). Dedicated page gets the full pitch + use case gallery + signup CTA.
 5. **Upgrade-in-place via the plan card itself** (see "Upgrade-in-place UX" below). No modal, no `/pricing` redirect — the upgrade is a button on the plan card, Stripe Checkout fires inline, on success the plan auto-deploys. Single motion, no context switch.
