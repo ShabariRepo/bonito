@@ -44,8 +44,12 @@ export default function OrigamiUsagePage() {
 
   useEffect(() => {
     apiRequest("/api/origami/usage")
-      .then((r) => {
-        setData(r as unknown as UsagePayload);
+      .then(async (res: Response) => {
+        if (!res.ok) {
+          throw new Error(`${res.status} ${res.statusText}`);
+        }
+        const json = (await res.json()) as UsagePayload;
+        setData(json);
         setError(null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))

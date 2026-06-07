@@ -69,8 +69,9 @@ export default function OrigamiHistoryPage() {
 
   useEffect(() => {
     apiRequest("/api/origami/conversations")
-      .then((r) => {
-        const data = r as unknown as { conversations: ConversationListItem[] };
+      .then(async (res: Response) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = (await res.json()) as { conversations: ConversationListItem[] };
         setConversations(data.conversations || []);
         if (data.conversations?.[0]) {
           setSelectedId(data.conversations[0].conversation_id);
@@ -85,8 +86,9 @@ export default function OrigamiHistoryPage() {
     setLoadingMessages(true);
     setMessages(null);
     apiRequest(`/api/origami/conversations/${selectedId}`)
-      .then((r) => {
-        const data = r as unknown as { messages: Message[] };
+      .then(async (res: Response) => {
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = (await res.json()) as { messages: Message[] };
         setMessages(data.messages || []);
       })
       .catch(() => setMessages([]))
