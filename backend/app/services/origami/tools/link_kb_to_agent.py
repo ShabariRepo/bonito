@@ -32,14 +32,22 @@ class LinkKbToAgentTool(OrigamiTool):
         "properties": {
             "agent_id": {
                 "type": "string",
-                "description": "UUID of the agent to attach the KB to",
+                "description": "UUID of the agent. If you only know the agent's name, pass `agent_name` instead.",
+            },
+            "agent_name": {
+                "type": "string",
+                "description": "Display name of the agent — resolved to a UUID server-side.",
             },
             "kb_id": {
                 "type": "string",
-                "description": "UUID of the knowledge base to attach",
+                "description": "UUID of the knowledge base. If you only know the KB's name, pass `kb_name` instead.",
+            },
+            "kb_name": {
+                "type": "string",
+                "description": "Display name of the KB — resolved to a UUID server-side.",
             },
         },
-        "required": ["agent_id", "kb_id"],
+        "required": [],
         "additionalProperties": False,
     }
     is_write = True
@@ -55,44 +63,68 @@ class LinkKbToAgentTool(OrigamiTool):
         from app.models.agent import Agent
         from app.models.knowledge_base import KnowledgeBase
 
-        try:
-            agent_id = uuid.UUID(str(params.get("agent_id")))
-            kb_id = uuid.UUID(str(params.get("kb_id")))
-        except (TypeError, ValueError):
-            return {
-                "success": False,
-                "error": "invalid_uuid",
-                "message": "Both agent_id and kb_id must be valid UUIDs.",
-            }
+        agent = None
+        kb = None
 
-        # Fetch agent, scoped to the user's org (no cross-tenant link)
-        agent_row = await db.execute(
-            select(Agent).where(Agent.id == agent_id, Agent.org_id == org_id)
-        )
-        agent = agent_row.scalar_one_or_none()
-        if not agent:
-            return {
-                "success": False,
-                "error": "agent_not_found",
-                "message": "Agent not found in your organization.",
-            }
-
-        # Same check for the KB
-        kb_row = await db.execute(
-            select(KnowledgeBase).where(
-                KnowledgeBase.id == kb_id, KnowledgeBase.org_id == org_id
+        agent_id_raw = params.get("agent_id")
+        agent_name = (params.get("agent_name") or "").strip()
+        if agent_id_raw:
+            try:
+                agent_id = uuid.UUID(str(agent_id_raw))
+            except (TypeError, ValueError):
+                return {"success": False, "error": "invalid_agent_id",
+                        "message": "agent_id must be a valid UUID."}
+            agent_row = await db.execute(
+                select(Agent).where(Agent.id == agent_id, Agent.org_id == org_id)
             )
-        )
-        kb = kb_row.scalar_one_or_none()
+            agent = agent_row.scalar_one_or_none()
+        elif agent_name:
+            agent_row = await db.execute(
+                select(Agent).where(Agent.name == agent_name, Agent.org_id == org_id)
+            )
+            agent = agent_row.scalar_one_or_none()
+        else:
+            return {"success": False, "error": "missing_agent_reference",
+                    "message": "Provide either agent_id (UUID) or agent_name."}
+
+        if not agent:
+            ref = agent_id_raw or agent_name
+            return {"success": False, "error": "agent_not_found",
+                    "message": f"Agent '{ref}' not found in your organization."}
+
+        kb_id_raw = params.get("kb_id")
+        kb_name = (params.get("kb_name") or "").strip()
+        if kb_id_raw:
+            try:
+                kb_id = uuid.UUID(str(kb_id_raw))
+            except (TypeError, ValueError):
+                return {"success": False, "error": "invalid_kb_id",
+                        "message": "kb_id must be a valid UUID."}
+            kb_row = await db.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.id == kb_id, KnowledgeBase.org_id == org_id
+                )
+            )
+            kb = kb_row.scalar_one_or_none()
+        elif kb_name:
+            kb_row = await db.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.name == kb_name, KnowledgeBase.org_id == org_id
+                )
+            )
+            kb = kb_row.scalar_one_or_none()
+        else:
+            return {"success": False, "error": "missing_kb_reference",
+                    "message": "Provide either kb_id (UUID) or kb_name."}
+
         if not kb:
-            return {
-                "success": False,
-                "error": "kb_not_found",
-                "message": "Knowledge base not found in your organization.",
-            }
+            ref = kb_id_raw or kb_name
+            return {"success": False, "error": "kb_not_found",
+                    "message": f"Knowledge base '{ref}' not found in your organization."}
+
+        kb_id_str = str(kb.id)
 
         existing = list(agent.knowledge_base_ids or [])
-        kb_id_str = str(kb_id)
         if kb_id_str in existing:
             return {
                 "success": True,

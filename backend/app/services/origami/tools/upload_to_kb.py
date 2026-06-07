@@ -43,7 +43,14 @@ class UploadToKbTool(OrigamiTool):
     input_schema = {
         "type": "object",
         "properties": {
-            "kb_id": {"type": "string", "description": "UUID of the destination KB"},
+            "kb_id": {
+                "type": "string",
+                "description": "UUID of the destination KB. If you only know the KB's display name, pass `kb_name` instead.",
+            },
+            "kb_name": {
+                "type": "string",
+                "description": "Display name of the destination KB — resolved to a UUID server-side. Use this when you know the name (e.g. 'foundations-investor-thesis') but not the UUID.",
+            },
             "documents": {
                 "type": "array",
                 "minItems": 1,
@@ -64,7 +71,7 @@ class UploadToKbTool(OrigamiTool):
                 },
             },
         },
-        "required": ["kb_id", "documents"],
+        "required": ["documents"],
         "additionalProperties": False,
     }
     is_write = True
@@ -79,22 +86,38 @@ class UploadToKbTool(OrigamiTool):
     ) -> dict[str, Any]:
         from app.models.knowledge_base import KnowledgeBase, KBDocument
 
-        try:
-            kb_id = uuid.UUID(str(params.get("kb_id")))
-        except (TypeError, ValueError):
-            return {"success": False, "error": "invalid_kb_id",
-                    "message": "kb_id must be a valid UUID."}
+        kb_id_raw = params.get("kb_id")
+        kb_name = (params.get("kb_name") or "").strip()
+        kb = None
 
-        # Cross-tenant check: KB must belong to user's org
-        kb_row = await db.execute(
-            select(KnowledgeBase).where(
-                KnowledgeBase.id == kb_id, KnowledgeBase.org_id == org_id
+        if kb_id_raw:
+            try:
+                kb_id = uuid.UUID(str(kb_id_raw))
+            except (TypeError, ValueError):
+                return {"success": False, "error": "invalid_kb_id",
+                        "message": "kb_id must be a valid UUID."}
+            kb_row = await db.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.id == kb_id, KnowledgeBase.org_id == org_id
+                )
             )
-        )
-        kb = kb_row.scalar_one_or_none()
+            kb = kb_row.scalar_one_or_none()
+        elif kb_name:
+            kb_row = await db.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.name == kb_name,
+                    KnowledgeBase.org_id == org_id,
+                )
+            )
+            kb = kb_row.scalar_one_or_none()
+        else:
+            return {"success": False, "error": "missing_kb_reference",
+                    "message": "Provide either kb_id (UUID) or kb_name (display name)."}
+
         if not kb:
+            ref = kb_id_raw or kb_name
             return {"success": False, "error": "kb_not_found",
-                    "message": "Knowledge base not found in your organization."}
+                    "message": f"Knowledge base '{ref}' not found in your organization."}
 
         docs = params.get("documents") or []
         if not docs or not isinstance(docs, list):

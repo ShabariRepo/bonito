@@ -189,7 +189,20 @@ Example for a 4-step build (project, kb, agent, link):
   4. link_kb_to_agent(agent_id=${step_3.agent_id}, kb_id=${step_2.kb_id})
 
 The orchestrator substitutes the real UUIDs when each step runs — the \
-LLM does NOT need to know the values up-front."""
+LLM does NOT need to know the values up-front.
+
+REFERENCING EXISTING RESOURCES BY NAME: when the user names an existing \
+KB or agent (not one created earlier in this same plan), you do NOT \
+need to look up the UUID first. Pass the display name in `kb_name` or \
+`agent_name` and the tool resolves it server-side:
+
+  upload_to_kb(kb_name="foundations-investor-thesis", documents=[...])
+  link_kb_to_agent(agent_name="foundations-intro-bot", kb_name="foundations-investor-thesis")
+
+Use kb_id / agent_id when you already have the UUID (e.g. from a \
+${step_N.field} reference earlier in the same plan). Use the *_name \
+form whenever the user mentions a resource by name — it saves a round \
+trip and there's no UUID for the LLM to hallucinate."""
 
 
 # ────────────────────────── Gateway client ──────────────────────────
@@ -477,6 +490,11 @@ async def run_origami_turn(
     total_input_tokens = 0
     total_output_tokens = 0
     total_tool_calls = 0
+    # Track whether ANY iteration in this turn has already emitted user-
+    # visible text. Used to suppress the silent-prompt fallback on iter 2+
+    # when iter 1 already gave the user something — otherwise we'd render
+    # two bubbles (real reply + "I didn't quite catch that") for the same turn.
+    emitted_visible_text = False
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -653,6 +671,8 @@ async def run_origami_turn(
             "text": content,
             "stripped_inline_tool_calls": stripped_inline,
         })
+        if content:
+            emitted_visible_text = True
 
         if not tool_calls:
             # Synthesize a friendly summary if the model went silent after a
@@ -677,12 +697,18 @@ async def run_origami_turn(
                     "text": content,
                     "synthesized": True,
                 })
-            elif not content:
+            elif not content and not emitted_visible_text:
                 # The model went silent and we have no tool results to
-                # summarize — emit a friendly fallback so the user isn't
+                # summarize AND no earlier iteration in this turn already
+                # emitted text — emit a friendly fallback so the user isn't
                 # staring at an empty chat. This happens occasionally with
                 # Bedrock-routed Claude models on certain prompts; the
                 # debug log captures the raw response for diagnosis.
+                #
+                # The emitted_visible_text guard is what prevents the
+                # double-bubble bug where iter 1 said "Here's the plan..."
+                # and iter 2 went silent → user saw a real reply followed
+                # by "I didn't quite catch that".
                 logger.warning(
                     "Origami silent response — user=%s, iteration=%d, "
                     "last_finish_reason=%s. Emitting fallback.",
