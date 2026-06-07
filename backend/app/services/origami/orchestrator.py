@@ -650,7 +650,7 @@ async def run_origami_turn(
                 changes=plan_changes,
                 status=PlanCardStatus.AWAITING_CONFIRMATION,
             )
-            plan_store.save_plan(
+            await plan_store.save_plan(
                 plan=plan,
                 user_id=user.id,
                 org_id=org_id,
@@ -814,7 +814,7 @@ async def execute_plan(
     invariants as run_origami_turn: org_id is read from the auth context
     (the user passed in), NEVER from the plan's stored payload.
     """
-    entry = plan_store.get_plan(plan_card_id)
+    entry = await plan_store.get_plan(plan_card_id)
     if not entry:
         yield OrigamiEvent("error", {
             "code": "plan_not_found",
@@ -838,7 +838,7 @@ async def execute_plan(
         })
         return
 
-    plan_store.update_status(plan_card_id, PlanCardStatus.EXECUTING)
+    await plan_store.update_status(plan_card_id, PlanCardStatus.EXECUTING)
     yield OrigamiEvent("execution_started", {
         "plan_card_id": plan_card_id,
         "total_steps": len(plan.changes),
@@ -940,7 +940,7 @@ async def execute_plan(
     overall_status = "failed" if failed_count == len(plan.changes) else (
         "partial" if failed_count > 0 else "success"
     )
-    plan_store.update_status(
+    await plan_store.update_status(
         plan_card_id,
         PlanCardStatus.FAILED if overall_status == "failed" else PlanCardStatus.DONE,
     )
@@ -967,7 +967,7 @@ async def execute_plan(
     )
 
     # Clean up the plan now that it's been run
-    plan_store.delete_plan(plan_card_id)
+    await plan_store.delete_plan(plan_card_id)
 
 
 async def _record_turn(

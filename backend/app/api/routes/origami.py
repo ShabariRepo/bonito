@@ -157,7 +157,7 @@ async def origami_cancel_plan(
     db: AsyncSession = Depends(get_db),
 ):
     """Cancel (delete) a pending plan card."""
-    plan_store.delete_plan(body.plan_card_id)
+    await plan_store.delete_plan(body.plan_card_id)
 
 
 @router.post("/session/start", response_model=OrigamiSessionStart)
