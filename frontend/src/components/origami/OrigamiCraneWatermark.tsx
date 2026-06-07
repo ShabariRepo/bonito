@@ -1,27 +1,33 @@
 "use client";
 
 /**
- * OrigamiCraneWatermark — large, faded lavender origami crane that sits
- * behind the chat content as ambient branding. NOT the loader version —
- * this one is intentionally static (very slow breath only) and tuned
- * for legibility of overlaid text.
+ * OrigamiCraneWatermark — classic side-profile origami paper crane,
+ * rendered as a silhouette with internal fold-lines (the thin gaps
+ * between polygons act as the fold creases).
  *
- * Wire it inside a `relative`-positioned chat scroll container; the
- * watermark itself is `absolute inset-0`, `pointer-events-none`, and
- * fades the SVG to ~7% opacity so user / assistant bubbles stay sharp.
+ * Shape inspired by the classic 折鶴 (orizuru) — tall back wing, sharp
+ * upward tail spike, diamond body, slender neck extending forward to a
+ * small beak. Each polygon is a folded panel; tiny gaps between them
+ * read as the paper's crease lines at watermark opacity.
+ *
+ * Single-color so it picks up the theme's accent. Pass `color` and
+ * `opacity` from the active chat theme.
  */
 
 interface Props {
   /** Pixel size of the crane (square). Default 320. */
   size?: number;
-  /** Override watermark opacity (0-1). Default 0.07. */
+  /** Fill color (any CSS color). Default brand lavender. */
+  color?: string;
+  /** Watermark opacity (0-1). Default 0.08. */
   opacity?: number;
   className?: string;
 }
 
 export function OrigamiCraneWatermark({
   size = 320,
-  opacity = 0.07,
+  color = "#a78bfa",
+  opacity = 0.08,
   className = "",
 }: Props) {
   return (
@@ -36,43 +42,36 @@ export function OrigamiCraneWatermark({
         className="origami-crane-watermark"
         style={{ opacity }}
       >
-        <defs>
-          {/* Lavender palette — lighter than the loader's deep purple so the
-              text-foreground colour can layer on top without clashing */}
-          <linearGradient id="craneWmBody" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#e9d5ff" />
-            <stop offset="100%" stopColor="#c4b5fd" />
-          </linearGradient>
-          <linearGradient id="craneWmWing" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ddd6fe" />
-            <stop offset="100%" stopColor="#a78bfa" />
-          </linearGradient>
-          <linearGradient id="craneWmTail" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#c4b5fd" />
-            <stop offset="100%" stopColor="#a78bfa" />
-          </linearGradient>
-        </defs>
+        {/* The crane is built from abutting polygons; the hairline gaps
+            between them naturally read as fold creases. All share the
+            same fill so the silhouette reads as one piece of paper. */}
+        <g fill={color} stroke="none">
+          {/* Tail — long sharp spike pointing up-right */}
+          <polygon points="58,42 96,4 66,55" />
 
-        {/* Tail */}
-        <polygon points="50,52 86,78 64,68" fill="url(#craneWmTail)" />
+          {/* Back wing — large triangle pointing up-left */}
+          <polygon points="48,42 12,18 44,55" />
 
-        {/* Wings outstretched */}
-        <polygon points="50,46 96,32 78,58" fill="url(#craneWmWing)" />
-        <polygon points="50,46 4,32 22,58" fill="url(#craneWmWing)" />
+          {/* Body — upper sliver between the two wings */}
+          <polygon points="48,42 58,42 53,52" />
 
-        {/* Body diamond */}
-        <polygon points="50,46 62,72 50,82 38,72" fill="url(#craneWmBody)" />
+          {/* Body — central diamond / hull */}
+          <polygon points="44,55 66,55 60,75 50,72" />
 
-        {/* Neck */}
-        <polygon points="50,46 56,18 46,28" fill="url(#craneWmBody)" />
+          {/* Front wing fold — extending down-right from the body */}
+          <polygon points="66,55 92,92 60,75" />
 
-        {/* Head beak */}
-        <polygon points="56,18 62,22 54,24" fill="#a78bfa" />
+          {/* Neck — slender triangle reaching forward-down to the left */}
+          <polygon points="44,55 18,68 28,62" />
+
+          {/* Beak — small pointed wedge at the head */}
+          <polygon points="18,68 6,64 16,72" />
+        </g>
 
         <style>{`
           .origami-crane-watermark {
             transform-origin: 50% 60%;
-            animation: crane-watermark-breathe 8s ease-in-out infinite;
+            animation: crane-watermark-breathe 9s ease-in-out infinite;
           }
           @keyframes crane-watermark-breathe {
             0%, 100% { transform: scale(1) translateY(0); }

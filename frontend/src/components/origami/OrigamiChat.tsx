@@ -32,9 +32,9 @@ export function OrigamiChat({ session }: { session: Session }) {
     await session.send(text);
   }
 
-  // Watermark is only shown on the default theme — themed surfaces have
-  // their own color identity that conflicts with the lavender crane.
-  const showWatermark = themeId === "default";
+  // Watermark always renders; the active theme provides its tint and
+  // opacity so the crane fits each palette (lavender on Bonito, neon
+  // emerald on Hacker, deep red on Wafū, etc.).
 
   return (
     <div className={`flex flex-col h-full ${theme.font}`}>
@@ -59,7 +59,11 @@ export function OrigamiChat({ session }: { session: Session }) {
         ref={scrollerRef}
         className={`flex-1 overflow-y-auto px-4 py-4 space-y-3 relative ${theme.scrollBg}`}
       >
-        {showWatermark && <OrigamiCraneWatermark size={320} opacity={0.06} />}
+        <OrigamiCraneWatermark
+          size={320}
+          color={theme.watermarkColor}
+          opacity={theme.watermarkOpacity}
+        />
         <div className="relative z-10 space-y-3">
           {session.messages.length === 0 && (
             <div className={`text-sm ${theme.mutedTextClass}`}>
