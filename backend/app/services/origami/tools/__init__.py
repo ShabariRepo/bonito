@@ -11,5 +11,8 @@ from app.services.origami.tools.create_project import CreateProjectTool
 from app.services.origami.tools.create_agent import CreateAgentTool
 from app.services.origami.tools.link_kb_to_agent import LinkKbToAgentTool
 from app.services.origami.tools.mint_gateway_key import MintGatewayKeyTool
+from app.services.origami.tools.update_agent import UpdateAgentTool
+from app.services.origami.tools.upload_to_kb import UploadToKbTool
+from app.services.origami.tools.delegate_provider_connection import DelegateProviderConnectionTool
 
 __all__ = ["OrigamiTool", "TOOL_REGISTRY", "register_tool"]
