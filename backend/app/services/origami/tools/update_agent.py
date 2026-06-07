@@ -43,6 +43,10 @@ class UpdateAgentTool(OrigamiTool):
                 "description": "Replacement system prompt; pass to refine the agent's persona",
             },
             "model_id": {"type": "string"},
+            "model": {
+                "type": "string",
+                "description": "Alias for model_id (accepted because models call it `model` half the time).",
+            },
             "knowledge_base_ids": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -94,7 +98,13 @@ class UpdateAgentTool(OrigamiTool):
         maybe_set("name")
         maybe_set("description")
         maybe_set("system_prompt")
-        maybe_set("model_id")
+        # Accept `model` as alias for `model_id`
+        if "model_id" in params and params["model_id"] is not None:
+            agent.model_id = params["model_id"]
+            changes.append("model_id")
+        elif "model" in params and params["model"] is not None:
+            agent.model_id = params["model"]
+            changes.append("model_id")
         maybe_set("rate_limit_rpm")
 
         if "knowledge_base_ids" in params and isinstance(params["knowledge_base_ids"], list):

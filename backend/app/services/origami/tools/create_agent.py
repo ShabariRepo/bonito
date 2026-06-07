@@ -51,8 +51,14 @@ class CreateAgentTool(OrigamiTool):
                 "type": "string",
                 "description": (
                     "Model to route to (e.g. 'claude-sonnet-4-5'). Defaults "
-                    "to 'auto' which lets Bonito's routing pick."
+                    "to 'auto' which lets Bonito's routing pick. NOTE: this "
+                    "field is sometimes called `model` colloquially — both "
+                    "names are accepted."
                 ),
+            },
+            "model": {
+                "type": "string",
+                "description": "Alias for model_id (accepted because models call it `model` half the time).",
             },
             "project_id": {
                 "type": "string",
@@ -182,13 +188,21 @@ class CreateAgentTool(OrigamiTool):
         if "max_tokens" in params:
             model_config["max_tokens"] = int(params["max_tokens"])
 
+        # Accept `model` as an alias for `model_id` — the LLM emits both
+        # depending on the day. Prefer the explicit one if both are set.
+        resolved_model_id = (
+            params.get("model_id")
+            or params.get("model")
+            or "auto"
+        )
+
         agent = Agent(
             org_id=org_id,
             project_id=project_id,
             name=name,
             description=params.get("description"),
             system_prompt=sysprompt,
-            model_id=params.get("model_id") or "auto",
+            model_id=resolved_model_id,
             model_config=model_config,
             knowledge_base_ids=kb_ids,
             tool_policy={
