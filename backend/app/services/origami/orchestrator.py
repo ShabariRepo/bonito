@@ -145,7 +145,25 @@ propose the right tools with the right params; the user confirms.
 
 Be specific in tool params. If a user says "build me a support bot for our \
 Shopify store, KB from our help docs", you should call create_kb with \
-`name="shopify-support-help"` first."""
+`name="shopify-support-help"` first.
+
+CHAINING TOOL OUTPUTS: when a later step needs a value produced by an \
+earlier step (e.g. link_kb_to_agent needs the kb_id from create_kb and the \
+agent_id from create_agent), use template references in the params:
+
+  ${step_N.field}   reference the Nth step's result field (1-indexed,
+                    in plan order — so step_1 is the first tool call)
+  ${prev.field}     reference the most recent step that produced `field`
+
+Example for a 4-step build (project, kb, agent, link):
+
+  1. create_project(name="ouchgpt", description="...")
+  2. create_kb(name="ouchgpt-docs")
+  3. create_agent(name="ouch-bot", system_prompt="...", project_id=${step_1.project_id})
+  4. link_kb_to_agent(agent_id=${step_3.agent_id}, kb_id=${step_2.kb_id})
+
+The orchestrator substitutes the real UUIDs when each step runs — the \
+LLM does NOT need to know the values up-front."""
 
 
 # ────────────────────────── Gateway client ──────────────────────────
@@ -851,6 +869,10 @@ async def execute_plan(
 
     tier = await _get_user_tier(db, user.org_id)
     results: list[dict[str, Any]] = []
+    # step_results holds the per-step return dict so that template refs in
+    # downstream steps (e.g. link_kb_to_agent(agent_id=${step_3.agent_id})
+    # ) can read the just-created ids.
+    step_results: list[dict[str, Any]] = []
     failed_count = 0
 
     for step_idx, change in enumerate(plan.changes):
@@ -862,6 +884,8 @@ async def execute_plan(
                 "error": "unknown_tool",
             })
             failed_count += 1
+            # Placeholder so step_results indices stay aligned with change indices
+            step_results.append({})
             continue
 
         yield OrigamiEvent("tool_started", {
@@ -873,6 +897,12 @@ async def execute_plan(
         try:
             instance = tool_cls()
             params = sanitize_params(change.params or {})
+            # Resolve ${step_N.field} / ${prev.field} references from earlier
+            # tool results before sending params downstream.
+            params = _resolve_template_params(params, step_results)
+            # Heuristic: if a link tool still has unset ids, infer from the
+            # most recent matching create result.
+            params = _heuristic_fill_link_params(change.action, params, step_results)
             result = await instance.execute(
                 org_id=user.org_id,  # ← STILL from auth, even on replay
                 user=user,
@@ -880,6 +910,8 @@ async def execute_plan(
                 db=db,
             )
             results.append({"action": change.action, "result": result})
+            # Record this step's result so later steps can reference its fields
+            step_results.append(result if isinstance(result, dict) else {})
 
             # Tools that signal a structured failure (success=False)
             # should be counted as failures even though no exception fired.
@@ -926,6 +958,8 @@ async def execute_plan(
                 "error": str(e),
             })
             failed_count += 1
+            # Keep step_results aligned with change indices even on exception
+            step_results.append({})
             await metering.record_origami_audit(
                 db=db, org_id=user.org_id, user_id=user.id,
                 og_token_id=None, project_id=project_id,
@@ -1028,6 +1062,117 @@ _INVOKE_BLOCK_RE = re.compile(
 _PARAM_RE = re.compile(
     r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
 )
+
+
+# ────────────────────────── Template references ──────────────────────────
+
+
+_STEP_REF_RE = re.compile(r"\$\{step_(\d+)\.([a-zA-Z_][a-zA-Z0-9_]*)\}")
+_PREV_REF_RE = re.compile(r"\$\{prev\.([a-zA-Z_][a-zA-Z0-9_]*)\}")
+
+
+def _resolve_one(value: Any, step_results: list[dict[str, Any]]) -> Any:
+    """Resolve a single ${step_N.field} or ${prev.field} in a param value.
+
+    step_results is the list of tool results in execution order (indices
+    are 1-based when referenced as `step_1`, `step_2`, ... in templates).
+
+    Strings that contain a template ref but aren't ONLY that ref are
+    string-interpolated. A bare `${step_2.agent_id}` is replaced with the
+    raw value (preserves type — UUID string stays as is).
+    """
+    if not isinstance(value, str):
+        return value
+
+    # Exact-match path — replace with raw typed value
+    m = _STEP_REF_RE.fullmatch(value.strip())
+    if m:
+        idx = int(m.group(1)) - 1
+        field = m.group(2)
+        if 0 <= idx < len(step_results):
+            return step_results[idx].get(field, value)
+        return value
+    m = _PREV_REF_RE.fullmatch(value.strip())
+    if m:
+        field = m.group(1)
+        for sr in reversed(step_results):
+            if isinstance(sr, dict) and field in sr:
+                return sr[field]
+        return value
+
+    # Interpolation path — embed each ref into the string
+    def _sub_step(match):
+        idx = int(match.group(1)) - 1
+        field = match.group(2)
+        if 0 <= idx < len(step_results):
+            return str(step_results[idx].get(field, match.group(0)))
+        return match.group(0)
+
+    def _sub_prev(match):
+        field = match.group(1)
+        for sr in reversed(step_results):
+            if isinstance(sr, dict) and field in sr:
+                return str(sr[field])
+        return match.group(0)
+
+    return _PREV_REF_RE.sub(_sub_prev, _STEP_REF_RE.sub(_sub_step, value))
+
+
+def _resolve_template_params(
+    params: dict[str, Any],
+    step_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Walk params and resolve template refs. Lists are recursed one level."""
+    resolved: dict[str, Any] = {}
+    for k, v in params.items():
+        if isinstance(v, list):
+            resolved[k] = [_resolve_one(item, step_results) for item in v]
+        elif isinstance(v, dict):
+            resolved[k] = {ik: _resolve_one(iv, step_results) for ik, iv in v.items()}
+        else:
+            resolved[k] = _resolve_one(v, step_results)
+    return resolved
+
+
+def _heuristic_fill_link_params(
+    tool_name: str,
+    params: dict[str, Any],
+    step_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Fallback for chained writes when the model didn't use template syntax.
+
+    If link_kb_to_agent is called with empty / invalid agent_id or kb_id
+    AND there's exactly one create_agent / create_kb result in step_results,
+    fill it in. Same idea for any other id-coupled tool we add later.
+    """
+    if tool_name != "link_kb_to_agent":
+        return params
+
+    out = dict(params)
+
+    def _looks_unset(v: Any) -> bool:
+        if not isinstance(v, str):
+            return True
+        s = v.strip()
+        if not s or s.lower() in {"null", "none", "todo", "id", "uuid"}:
+            return True
+        try:
+            uuid.UUID(s)
+            return False
+        except ValueError:
+            return True
+
+    if _looks_unset(out.get("agent_id")):
+        for sr in reversed(step_results):
+            if isinstance(sr, dict) and sr.get("agent_id"):
+                out["agent_id"] = sr["agent_id"]
+                break
+    if _looks_unset(out.get("kb_id")):
+        for sr in reversed(step_results):
+            if isinstance(sr, dict) and sr.get("kb_id"):
+                out["kb_id"] = sr["kb_id"]
+                break
+    return out
 
 
 def _try_parse_function_call_syntax(text: str) -> Optional[tuple[str, dict[str, Any]]]:
