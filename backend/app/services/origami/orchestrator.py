@@ -137,6 +137,23 @@ tool. When they ask about usage or limits, use `view_usage`. To inspect recent \
 activity / logs use `view_logs`. To see what models the org can route to use \
 `list_available_models`. To check tier gating use `check_tier_access`.
 
+CRITICAL — after EVERY read tool returns, write a short, conversational \
+summary message that answers the user's original question using the data the \
+tool returned. Do NOT just call the tool and stop. Examples:
+
+  User: "what providers do I have?"
+  → call list_org_state → respond: "You have Bedrock, Anthropic direct, and \
+    Vertex connected. Bedrock and Vertex are both active; Anthropic is in \
+    pending status. Want me to fix that?"
+
+  User: "how am I doing on quota?"
+  → call view_usage → respond: "You're at 30 of 5,000 Origami turns this \
+    month — plenty of headroom. Gateway requests: 0 used of unlimited."
+
+If the tool returned an error, explain what went wrong in plain English and \
+suggest a next step. Never echo raw tool output (no JSON, no curly braces) — \
+translate it.
+
 When a user asks to BUILD something (create an agent, create a KB, link them, \
 mint a gateway key), use the appropriate write tool. The orchestrator will \
 automatically PAUSE before executing — it builds a plan card from your tool \
@@ -440,6 +457,9 @@ async def run_origami_turn(
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
+    # Track every tool that successfully ran so we can synthesize a fallback
+    # summary if the model goes silent after tool_use (Bedrock+Opus quirk).
+    results: list[dict[str, Any]] = []
 
     for iteration in range(ORIGAMI_MAX_TOOL_ITERATIONS):
         # ── Streaming accumulators ─────────────────────────
@@ -535,19 +555,24 @@ async def run_origami_turn(
 
         # Fallback: some providers (Bedrock-routed Anthropic, sometimes Vertex)
         # don't normalize tool calls into structured tool_calls[]. They embed
-        # them in the content as <tool_call>{...}</tool_call> or
-        # <invoke name="..."><parameter ...>...</parameter></invoke>.
-        # Parse those out so write tools work regardless of routing.
+        # them in the content as <tool_call>{...}</tool_call>, <function>...,
+        # or <invoke name="..."><parameter ...>...</parameter></invoke>.
+        # Parse those out so tools work regardless of routing.
+        stripped_inline = False
         if not tool_calls and content:
             inline = _extract_inline_tool_calls(content)
             if inline:
                 tool_calls = inline
-                # Strip the inline tool-call syntax from what we emit as the
-                # assistant's visible message — it's noise for the user.
-                stripped = _TOOL_CALL_JSON_RE.sub("", content).strip()
-                stripped = _INVOKE_BLOCK_RE.sub("", stripped).strip()
+                # Strip the inline tool-call syntax from the visible message —
+                # it's noise the user shouldn't see. Run all three patterns;
+                # whichever the model used gets removed.
+                stripped = _TOOL_CALL_JSON_RE.sub("", content)
+                stripped = _INVOKE_BLOCK_RE.sub("", stripped)
+                stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
+                stripped = stripped.strip()
                 accumulated_content = stripped
                 content = stripped
+                stripped_inline = True
 
         # Accumulate token usage from the final usage chunk. Some upstreams
         # (notably Bedrock via LiteLLM) don't honor stream_options.include_usage
@@ -574,13 +599,37 @@ async def run_origami_turn(
         if not last_model_used:
             last_model_used = ORIGAMI_MODEL
 
-        # Emit a `message_complete` carrying the full accumulated text for
-        # any downstream consumer (audit log, conversation history) that
-        # wants the whole message rather than reassembling tokens.
-        if content:
-            yield OrigamiEvent("message_complete", {"text": content})
+        # Emit a `message_complete` so the frontend can reconcile the
+        # streamed tokens with the final (possibly stripped) text. ALWAYS
+        # emit — if we stripped inline tool-call markup and the content is
+        # now empty, the frontend needs to know so it can remove the stale
+        # streaming bubble showing raw <tool_call> markup. Without this,
+        # the user sees the raw tags.
+        yield OrigamiEvent("message_complete", {
+            "text": content,
+            "stripped_inline_tool_calls": stripped_inline,
+        })
 
         if not tool_calls:
+            # Synthesize a friendly summary if the model went silent after a
+            # tool ran, OR if the content we got back looks like nothing but
+            # tool-call markup that couldn't be parsed (Bedrock + Opus
+            # picks inconsistent formats — even when one iteration's call
+            # was extracted, the follow-up sometimes hallucinates a different
+            # markup format that bypasses the parser).
+            looks_like_markup = bool(content) and (
+                "<function>" in content or
+                "<tool_call>" in content or
+                "<invoke" in content or
+                "<parameter" in content
+            )
+            if (not content or looks_like_markup) and total_tool_calls > 0 and results:
+                content = _synthesize_tool_summary(results)
+                accumulated_content = content
+                yield OrigamiEvent("message_complete", {
+                    "text": content,
+                    "synthesized": True,
+                })
             final_finish_reason = finish_reason
             yield OrigamiEvent("done", {
                 "finish_reason": finish_reason,
@@ -739,6 +788,7 @@ async def run_origami_turn(
                     params=params,
                     db=db,
                 )
+                results.append({"tool": tool_name, "result": result})
                 yield OrigamiEvent("tool_completed", {
                     "tool_name": tool_name,
                     "tool_call_id": tc_id,
@@ -792,6 +842,24 @@ async def run_origami_turn(
                     status="failed",
                     error=str(e),
                 )
+
+        # After processing this batch of read tools, inject an explicit nudge
+        # so the next LLM iteration actually writes a follow-up summary.
+        # Some Bedrock-routed Anthropic models otherwise just stop after
+        # tool_use, OR worse, call the same tool again. We tell it firmly:
+        # NO MORE TOOLS, write plain text, you have the data you need.
+        if tool_calls:
+            messages.append({
+                "role": "user",
+                "content": (
+                    "STOP. Do NOT call any more tools. Do NOT emit "
+                    "<tool_call>, <function>, or <invoke> tags. You already "
+                    "have the answer in the tool result above. Write a "
+                    "short, plain-text conversational reply (1-3 sentences) "
+                    "that translates the tool result into a direct answer "
+                    "to my original question. Just text. No XML, no JSON."
+                ),
+            })
 
     final_status = "failed"
     final_finish_reason = "max_iterations"
@@ -1062,6 +1130,17 @@ _INVOKE_BLOCK_RE = re.compile(
 _PARAM_RE = re.compile(
     r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
 )
+# Some Bedrock-routed models emit
+#   <function>
+#     <parameter name="name">list_org_state</parameter>
+#     <parameter name="arguments">{}</parameter>
+#   </function>
+# i.e. the function tag has NO attribute and the function name + json args
+# are encoded as child <parameter> elements. Catch this separately because
+# the inner content isn't valid JSON or call syntax.
+_PARAMETERIZED_FUNCTION_RE = re.compile(
+    r"<function>\s*(.*?)\s*</function>", re.DOTALL,
+)
 
 
 # ────────────────────────── Template references ──────────────────────────
@@ -1285,28 +1364,66 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
         raw_inner = (match.group(2) or "").strip()
         if not raw_inner:
             continue
-        # Try strict JSON first
-        payload = None
-        try:
-            parsed = json.loads(raw_inner)
-            if isinstance(parsed, dict):
-                payload = parsed
-        except json.JSONDecodeError:
-            pass
-
-        if payload is None:
-            # Pull the first balanced { ... } out (handles backtick wrappers,
-            # trailing commentary, etc.)
-            payload = _extract_first_json_object(raw_inner)
 
         name: Optional[str] = None
         params: dict[str, Any] = {}
 
-        if isinstance(payload, dict):
-            name = payload.get("name")
-            params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
-            if not isinstance(params, dict):
-                params = {}
+        # First: parameterized-children format. Anthropic via Bedrock
+        # sometimes wraps tool calls as
+        #   <function><parameter name="name">X</parameter>
+        #             <parameter name="arguments">{...}</parameter></function>
+        # The inner content is XML-ish, NOT json. The model is also
+        # inconsistent about WHICH parameter names it uses — sometimes
+        # "name"/"arguments", sometimes "tool_name"/"params", sometimes
+        # "function_name"/"input". Try every common synonym.
+        _NAME_KEYS = ("name", "tool_name", "function_name", "function", "tool")
+        _ARGS_KEYS = ("arguments", "params", "parameters", "input", "args")
+        if "<parameter" in raw_inner:
+            sub = _params_from_parameter_tags(raw_inner)
+            fn_name = None
+            for k in _NAME_KEYS:
+                v = sub.pop(k, None)
+                if isinstance(v, str) and v:
+                    fn_name = v
+                    break
+            args_raw = None
+            for k in _ARGS_KEYS:
+                v = sub.pop(k, None)
+                if v is not None:
+                    args_raw = v
+                    break
+            if isinstance(fn_name, str) and fn_name:
+                name = fn_name
+                if isinstance(args_raw, dict):
+                    params = args_raw
+                elif isinstance(args_raw, str):
+                    try:
+                        parsed = json.loads(args_raw) if args_raw.strip() else {}
+                        params = parsed if isinstance(parsed, dict) else {}
+                    except json.JSONDecodeError:
+                        params = {}
+                # Anything else left in `sub` is treated as direct kwargs
+                # for the tool. Useful when the model uses a different
+                # parameter structure entirely.
+                if not params and sub:
+                    params = sub
+
+        # Otherwise try strict JSON
+        if not name:
+            payload = None
+            try:
+                parsed = json.loads(raw_inner)
+                if isinstance(parsed, dict):
+                    payload = parsed
+            except json.JSONDecodeError:
+                pass
+            if payload is None:
+                payload = _extract_first_json_object(raw_inner)
+            if isinstance(payload, dict):
+                name = payload.get("name")
+                params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
+                if not isinstance(params, dict):
+                    params = {}
 
         # Last-resort: function-call syntax `name(arg=value, ...)`. Bedrock's
         # Anthropic models pick this sometimes instead of JSON.
@@ -1327,20 +1444,7 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
     for match in _INVOKE_BLOCK_RE.finditer(text):
         name = match.group(1)
         body = match.group(2) or ""
-        params: dict[str, Any] = {}
-        for p_match in _PARAM_RE.finditer(body):
-            key, raw = p_match.group(1), (p_match.group(2) or "").strip()
-            # Try to coerce numbers / bools where natural
-            if raw.lower() in {"true", "false"}:
-                params[key] = raw.lower() == "true"
-            else:
-                try:
-                    params[key] = int(raw)
-                except ValueError:
-                    try:
-                        params[key] = float(raw)
-                    except ValueError:
-                        params[key] = raw
+        params = _params_from_parameter_tags(body)
         if name:
             calls.append({
                 "id": f"inline-{len(calls)}",
@@ -1349,6 +1453,114 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
             })
 
     return calls
+
+
+def _params_from_parameter_tags(body: str) -> dict[str, Any]:
+    """Pull <parameter name="X">value</parameter> pairs into a dict, with
+    light type coercion (true/false → bool, int / float when natural)."""
+    out: dict[str, Any] = {}
+    for p_match in _PARAM_RE.finditer(body):
+        key, raw = p_match.group(1), (p_match.group(2) or "").strip()
+        if raw.lower() in {"true", "false"}:
+            out[key] = raw.lower() == "true"
+            continue
+        try:
+            out[key] = int(raw)
+            continue
+        except ValueError:
+            pass
+        try:
+            out[key] = float(raw)
+            continue
+        except ValueError:
+            pass
+        out[key] = raw
+    return out
+
+
+def _synthesize_tool_summary(results: list[dict[str, Any]]) -> str:
+    """Build a friendly fallback summary from raw tool results.
+
+    Used when the model returns no follow-up text after running a tool —
+    a known Bedrock+Opus quirk where stop_reason="tool_use" sometimes
+    leaves the chat empty. We translate the structured tool output into
+    a 1-2 sentence answer so the user isn't staring at a blank message.
+    """
+    if not results:
+        return "I ran the tools but got no results back."
+    parts: list[str] = []
+    for entry in results:
+        tool = entry.get("tool", "")
+        r = entry.get("result", {}) or {}
+        if not isinstance(r, dict):
+            continue
+
+        if tool == "list_org_state":
+            counts = r.get("counts") or {}
+            tier = r.get("tier", "free")
+            provs = r.get("providers") or []
+            active = sum(1 for p in provs if isinstance(p, dict) and p.get("active"))
+            total = len(provs)
+            parts.append(
+                f"You have {total} provider{'s' if total != 1 else ''} connected "
+                f"({active} active), {counts.get('agents', 0)} agent"
+                f"{'s' if counts.get('agents', 0) != 1 else ''}, "
+                f"{counts.get('kbs', 0)} knowledge base"
+                f"{'s' if counts.get('kbs', 0) != 1 else ''}, "
+                f"and {counts.get('projects', 0)} project"
+                f"{'s' if counts.get('projects', 0) != 1 else ''} on the {tier} tier."
+            )
+        elif tool == "view_usage":
+            tier = r.get("tier", "")
+            gw = r.get("gateway_requests") or {}
+            used = gw.get("used", 0)
+            limit = gw.get("limit", "unlimited")
+            parts.append(
+                f"On the {tier} tier you've used {used} of {limit} gateway "
+                f"requests this period ({gw.get('percent_used', 0)}%)."
+            )
+        elif tool == "list_available_models":
+            providers = r.get("providers") or []
+            summary = r.get("summary") or {}
+            total_models = summary.get("total_models", sum(len(p.get("models") or []) for p in providers))
+            ptypes = [p.get("provider_type") for p in providers if p.get("provider_type")]
+            if ptypes:
+                parts.append(
+                    f"You have {total_models} models available across "
+                    f"{len(ptypes)} provider{'s' if len(ptypes) != 1 else ''} "
+                    f"({', '.join(ptypes)})."
+                )
+            else:
+                parts.append("No models are routable yet — connect a provider first.")
+        elif tool == "view_logs":
+            gw = r.get("gateway_requests") or {}
+            sess = r.get("agent_sessions") or {}
+            parts.append(
+                f"Recent activity: {gw.get('shown', 0)} gateway requests "
+                f"({gw.get('success', 0)} success, {gw.get('errors', 0)} errors), "
+                f"{sess.get('shown', 0)} agent sessions."
+            )
+        elif tool == "check_tier_access":
+            tier = r.get("tier", "")
+            allowed = r.get("allowed_features") or []
+            gated = r.get("gated_features") or []
+            parts.append(
+                f"On {tier}, you have {len(allowed)} features available and "
+                f"{len(gated)} gated. Use the tier-access tool again with a "
+                f"specific feature name for the upgrade path."
+            )
+        else:
+            # Unknown tool — fall back to a generic acknowledgement
+            if r.get("success") is True:
+                parts.append(f"Ran `{tool}` successfully.")
+            elif r.get("success") is False:
+                msg = r.get("message") or r.get("error") or "failed"
+                parts.append(f"`{tool}` failed: {msg}")
+            else:
+                parts.append(f"Ran `{tool}`.")
+    if not parts:
+        return "I ran the tools — check the Activity log on the right for details."
+    return " ".join(parts)
 
 
 def _summarize_result(result: dict[str, Any]) -> dict[str, Any]:

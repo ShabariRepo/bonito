@@ -45,11 +45,13 @@ export function OrigamiPanel() {
 
   return (
     <>
-      {/* Floating launcher — bottom-right when closed */}
+      {/* Floating launcher — sits ABOVE the support BonBon bubble.
+          BonBon is fixed at bottom-6 right-6 z-50 (48px circle); we go to
+          bottom-24 so the two stack vertically with breathing room. */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 group"
+          className="fixed bottom-24 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all hover:scale-105 group"
           aria-label="Ask Origami (Cmd+J)"
           title="Ask Origami — Cmd+J"
         >

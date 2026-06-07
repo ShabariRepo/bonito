@@ -154,12 +154,17 @@ export function useOrigamiSession() {
       case "message_complete":
         setMessages((m) => {
           const last = m[m.length - 1];
+          const finalText = (ev.text || "").trim();
+          // If the entire streamed message was raw tool-call markup that the
+          // orchestrator stripped, drop the streaming bubble entirely. Without
+          // this, users see leftover <tool_call>…</tool_call> text.
+          if (last?.role === "assistant" && last.streaming && !finalText) {
+            return m.slice(0, -1);
+          }
           if (last?.role === "assistant" && last.streaming) {
             return [...m.slice(0, -1), { ...last, text: ev.text, streaming: false }];
           }
-          // Skip pure-whitespace messages (often what's left after stripping
-          // inline tool calls from a plan-emitting turn)
-          if (!ev.text.trim()) return m;
+          if (!finalText) return m;
           return [...m, { id: uid(), role: "assistant", text: ev.text }];
         });
         break;
