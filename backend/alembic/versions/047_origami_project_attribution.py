@@ -7,16 +7,16 @@ granular enough for usage analytics or compliance investigations.
 Both columns are nullable: Origami activity outside any specific project
 context (general onboarding, "what's my org tier?") doesn't have one.
 
-Revision ID: 047_origami_project_attribution
-Revises: 046_add_origami_audit_and_turn_log
+Revision ID: 047_origami_project
+Revises: 046_origami_logs
 """
 
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "047_origami_project_attribution"
-down_revision = "046_add_origami_audit_and_turn_log"
+revision = "047_origami_project"
+down_revision = "046_origami_logs"
 branch_labels = None
 depends_on = None
 

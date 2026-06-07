@@ -15,7 +15,7 @@ Both are independent of gateway_requests. A single Origami turn fans out
 into multiple gateway_requests rows (each LLM call) — these tables give us
 the turn boundary so we can count "Origami turns" against the tier cap.
 
-Revision ID: 046_add_origami_audit_and_turn_log
+Revision ID: 046_origami_logs
 Revises: 045_add_user_id_isolation
 """
 
@@ -23,7 +23,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "046_add_origami_audit_and_turn_log"
+revision = "046_origami_logs"
 down_revision = "045_add_user_id_isolation"
 branch_labels = None
 depends_on = None
