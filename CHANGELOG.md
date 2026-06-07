@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Origami (in-app conversational interface) — Phase 1 skeleton
+
+- **End-to-end chat surface at `/origami`** — split-pane chat (frontend) + SSE streaming endpoint (backend). Sign in normally, ask Origami about your org, watch tool calls fire in the collapsible Activity log.
+- **Hand-rolled orchestrator** that POSTs to Bonito's own gateway (`/v1/chat/completions`) with a `bn-` system key — Origami is a customer of our own platform. No `claude-agent-sdk`, no `anthropic` SDK, no direct LiteLLM call in the Origami code path (LiteLLM lives inside the gateway itself).
+- **2 read-only tools** in the first scaffold:
+  - `list_org_state` — providers, agents, knowledge bases, projects, tier
+  - `view_usage` — current-month gateway requests vs tier limit, headroom, spend
+- **`og-` access token type** — new token prefix in the existing `access_tokens` table, immutably bound to a single `(user_id, org_id)` pair at creation. Auto-mint pattern (`get_or_create_origami_token`), revocation, `get_origami_context` FastAPI dependency that enforces strict org-scope at the auth perimeter. `og-` tokens also work on all `/api/*` endpoints via the existing `get_current_user` dependency.
+- **Security invariants enforced**:
+  - `org_id` is read from the auth token (server-side), never from request params or model output
+  - `sanitize_params` strips any `org_id` from model-generated tool input dicts before `execute()` runs
+  - Tool `input_schema` deliberately omits `org_id` so the model never sees it as a valid field
+- **SSE event schema** — `turn_started`, `message_complete`, `tool_started`, `tool_completed`, `tool_failed`, `done`, `error`. Bonito-native vocabulary; will extend with workspace events (`plan_ready`, `tier_check`, `upgrade_offered`, etc.) in Phase 2.
+- **Standalone smoke test** at `backend/scripts/test_origami.py` — exercises the orchestrator + tools + DB without standing up FastAPI. Colored event stream output.
+- **Health probe** at `GET /api/origami/health` (no auth) returns the list of registered tools for sanity-checking deployed environments.
+- **Phase 0 KB ingestion pipeline scaffold** at `backend/app/services/origami/ingestion/` — extracts internal docs (CLAUDE.md, ARCHITECTURAL_PATTERNS.md, public docs), OpenAPI spec, and the Typer CLI command tree into `IngestionRecord` objects. Produces 444 ingestible records when run end-to-end. 24 passing pytest tests. Vector store write still pending Phase 1.5.
+- **Docs**: `docs/ORIGAMI-MVP-PLAN.md` (full spec including Workspace UX, decisions, build phases), `docs/ORIGAMI-ADVERSARIAL-REVIEW.md` (28 findings from an independent attack), `docs/ORIGAMI-NAME-COLLISION.md` (rename triggered by collision with YC-backed `origami.chat`).
+- **Pricing structure for Origami turns**: chat included on every tier (Free 50 / Builder 100 / Growth 300 / Pro 1,000 / Enterprise 5,000 turns/month base); overage at $0.12/turn on paid tiers, $0.10/turn on Enterprise. Quotas calibrated to ~3-5× realistic heavy use (Origami is structured assist, 4-6 turns per build, not open-ended chat).
+
+### Decisions logged 2026-06-06
+
+- **SKIP claude-agent-sdk** — spike measured 18.9× token overhead and the SDK only speaks Anthropic format, so pointing it at Bonito's OpenAI-shaped gateway 404s. Hand-rolled approach preserves the multi-provider failover pitch, the ~85% gross margin, and the gateway-dogfood story. See `spikes/origami-sdk/notes.md` for full numbers.
+- **Origami name retiring** — collision with YC-backed `origami.chat` (AI research agents, $50K MRR, #1 PH Feb 2026) is disqualifying for the SEO and brand-positioning fight. Shortlist: Kigumi / Kunai / Jutsu (Japanese craft / precision lineage matching the Bonito voice). Final selection pending a fresh collision check.
+
 ### Added - Agent HPA Autoscaling
 - **Agent-Level Autoscaling** — Phase 1 virtual scaling with agent workers
   - Auto-create agents based on load (virtual workers per agent)

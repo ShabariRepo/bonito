@@ -48,8 +48,11 @@ async def get_test_user(db: AsyncSession, email: str | None):
 
 
 async def run(message: str, email: str | None):
-    if not (os.getenv("ORIGAMI_ANTHROPIC_KEY") or os.getenv("ANTHROPIC_API_KEY")):
-        raise SystemExit("Set ORIGAMI_ANTHROPIC_KEY env var first (sk-ant-...).")
+    if not os.getenv("ORIGAMI_GATEWAY_KEY"):
+        raise SystemExit(
+            "Set ORIGAMI_GATEWAY_KEY env var first (bn-... — a Bonito gateway key).\n"
+            "Get one from Settings → Gateway Keys in any active org."
+        )
 
     # Lazy import so SystemExit above triggers cleanly
     from app.core.config import settings
