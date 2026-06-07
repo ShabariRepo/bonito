@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanCard } from "./PlanCard";
 import { OrigamiCraneLoader } from "./OrigamiCraneLoader";
+import { OrigamiCraneWatermark } from "./OrigamiCraneWatermark";
 import type { useOrigamiSession } from "./useOrigamiSession";
 
 type Session = ReturnType<typeof useOrigamiSession>;
@@ -41,11 +42,18 @@ export function OrigamiChat({ session }: { session: Session }) {
         </span>
       </div>
 
-      {/* Scrolling body */}
+      {/* Scrolling body — `relative` so the watermark can absolute-position
+          inside it, and the message stack lives above it via z-10. */}
       <div
         ref={scrollerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3 relative"
       >
+        {/* Faded lavender origami crane watermark sitting behind the chat
+            content. pointer-events-none so it never intercepts clicks. */}
+        <OrigamiCraneWatermark size={320} opacity={0.06} />
+        {/* Wrapping content in a relative div with z-10 to ensure message
+            bubbles render on top of the watermark. */}
+        <div className="relative z-10 space-y-3">
         {session.messages.length === 0 && (
           <div className="text-sm text-muted-foreground">
             Hi — I&apos;m Origami. I can help you plan and deploy agents,
@@ -84,6 +92,7 @@ export function OrigamiChat({ session }: { session: Session }) {
             <OrigamiCraneLoader size={48} label="Origami is folding a plan…" />
           </div>
         )}
+        </div>
       </div>
 
       {/* Composer */}
