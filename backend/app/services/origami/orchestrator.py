@@ -47,7 +47,9 @@ DEFAULT_GATEWAY_URL = os.getenv("BONITO_GATEWAY_URL", "http://localhost:8001")
 
 # Model name as the gateway exposes it. Sonnet 4.5 / 4.6 are routed
 # through the customer's connected provider (Anthropic, Bedrock, Vertex).
-ORIGAMI_MODEL = "claude-sonnet-4-5"
+# Override with ORIGAMI_MODEL env var for environments where the gateway
+# requires a specific provider-prefixed model id (e.g. Bedrock-routed dev).
+ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-5")
 ORIGAMI_MAX_TOKENS = 2048
 ORIGAMI_MAX_TOOL_ITERATIONS = 5
 ORIGAMI_HTTP_TIMEOUT = 60.0  # seconds
