@@ -1,33 +1,34 @@
 "use client";
 
 /**
- * OrigamiCraneWatermark — classic side-profile origami paper crane,
- * rendered as a silhouette with internal fold-lines (the thin gaps
- * between polygons act as the fold creases).
+ * OrigamiCraneWatermark — line-art origami crane, drawn as stroke-only
+ * paths matching the reference orizuru silhouette (tail spike up-right,
+ * two wing/fold points dropping to the bottom-left, body diamond
+ * center, neck + beak extending to the upper-left).
  *
- * Shape inspired by the classic 折鶴 (orizuru) — tall back wing, sharp
- * upward tail spike, diamond body, slender neck extending forward to a
- * small beak. Each polygon is a folded panel; tiny gaps between them
- * read as the paper's crease lines at watermark opacity.
- *
- * Single-color so it picks up the theme's accent. Pass `color` and
- * `opacity` from the active chat theme.
+ * Outline is one closed path; the visible internal fold creases are
+ * three short additional segments. Stroke uses `currentColor` so the
+ * parent's text color cascades — pass `color` to override directly.
  */
 
 interface Props {
   /** Pixel size of the crane (square). Default 320. */
   size?: number;
-  /** Fill color (any CSS color). Default brand lavender. */
+  /** Stroke color (any CSS color). Default white. */
   color?: string;
-  /** Watermark opacity (0-1). Default 0.08. */
+  /** Watermark opacity (0-1). Default 0.12. Strokes need slightly more
+   *  than fills to read at the same visual weight. */
   opacity?: number;
+  /** Stroke width in viewBox units. Default 2.2. */
+  strokeWidth?: number;
   className?: string;
 }
 
 export function OrigamiCraneWatermark({
   size = 320,
-  color = "#a78bfa",
-  opacity = 0.08,
+  color = "#ffffff",
+  opacity = 0.12,
+  strokeWidth = 2.2,
   className = "",
 }: Props) {
   return (
@@ -40,32 +41,47 @@ export function OrigamiCraneWatermark({
         width={size}
         height={size}
         className="origami-crane-watermark"
-        style={{ opacity }}
+        style={{ opacity, color }}
       >
-        {/* The crane is built from abutting polygons; the hairline gaps
-            between them naturally read as fold creases. All share the
-            same fill so the silhouette reads as one piece of paper. */}
-        <g fill={color} stroke="none">
-          {/* Tail — long sharp spike pointing up-right */}
-          <polygon points="58,42 96,4 66,55" />
+        <g
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        >
+          {/* Outer silhouette — single closed path traced clockwise
+              from the tail tip. Vertices (approx):
+                A tail tip       (88, 8)
+                B body upper-back (55, 36)
+                C body bottom-back (47, 82)
+                D back-wing fold  (32, 60)
+                E front-wing tip  (8, 82)
+                F front fold base (30, 48)
+                G beak tip        (8, 28)
+                H neck base       (30, 35)
+           */}
+          <path d="
+            M 88 8
+            L 55 36
+            L 47 82
+            L 32 60
+            L 8 82
+            L 30 48
+            L 8 28
+            L 30 35
+            Z
+          " />
 
-          {/* Back wing — large triangle pointing up-left */}
-          <polygon points="48,42 12,18 44,55" />
-
-          {/* Body — upper sliver between the two wings */}
-          <polygon points="48,42 58,42 53,52" />
-
-          {/* Body — central diamond / hull */}
-          <polygon points="44,55 66,55 60,75 50,72" />
-
-          {/* Front wing fold — extending down-right from the body */}
-          <polygon points="66,55 92,92 60,75" />
-
-          {/* Neck — slender triangle reaching forward-down to the left */}
-          <polygon points="44,55 18,68 28,62" />
-
-          {/* Beak — small pointed wedge at the head */}
-          <polygon points="18,68 6,64 16,72" />
+          {/* Internal fold creases */}
+          {/* 1. Central back-to-belly fold (the spine of the crane) */}
+          <path d="M 55 36 L 47 82" />
+          {/* 2. Body diagonal — back-wing fold to body front */}
+          <path d="M 32 60 L 55 36" />
+          {/* 3. Front belly fold — front wing top up to body front */}
+          <path d="M 30 48 L 47 82" />
+          {/* 4. Neck crease — neck base into body */}
+          <path d="M 30 35 L 30 48" />
         </g>
 
         <style>{`

@@ -66,7 +66,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-primary",
     mutedTextClass: "text-muted-foreground",
     separatorClass: "border-border",
-    watermarkColor: "#a78bfa",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.07,
   },
 
@@ -89,7 +89,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-emerald-400",
     mutedTextClass: "text-emerald-700",
     separatorClass: "border-emerald-500/30",
-    watermarkColor: "#10b981",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.10,
   },
 
@@ -112,7 +112,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-pink-500",
     mutedTextClass: "text-pink-500",
     separatorClass: "border-pink-200",
-    watermarkColor: "#f472b6",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.10,
   },
 
@@ -136,7 +136,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-[#9f1b0f]",
     mutedTextClass: "text-[#8b7355]",
     separatorClass: "border-[#8b7355]/40",
-    watermarkColor: "#9f1b0f",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.08,
   },
 
@@ -158,7 +158,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-[#ff79c6]",
     mutedTextClass: "text-[#6272a4]",
     separatorClass: "border-[#44475a]",
-    watermarkColor: "#bd93f9",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.12,
   },
 
@@ -182,7 +182,7 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     cursorClass: "bg-[#a67c5b]",
     mutedTextClass: "text-[#a67c5b]",
     separatorClass: "border-[#d4a574]/40",
-    watermarkColor: "#a67c5b",
+    watermarkColor: "#ffffff",
     watermarkOpacity: 0.10,
   },
 };
