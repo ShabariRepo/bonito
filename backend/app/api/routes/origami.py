@@ -191,6 +191,117 @@ async def origami_session_revoke(
     await db.commit()
 
 
+@router.get("/usage")
+async def origami_usage_for_user(
+    period: Optional[str] = None,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Customer-facing Origami usage view for the user's own org.
+
+    Returns current-period summary (turns used, tier cap, % remaining,
+    cost projection) plus a 30-day daily breakdown for the chart.
+
+    Optional ?period=YYYY-MM query param. Defaults to current month.
+    """
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select, func, cast, Date
+    from app.models.origami_logs import OrigamiTurnLog
+    from app.services.origami.metering import (
+        TIER_TURN_CAPS, get_turn_cap, check_quota,
+    )
+    from app.services.feature_gate import feature_gate
+
+    # Resolve period (YYYY-MM)
+    now = datetime.now(timezone.utc)
+    if period:
+        try:
+            year, month = period.split("-")
+            int(year), int(month)
+        except (ValueError, AttributeError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="period must be YYYY-MM",
+            )
+    else:
+        period = f"{now.year:04d}-{now.month:02d}"
+
+    # Live tier
+    try:
+        sub = await feature_gate.get_organization_subscription(db, str(user.org_id))
+        tier_enum = sub["tier"]
+        tier = tier_enum.value if hasattr(tier_enum, "value") else str(tier_enum)
+    except Exception:
+        tier = "free"
+
+    # Quota snapshot for THIS period (we use check_quota helper for current period
+    # which queries the same table)
+    quota_snapshot = await check_quota(db, user.org_id, tier)
+
+    # Aggregate for the requested period (might be historical)
+    period_result = await db.execute(
+        select(
+            func.count(OrigamiTurnLog.id),
+            func.coalesce(func.sum(OrigamiTurnLog.cost_usd), 0),
+            func.coalesce(func.sum(OrigamiTurnLog.input_tokens), 0),
+            func.coalesce(func.sum(OrigamiTurnLog.output_tokens), 0),
+            func.coalesce(func.sum(OrigamiTurnLog.tool_calls_count), 0),
+        ).where(
+            OrigamiTurnLog.org_id == user.org_id,
+            OrigamiTurnLog.billing_period_month == period,
+        )
+    )
+    p_count, p_cost, p_in, p_out, p_tools = period_result.one()
+
+    # Daily breakdown for the period (UTC day buckets)
+    daily_result = await db.execute(
+        select(
+            cast(OrigamiTurnLog.created_at, Date).label("day"),
+            func.count(OrigamiTurnLog.id),
+            func.coalesce(func.sum(OrigamiTurnLog.cost_usd), 0),
+        )
+        .where(
+            OrigamiTurnLog.org_id == user.org_id,
+            OrigamiTurnLog.billing_period_month == period,
+        )
+        .group_by("day")
+        .order_by("day")
+    )
+    daily = [
+        {
+            "day": row[0].isoformat() if row[0] else None,
+            "turns": int(row[1] or 0),
+            "cost_usd": float(row[2] or 0),
+        }
+        for row in daily_result
+    ]
+
+    cap = get_turn_cap(tier)
+    cap_for_response = None if cap == float("inf") else int(cap)
+    used = int(p_count or 0)
+    remaining = (
+        None if cap_for_response is None else max(0, cap_for_response - used)
+    )
+    pct_used = (
+        None if not cap_for_response else round(100 * used / cap_for_response, 1)
+    )
+
+    return {
+        "period": period,
+        "tier": tier,
+        "turns_used": used,
+        "turns_cap": cap_for_response,
+        "turns_remaining": remaining,
+        "percent_used": pct_used,
+        "cost_usd_this_period": float(p_cost or 0),
+        "overage_rate_usd": quota_snapshot.get("overage_rate_usd", 0.0),
+        "input_tokens": int(p_in or 0),
+        "output_tokens": int(p_out or 0),
+        "tool_calls": int(p_tools or 0),
+        "daily": daily,
+    }
+
+
 @router.get("/health")
 async def origami_health():
     """Quick health probe — does NOT require auth.
