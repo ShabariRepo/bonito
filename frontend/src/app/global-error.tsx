@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -29,19 +30,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           textAlign: 'center',
           padding: '1.5rem'
         }}>
-          {/* Catastrophic fish ASCII */}
-          <pre style={{
-            color: '#dc2626',
-            fontSize: '0.875rem',
-            fontFamily: 'monospace',
-            marginBottom: '2rem',
-            userSelect: 'none'
-          }} aria-hidden="true">
-{`    X___X
-   /     \\
-<°)))><   |
-   \\_____/`}
-          </pre>
+          {/* Purple origami bonito — capsized (replaces the catastrophic ASCII fish) */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <OrigamiBonitoFish mood="capsized" size={200} />
+          </div>
 
           <div style={{
             display: 'inline-flex',

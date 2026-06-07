@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, ShieldAlert, Lock } from "lucide-react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 export default function Forbidden() {
   return (
@@ -24,30 +25,14 @@ export default function Forbidden() {
       ))}
 
       <div className="text-center px-6 relative z-10">
-        {/* Locked chest with fish */}
+        {/* Purple origami bonito with a lock badge (replaces the old ASCII fish + Lock combo) */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mb-8"
+          className="flex justify-center mb-6"
         >
-          <div className="relative inline-block">
-            <motion.div
-              animate={{ rotate: [0, -5, 5, -5, 0] }}
-              transition={{ duration: 1.5, delay: 0.8, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Lock className="w-16 h-16 text-[#f97316] mx-auto mb-2" />
-            </motion.div>
-            <motion.pre
-              initial={{ opacity: 0, x: 60 }}
-              animate={{ opacity: 1, x: 60 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="text-[#7c3aed]/60 text-xs font-mono absolute -right-12 top-4 select-none"
-              aria-hidden="true"
-            >
-{`><(((°>`}
-            </motion.pre>
-          </div>
+          <OrigamiBonitoFish mood="locked" size={200} />
         </motion.div>
 
         <motion.div

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, RefreshCw, Wrench, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 export default function ServiceUnavailable() {
   const [countdown, setCountdown] = useState(60);
@@ -43,45 +44,14 @@ export default function ServiceUnavailable() {
       ))}
 
       <div className="text-center px-6 relative z-10">
-        {/* Fish in drydock/maintenance */}
+        {/* Purple origami bonito — maintenance mood (wrench badge) replaces the drydock ASCII */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="mb-8 relative"
+          className="flex justify-center mb-6"
         >
-          <div className="relative inline-block">
-            {/* Scaffolding bars */}
-            <div className="absolute -left-8 top-0 bottom-0 w-1 bg-[#fbbf24]/30"></div>
-            <div className="absolute -right-8 top-0 bottom-0 w-1 bg-[#fbbf24]/30"></div>
-            <div className="absolute left-0 right-0 -top-2 h-1 bg-[#fbbf24]/30"></div>
-
-            <pre
-              className="text-[#7c3aed] text-sm md:text-base font-mono select-none relative z-10"
-              aria-hidden="true"
-            >
-{`     ___
-   /    \\
-><(((°>  |
-   \\____/`}
-            </pre>
-
-            {/* Wrench icon overlay */}
-            <motion.div
-              className="absolute -right-2 -bottom-2"
-              animate={{
-                rotate: [0, -15, 15, -15, 0],
-              }}
-              transition={{
-                duration: 1.5,
-                delay: 0.8,
-                repeat: Infinity,
-                repeatDelay: 1,
-              }}
-            >
-              <Wrench className="w-8 h-8 text-[#fbbf24]" />
-            </motion.div>
-          </div>
+          <OrigamiBonitoFish mood="maintenance" size={200} />
         </motion.div>
 
         <motion.div
