@@ -6,5 +6,6 @@ from app.services.origami.tools.view_usage import ViewUsageTool
 from app.services.origami.tools.view_logs import ViewLogsTool
 from app.services.origami.tools.list_available_models import ListAvailableModelsTool
 from app.services.origami.tools.check_tier_access import CheckTierAccessTool
+from app.services.origami.tools.create_kb import CreateKbTool
 
 __all__ = ["OrigamiTool", "TOOL_REGISTRY", "register_tool"]

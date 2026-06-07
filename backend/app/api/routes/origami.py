@@ -33,12 +33,18 @@ from app.schemas.origami_auth import (
     OrigamiSessionStart,
     OrigamiTokenResponse,
 )
+from app.schemas.origami_plan import (
+    CancelPlanRequest,
+    ExecutePlanRequest,
+)
+from app.services.origami import plan_store
 from app.services.origami.auth import (
     get_or_create_origami_token,
     revoke_origami_token,
 )
 from app.services.origami.orchestrator import (
     OrigamiEvent,
+    execute_plan as execute_plan_orchestrator,
     run_origami_turn,
 )
 
@@ -103,6 +109,55 @@ async def origami_turn(
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/execute_plan")
+async def origami_execute_plan(
+    body: ExecutePlanRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Deploy a plan card the user just confirmed.
+
+    Streams the same SSE event vocabulary as /turn: tool_started,
+    tool_completed, tool_failed, execution_started, execution_done.
+    """
+
+    async def event_generator() -> AsyncIterator[str]:
+        try:
+            async for event in execute_plan_orchestrator(
+                user=user,
+                plan_card_id=body.plan_card_id,
+                db=db,
+            ):
+                yield event.to_sse()
+        except Exception as e:
+            logger.exception("Origami execute_plan failed at the route layer")
+            err = OrigamiEvent("error", {
+                "code": "route_layer_failure",
+                "message": str(e),
+            })
+            yield err.to_sse()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.delete("/plan", status_code=status.HTTP_204_NO_CONTENT)
+async def origami_cancel_plan(
+    body: CancelPlanRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel (delete) a pending plan card."""
+    plan_store.delete_plan(body.plan_card_id)
 
 
 @router.post("/session/start", response_model=OrigamiSessionStart)

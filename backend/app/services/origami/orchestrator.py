@@ -36,6 +36,8 @@ from app.services.origami.tools.base import (
     sanitize_params,
 )
 from app.services.origami import metering
+from app.services.origami import plan_store
+from app.schemas.origami_plan import PlanCard, PlanCardStatus, PlanChange
 # Tools register themselves at import time
 from app.services.origami import tools as _tools  # noqa: F401
 
@@ -131,12 +133,19 @@ multi-step plan.
 - Never reveal internal Bonito implementation details unless directly relevant.
 
 When you need information about the user's organization, use the `list_org_state` \
-tool. When they ask about usage or limits, use `view_usage`.
+tool. When they ask about usage or limits, use `view_usage`. To inspect recent \
+activity / logs use `view_logs`. To see what models the org can route to use \
+`list_available_models`. To check tier gating use `check_tier_access`.
 
-For now (Phase 1 skeleton), you can ONLY answer questions and use the read-only \
-tools above. You cannot yet create resources, mutate state, or deploy anything. \
-If a user asks for a build, acknowledge it and tell them the plan-card / Deploy \
-flow is coming in Phase 2."""
+When a user asks to BUILD something (create an agent, create a KB, link them, \
+mint a gateway key), use the appropriate write tool. The orchestrator will \
+automatically PAUSE before executing — it builds a plan card from your tool \
+calls and shows the user a Deploy / Edit / Cancel choice. Your job is to \
+propose the right tools with the right params; the user confirms.
+
+Be specific in tool params. If a user says "build me a support bot for our \
+Shopify store, KB from our help docs", you should call create_kb with \
+`name="shopify-support-help"` first."""
 
 
 # ────────────────────────── Gateway client ──────────────────────────
@@ -506,6 +515,22 @@ async def run_origami_turn(
         tool_calls = [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]
         content = accumulated_content
 
+        # Fallback: some providers (Bedrock-routed Anthropic, sometimes Vertex)
+        # don't normalize tool calls into structured tool_calls[]. They embed
+        # them in the content as <tool_call>{...}</tool_call> or
+        # <invoke name="..."><parameter ...>...</parameter></invoke>.
+        # Parse those out so write tools work regardless of routing.
+        if not tool_calls and content:
+            inline = _extract_inline_tool_calls(content)
+            if inline:
+                tool_calls = inline
+                # Strip the inline tool-call syntax from what we emit as the
+                # assistant's visible message — it's noise for the user.
+                stripped = _TOOL_CALL_JSON_RE.sub("", content).strip()
+                stripped = _INVOKE_BLOCK_RE.sub("", stripped).strip()
+                accumulated_content = stripped
+                content = stripped
+
         # Accumulate token usage from the final usage chunk. Some upstreams
         # (notably Bedrock via LiteLLM) don't honor stream_options.include_usage
         # consistently — when the gateway doesn't echo a usage chunk, fall back
@@ -587,6 +612,75 @@ async def run_origami_turn(
         messages.append(assistant_turn)
 
         total_tool_calls += len(tool_calls)
+
+        # ── Plan-card gate ────────────────────────────────────────────
+        # If any of the requested tools is_write=True, we don't execute
+        # any of them. Instead we bundle ALL requested tool calls (writes
+        # AND any reads in the same response) into a single PlanCard,
+        # emit `plan_ready`, and stop. User clicks Deploy → execute_plan
+        # endpoint runs them. Read-only batches execute inline as before.
+        has_write_tool = any(
+            (TOOL_REGISTRY.get(tc.get("function", {}).get("name", "")) and
+             TOOL_REGISTRY[tc["function"]["name"]].is_write)
+            for tc in tool_calls
+        )
+
+        if has_write_tool:
+            plan_changes: list[PlanChange] = []
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                tname = fn.get("name", "")
+                try:
+                    p = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    p = {}
+                p = sanitize_params(p)
+                tcls = TOOL_REGISTRY.get(tname)
+                plan_changes.append(PlanChange(
+                    action=tname,
+                    params=p,
+                    is_write=bool(tcls and tcls.is_write),
+                    summary=(tcls.description if tcls else None),
+                ))
+
+            plan = PlanCard(
+                id=uuid.uuid4(),
+                session_id=session_id,
+                intent=message[:500] if message else "(no intent recorded)",
+                changes=plan_changes,
+                status=PlanCardStatus.AWAITING_CONFIRMATION,
+            )
+            plan_store.save_plan(
+                plan=plan,
+                user_id=user.id,
+                org_id=org_id,
+                project_id=project_id,
+                conversation_id=conversation_id,
+                user_message=message,
+            )
+
+            yield OrigamiEvent("plan_ready", {
+                "plan_card": plan.model_dump(mode="json"),
+            })
+            yield OrigamiEvent("awaiting_confirmation", {
+                "plan_card_id": str(plan.id),
+            })
+
+            # Record the turn now — the LLM's planning work is over.
+            # When execute_plan runs, it logs its OWN turn for the
+            # downstream tool dispatch.
+            final_finish_reason = "plan_ready"
+            await _record_turn(
+                db=db, user=user, org_id=org_id, project_id=project_id,
+                session_id=session_id, conversation_id=conversation_id,
+                message=message, input_tokens=total_input_tokens,
+                output_tokens=total_output_tokens, tool_calls_count=total_tool_calls,
+                model_used=last_model_used, status="success",
+                finish_reason=final_finish_reason, tier=tier,
+                started_at_ms=started_at_ms,
+            )
+            return
+
         for tc in tool_calls:
             tc_id = tc.get("id", "")
             fn = tc.get("function", {})
@@ -706,6 +800,152 @@ async def run_origami_turn(
     )
 
 
+async def execute_plan(
+    *,
+    user: User,
+    plan_card_id: str,
+    db: AsyncSession,
+) -> AsyncIterator[OrigamiEvent]:
+    """Execute a previously-saved plan card. Runs each change in order, emits
+    tool_started / tool_completed / tool_failed per change, plus an
+    execution_done event with the result preview.
+
+    Caller (the FastAPI route) wraps each event into SSE. Same security
+    invariants as run_origami_turn: org_id is read from the auth context
+    (the user passed in), NEVER from the plan's stored payload.
+    """
+    entry = plan_store.get_plan(plan_card_id)
+    if not entry:
+        yield OrigamiEvent("error", {
+            "code": "plan_not_found",
+            "message": "Plan card not found or expired. Ask Origami again — plans live 10 minutes.",
+        })
+        return
+
+    plan, ctx = entry
+
+    # Ownership check: only the user who created the plan can execute it
+    if ctx["user_id"] != user.id:
+        yield OrigamiEvent("error", {
+            "code": "plan_owner_mismatch",
+            "message": "Plan was created by a different user.",
+        })
+        return
+    if ctx["org_id"] != user.org_id:
+        yield OrigamiEvent("error", {
+            "code": "plan_org_mismatch",
+            "message": "Plan belongs to a different organization.",
+        })
+        return
+
+    plan_store.update_status(plan_card_id, PlanCardStatus.EXECUTING)
+    yield OrigamiEvent("execution_started", {
+        "plan_card_id": plan_card_id,
+        "total_steps": len(plan.changes),
+    })
+
+    started_at_ms = int(time.time() * 1000)
+    session_id = uuid.uuid4()
+    project_id = ctx.get("project_id")
+    conversation_id = ctx.get("conversation_id")
+
+    tier = await _get_user_tier(db, user.org_id)
+    results: list[dict[str, Any]] = []
+    failed_count = 0
+
+    for step_idx, change in enumerate(plan.changes):
+        tool_cls = TOOL_REGISTRY.get(change.action)
+        if not tool_cls:
+            yield OrigamiEvent("tool_failed", {
+                "tool_name": change.action,
+                "step": step_idx,
+                "error": "unknown_tool",
+            })
+            failed_count += 1
+            continue
+
+        yield OrigamiEvent("tool_started", {
+            "tool_name": change.action,
+            "step": step_idx,
+            "total": len(plan.changes),
+        })
+
+        try:
+            instance = tool_cls()
+            params = sanitize_params(change.params or {})
+            result = await instance.execute(
+                org_id=user.org_id,  # ← STILL from auth, even on replay
+                user=user,
+                params=params,
+                db=db,
+            )
+            results.append({"action": change.action, "result": result})
+            yield OrigamiEvent("tool_completed", {
+                "tool_name": change.action,
+                "step": step_idx,
+                "result_summary": _summarize_result(result),
+            })
+            await metering.record_origami_audit(
+                db=db, org_id=user.org_id, user_id=user.id,
+                og_token_id=None, project_id=project_id,
+                session_id=session_id,
+                plan_card_id=uuid.UUID(plan_card_id),
+                intent_summary=plan.intent, tool_name=change.action,
+                tool_params=params, tier_at_time=tier,
+                confirmation="user_clicked", status="success",
+            )
+        except Exception as e:
+            logger.exception("execute_plan: tool %s failed", change.action)
+            yield OrigamiEvent("tool_failed", {
+                "tool_name": change.action,
+                "step": step_idx,
+                "error": str(e),
+            })
+            failed_count += 1
+            await metering.record_origami_audit(
+                db=db, org_id=user.org_id, user_id=user.id,
+                og_token_id=None, project_id=project_id,
+                session_id=session_id,
+                plan_card_id=uuid.UUID(plan_card_id),
+                intent_summary=plan.intent, tool_name=change.action,
+                tool_params=change.params, tier_at_time=tier,
+                confirmation="user_clicked", status="failed",
+                error=str(e),
+            )
+
+    overall_status = "failed" if failed_count == len(plan.changes) else (
+        "partial" if failed_count > 0 else "success"
+    )
+    plan_store.update_status(
+        plan_card_id,
+        PlanCardStatus.FAILED if overall_status == "failed" else PlanCardStatus.DONE,
+    )
+
+    yield OrigamiEvent("execution_done", {
+        "plan_card_id": plan_card_id,
+        "status": overall_status,
+        "failed_count": failed_count,
+        "succeeded_count": len(plan.changes) - failed_count,
+        "results": results,
+    })
+
+    # Metering row for the execution turn itself (no LLM call → token=0,
+    # cost=0; tool_calls_count = number of changes that ran)
+    await _record_turn(
+        db=db, user=user, org_id=user.org_id, project_id=project_id,
+        session_id=session_id, conversation_id=conversation_id,
+        message=f"[plan execute] {plan.intent[:200]}",
+        input_tokens=0, output_tokens=0,
+        tool_calls_count=len(plan.changes) - failed_count,
+        model_used=None, status=overall_status,
+        finish_reason="plan_executed",
+        tier=tier, started_at_ms=started_at_ms,
+    )
+
+    # Clean up the plan now that it's been run
+    plan_store.delete_plan(plan_card_id)
+
+
 async def _record_turn(
     *,
     db: AsyncSession,
@@ -746,6 +986,86 @@ async def _record_turn(
         tier_at_time=tier,
         duration_ms=duration_ms,
     )
+
+
+import re
+
+_TOOL_CALL_JSON_RE = re.compile(
+    r"<(?:tool_call|function|function_call|tool_use)>\s*(\{.*?\})\s*</(?:tool_call|function|function_call|tool_use)>",
+    re.DOTALL,
+)
+_INVOKE_BLOCK_RE = re.compile(
+    r'<invoke\s+name="([^"]+)">\s*(.*?)\s*</invoke>', re.DOTALL
+)
+_PARAM_RE = re.compile(
+    r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
+)
+
+
+def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
+    """Parse tool calls embedded in message text.
+
+    Different upstreams normalize tool calls differently. OpenAI direct
+    returns structured tool_calls[]. Anthropic via Bedrock (and some other
+    LiteLLM paths) embeds them in the message content as either:
+
+        <tool_call>{"name": "...", "parameters": {...}}</tool_call>
+
+    or
+
+        <invoke name="...">
+          <parameter name="...">value</parameter>
+          ...
+        </invoke>
+
+    Origami catches both so write tools work regardless of upstream
+    routing. Returns OpenAI-shaped tool_calls list (id/type/function).
+    """
+    if not text:
+        return []
+
+    calls: list[dict[str, Any]] = []
+
+    for match in _TOOL_CALL_JSON_RE.finditer(text):
+        try:
+            payload = json.loads(match.group(1))
+        except json.JSONDecodeError:
+            continue
+        name = payload.get("name")
+        params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
+        if not name or not isinstance(params, dict):
+            continue
+        calls.append({
+            "id": f"inline-{len(calls)}",
+            "type": "function",
+            "function": {"name": name, "arguments": json.dumps(params)},
+        })
+
+    for match in _INVOKE_BLOCK_RE.finditer(text):
+        name = match.group(1)
+        body = match.group(2) or ""
+        params: dict[str, Any] = {}
+        for p_match in _PARAM_RE.finditer(body):
+            key, raw = p_match.group(1), (p_match.group(2) or "").strip()
+            # Try to coerce numbers / bools where natural
+            if raw.lower() in {"true", "false"}:
+                params[key] = raw.lower() == "true"
+            else:
+                try:
+                    params[key] = int(raw)
+                except ValueError:
+                    try:
+                        params[key] = float(raw)
+                    except ValueError:
+                        params[key] = raw
+        if name:
+            calls.append({
+                "id": f"inline-{len(calls)}",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(params)},
+            })
+
+    return calls
 
 
 def _summarize_result(result: dict[str, Any]) -> dict[str, Any]:

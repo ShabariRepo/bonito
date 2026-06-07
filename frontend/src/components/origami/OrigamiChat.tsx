@@ -13,12 +13,14 @@
 import { useEffect, useRef, useState } from "react";
 import { getAccessToken } from "@/lib/auth";
 import { API_URL } from "@/lib/utils";
+import { PlanCard, type PlanCardData } from "./PlanCard";
 
 type ChatMessage = {
   id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "plan";
   text: string;
   streaming?: boolean;  // true while tokens are still arriving for this message
+  plan?: PlanCardData;  // populated when role === "plan"
 };
 
 type ActivityEntry = {
@@ -35,14 +37,19 @@ type OrigamiEvent =
   | { type: "turn_started"; conversation_id?: string; session_id?: string; tier?: string }
   | { type: "message_token"; token: string }
   | { type: "message_complete"; text: string }
-  | { type: "tool_started"; tool_name: string; tool_call_id: string }
+  | { type: "tool_started"; tool_name: string; tool_call_id?: string; step?: number }
   | {
       type: "tool_completed";
       tool_name: string;
-      tool_call_id: string;
+      tool_call_id?: string;
+      step?: number;
       result_summary?: Record<string, unknown>;
     }
-  | { type: "tool_failed"; tool_name: string; tool_call_id?: string; error: string }
+  | { type: "tool_failed"; tool_name: string; tool_call_id?: string; step?: number; error: string }
+  | { type: "plan_ready"; plan_card: PlanCardData }
+  | { type: "awaiting_confirmation"; plan_card_id: string }
+  | { type: "execution_started"; plan_card_id: string; total_steps: number }
+  | { type: "execution_done"; plan_card_id: string; status: string; failed_count: number; succeeded_count: number }
   | { type: "done"; finish_reason?: string }
   | { type: "error"; code: string; message: string };
 
@@ -181,21 +188,25 @@ export function OrigamiChat() {
           ];
         });
         break;
-      case "tool_started":
+      case "tool_started": {
+        const id = ev.tool_call_id ?? `step-${ev.step ?? Date.now()}`;
         setActivity((a) => [
           ...a,
           {
-            id: ev.tool_call_id,
+            id,
             tool: ev.tool_name,
             status: "running",
             startedAt: Date.now(),
           },
         ]);
         break;
-      case "tool_completed":
+      }
+      case "tool_completed": {
+        const id = ev.tool_call_id ?? `step-${ev.step}`;
         setActivity((a) =>
           a.map((entry) =>
-            entry.id === ev.tool_call_id
+            // Match by either explicit id OR by tool name on the most recent running entry
+            entry.id === id || (entry.tool === ev.tool_name && entry.status === "running")
               ? {
                   ...entry,
                   status: "success" as const,
@@ -206,10 +217,12 @@ export function OrigamiChat() {
           ),
         );
         break;
-      case "tool_failed":
+      }
+      case "tool_failed": {
+        const id = ev.tool_call_id ?? `step-${ev.step}`;
         setActivity((a) =>
           a.map((entry) =>
-            entry.id === ev.tool_call_id
+            entry.id === id || (entry.tool === ev.tool_name && entry.status === "running")
               ? {
                   ...entry,
                   status: "error" as const,
@@ -219,6 +232,24 @@ export function OrigamiChat() {
               : entry,
           ),
         );
+        break;
+      }
+      case "plan_ready":
+        // Insert the plan card as its own message — sits inline in the
+        // chat between assistant text and any further response.
+        setMessages((m) => [
+          ...m,
+          { id: uid(), role: "plan", text: "", plan: ev.plan_card },
+        ]);
+        break;
+      case "awaiting_confirmation":
+        // No-op for UI — the plan card itself handles the wait state
+        break;
+      case "execution_started":
+        // No-op for chat; activity panel could show step progress later
+        break;
+      case "execution_done":
+        // The PlanCard component shows its own final status via onEvent
         break;
       case "done":
         // Ensure any still-streaming assistant message is marked complete
@@ -273,21 +304,32 @@ export function OrigamiChat() {
               Hi — I'm Origami. Ask me about your org, models, or usage.
             </div>
           )}
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "ml-auto bg-[#7c3aed] text-white"
-                  : "mr-auto bg-[#1a1a1a] text-[#ddd]"
-              }`}
-            >
-              {m.text}
-              {m.streaming && (
-                <span className="inline-block w-1.5 h-3.5 bg-[#7c3aed] ml-1 align-middle animate-pulse" />
-              )}
-            </div>
-          ))}
+          {messages.map((m) => {
+            if (m.role === "plan" && m.plan) {
+              return (
+                <PlanCard
+                  key={m.id}
+                  plan={m.plan}
+                  onEvent={(ev) => handleEvent(ev as OrigamiEvent)}
+                />
+              );
+            }
+            return (
+              <div
+                key={m.id}
+                className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                  m.role === "user"
+                    ? "ml-auto bg-[#7c3aed] text-white"
+                    : "mr-auto bg-[#1a1a1a] text-[#ddd]"
+                }`}
+              >
+                {m.text}
+                {m.streaming && (
+                  <span className="inline-block w-1.5 h-3.5 bg-[#7c3aed] ml-1 align-middle animate-pulse" />
+                )}
+              </div>
+            );
+          })}
           {busy && messages[messages.length - 1]?.role !== "assistant" && (
             <div className="text-xs text-[#666] italic">Origami is thinking…</div>
           )}
