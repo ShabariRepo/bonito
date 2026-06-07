@@ -29,6 +29,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.origami_auth import (
+    OrigamiSessionStart,
+    OrigamiTokenResponse,
+)
+from app.services.origami.auth import (
+    get_or_create_origami_token,
+    revoke_origami_token,
+)
 from app.services.origami.orchestrator import (
     OrigamiEvent,
     run_origami_turn,
@@ -95,6 +103,37 @@ async def origami_turn(
             "Connection": "keep-alive",
         },
     )
+
+
+@router.post("/session/start", response_model=OrigamiSessionStart)
+async def origami_session_start(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mint (or return existing) og- token for the user's Origami session.
+
+    Frontend calls this on first visit to /origami. If a new token was just
+    minted, raw_token is returned ONCE — the frontend stores it in secure
+    session storage. On subsequent calls within TTL, raw_token is null and
+    the existing client-side value continues to work.
+    """
+    token_record, raw_token = await get_or_create_origami_token(db, user)
+    await db.commit()
+    return OrigamiSessionStart(
+        token=OrigamiTokenResponse.model_validate(token_record),
+        raw_token=raw_token,
+        is_new=raw_token is not None,
+    )
+
+
+@router.delete("/session", status_code=status.HTTP_204_NO_CONTENT)
+async def origami_session_revoke(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke the user's active og- token. Next session_start mints fresh."""
+    await revoke_origami_token(db, user.id, user.org_id)
+    await db.commit()
 
 
 @router.get("/health")

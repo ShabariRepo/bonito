@@ -69,6 +69,18 @@ def _estimate_cost_usd(input_tokens: int, output_tokens: int) -> float:
     )
 
 
+_MEMWRIGHT_SINGLETON = None
+
+
+def _get_memwright():
+    """Lazy-init a process-wide MemwrightService instance."""
+    global _MEMWRIGHT_SINGLETON
+    if _MEMWRIGHT_SINGLETON is None:
+        from app.services.memwright_service import MemwrightService
+        _MEMWRIGHT_SINGLETON = MemwrightService()
+    return _MEMWRIGHT_SINGLETON
+
+
 async def _get_user_tier(db: AsyncSession, org_id: uuid.UUID) -> str:
     """Live-read the user's tier. Defaults to 'free' on any failure."""
     try:
@@ -96,6 +108,11 @@ class OrigamiEvent:
 
 
 # ────────────────────────── System prompt ──────────────────────────
+
+
+# Stable agent_id used to namespace Memwright memories for Origami sessions.
+# Origami isn't a Bonobot, but Memwright stores under {org}/{agent_id}/{session}.
+ORIGAMI_MEMWRIGHT_AGENT_ID = "origami-system"
 
 
 SYSTEM_PROMPT = """You are Origami, the in-app conversational interface for Bonito — \
@@ -356,8 +373,33 @@ async def run_origami_turn(
         "quota": quota,
     })
 
+    # ── Memwright recall ──
+    # If we have a conversation_id and the model has a non-zero budget
+    # (Sonnet+ class), pull relevant context from prior turns. Memwright
+    # gates Haiku / Flash / Mini to zero budget so they don't hallucinate
+    # on dredged memory — that gating is built in.
+    memory_context = ""
+    if conversation_id:
+        try:
+            from app.services.memwright_service import MemwrightService
+            mw = _get_memwright()
+            memory_context = await mw.recall(
+                session_id=conversation_id,
+                agent_id=ORIGAMI_MEMWRIGHT_AGENT_ID,
+                org_id=str(org_id),
+                message=message,
+                model_id=ORIGAMI_MODEL,
+            )
+        except Exception:
+            logger.exception("Memwright recall failed (non-fatal)")
+            memory_context = ""
+
+    user_content = message
+    if memory_context:
+        user_content = f"{memory_context}\n\nUser message: {message}"
+
     messages: list[dict[str, Any]] = [
-        {"role": "user", "content": message},
+        {"role": "user", "content": user_content},
     ]
 
     tools_for_model = [
@@ -501,6 +543,22 @@ async def run_origami_turn(
                 "finish_reason": finish_reason,
                 "iteration": iteration,
             })
+            # Store the turn in Memwright so future turns can recall context.
+            # No-op for zero-budget models (Haiku/Flash); never blocks.
+            if conversation_id and accumulated_content:
+                try:
+                    mw = _get_memwright()
+                    await mw.store(
+                        session_id=conversation_id,
+                        agent_id=ORIGAMI_MEMWRIGHT_AGENT_ID,
+                        org_id=str(org_id),
+                        user_msg=message,
+                        assistant_msg=accumulated_content,
+                        model_id=ORIGAMI_MODEL,
+                        tags=["origami"],
+                    )
+                except Exception:
+                    logger.exception("Memwright store failed (non-fatal)")
             await _record_turn(
                 db=db,
                 user=user,
