@@ -1096,6 +1096,21 @@ async def execute_plan(
                 "step": step_idx,
                 "error": "unknown_tool",
             })
+            # Write a failed audit row so post-hoc audits show the gap
+            # (previously unknown tools were invisible from origami_audit_log).
+            try:
+                await metering.record_origami_audit(
+                    db=db, org_id=user.org_id, user_id=user.id,
+                    og_token_id=None, project_id=project_id,
+                    session_id=session_id,
+                    plan_card_id=uuid.UUID(plan_card_id),
+                    intent_summary=plan.intent, tool_name=change.action,
+                    tool_params=change.params, tier_at_time=tier,
+                    confirmation="user_clicked", status="failed",
+                    error=f"unknown_tool: '{change.action}' not in registry (after alias resolution)",
+                )
+            except Exception:
+                logger.exception("execute_plan: failed to audit unknown_tool")
             failed_count += 1
             # Placeholder so step_results indices stay aligned with change indices
             step_results.append({})

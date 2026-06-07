@@ -236,7 +236,16 @@ export function useOrigamiSession() {
             const meta = r.meta as { action?: string; step?: number } | undefined;
             const actionMatches = meta?.action === ev.tool_name;
             const stepMatches = stepIdx === undefined || meta?.step === stepIdx;
-            if (r.state === "creating" && actionMatches && stepMatches) {
+            // Accept "queued" too — tool_completed sometimes arrives before
+            // tool_started (event batching) or tool_started got dropped.
+            // Without this, the row stays at "queued" forever even though
+            // the backend audit log shows success. Mirror what tool_failed
+            // already does on line below.
+            if (
+              (r.state === "creating" || r.state === "queued") &&
+              actionMatches &&
+              stepMatches
+            ) {
               const summary = ev.result_summary || {};
               const realId =
                 (summary["agent_id"] as string) ||

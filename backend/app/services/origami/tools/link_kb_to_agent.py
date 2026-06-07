@@ -68,6 +68,23 @@ class LinkKbToAgentTool(OrigamiTool):
 
         agent_id_raw = params.get("agent_id")
         agent_name = (params.get("agent_name") or "").strip()
+        # If both are passed and they disagree, refuse — the LLM is confused
+        # and silently preferring one would link the wrong resource.
+        if agent_id_raw and agent_name:
+            check = await db.execute(
+                select(Agent).where(Agent.org_id == org_id, Agent.name == agent_name)
+            )
+            named = check.scalar_one_or_none()
+            if named and str(named.id) != str(agent_id_raw):
+                return {
+                    "success": False,
+                    "error": "agent_id_name_mismatch",
+                    "message": (
+                        f"agent_id '{agent_id_raw}' and agent_name "
+                        f"'{agent_name}' refer to different agents. Pass "
+                        f"only one, or make them agree."
+                    ),
+                }
         if agent_id_raw:
             try:
                 agent_id = uuid.UUID(str(agent_id_raw))
@@ -94,6 +111,24 @@ class LinkKbToAgentTool(OrigamiTool):
 
         kb_id_raw = params.get("kb_id")
         kb_name = (params.get("kb_name") or "").strip()
+        if kb_id_raw and kb_name:
+            from app.models.knowledge_base import KnowledgeBase
+            check_kb = await db.execute(
+                select(KnowledgeBase).where(
+                    KnowledgeBase.org_id == org_id,
+                    KnowledgeBase.name == kb_name,
+                )
+            )
+            named_kb = check_kb.scalar_one_or_none()
+            if named_kb and str(named_kb.id) != str(kb_id_raw):
+                return {
+                    "success": False,
+                    "error": "kb_id_name_mismatch",
+                    "message": (
+                        f"kb_id '{kb_id_raw}' and kb_name '{kb_name}' refer "
+                        f"to different KBs. Pass only one, or make them agree."
+                    ),
+                }
         if kb_id_raw:
             try:
                 kb_id = uuid.UUID(str(kb_id_raw))
