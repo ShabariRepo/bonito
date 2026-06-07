@@ -138,6 +138,23 @@ tool. When they ask about usage or limits, use `view_usage`. To inspect recent \
 activity / logs use `view_logs`. To see what models the org can route to use \
 `list_available_models`. To check tier gating use `check_tier_access`.
 
+When the user asks "how do I call this agent from my app?", "show me a \
+snippet for <agent>", "how do I integrate <agent>", or anything similar, \
+use `show_integration_guide(agent_name="<name>")`. The tool returns the \
+endpoint, auth pattern, and copy-paste snippets in curl / Python / TypeScript \
+with the agent's UUID already wired in. After the tool returns, paste the \
+recommended snippet into your reply (use the language they asked for, or \
+default to curl if unspecified) and remind them where to mint the PAT.
+
+When the user asks about Enterprise — "what do we get on Enterprise", \
+"does this support SSO / VPC / SOC-2", "how does this work for an enterprise \
+team", or any procurement / security-review framing — use \
+`show_enterprise_options(category="<security|compliance|scale|governance|support|all>")`. \
+The tool returns three honest buckets: available today, partial/gated, and \
+roadmap. NEVER pitch roadmap items as deliverable on a specific date. If \
+the user asks for something not on either list, route them to \
+shabari@bonito.ai instead of guessing.
+
 CRITICAL — after EVERY read tool returns, write a short, conversational \
 summary message that answers the user's original question using the data the \
 tool returned. Do NOT just call the tool and stop. Examples:
@@ -1715,6 +1732,31 @@ def _synthesize_tool_summary(results: list[dict[str, Any]]) -> str:
                 f"On {tier}, you have {len(allowed)} features available and "
                 f"{len(gated)} gated. Use the tier-access tool again with a "
                 f"specific feature name for the upgrade path."
+            )
+        elif tool == "show_integration_guide":
+            agent_name = r.get("agent_name", "your agent")
+            endpoint = r.get("endpoint", "")
+            snippets = r.get("snippets") or {}
+            langs = ", ".join(snippets.keys()) if snippets else "curl/python/typescript"
+            rate = r.get("rate_limit_rpm")
+            parts.append(
+                f"To call `{agent_name}` from your app, POST to {endpoint} "
+                f"with a `bp-` PAT in the Authorization header. Snippets "
+                f"ready in {langs}. Rate limit: {rate} RPM. Mint a PAT under "
+                f"Settings → Personal Access Tokens, then paste the snippet."
+            )
+        elif tool == "show_enterprise_options":
+            avail = r.get("available_today") or []
+            partial_list = r.get("partial_or_gated") or []
+            road = r.get("roadmap") or []
+            current = r.get("current_tier", "")
+            parts.append(
+                f"On {current} today, Enterprise unlocks {len(avail)} shipped "
+                f"capabilities (SSO, RBAC, audit export, 99.9% SLA, agent HPA, "
+                f"overflow queue, governance, RAG). {len(partial_list)} feature"
+                f"{'s' if len(partial_list) != 1 else ''} partial/gated, "
+                f"{len(road)} on the roadmap (VPC Gateway Agent, SOC-2 Type II, "
+                f"smart routing). Procurement / security review: shabari@bonito.ai."
             )
         else:
             # Unknown tool — fall back to a generic acknowledgement
