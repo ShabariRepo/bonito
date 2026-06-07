@@ -37,6 +37,7 @@ from app.services.origami.tools.base import (
 )
 from app.services.origami import metering
 from app.services.origami import plan_store
+from app.services.origami import messages as origami_messages
 from app.schemas.origami_plan import PlanCard, PlanCardStatus, PlanChange
 # Tools register themselves at import time
 from app.services.origami import tools as _tools  # noqa: F401
@@ -417,6 +418,20 @@ async def run_origami_turn(
         "quota": quota,
     })
 
+    # Persist the user message so the history view can find it. Use a
+    # synthetic conversation_id if the client didn't provide one — that
+    # way every turn still appears in history under SOME conversation.
+    effective_conversation_id = conversation_id or str(uuid.uuid4())
+    await origami_messages.record_user_message(
+        db=db,
+        org_id=org_id,
+        user_id=user.id,
+        project_id=project_id,
+        conversation_id=effective_conversation_id,
+        session_id=session_id,
+        content=message,
+    )
+
     # ── Memwright recall ──
     # If we have a conversation_id and the model has a non-zero budget
     # (Sonnet+ class), pull relevant context from prior turns. Memwright
@@ -617,6 +632,7 @@ async def run_origami_turn(
             # picks inconsistent formats — even when one iteration's call
             # was extracted, the follow-up sometimes hallucinates a different
             # markup format that bypasses the parser).
+            was_synthesized = False
             looks_like_markup = bool(content) and (
                 "<function>" in content or
                 "<tool_call>" in content or
@@ -626,10 +642,24 @@ async def run_origami_turn(
             if (not content or looks_like_markup) and total_tool_calls > 0 and results:
                 content = _synthesize_tool_summary(results)
                 accumulated_content = content
+                was_synthesized = True
                 yield OrigamiEvent("message_complete", {
                     "text": content,
                     "synthesized": True,
                 })
+            # Persist the final assistant message (model or synthesized)
+            if content:
+                await origami_messages.record_assistant_message(
+                    db=db,
+                    org_id=org_id,
+                    user_id=user.id,
+                    project_id=project_id,
+                    conversation_id=effective_conversation_id,
+                    session_id=session_id,
+                    content=content,
+                    model_used=last_model_used,
+                    synthesized=was_synthesized,
+                )
             final_finish_reason = finish_reason
             yield OrigamiEvent("done", {
                 "finish_reason": finish_reason,
@@ -726,12 +756,23 @@ async def run_origami_turn(
                 user_message=message,
             )
 
+            plan_dict = plan.model_dump(mode="json")
             yield OrigamiEvent("plan_ready", {
-                "plan_card": plan.model_dump(mode="json"),
+                "plan_card": plan_dict,
             })
             yield OrigamiEvent("awaiting_confirmation", {
                 "plan_card_id": str(plan.id),
             })
+            # Persist the plan so it shows up in history
+            await origami_messages.record_plan_message(
+                db=db,
+                org_id=org_id,
+                user_id=user.id,
+                project_id=project_id,
+                conversation_id=effective_conversation_id,
+                session_id=session_id,
+                plan_card=plan_dict,
+            )
 
             # Record the turn now — the LLM's planning work is over.
             # When execute_plan runs, it logs its OWN turn for the

@@ -191,6 +191,128 @@ async def origami_session_revoke(
     await db.commit()
 
 
+@router.get("/conversations")
+async def origami_list_conversations(
+    limit: int = 50,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the user's past Origami conversations, newest first.
+
+    Each entry has conversation_id, title (first user message preview),
+    message count, plan count, and timestamps.
+    """
+    from app.services.origami.messages import list_conversations_for_user
+    if limit < 1 or limit > 200:
+        limit = 50
+    items = await list_conversations_for_user(db, user.id, limit=limit)
+    return {"count": len(items), "conversations": items}
+
+
+@router.get("/conversations/{conversation_id}")
+async def origami_get_conversation(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fetch full message history for one of the user's conversations."""
+    from app.services.origami.messages import get_conversation_messages
+    msgs = await get_conversation_messages(db, conversation_id, user.id)
+    if msgs is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+    return {
+        "conversation_id": conversation_id,
+        "message_count": len(msgs),
+        "messages": msgs,
+    }
+
+
+@router.get("/conversations/{conversation_id}/download")
+async def origami_download_conversation(
+    conversation_id: str,
+    fmt: str = "json",
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download a conversation as JSON or markdown."""
+    from fastapi.responses import Response
+    from app.services.origami.messages import get_conversation_messages
+    import json as _json
+
+    msgs = await get_conversation_messages(db, conversation_id, user.id)
+    if msgs is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    if fmt == "md":
+        lines = [
+            f"# Origami conversation",
+            f"_conversation_id: `{conversation_id}`_",
+            f"_messages: {len(msgs)}_",
+            "",
+        ]
+        for m in msgs:
+            role = m["role"]
+            ts = m["created_at"] or ""
+            if role == "plan":
+                plan = (m.get("extra_metadata") or {}).get("plan_card") or {}
+                lines.append(f"### 🚀 Plan card  _({ts})_")
+                lines.append("")
+                lines.append(f"**Intent:** {plan.get('intent', '(none)')}")
+                lines.append("")
+                lines.append("**Changes:**")
+                for ch in plan.get("changes", []):
+                    lines.append(f"- `{ch.get('action')}` — `{_json.dumps(ch.get('params', {}))}`")
+                lines.append("")
+            elif role == "assistant":
+                tag = "🤖 Origami"
+                if m.get("synthesized"):
+                    tag += " _(synthesized)_"
+                lines.append(f"### {tag}  _({ts})_")
+                lines.append("")
+                lines.append(m["content"])
+                lines.append("")
+            elif role == "user":
+                lines.append(f"### 👤 You  _({ts})_")
+                lines.append("")
+                lines.append(m["content"])
+                lines.append("")
+            else:
+                lines.append(f"### {role}  _({ts})_")
+                lines.append(m["content"])
+                lines.append("")
+        body = "\n".join(lines)
+        return Response(
+            content=body,
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="origami-conversation-{conversation_id[:8]}.md"'
+                ),
+            },
+        )
+
+    body = _json.dumps({
+        "conversation_id": conversation_id,
+        "exported_at": None,
+        "messages": msgs,
+    }, indent=2)
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="origami-conversation-{conversation_id[:8]}.json"'
+            ),
+        },
+    )
+
+
 @router.get("/usage")
 async def origami_usage_for_user(
     period: Optional[str] = None,
