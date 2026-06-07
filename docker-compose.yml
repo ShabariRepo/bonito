@@ -39,6 +39,11 @@ services:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=bonito-dev-token
       - SENTRY_DSN=${SENTRY_DSN:-}
+      # Match the values bonito/app stores in Vault. Used by provider_service.py
+      # for DB-encrypted credential decryption fallback. Production sets these
+      # via environment / secret manager.
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-in-production-12345}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key-change-in-production-12345}
     depends_on:
       postgres:
         condition: service_healthy
