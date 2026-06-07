@@ -1030,6 +1030,49 @@ _PARAM_RE = re.compile(
 )
 
 
+def _try_parse_function_call_syntax(text: str) -> Optional[tuple[str, dict[str, Any]]]:
+    """Parse `name(arg=value, arg=value)` style calls inside tool-call tags.
+
+    Bedrock's Anthropic models sometimes pick this instead of JSON, so we
+    parse it as a fallback. Uses Python's ast module to safely evaluate
+    just the kwargs (no execution).
+    """
+    import ast
+
+    text = text.strip()
+    if "(" not in text or not text.endswith(")"):
+        return None
+    open_paren = text.find("(")
+    name = text[:open_paren].strip()
+    if not name or not name.replace("_", "").isalnum():
+        return None
+    # Parse the whole `name(args)` expression directly — it's already a valid
+    # Python call expression. Don't wrap.
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError:
+        return None
+    if not isinstance(tree.body, ast.Call):
+        return None
+    call: ast.Call = tree.body
+    params: dict[str, Any] = {}
+    for kw in call.keywords:
+        if kw.arg is None:
+            continue
+        try:
+            params[kw.arg] = ast.literal_eval(kw.value)
+        except (ValueError, SyntaxError):
+            try:
+                params[kw.arg] = ast.unparse(kw.value)
+            except Exception:
+                continue
+    # If only positional args (e.g. create_kb("name")) we can't reliably map
+    # them, so we bail. Origami's tools require named args anyway.
+    if not params and call.args:
+        return None
+    return name, params
+
+
 def _extract_first_json_object(text: str) -> Optional[dict[str, Any]]:
     """Pull the first balanced { ... } object out of text and json.loads it.
 
@@ -1098,19 +1141,37 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
         if not raw_inner:
             continue
         # Try strict JSON first
+        payload = None
         try:
-            payload = json.loads(raw_inner)
+            parsed = json.loads(raw_inner)
+            if isinstance(parsed, dict):
+                payload = parsed
         except json.JSONDecodeError:
-            # The model sometimes wraps the JSON in extra whitespace + backticks
-            # or trails commentary. Pull the first balanced { ... } object out.
+            pass
+
+        if payload is None:
+            # Pull the first balanced { ... } out (handles backtick wrappers,
+            # trailing commentary, etc.)
             payload = _extract_first_json_object(raw_inner)
-            if payload is None:
+
+        name: Optional[str] = None
+        params: dict[str, Any] = {}
+
+        if isinstance(payload, dict):
+            name = payload.get("name")
+            params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
+            if not isinstance(params, dict):
+                params = {}
+
+        # Last-resort: function-call syntax `name(arg=value, ...)`. Bedrock's
+        # Anthropic models pick this sometimes instead of JSON.
+        if not name:
+            fc = _try_parse_function_call_syntax(raw_inner)
+            if fc is None:
                 continue
-        if not isinstance(payload, dict):
-            continue
-        name = payload.get("name")
-        params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
-        if not name or not isinstance(params, dict):
+            name, params = fc
+
+        if not name:
             continue
         calls.append({
             "id": f"inline-{len(calls)}",

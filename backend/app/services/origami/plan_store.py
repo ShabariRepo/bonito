@@ -56,18 +56,11 @@ def _deserialize_owner_ctx(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _get_redis_async():
-    """Return a redis client if reachable, else None."""
+    """Return a redis.asyncio client if reachable, else None."""
     try:
         from app.core.redis import get_redis
-        client = get_redis()
-        # The shared helper may return an async or sync client depending on env;
-        # only async-style supports `await client.ping()`. Detect cheaply.
-        ping = getattr(client, "ping", None)
-        if ping is None:
-            return None
-        result = ping()
-        if hasattr(result, "__await__"):
-            await result
+        client = await get_redis()
+        await client.ping()
         return client
     except Exception as e:
         logger.warning(f"Origami plan_store: Redis unreachable, using local fallback ({e})")
@@ -103,9 +96,7 @@ async def save_plan(
         return
 
     try:
-        result = r.setex(_key(str(plan.id)), PLAN_TTL_SECONDS, payload)
-        if hasattr(result, "__await__"):
-            await result
+        await r.setex(_key(str(plan.id)), PLAN_TTL_SECONDS, payload)
     except Exception:
         logger.exception("Origami plan_store: Redis setex failed, falling back")
         _LOCAL_FALLBACK[str(plan.id)] = (plan, time.time() + PLAN_TTL_SECONDS, owner_ctx)
@@ -116,11 +107,7 @@ async def get_plan(plan_id: str) -> Optional[tuple[PlanCard, dict[str, Any]]]:
     r = await _get_redis_async()
     if r is not None:
         try:
-            result = r.get(_key(plan_id))
-            if hasattr(result, "__await__"):
-                raw = await result
-            else:
-                raw = result
+            raw = await r.get(_key(plan_id))
             if raw is not None:
                 if isinstance(raw, (bytes, bytearray)):
                     raw = raw.decode("utf-8")
@@ -166,9 +153,7 @@ async def delete_plan(plan_id: str) -> None:
     r = await _get_redis_async()
     if r is not None:
         try:
-            result = r.delete(_key(plan_id))
-            if hasattr(result, "__await__"):
-                await result
+            await r.delete(_key(plan_id))
         except Exception:
             logger.exception("Origami plan_store: Redis delete failed")
     _LOCAL_FALLBACK.pop(plan_id, None)
