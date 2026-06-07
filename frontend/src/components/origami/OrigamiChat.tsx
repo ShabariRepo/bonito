@@ -18,6 +18,7 @@ type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  streaming?: boolean;  // true while tokens are still arriving for this message
 };
 
 type ActivityEntry = {
@@ -31,17 +32,18 @@ type ActivityEntry = {
 };
 
 type OrigamiEvent =
-  | { type: "turn_started"; conversation_id?: string }
+  | { type: "turn_started"; conversation_id?: string; session_id?: string; tier?: string }
+  | { type: "message_token"; token: string }
   | { type: "message_complete"; text: string }
-  | { type: "tool_started"; tool_name: string; tool_use_id: string }
+  | { type: "tool_started"; tool_name: string; tool_call_id: string }
   | {
       type: "tool_completed";
       tool_name: string;
-      tool_use_id: string;
+      tool_call_id: string;
       result_summary?: Record<string, unknown>;
     }
-  | { type: "tool_failed"; tool_name: string; tool_use_id?: string; error: string }
-  | { type: "done"; stop_reason?: string }
+  | { type: "tool_failed"; tool_name: string; tool_call_id?: string; error: string }
+  | { type: "done"; finish_reason?: string }
   | { type: "error"; code: string; message: string };
 
 function uid(): string {
@@ -145,17 +147,45 @@ export function OrigamiChat() {
       case "turn_started":
         // No-op for skeleton; will use conversation_id in Phase 2
         break;
+      case "message_token":
+        // Append to an in-flight assistant message, or start one if none
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last?.role === "assistant" && last.streaming) {
+            return [
+              ...m.slice(0, -1),
+              { ...last, text: last.text + ev.token },
+            ];
+          }
+          return [
+            ...m,
+            { id: uid(), role: "assistant", text: ev.token, streaming: true },
+          ];
+        });
+        break;
       case "message_complete":
-        setMessages((m) => [
-          ...m,
-          { id: uid(), role: "assistant", text: ev.text },
-        ]);
+        // Reconcile to the full text (in case tokens were dropped) and mark
+        // the message as no-longer-streaming so the typewriter cursor stops.
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last?.role === "assistant" && last.streaming) {
+            return [
+              ...m.slice(0, -1),
+              { ...last, text: ev.text, streaming: false },
+            ];
+          }
+          // No prior streaming message — append fully formed (non-stream path)
+          return [
+            ...m,
+            { id: uid(), role: "assistant", text: ev.text },
+          ];
+        });
         break;
       case "tool_started":
         setActivity((a) => [
           ...a,
           {
-            id: ev.tool_use_id,
+            id: ev.tool_call_id,
             tool: ev.tool_name,
             status: "running",
             startedAt: Date.now(),
@@ -165,7 +195,7 @@ export function OrigamiChat() {
       case "tool_completed":
         setActivity((a) =>
           a.map((entry) =>
-            entry.id === ev.tool_use_id
+            entry.id === ev.tool_call_id
               ? {
                   ...entry,
                   status: "success" as const,
@@ -179,7 +209,7 @@ export function OrigamiChat() {
       case "tool_failed":
         setActivity((a) =>
           a.map((entry) =>
-            entry.id === ev.tool_use_id
+            entry.id === ev.tool_call_id
               ? {
                   ...entry,
                   status: "error" as const,
@@ -191,7 +221,14 @@ export function OrigamiChat() {
         );
         break;
       case "done":
-        // turn complete; nothing to render
+        // Ensure any still-streaming assistant message is marked complete
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last?.role === "assistant" && last.streaming) {
+            return [...m.slice(0, -1), { ...last, streaming: false }];
+          }
+          return m;
+        });
         break;
       case "error":
         setMessages((m) => [
@@ -246,9 +283,12 @@ export function OrigamiChat() {
               }`}
             >
               {m.text}
+              {m.streaming && (
+                <span className="inline-block w-1.5 h-3.5 bg-[#7c3aed] ml-1 align-middle animate-pulse" />
+              )}
             </div>
           ))}
-          {busy && (
+          {busy && messages[messages.length - 1]?.role !== "assistant" && (
             <div className="text-xs text-[#666] italic">Origami is thinking…</div>
           )}
         </div>

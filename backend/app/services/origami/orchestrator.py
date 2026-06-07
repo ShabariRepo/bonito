@@ -156,6 +156,51 @@ def _get_gateway_key() -> str:
     return key
 
 
+def _build_gateway_body(
+    *,
+    system: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    customer_org_id: Optional[uuid.UUID],
+    customer_user_id: Optional[uuid.UUID],
+    stream: bool,
+) -> dict[str, Any]:
+    """Common request body builder for streaming + non-streaming gateway calls."""
+    full_messages = [{"role": "system", "content": system}] + messages
+    body: dict[str, Any] = {
+        "model": ORIGAMI_MODEL,
+        "max_tokens": ORIGAMI_MAX_TOKENS,
+        "messages": full_messages,
+    }
+    if tools:
+        body["tools"] = tools
+    if stream:
+        body["stream"] = True
+        # Ask the upstream to send a final chunk with token usage so we can
+        # meter the turn. Supported by OpenAI; LiteLLM passes through.
+        body["stream_options"] = {"include_usage": True}
+    if customer_org_id:
+        if customer_user_id:
+            body["user"] = f"origami:org:{customer_org_id}:user:{customer_user_id}"
+        else:
+            body["user"] = f"origami:org:{customer_org_id}"
+    return body
+
+
+def _gateway_headers(
+    api_key: str,
+    customer_org_id: Optional[uuid.UUID],
+    customer_user_id: Optional[uuid.UUID],
+) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "X-Bonito-Origami-Customer-Org": str(customer_org_id or ""),
+        "X-Bonito-Origami-Customer-User": str(customer_user_id or ""),
+        "X-Bonito-Source": "origami",
+    }
+
+
 async def _call_gateway(
     *,
     system: str,
@@ -166,57 +211,79 @@ async def _call_gateway(
 ) -> dict[str, Any]:
     """Non-streaming chat completion via Bonito's own gateway.
 
-    POSTs to {BONITO_GATEWAY_URL}/v1/chat/completions exactly the way an
-    external customer would. The bn- key used is intentionally a SYSTEM
-    key (cat.shabari), so the LLM cost lands on cat.shabari as Bonito's
-    COGS. Customer billing happens at the turn level via
-    origami_turn_log, not gateway_requests.
-
-    The OpenAI-standard `user` field carries the customer's identity so
-    cat.shabari's gateway dashboard can break down Origami COGS by which
-    customer triggered each call (lands in gateway_requests.team_id).
+    Kept for callers that want a single complete response dict. The
+    orchestrator uses `_stream_gateway` instead so it can emit per-token
+    events as they arrive.
     """
     api_key = _get_gateway_key()
     url = f"{DEFAULT_GATEWAY_URL.rstrip('/')}/v1/chat/completions"
-
-    full_messages = [{"role": "system", "content": system}] + messages
-
-    body: dict[str, Any] = {
-        "model": ORIGAMI_MODEL,
-        "max_tokens": ORIGAMI_MAX_TOKENS,
-        "messages": full_messages,
-    }
-    if tools:
-        body["tools"] = tools
-
-    # Tag the request with customer identity so cat.shabari's gateway
-    # logs can be filtered to "Origami COGS attributed to customer X".
-    if customer_org_id:
-        if customer_user_id:
-            body["user"] = f"origami:org:{customer_org_id}:user:{customer_user_id}"
-        else:
-            body["user"] = f"origami:org:{customer_org_id}"
-
+    body = _build_gateway_body(
+        system=system, messages=messages, tools=tools,
+        customer_org_id=customer_org_id, customer_user_id=customer_user_id,
+        stream=False,
+    )
     async with httpx.AsyncClient(timeout=ORIGAMI_HTTP_TIMEOUT) as client:
         resp = await client.post(
-            url,
-            json=body,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                # Marks the request as Origami-originated. cat.shabari's
-                # gateway can group these and the analytics dashboard
-                # can show "Origami COGS this month".
-                "X-Bonito-Origami-Customer-Org": str(customer_org_id or ""),
-                "X-Bonito-Origami-Customer-User": str(customer_user_id or ""),
-                "X-Bonito-Source": "origami",
-            },
+            url, json=body,
+            headers=_gateway_headers(api_key, customer_org_id, customer_user_id),
         )
         if resp.status_code >= 400:
-            raise RuntimeError(
-                f"Gateway returned {resp.status_code}: {resp.text[:500]}"
-            )
+            raise RuntimeError(f"Gateway returned {resp.status_code}: {resp.text[:500]}")
         return resp.json()
+
+
+async def _stream_gateway(
+    *,
+    system: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    customer_org_id: Optional[uuid.UUID] = None,
+    customer_user_id: Optional[uuid.UUID] = None,
+) -> AsyncIterator[dict[str, Any]]:
+    """Stream chat completion chunks from Bonito's gateway.
+
+    Yields parsed OpenAI-format SSE chunks one at a time. Each chunk has
+    `choices[0].delta` with incremental `content` (text token), and/or
+    `tool_calls` (tool-call args streamed in pieces, keyed by index).
+
+    The final chunk(s) carry `finish_reason` and (when supported) `usage`
+    for the turn's token totals.
+
+    Pure HTTP — no SDK, just httpx parsing SSE lines.
+    """
+    api_key = _get_gateway_key()
+    url = f"{DEFAULT_GATEWAY_URL.rstrip('/')}/v1/chat/completions"
+    body = _build_gateway_body(
+        system=system, messages=messages, tools=tools,
+        customer_org_id=customer_org_id, customer_user_id=customer_user_id,
+        stream=True,
+    )
+    headers = _gateway_headers(api_key, customer_org_id, customer_user_id)
+
+    async with httpx.AsyncClient(timeout=ORIGAMI_HTTP_TIMEOUT) as client:
+        async with client.stream("POST", url, json=body, headers=headers) as resp:
+            if resp.status_code >= 400:
+                err = await resp.aread()
+                raise RuntimeError(
+                    f"Gateway returned {resp.status_code}: {err.decode('utf-8', errors='replace')[:500]}"
+                )
+
+            async for raw_line in resp.aiter_lines():
+                line = raw_line.strip()
+                if not line:
+                    continue
+                if line.startswith(":"):  # SSE comment / keep-alive
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                data = line[len("data: "):].strip()
+                if data == "[DONE]":
+                    return
+                try:
+                    yield json.loads(data)
+                except json.JSONDecodeError:
+                    logger.warning("Origami: dropped malformed SSE chunk: %r", data[:200])
+                    continue
 
 
 # ────────────────────────── Orchestrator entry point ──────────────────────────
@@ -306,16 +373,67 @@ async def run_origami_turn(
     last_model_used: Optional[str] = None
 
     for iteration in range(ORIGAMI_MAX_TOOL_ITERATIONS):
+        # ── Streaming accumulators ─────────────────────────
+        # As chunks arrive from the gateway we accumulate text + tool calls
+        # locally. Per-token text fires `message_token` events immediately.
+        # Tool calls only fire once their JSON args have fully assembled.
+        accumulated_content = ""
+        accumulated_tool_calls: dict[int, dict[str, Any]] = {}
+        finish_reason: Optional[str] = None
+        chunk_usage: dict[str, Any] = {}
+
         try:
-            response = await _call_gateway(
+            async for chunk in _stream_gateway(
                 system=SYSTEM_PROMPT,
                 messages=messages,
                 tools=tools_for_model,
                 customer_org_id=org_id,
                 customer_user_id=user.id,
-            )
+            ):
+                # Track which model the gateway routed to (only on first chunk
+                # that includes it). Useful for the metering row.
+                model_from_chunk = chunk.get("model")
+                if model_from_chunk:
+                    last_model_used = model_from_chunk
+
+                # The final chunk before [DONE] may carry usage stats
+                if chunk.get("usage"):
+                    chunk_usage = chunk["usage"]
+
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                choice = choices[0]
+                delta = choice.get("delta") or {}
+                if choice.get("finish_reason"):
+                    finish_reason = choice["finish_reason"]
+
+                # Text content streaming
+                content_piece = delta.get("content")
+                if content_piece:
+                    accumulated_content += content_piece
+                    yield OrigamiEvent("message_token", {"token": content_piece})
+
+                # Tool-call streaming — each delta.tool_calls entry has an
+                # `index` that ties partial chunks together
+                tc_deltas = delta.get("tool_calls") or []
+                for tc_delta in tc_deltas:
+                    idx = tc_delta.get("index", 0)
+                    if idx not in accumulated_tool_calls:
+                        accumulated_tool_calls[idx] = {
+                            "id": "",
+                            "type": "function",
+                            "function": {"name": "", "arguments": ""},
+                        }
+                    if "id" in tc_delta and tc_delta["id"]:
+                        accumulated_tool_calls[idx]["id"] = tc_delta["id"]
+                    fn_delta = tc_delta.get("function") or {}
+                    if "name" in fn_delta and fn_delta["name"]:
+                        accumulated_tool_calls[idx]["function"]["name"] = fn_delta["name"]
+                    if "arguments" in fn_delta and fn_delta["arguments"] is not None:
+                        accumulated_tool_calls[idx]["function"]["arguments"] += fn_delta["arguments"]
         except Exception as e:
-            logger.exception("Origami gateway call failed (iteration %d)", iteration)
+            logger.exception("Origami gateway stream failed (iteration %d)", iteration)
             final_status = "failed"
             final_finish_reason = "gateway_call_failed"
             yield OrigamiEvent("error", {
@@ -342,19 +460,38 @@ async def run_origami_turn(
             )
             return
 
-        # OpenAI-format response (Bonito gateway emits this shape)
-        choice = (response.get("choices") or [{}])[0]
-        msg = choice.get("message", {})
-        content = msg.get("content") or ""
-        tool_calls = msg.get("tool_calls") or []
-        finish_reason = choice.get("finish_reason")
+        # Stream is done. Convert accumulated_tool_calls back to ordered list.
+        tool_calls = [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]
+        content = accumulated_content
 
-        # Accumulate token usage if the gateway echoed it
-        usage = response.get("usage") or {}
-        total_input_tokens += int(usage.get("prompt_tokens") or 0)
-        total_output_tokens += int(usage.get("completion_tokens") or 0)
-        last_model_used = response.get("model") or ORIGAMI_MODEL
+        # Accumulate token usage from the final usage chunk. Some upstreams
+        # (notably Bedrock via LiteLLM) don't honor stream_options.include_usage
+        # consistently — when the gateway doesn't echo a usage chunk, fall back
+        # to a word-count-based estimate so the metering row isn't $0.
+        prompt_tokens = int(chunk_usage.get("prompt_tokens") or 0)
+        completion_tokens = int(chunk_usage.get("completion_tokens") or 0)
 
+        if prompt_tokens == 0:
+            # Rough estimate: 1.3 tokens per word across system + tools + history
+            sys_words = len(SYSTEM_PROMPT.split())
+            history_words = sum(
+                len(str(m.get("content") or "").split()) for m in messages
+            )
+            tool_schema_words = sum(
+                len(json.dumps(t).split()) for t in tools_for_model
+            )
+            prompt_tokens = int((sys_words + history_words + tool_schema_words) * 1.3)
+        if completion_tokens == 0 and accumulated_content:
+            completion_tokens = int(len(accumulated_content.split()) * 1.3)
+
+        total_input_tokens += prompt_tokens
+        total_output_tokens += completion_tokens
+        if not last_model_used:
+            last_model_used = ORIGAMI_MODEL
+
+        # Emit a `message_complete` carrying the full accumulated text for
+        # any downstream consumer (audit log, conversation history) that
+        # wants the whole message rather than reassembling tokens.
         if content:
             yield OrigamiEvent("message_complete", {"text": content})
 
