@@ -5,6 +5,7 @@ import { Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanCard } from "./PlanCard";
+import { OrigamiCraneLoader } from "./OrigamiCraneLoader";
 import type { useOrigamiSession } from "./useOrigamiSession";
 
 type Session = ReturnType<typeof useOrigamiSession>;
@@ -79,7 +80,9 @@ export function OrigamiChat({ session }: { session: Session }) {
           );
         })}
         {session.busy && session.messages[session.messages.length - 1]?.role !== "assistant" && (
-          <div className="text-xs text-muted-foreground italic">Origami is thinking…</div>
+          <div className="flex items-center justify-start pl-1">
+            <OrigamiCraneLoader size={48} label="Origami is folding a plan…" />
+          </div>
         )}
       </div>
 

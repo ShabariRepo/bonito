@@ -11,6 +11,7 @@ import { MobileTopBar } from "@/components/layout/mobile-topbar";
 import { CommandBar } from "@/components/ai/command-bar";
 import { ChatPanel } from "@/components/ai/chat-panel";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { OrigamiPanel } from "@/components/origami/OrigamiPanel";
 import { useAuth } from "@/components/auth/auth-context";
 import { apiRequest } from "@/lib/auth";
 
@@ -67,6 +68,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <SidebarToggle />
       <CommandBar />
       <ChatPanel />
+      <OrigamiPanel />
     </div>
   );
 }
@@ -100,6 +102,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       // Silently ignore — preload is best-effort
     });
   }, [user]);
+
+  // Onboarding redirect: brand new orgs (zero providers, zero agents, zero KBs)
+  // land on /origami first so they can be walked through the build in English.
+  // Only fires once per session (sessionStorage flag).
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window === "undefined") return;
+    const FLAG = `bonito_origami_onboarding_checked_${user.org_id}`;
+    if (sessionStorage.getItem(FLAG)) return;
+    sessionStorage.setItem(FLAG, "1");
+    // Don't redirect if we're already on /origami or on the dedicated onboarding wizard
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path.startsWith("/origami") || path.startsWith("/onboarding") || path.startsWith("/login")) return;
+    }
+    apiRequest("/api/providers/")
+      .then((res) => {
+        if (Array.isArray(res) && res.length === 0) {
+          // Brand new org — promote Origami as the first thing they see
+          router.replace("/origami");
+        }
+      })
+      .catch(() => {
+        // Network issue — don't redirect, let them land normally
+      });
+  }, [user, router]);
 
   if (loading || (!user && !checked)) {
     return (

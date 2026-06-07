@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Rocket, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { OrigamiLotusLoader } from "./OrigamiLotusLoader";
 import { getAccessToken } from "@/lib/auth";
 import { API_URL } from "@/lib/utils";
 
@@ -189,11 +190,11 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
         </div>
       )}
 
-      {!cancelled && !finalStatus && (
+      {!cancelled && !finalStatus && !deploying && (
         <div className="flex gap-2">
           <Button onClick={deploy} disabled={deploying} size="sm" className="gap-1.5">
             <Rocket className="h-3.5 w-3.5" />
-            {deploying ? "Deploying…" : "Deploy"}
+            Deploy
           </Button>
           <Button
             onClick={cancel}
@@ -205,6 +206,12 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
             <X className="h-3.5 w-3.5" />
             Cancel
           </Button>
+        </div>
+      )}
+
+      {deploying && !finalStatus && (
+        <div className="flex items-center justify-center py-2">
+          <OrigamiLotusLoader size={56} label="Origami is deploying…" />
         </div>
       )}
 
