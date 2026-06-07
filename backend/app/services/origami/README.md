@@ -42,12 +42,53 @@ frontend/src/app/origami/page.tsx
 
 | Var | Required | Default | Notes |
 |---|---|---|---|
-| `ORIGAMI_GATEWAY_KEY` | yes | — | A `bn-` key the orchestrator uses to call the gateway. Generate one from any active org (Settings → Gateway Keys) for dev. Production reads a system-org key from Vault (TODO Phase 1.5). |
+| `ORIGAMI_GATEWAY_KEY` | yes | — | A `bn-` key from Bonito's **system org** (`cat.shabari` today; permanent system-org via Vault in Phase 1.5). Same key for every customer's Origami session — see "Billing architecture" below. |
 | `BONITO_GATEWAY_URL` | no | `http://localhost:8001` | Where to POST chat completions. Local dev → `http://localhost:8001`. Prod → `https://api.getbonito.com`. |
 
 No `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY`, no LLM provider key at all
-in the Origami code path — the org's connected provider creds live in
-Vault and the gateway resolves them on the way out.
+in the Origami code path — the system org's connected provider creds
+live in Vault and the gateway resolves them on the way out.
+
+## Billing architecture
+
+This is a load-bearing piece of how Origami is priced. Two separate
+money flows, intentionally:
+
+| Layer | Who's billed | Logged where |
+|---|---|---|
+| **LLM call to provider** | Bonito (via cat.shabari's connected provider) | `gateway_requests` row attributed to cat.shabari's org → **this is Bonito's COGS** |
+| **Customer's Origami "turn"** | Customer's org (their billing) | `origami_turn_log` row attributed to customer's org → **counts against their tier quota → Stripe overage** |
+
+The customer **never pays for the LLM call directly**. They pay per
+Origami turn — 50/100/300/1000/5000 base/month by tier, then $0.12/turn
+overage on paid tiers ($0.10 on Enterprise). The "Origami included on
+every plan" marketing line is true because the LLM cost is Bonito's
+COGS, not the customer's.
+
+### Identifying Origami calls in cat.shabari's gateway log
+
+Every gateway call from Origami carries the customer's identity in two
+places so cat.shabari's dashboard can break Bonito's Origami COGS down
+per customer:
+
+1. **OpenAI `user` field** in the request body: `origami:org:{org_id}:user:{user_id}` (lands in `gateway_requests.team_id`)
+2. **`X-Bonito-Source: origami` header** plus `X-Bonito-Origami-Customer-Org` / `X-Bonito-Origami-Customer-User` headers — for any future gateway-side aggregation that wants the raw IDs without parsing the `user` string.
+
+The gateway honors these as metadata only — it never re-attributes cost
+to a different org based on a header (that would be a tenant-isolation
+hole). Cost stays on cat.shabari, the metadata is just for analytics.
+
+### Customer-facing usage
+
+Customers see Origami usage via the Usage page (Phase 1.5 — task #33):
+
+- Turns used this month vs base quota
+- Cost per turn at the overage rate (only if over cap)
+- Per-day chart, historical 3-month view
+
+This reads from `origami_turn_log`, never from `gateway_requests`. The
+customer doesn't see the underlying LLM cost because that's not what
+they're paying for.
 
 ## Test it end-to-end
 

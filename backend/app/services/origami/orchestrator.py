@@ -159,12 +159,20 @@ async def _call_gateway(
     system: str,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
+    customer_org_id: Optional[uuid.UUID] = None,
+    customer_user_id: Optional[uuid.UUID] = None,
 ) -> dict[str, Any]:
     """Non-streaming chat completion via Bonito's own gateway.
 
     POSTs to {BONITO_GATEWAY_URL}/v1/chat/completions exactly the way an
-    external customer would. The gateway routes to the connected provider
-    (Anthropic direct, Bedrock, Vertex, etc.) based on org config.
+    external customer would. The bn- key used is intentionally a SYSTEM
+    key (cat.shabari), so the LLM cost lands on cat.shabari as Bonito's
+    COGS. Customer billing happens at the turn level via
+    origami_turn_log, not gateway_requests.
+
+    The OpenAI-standard `user` field carries the customer's identity so
+    cat.shabari's gateway dashboard can break down Origami COGS by which
+    customer triggered each call (lands in gateway_requests.team_id).
     """
     api_key = _get_gateway_key()
     url = f"{DEFAULT_GATEWAY_URL.rstrip('/')}/v1/chat/completions"
@@ -179,6 +187,14 @@ async def _call_gateway(
     if tools:
         body["tools"] = tools
 
+    # Tag the request with customer identity so cat.shabari's gateway
+    # logs can be filtered to "Origami COGS attributed to customer X".
+    if customer_org_id:
+        if customer_user_id:
+            body["user"] = f"origami:org:{customer_org_id}:user:{customer_user_id}"
+        else:
+            body["user"] = f"origami:org:{customer_org_id}"
+
     async with httpx.AsyncClient(timeout=ORIGAMI_HTTP_TIMEOUT) as client:
         resp = await client.post(
             url,
@@ -186,6 +202,12 @@ async def _call_gateway(
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
+                # Marks the request as Origami-originated. cat.shabari's
+                # gateway can group these and the analytics dashboard
+                # can show "Origami COGS this month".
+                "X-Bonito-Origami-Customer-Org": str(customer_org_id or ""),
+                "X-Bonito-Origami-Customer-User": str(customer_user_id or ""),
+                "X-Bonito-Source": "origami",
             },
         )
         if resp.status_code >= 400:
@@ -285,6 +307,8 @@ async def run_origami_turn(
                 system=SYSTEM_PROMPT,
                 messages=messages,
                 tools=tools_for_model,
+                customer_org_id=org_id,
+                customer_user_id=user.id,
             )
         except Exception as e:
             logger.exception("Origami gateway call failed (iteration %d)", iteration)
