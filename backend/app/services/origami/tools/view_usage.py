@@ -47,22 +47,28 @@ class ViewUsageTool(OrigamiTool):
         now = datetime.now(timezone.utc)
         month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
 
-        # Gateway request count this period — try GatewayLog if it exists,
-        # fall back to 0 if the table isn't available.
+        # Gateway request count this period
         request_count = 0
+        total_cost = 0.0
         try:
-            from app.models.gateway_log import GatewayLog
+            from app.models.gateway import GatewayRequest
 
             result = await db.execute(
-                select(func.count(GatewayLog.id)).where(
-                    GatewayLog.org_id == org_id,
-                    GatewayLog.created_at >= month_start,
+                select(
+                    func.count(GatewayRequest.id),
+                    func.coalesce(func.sum(GatewayRequest.cost), 0),
+                ).where(
+                    GatewayRequest.org_id == org_id,
+                    GatewayRequest.created_at >= month_start,
                 )
             )
-            request_count = result.scalar_one() or 0
+            row = result.one()
+            request_count = int(row[0] or 0)
+            total_cost = float(row[1] or 0.0)
         except Exception:
-            # TODO: replace with concrete log model when wired up
+            # Defensive: keep tool usable if gateway log table isn't available
             request_count = 0
+            total_cost = 0.0
 
         # Tier limit
         try:
@@ -96,6 +102,7 @@ class ViewUsageTool(OrigamiTool):
                 "percent_used": pct_used,
                 "remaining": headroom,
             },
+            "gateway_spend_usd": round(total_cost, 4),
             # TODO Phase 2: include Origami turn usage once metering table exists
             "origami_turns": {"used": None, "limit": None, "note": "metering pending"},
         }

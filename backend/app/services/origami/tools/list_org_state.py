@@ -42,32 +42,32 @@ class ListOrgStateTool(OrigamiTool):
         db: AsyncSession,
     ) -> dict[str, Any]:
         # Import lazily so this module loads even if a model import has a side effect.
-        from app.models.provider import Provider
-        from app.models.bonobot_agent import BonobotAgent
+        from app.models.cloud_provider import CloudProvider
+        from app.models.agent import Agent
         from app.models.knowledge_base import KnowledgeBase
         from app.models.project import Project
         from app.services.feature_gate import feature_gate
 
         # Providers
         providers_result = await db.execute(
-            select(Provider.id, Provider.provider_type, Provider.name, Provider.is_active).where(
-                Provider.org_id == org_id
+            select(CloudProvider.id, CloudProvider.provider_type, CloudProvider.status).where(
+                CloudProvider.org_id == org_id
             )
         )
         providers = [
             {
                 "id": str(row.id),
                 "type": row.provider_type,
-                "name": row.name,
-                "active": bool(row.is_active),
+                "status": row.status,  # pending | active | error
+                "active": row.status == "active",
             }
             for row in providers_result
         ]
 
         # Agents (just counts + names — full details on demand)
         agents_result = await db.execute(
-            select(BonobotAgent.id, BonobotAgent.name, BonobotAgent.model_id).where(
-                BonobotAgent.org_id == org_id
+            select(Agent.id, Agent.name, Agent.model_id).where(
+                Agent.org_id == org_id
             ).limit(50)
         )
         agents = [
