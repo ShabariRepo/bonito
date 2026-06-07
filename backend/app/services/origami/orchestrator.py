@@ -205,6 +205,27 @@ form whenever the user mentions a resource by name — it saves a round \
 trip and there's no UUID for the LLM to hallucinate."""
 
 
+# ───────────────────────── Tool name aliases ────────────────────────
+#
+# Models routinely call write tools by what feels like a natural verb
+# rather than the registered name. Map common aliases back to the real
+# tool name BEFORE TOOL_REGISTRY lookups so the dispatcher, plan-card
+# builder, and execute_plan all agree.
+TOOL_NAME_ALIASES: dict[str, str] = {
+    "create_connection": "connect_agents",
+    "create_agent_connection": "connect_agents",
+    "connect_agent": "connect_agents",
+    "wire_agents": "connect_agents",
+    "handoff": "connect_agents",
+}
+
+
+def _resolve_tool_name(name: str | None) -> str:
+    """Map an LLM-emitted tool name through the alias table."""
+    n = (name or "").strip()
+    return TOOL_NAME_ALIASES.get(n, n)
+
+
 # ────────────────────────── Gateway client ──────────────────────────
 
 
@@ -797,8 +818,8 @@ async def run_origami_turn(
         # emit `plan_ready`, and stop. User clicks Deploy → execute_plan
         # endpoint runs them. Read-only batches execute inline as before.
         has_write_tool = any(
-            (TOOL_REGISTRY.get(tc.get("function", {}).get("name", "")) and
-             TOOL_REGISTRY[tc["function"]["name"]].is_write)
+            (TOOL_REGISTRY.get(_resolve_tool_name(tc.get("function", {}).get("name", ""))) and
+             TOOL_REGISTRY[_resolve_tool_name(tc["function"]["name"])].is_write)
             for tc in tool_calls
         )
 
@@ -806,7 +827,7 @@ async def run_origami_turn(
             plan_changes: list[PlanChange] = []
             for tc in tool_calls:
                 fn = tc.get("function", {})
-                tname = fn.get("name", "")
+                tname = _resolve_tool_name(fn.get("name", ""))
                 try:
                     p = json.loads(fn.get("arguments") or "{}")
                 except json.JSONDecodeError:
@@ -872,7 +893,7 @@ async def run_origami_turn(
         for tc in tool_calls:
             tc_id = tc.get("id", "")
             fn = tc.get("function", {})
-            tool_name = fn.get("name", "")
+            tool_name = _resolve_tool_name(fn.get("name", ""))
             raw_args_str = fn.get("arguments") or "{}"
 
             try:
@@ -1065,7 +1086,10 @@ async def execute_plan(
     failed_count = 0
 
     for step_idx, change in enumerate(plan.changes):
-        tool_cls = TOOL_REGISTRY.get(change.action)
+        # Resolve aliases at execute-time too, in case the plan was
+        # built under an older orchestrator that didn't normalize.
+        resolved_action = _resolve_tool_name(change.action)
+        tool_cls = TOOL_REGISTRY.get(resolved_action)
         if not tool_cls:
             yield OrigamiEvent("tool_failed", {
                 "tool_name": change.action,

@@ -62,7 +62,11 @@ class CreateAgentTool(OrigamiTool):
             },
             "project_id": {
                 "type": "string",
-                "description": "UUID of the project this agent lives in. If absent, picks the user's first project.",
+                "description": "UUID of the project this agent lives in. If you only know the project's display name, pass `project_name` instead. If neither is given, picks the user's first project.",
+            },
+            "project_name": {
+                "type": "string",
+                "description": "Display name of the project — resolved to a UUID server-side. Use this when the user references a project by name (e.g. 'foundations-matchmaker').",
             },
             "description": {
                 "type": "string",
@@ -135,8 +139,9 @@ class CreateAgentTool(OrigamiTool):
                 "message": "Both name and system_prompt are required.",
             }
 
-        # Resolve project_id: explicit param OR user's first project
+        # Resolve project_id: UUID > project_name > user's first project
         project_id_raw = params.get("project_id")
+        project_name = (params.get("project_name") or "").strip()
         project_id: Optional[uuid.UUID] = None
         if project_id_raw:
             try:
@@ -147,7 +152,6 @@ class CreateAgentTool(OrigamiTool):
                     "error": "invalid_project_id",
                     "message": f"project_id '{project_id_raw}' is not a valid UUID.",
                 }
-            # Confirm project belongs to the org
             owner_check = await db.execute(
                 select(Project.id).where(
                     Project.id == project_id,
@@ -159,6 +163,20 @@ class CreateAgentTool(OrigamiTool):
                     "success": False,
                     "error": "project_not_found",
                     "message": "Project not found in your organization.",
+                }
+        elif project_name:
+            row = await db.execute(
+                select(Project.id).where(
+                    Project.name == project_name,
+                    Project.org_id == org_id,
+                )
+            )
+            project_id = row.scalar_one_or_none()
+            if not project_id:
+                return {
+                    "success": False,
+                    "error": "project_not_found",
+                    "message": f"Project '{project_name}' not found in your organization.",
                 }
         else:
             first_project = await db.execute(
