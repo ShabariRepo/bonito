@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Rocket, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import {
+  Rocket,
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
+  Clock,
+  Loader2,
+  XCircle,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { OrigamiLotusLoader } from "./OrigamiLotusLoader";
 import { getAccessToken } from "@/lib/auth";
 import { API_URL } from "@/lib/utils";
 
@@ -37,14 +45,67 @@ type Props = {
   onEvent?: (event: { type: string; payload: Record<string, unknown> }) => void;
 };
 
+type StepState = "queued" | "running" | "done" | "failed";
+
+function StepIcon({ state }: { state: StepState }) {
+  if (state === "running") {
+    return <Loader2 className="h-3.5 w-3.5 text-primary animate-spin mt-1 shrink-0" />;
+  }
+  if (state === "done") {
+    return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-1 shrink-0" />;
+  }
+  if (state === "failed") {
+    return <XCircle className="h-3.5 w-3.5 text-destructive mt-1 shrink-0" />;
+  }
+  return <Clock className="h-3.5 w-3.5 text-muted-foreground mt-1 shrink-0" />;
+}
+
 export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
   const [deploying, setDeploying] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [finalStatus, setFinalStatus] = useState<string | null>(null);
+  const [stepStates, setStepStates] = useState<StepState[]>(() =>
+    plan.changes.map(() => "queued" as StepState),
+  );
+  const [stepErrors, setStepErrors] = useState<(string | null)[]>(() =>
+    plan.changes.map(() => null),
+  );
+  const [counts, setCounts] = useState<{ done: number; failed: number }>({
+    done: 0,
+    failed: 0,
+  });
+
+  function updateStep(idx: number, state: StepState, error?: string | null) {
+    if (idx < 0 || idx >= plan.changes.length) return;
+    setStepStates((prev) => {
+      const next = prev.slice();
+      // Don't move done/failed back to running (events can arrive in odd order)
+      if (next[idx] === "done" || next[idx] === "failed") return prev;
+      next[idx] = state;
+      return next;
+    });
+    if (error !== undefined) {
+      setStepErrors((prev) => {
+        const next = prev.slice();
+        next[idx] = error;
+        return next;
+      });
+    }
+    if (state === "done") {
+      setCounts((c) => ({ ...c, done: c.done + 1 }));
+    } else if (state === "failed") {
+      setCounts((c) => ({ ...c, failed: c.failed + 1 }));
+    }
+  }
 
   async function deploy() {
     if (deploying || cancelled || finalStatus) return;
     setDeploying(true);
+    // Reset per-step trackers in case the user re-deploys (not currently
+    // exposed but keeps the state consistent)
+    setStepStates(plan.changes.map(() => "queued"));
+    setStepErrors(plan.changes.map(() => null));
+    setCounts({ done: 0, failed: 0 });
 
     const token = getAccessToken();
     if (!token) {
@@ -87,8 +148,31 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
           try {
             const ev = JSON.parse(line.slice(6));
             onEvent?.(ev);
-            if (ev.type === "execution_done") {
+
+            // Per-step status tracking
+            if (ev.type === "tool_started" && typeof ev.step === "number") {
+              updateStep(ev.step, "running");
+            } else if (ev.type === "tool_completed" && typeof ev.step === "number") {
+              updateStep(ev.step, "done");
+            } else if (ev.type === "tool_failed" && typeof ev.step === "number") {
+              updateStep(
+                ev.step,
+                "failed",
+                typeof ev.error === "string" ? ev.error : ev.code || "failed",
+              );
+            } else if (ev.type === "execution_done") {
               setFinalStatus(ev.status || "done");
+              // Sweep any still-queued steps to a final state so the UI
+              // doesn't leave a stuck clock icon after the deploy ends.
+              setStepStates((prev) =>
+                prev.map((s) =>
+                  s === "queued" || s === "running"
+                    ? ev.status === "failed"
+                      ? "failed"
+                      : "done"
+                    : s,
+                ),
+              );
               onExecuted?.(ev);
             }
           } catch {
@@ -129,6 +213,9 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
 
   const requiresUpgrade = plan.tier_impact?.requires_upgrade;
   const isWriteCount = plan.changes.filter((c) => c.is_write !== false).length;
+  const runningStep = stepStates.findIndex((s) => s === "running");
+  const total = plan.changes.length;
+  const showProgress = deploying || finalStatus;
 
   return (
     <div className="my-2 mr-auto w-full max-w-[95%] rounded-lg border border-primary/30 bg-muted/40 p-4">
@@ -147,21 +234,44 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
       <p className="text-sm text-foreground mb-3">{plan.intent}</p>
 
       <ul className="space-y-1.5 mb-3">
-        {plan.changes.map((change, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm">
-            <ArrowRight className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="font-mono text-xs text-muted-foreground">
-                {change.action}
-              </div>
-              {Object.keys(change.params).length > 0 && (
-                <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap mt-0.5">
-                  {JSON.stringify(change.params, null, 2)}
-                </pre>
+        {plan.changes.map((change, i) => {
+          const state = stepStates[i] || "queued";
+          return (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              {showProgress ? (
+                <StepIcon state={state} />
+              ) : (
+                <ArrowRight className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
               )}
-            </div>
-          </li>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {change.action}
+                  </span>
+                  {showProgress && state === "running" && (
+                    <span className="text-xs text-primary">running…</span>
+                  )}
+                  {showProgress && state === "done" && (
+                    <span className="text-xs text-emerald-500">done</span>
+                  )}
+                  {showProgress && state === "failed" && (
+                    <span className="text-xs text-destructive">failed</span>
+                  )}
+                </div>
+                {Object.keys(change.params).length > 0 && (
+                  <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap mt-0.5">
+                    {JSON.stringify(change.params, null, 2)}
+                  </pre>
+                )}
+                {state === "failed" && stepErrors[i] && (
+                  <div className="text-xs text-destructive mt-1 whitespace-pre-wrap break-words">
+                    {stepErrors[i]}
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       {plan.tier_impact && (
@@ -210,8 +320,18 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
       )}
 
       {deploying && !finalStatus && (
-        <div className="flex items-center justify-center py-2">
-          <OrigamiLotusLoader size={56} label="Origami is deploying…" />
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground pt-1">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            <span>
+              {runningStep >= 0
+                ? `Step ${runningStep + 1} of ${total} — ${plan.changes[runningStep]?.action}`
+                : `Deploying ${total} change${total === 1 ? "" : "s"}…`}
+            </span>
+          </div>
+          <span className="font-mono">
+            {counts.done + counts.failed}/{total}
+          </span>
         </div>
       )}
 
@@ -228,10 +348,15 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
                 : "text-destructive"
           }`}
         >
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          {finalStatus === "success" && "Deployed."}
-          {finalStatus === "partial" && "Partial — some tools failed."}
-          {finalStatus === "failed" && "Deployment failed."}
+          {finalStatus === "success" && <CheckCircle2 className="h-3.5 w-3.5" />}
+          {finalStatus === "partial" && <AlertTriangle className="h-3.5 w-3.5" />}
+          {finalStatus === "failed" && <XCircle className="h-3.5 w-3.5" />}
+          <span>
+            {finalStatus === "success" && `Deployed all ${total} change${total === 1 ? "" : "s"}.`}
+            {finalStatus === "partial" &&
+              `Partial — ${counts.done} succeeded, ${counts.failed} failed.`}
+            {finalStatus === "failed" && `Deployment failed (${counts.failed}/${total}).`}
+          </span>
         </div>
       )}
     </div>
