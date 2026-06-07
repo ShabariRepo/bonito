@@ -42,6 +42,11 @@ router = APIRouter(prefix="/origami", tags=["origami"])
 class OrigamiTurnRequest(BaseModel):
     message: str = Field(min_length=1, max_length=10_000)
     conversation_id: Optional[str] = None
+    project_id: Optional[str] = Field(
+        default=None,
+        description="Optional: project the user is currently working in. "
+        "Recorded on origami_turn_log + origami_audit_log for per-project analytics.",
+    )
 
 
 @router.post("/turn")
@@ -51,6 +56,17 @@ async def origami_turn(
     db: AsyncSession = Depends(get_db),
 ):
     """Run one Origami chat turn and stream events back as SSE."""
+    import uuid as _uuid
+
+    parsed_project_id: Optional[_uuid.UUID] = None
+    if body.project_id:
+        try:
+            parsed_project_id = _uuid.UUID(body.project_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="project_id must be a valid UUID",
+            )
 
     async def event_generator() -> AsyncIterator[str]:
         try:
@@ -58,6 +74,7 @@ async def origami_turn(
                 user=user,
                 message=body.message,
                 conversation_id=body.conversation_id,
+                project_id=parsed_project_id,
                 db=db,
             ):
                 yield event.to_sse()

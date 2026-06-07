@@ -43,6 +43,9 @@ class OrigamiAuditLog(Base):
     og_token_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("access_tokens.id", ondelete="SET NULL"), nullable=True
     )
+    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
     session_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
     plan_card_id: Mapped[Optional[uuid.UUID]] = mapped_column(nullable=True)
     intent_summary: Mapped[str] = mapped_column(Text, nullable=False)
@@ -62,6 +65,7 @@ class OrigamiAuditLog(Base):
         Index("ix_origami_audit_org_time", "org_id", "created_at"),
         Index("ix_origami_audit_user", "user_id", "created_at"),
         Index("ix_origami_audit_token", "og_token_id"),
+        Index("ix_origami_audit_project", "project_id", "created_at"),
     )
 
 
@@ -84,6 +88,9 @@ class OrigamiTurnLog(Base):
     )
     og_token_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("access_tokens.id", ondelete="SET NULL"), nullable=True
+    )
+    project_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )
     session_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
     conversation_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -111,4 +118,5 @@ class OrigamiTurnLog(Base):
         Index("ix_origami_turn_org_period", "org_id", "billing_period_month"),
         Index("ix_origami_turn_user_time", "user_id", "created_at"),
         Index("ix_origami_turn_token", "og_token_id"),
+        Index("ix_origami_turn_project_period", "project_id", "billing_period_month"),
     )
