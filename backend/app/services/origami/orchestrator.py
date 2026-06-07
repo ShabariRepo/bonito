@@ -156,10 +156,18 @@ suggest a next step. Never echo raw tool output (no JSON, no curly braces) — \
 translate it.
 
 When a user asks to BUILD something (create an agent, create a KB, link them, \
-mint a gateway key), use the appropriate write tool. The orchestrator will \
-automatically PAUSE before executing — it builds a plan card from your tool \
-calls and shows the user a Deploy / Edit / Cancel choice. Your job is to \
-propose the right tools with the right params; the user confirms.
+mint a gateway key, create a project), use the appropriate write tool. The \
+orchestrator will automatically PAUSE before executing — it builds a plan card \
+from your tool calls and shows the user a Deploy / Edit / Cancel choice. Your \
+job is to propose the right tools with the right params; the user confirms.
+
+IMPORTANT: when the user asks for a single write action, DO call the \
+appropriate tool. Don't second-guess, don't refuse, don't ask for \
+clarification on simple requests. Examples:
+  "mint me a gateway key called X"       → call mint_gateway_key(name="X")
+  "create a project called X"            → call create_project(name="X")
+  "spin up a KB named X"                 → call create_kb(name="X")
+  "make an agent called X with prompt Y" → call create_agent(name="X", system_prompt="Y")
 
 Be specific in tool params. If a user says "build me a support bot for our \
 Shopify store, KB from our help docs", you should call create_kb with \
@@ -568,18 +576,29 @@ async def run_origami_turn(
         tool_calls = [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]
         content = accumulated_content
 
-        # Fallback: some providers (Bedrock-routed Anthropic, sometimes Vertex)
-        # don't normalize tool calls into structured tool_calls[]. They embed
-        # them in the content as <tool_call>{...}</tool_call>, <function>...,
+        # Step 1: ALWAYS strip <thinking> blocks from the content first.
+        # The model uses these for chain-of-thought reasoning but the user
+        # should never see them. Also strip BEFORE the tool-call parser
+        # runs because the model sometimes hides tool-call markup inside
+        # thinking blocks too (which would confuse the parser AND surface
+        # internal reasoning to the user).
+        had_thinking = False
+        if content and _THINKING_RE.search(content):
+            had_thinking = True
+            content = _THINKING_RE.sub("", content).strip()
+            accumulated_content = content
+
+        # Step 2: fallback parse for upstreams that don't normalize tool
+        # calls into structured tool_calls[]. They embed them in the
+        # content as <tool_call>{...}</tool_call>, <function>...,
         # or <invoke name="..."><parameter ...>...</parameter></invoke>.
-        # Parse those out so tools work regardless of routing.
         stripped_inline = False
         if not tool_calls and content:
             inline = _extract_inline_tool_calls(content)
             if inline:
                 tool_calls = inline
                 # Strip the inline tool-call syntax from the visible message —
-                # it's noise the user shouldn't see. Run all three patterns;
+                # it's noise the user shouldn't see. Run all four patterns;
                 # whichever the model used gets removed.
                 stripped = _TOOL_CALL_JSON_RE.sub("", content)
                 stripped = _INVOKE_BLOCK_RE.sub("", stripped)
@@ -588,6 +607,16 @@ async def run_origami_turn(
                 accumulated_content = stripped
                 content = stripped
                 stripped_inline = True
+
+        # Step 3: log if we caught the model doing things behind the scenes.
+        # Helps diagnose why a prompt produced no visible response.
+        if had_thinking or stripped_inline:
+            logger.debug(
+                "Origami iteration %d: thinking=%s, inline_tool_call=%s, "
+                "tool_calls_after_parse=%d, content_len_after=%d",
+                iteration, had_thinking, stripped_inline,
+                len(tool_calls), len(content),
+            )
 
         # Accumulate token usage from the final usage chunk. Some upstreams
         # (notably Bedrock via LiteLLM) don't honor stream_options.include_usage
@@ -637,7 +666,8 @@ async def run_origami_turn(
                 "<function>" in content or
                 "<tool_call>" in content or
                 "<invoke" in content or
-                "<parameter" in content
+                "<parameter" in content or
+                "<thinking" in content
             )
             if (not content or looks_like_markup) and total_tool_calls > 0 and results:
                 content = _synthesize_tool_summary(results)
@@ -646,6 +676,30 @@ async def run_origami_turn(
                 yield OrigamiEvent("message_complete", {
                     "text": content,
                     "synthesized": True,
+                })
+            elif not content:
+                # The model went silent and we have no tool results to
+                # summarize — emit a friendly fallback so the user isn't
+                # staring at an empty chat. This happens occasionally with
+                # Bedrock-routed Claude models on certain prompts; the
+                # debug log captures the raw response for diagnosis.
+                logger.warning(
+                    "Origami silent response — user=%s, iteration=%d, "
+                    "last_finish_reason=%s. Emitting fallback.",
+                    str(user.id), iteration, finish_reason,
+                )
+                content = (
+                    "I didn't quite catch that — could you rephrase? "
+                    "I can help you create projects, knowledge bases, agents, "
+                    "or gateway keys, attach KBs to agents, upload documents, "
+                    "or look up your org state, usage, and tier access."
+                )
+                accumulated_content = content
+                was_synthesized = True
+                yield OrigamiEvent("message_complete", {
+                    "text": content,
+                    "synthesized": True,
+                    "fallback": True,
                 })
             # Persist the final assistant message (model or synthesized)
             if content:
@@ -1170,6 +1224,13 @@ _INVOKE_BLOCK_RE = re.compile(
 )
 _PARAM_RE = re.compile(
     r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
+)
+# Claude's chain-of-thought block. The model uses these to reason out loud
+# but they're internal — the user should never see them. Stripped before
+# AND after tool-call parsing because the model sometimes hides tool-call
+# markup inside thinking blocks too (which would confuse the parser).
+_THINKING_RE = re.compile(
+    r"<thinking>.*?</thinking>", re.DOTALL | re.IGNORECASE,
 )
 # Some Bedrock-routed models emit
 #   <function>

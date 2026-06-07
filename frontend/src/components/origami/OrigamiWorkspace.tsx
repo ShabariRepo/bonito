@@ -20,14 +20,16 @@ export function OrigamiWorkspace() {
   const session = useOrigamiSession();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-[calc(100vh-12rem)]">
-      {/* Left: chat panel (2/5) */}
-      <Card className="lg:col-span-2 flex flex-col p-0 overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 h-[calc(100vh-12rem)] min-h-[600px]">
+      {/* Left: chat panel (2/5) — fixed height, internal scroll lives in OrigamiChat */}
+      <Card className="lg:col-span-2 flex flex-col p-0 overflow-hidden h-full min-h-0">
         <OrigamiChat session={session} />
       </Card>
 
-      {/* Right: workspace (3/5) */}
-      <div className="lg:col-span-3 flex flex-col gap-4">
+      {/* Right: workspace (3/5) — its OWN scrollable column so the chat
+          can stay viewport-bounded while resources/activity scroll
+          independently when there's a lot of either. */}
+      <div className="lg:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pr-1">
         <ProgressHeader execution={session.execution} />
 
         {/* Resources */}
