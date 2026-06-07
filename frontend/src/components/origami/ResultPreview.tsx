@@ -1,45 +1,65 @@
 "use client";
 
+import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { ResultPreview as ResultPreviewType } from "./useOrigamiSession";
 
-const STATUS_LABELS: Record<NonNullable<ResultPreviewType>["status"], string> = {
+const STATUS_LABEL: Record<NonNullable<ResultPreviewType>["status"], string> = {
   success: "Deployed",
   partial: "Partial success",
   failed: "Deployment failed",
 };
 
-const STATUS_COLORS: Record<NonNullable<ResultPreviewType>["status"], string> = {
-  success: "text-green-300 border-green-500/40 bg-green-950/20",
-  partial: "text-yellow-300 border-yellow-500/40 bg-yellow-950/20",
-  failed: "text-red-300 border-red-500/40 bg-red-950/20",
-};
-
 export function ResultPreview({ result }: { result: ResultPreviewType }) {
   if (!result) return null;
 
+  const Icon =
+    result.status === "success"
+      ? CheckCircle2
+      : result.status === "partial"
+        ? AlertTriangle
+        : XCircle;
+
+  const iconClass =
+    result.status === "success"
+      ? "text-emerald-500"
+      : result.status === "partial"
+        ? "text-amber-500"
+        : "text-destructive";
+
   return (
-    <div
-      className={`rounded-md border p-3 text-xs ${STATUS_COLORS[result.status]}`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-medium">{STATUS_LABELS[result.status]}</div>
-        <div className="text-[10px] opacity-70">
-          {result.succeeded} ok • {result.failed} fail
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Icon className={`h-4 w-4 ${iconClass}`} />
+          <span className="text-sm font-medium">{STATUS_LABEL[result.status]}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {result.succeeded} ok • {result.failed} failed
         </div>
       </div>
-      <ul className="space-y-1">
+      <ul className="space-y-1.5">
         {result.resources.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2">
-            <span className="font-mono truncate">{r.name}</span>
-            <span className="text-[10px] opacity-70 capitalize">{r.state}</span>
+          <li
+            key={r.id}
+            className="flex items-center justify-between text-sm gap-2"
+          >
+            <span className="font-mono truncate text-foreground">{r.name}</span>
+            <Badge
+              variant={
+                r.state === "done"
+                  ? "default"
+                  : r.state === "error"
+                    ? "destructive"
+                    : "secondary"
+              }
+              className="text-xs capitalize shrink-0"
+            >
+              {r.state}
+            </Badge>
           </li>
         ))}
       </ul>
-      {result.status === "success" && (
-        <div className="text-[10px] mt-2 opacity-70">
-          Click any resource above to open it in the platform.
-        </div>
-      )}
     </div>
   );
 }

@@ -1,24 +1,14 @@
 "use client";
 
 /**
- * OrigamiWorkspace — the Replit-style split-pane Origami surface.
- *
- *  ┌─────────────────────────┬─────────────────────────────┐
- *  │  Chat (40%)             │  Workspace (60%)            │
- *  │                         │                             │
- *  │  • user/assistant turns │  Progress header (during    │
- *  │  • inline plan card     │   execution)                │
- *  │                         │                             │
- *  │                         │  📦 Resources grid          │
- *  │                         │                             │
- *  │                         │  📋 Activity log            │
- *  │                         │                             │
- *  │                         │  ✓ Result preview (after    │
- *  │                         │   execution_done)           │
- *  └─────────────────────────┴─────────────────────────────┘
+ * OrigamiWorkspace — split-pane Origami surface, themed for the Bonito
+ * dashboard. Lives inside (dashboard)/origami so it picks up the standard
+ * auth + sidebar + PageHeader treatment.
  */
 
-import { useEffect, useRef } from "react";
+import { Activity, Boxes, CheckCircle2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useOrigamiSession } from "./useOrigamiSession";
 import { OrigamiChat } from "./OrigamiChat";
 import { ResourcesGrid } from "./ResourcesGrid";
@@ -30,72 +20,64 @@ export function OrigamiWorkspace() {
   const session = useOrigamiSession();
 
   return (
-    <div className="flex h-full w-full bg-[#0a0a0a] text-[#eee]">
-      {/* Left: chat panel (40%) */}
-      <div className="flex flex-col w-2/5 min-w-[340px] border-r border-[#1a1a1a]">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 min-h-[calc(100vh-12rem)]">
+      {/* Left: chat panel (2/5) */}
+      <Card className="lg:col-span-2 flex flex-col p-0 overflow-hidden">
         <OrigamiChat session={session} />
-      </div>
+      </Card>
 
-      {/* Right: workspace (60%) */}
-      <div className="flex-1 flex flex-col">
+      {/* Right: workspace (3/5) */}
+      <div className="lg:col-span-3 flex flex-col gap-4">
         <ProgressHeader execution={session.execution} />
 
-        {/* Header strip */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a]">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">Workspace</span>
-            {session.tier && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#888] uppercase tracking-wider">
-                {session.tier}
-              </span>
-            )}
-          </div>
-          <div className="text-[10px] text-[#666] font-mono">
-            session: {session.conversationId}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Resources grid */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs uppercase tracking-wider text-[#888]">
-                📦 Resources
-              </h3>
-              <span className="text-[10px] text-[#666]">
-                {session.resources.length}{" "}
-                {session.resources.length === 1 ? "item" : "items"}
-              </span>
+        {/* Resources */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div className="flex items-center gap-2">
+              <Boxes className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Resources</CardTitle>
             </div>
+            <Badge variant="outline" className="text-xs">
+              {session.resources.length} item
+              {session.resources.length === 1 ? "" : "s"}
+            </Badge>
+          </CardHeader>
+          <CardContent className="pt-0">
             <ResourcesGrid resources={session.resources} />
-          </section>
+          </CardContent>
+        </Card>
 
-          {/* Result preview, only after a deploy */}
-          {session.result && (
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs uppercase tracking-wider text-[#888]">
-                  ✓ Result
-                </h3>
+        {/* Result preview only when a deploy just finished */}
+        {session.result && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Result</CardTitle>
               </div>
+            </CardHeader>
+            <CardContent className="pt-0">
               <ResultPreview result={session.result} />
-            </section>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Activity log */}
-          <section>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs uppercase tracking-wider text-[#888]">
-                📋 Activity log
-              </h3>
-              <span className="text-[10px] text-[#666]">
-                {session.activity.length} call
-                {session.activity.length === 1 ? "" : "s"}
-              </span>
+        {/* Activity log */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Activity log</CardTitle>
             </div>
+            <Badge variant="outline" className="text-xs">
+              {session.activity.length} call
+              {session.activity.length === 1 ? "" : "s"}
+            </Badge>
+          </CardHeader>
+          <CardContent className="pt-0">
             <ActivityPanel activity={session.activity} />
-          </section>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

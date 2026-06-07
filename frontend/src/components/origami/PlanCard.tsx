@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Rocket, X, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { getAccessToken } from "@/lib/auth";
 import { API_URL } from "@/lib/utils";
 
@@ -30,7 +33,6 @@ type Props = {
   plan: PlanCardData;
   onExecuted?: (result: unknown) => void;
   onCancelled?: () => void;
-  /** Emit each SSE event from execute_plan so the parent can update activity log */
   onEvent?: (event: { type: string; payload: Record<string, unknown> }) => void;
 };
 
@@ -118,7 +120,7 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
           body: JSON.stringify({ plan_card_id: plan.id }),
         });
       } catch {
-        /* non-fatal — TTL will evict anyway */
+        /* TTL will evict anyway */
       }
     }
     onCancelled?.();
@@ -128,26 +130,31 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
   const isWriteCount = plan.changes.filter((c) => c.is_write !== false).length;
 
   return (
-    <div className="my-2 max-w-[90%] mr-auto bg-[#111] border border-[#7c3aed]/30 rounded-lg p-3 text-sm">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">
-          Plan
-        </span>
-        <span className="text-[10px] text-[#888]">
+    <div className="my-2 mr-auto w-full max-w-[95%] rounded-lg border border-primary/30 bg-muted/40 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Rocket className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs uppercase tracking-wider text-primary font-semibold">
+            Plan
+          </span>
+        </div>
+        <Badge variant="outline" className="text-xs">
           {isWriteCount} change{isWriteCount === 1 ? "" : "s"}
-        </span>
+        </Badge>
       </div>
 
-      <p className="text-[#ddd] mb-2">{plan.intent}</p>
+      <p className="text-sm text-foreground mb-3">{plan.intent}</p>
 
-      <ul className="space-y-1 mb-3">
+      <ul className="space-y-1.5 mb-3">
         {plan.changes.map((change, i) => (
-          <li key={i} className="flex gap-2 text-[#ccc]">
-            <span className="text-[#7c3aed] mt-0.5">→</span>
-            <div className="flex-1">
-              <div className="font-mono text-xs text-[#aaa]">{change.action}</div>
+          <li key={i} className="flex items-start gap-2 text-sm">
+            <ArrowRight className="h-3.5 w-3.5 text-primary mt-1 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="font-mono text-xs text-muted-foreground">
+                {change.action}
+              </div>
               {Object.keys(change.params).length > 0 && (
-                <pre className="text-[10px] text-[#777] overflow-x-auto whitespace-pre-wrap">
+                <pre className="text-xs text-muted-foreground overflow-x-auto whitespace-pre-wrap mt-0.5">
                   {JSON.stringify(change.params, null, 2)}
                 </pre>
               )}
@@ -158,62 +165,66 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
 
       {plan.tier_impact && (
         <div
-          className={`text-xs mb-2 px-2 py-1 rounded ${
+          className={`text-xs mb-3 px-2 py-1.5 rounded flex items-start gap-1.5 ${
             requiresUpgrade
-              ? "bg-amber-950/40 text-amber-300 border border-amber-500/30"
-              : "bg-[#1a1a1a] text-[#999]"
+              ? "bg-amber-500/10 text-amber-300 border border-amber-500/30"
+              : "bg-muted text-muted-foreground border border-border"
           }`}
         >
-          {plan.tier_impact.summary}
-          {requiresUpgrade && plan.tier_impact.upgrade_to_tier && (
-            <span className="ml-2 font-semibold">
-              → upgrade to {plan.tier_impact.upgrade_to_tier}
-            </span>
-          )}
+          {requiresUpgrade && <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />}
+          <div>
+            {plan.tier_impact.summary}
+            {requiresUpgrade && plan.tier_impact.upgrade_to_tier && (
+              <span className="ml-1 font-semibold">
+                → upgrade to {plan.tier_impact.upgrade_to_tier}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
       {plan.estimated_cost_usd_monthly != null && (
-        <div className="text-[10px] text-[#666] mb-2">
+        <div className="text-xs text-muted-foreground mb-3">
           ~${plan.estimated_cost_usd_monthly.toFixed(2)}/mo estimated
         </div>
       )}
 
       {!cancelled && !finalStatus && (
         <div className="flex gap-2">
-          <button
-            onClick={deploy}
-            disabled={deploying}
-            className="px-3 py-1.5 bg-[#7c3aed] text-white rounded text-xs font-medium hover:bg-[#6d28d9] disabled:opacity-50"
-          >
+          <Button onClick={deploy} disabled={deploying} size="sm" className="gap-1.5">
+            <Rocket className="h-3.5 w-3.5" />
             {deploying ? "Deploying…" : "Deploy"}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={cancel}
             disabled={deploying}
-            className="px-3 py-1.5 bg-transparent border border-[#333] text-[#999] rounded text-xs hover:border-[#555] hover:text-[#ccc] disabled:opacity-50"
+            size="sm"
+            variant="ghost"
+            className="gap-1.5"
           >
+            <X className="h-3.5 w-3.5" />
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
       {cancelled && (
-        <div className="text-xs text-[#666] italic">Plan cancelled.</div>
+        <div className="text-xs text-muted-foreground italic">Plan cancelled.</div>
       )}
       {finalStatus && (
         <div
-          className={`text-xs ${
+          className={`text-xs flex items-center gap-1.5 ${
             finalStatus === "success"
-              ? "text-green-400"
+              ? "text-emerald-500"
               : finalStatus === "partial"
-                ? "text-yellow-400"
-                : "text-red-400"
+                ? "text-amber-500"
+                : "text-destructive"
           }`}
         >
-          {finalStatus === "success" && "✓ Deployed."}
-          {finalStatus === "partial" && "⚠ Partial — some tools failed."}
-          {finalStatus === "failed" && "✗ Deployment failed."}
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          {finalStatus === "success" && "Deployed."}
+          {finalStatus === "partial" && "Partial — some tools failed."}
+          {finalStatus === "failed" && "Deployment failed."}
         </div>
       )}
     </div>

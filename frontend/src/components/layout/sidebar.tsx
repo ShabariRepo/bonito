@@ -37,6 +37,7 @@ import {
   HeartPulse,
   Lock,
   Crown,
+  Wand2,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -80,6 +81,7 @@ const spendNavigation = [
 ];
 
 const agentsNavigation = [
+  { name: "Origami", href: "/origami", icon: Wand2, badge: "NEW" as const },
   { name: "Projects", href: "/agents", icon: Bot },
   { name: "Breadcrumbs", href: "/agents/breadcrumbs", icon: Footprints },
   { name: "BonBon", href: "/agents/bonbon", icon: Package },
@@ -482,8 +484,14 @@ export function Sidebar() {
                       animate="expanded"
                       exit="collapsed"
                       transition={{ duration: 0.2 }}
+                      className="flex items-center justify-between flex-1"
                     >
                       {item.name}
+                      {"badge" in item && item.badge && (
+                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">
+                          {item.badge}
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>

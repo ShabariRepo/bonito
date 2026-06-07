@@ -1,15 +1,9 @@
 "use client";
 
-/**
- * OrigamiChat — the left-side chat panel. State (messages, busy, etc.) is
- * owned by useOrigamiSession (hoisted into OrigamiWorkspace) so the
- * right-side workspace can react to the same SSE event stream.
- *
- * Render-only: takes a session object from useOrigamiSession and shows
- * the chat history + plan cards + input.
- */
-
 import { useEffect, useRef, useState } from "react";
+import { Send, MessageSquare } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PlanCard } from "./PlanCard";
 import type { useOrigamiSession } from "./useOrigamiSession";
 
@@ -34,27 +28,25 @@ export function OrigamiChat({ session }: { session: Session }) {
   }
 
   return (
-    <>
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">Origami</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-[#888]">
-            Phase 3
-          </span>
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Chat</span>
         </div>
-        <div className="text-[10px] text-[#666]">
+        <span className="text-xs text-muted-foreground">
           {session.busy ? "thinking…" : "ready"}
-        </div>
+        </span>
       </div>
 
-      {/* Body */}
+      {/* Scrolling body */}
       <div
         ref={scrollerRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
       >
         {session.messages.length === 0 && (
-          <div className="text-sm text-[#777]">
+          <div className="text-sm text-muted-foreground">
             Hi — I&apos;m Origami. I can help you plan and deploy agents,
             knowledge bases, projects, and gateway keys. Tell me what you want
             to build.
@@ -75,27 +67,26 @@ export function OrigamiChat({ session }: { session: Session }) {
               key={m.id}
               className={`max-w-[90%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "ml-auto bg-[#7c3aed] text-white"
-                  : "mr-auto bg-[#1a1a1a] text-[#ddd]"
+                  ? "ml-auto bg-primary text-primary-foreground"
+                  : "mr-auto bg-muted text-foreground border border-border"
               }`}
             >
               {m.text}
               {m.streaming && (
-                <span className="inline-block w-1.5 h-3.5 bg-[#7c3aed] ml-1 align-middle animate-pulse" />
+                <span className="inline-block w-1.5 h-3.5 bg-primary ml-1 align-middle animate-pulse rounded-sm" />
               )}
             </div>
           );
         })}
         {session.busy && session.messages[session.messages.length - 1]?.role !== "assistant" && (
-          <div className="text-xs text-[#666] italic">Origami is thinking…</div>
+          <div className="text-xs text-muted-foreground italic">Origami is thinking…</div>
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t border-[#1a1a1a] px-3 py-3">
+      {/* Composer */}
+      <div className="border-t border-border px-3 py-3 shrink-0">
         <div className="flex gap-2">
-          <input
-            type="text"
+          <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -106,17 +97,18 @@ export function OrigamiChat({ session }: { session: Session }) {
             }}
             disabled={session.busy}
             placeholder="Tell Origami what to build…"
-            className="flex-1 bg-[#111] border border-[#1a1a1a] rounded px-3 py-2 text-sm focus:outline-none focus:border-[#7c3aed] disabled:opacity-50"
+            className="flex-1"
           />
-          <button
+          <Button
             onClick={onSend}
             disabled={session.busy || !draft.trim()}
-            className="px-4 py-2 bg-[#7c3aed] text-white rounded text-sm font-medium hover:bg-[#6d28d9] disabled:opacity-40"
+            size="icon"
+            aria-label="Send"
           >
-            Send
-          </button>
+            <Send className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
