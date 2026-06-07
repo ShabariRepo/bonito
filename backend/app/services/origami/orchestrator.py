@@ -880,6 +880,30 @@ async def execute_plan(
                 db=db,
             )
             results.append({"action": change.action, "result": result})
+
+            # Tools that signal a structured failure (success=False)
+            # should be counted as failures even though no exception fired.
+            tool_succeeded = result.get("success", True) if isinstance(result, dict) else True
+            if not tool_succeeded:
+                yield OrigamiEvent("tool_failed", {
+                    "tool_name": change.action,
+                    "step": step_idx,
+                    "error": (result.get("message") or result.get("error") or "unspecified") if isinstance(result, dict) else "unknown",
+                    "code": result.get("error") if isinstance(result, dict) else None,
+                })
+                failed_count += 1
+                await metering.record_origami_audit(
+                    db=db, org_id=user.org_id, user_id=user.id,
+                    og_token_id=None, project_id=project_id,
+                    session_id=session_id,
+                    plan_card_id=uuid.UUID(plan_card_id),
+                    intent_summary=plan.intent, tool_name=change.action,
+                    tool_params=params, tier_at_time=tier,
+                    confirmation="user_clicked", status="failed",
+                    error=str(result.get("message") or result.get("error"))[:1000] if isinstance(result, dict) else None,
+                )
+                continue
+
             yield OrigamiEvent("tool_completed", {
                 "tool_name": change.action,
                 "step": step_idx,
@@ -990,8 +1014,12 @@ async def _record_turn(
 
 import re
 
+# Match an inline tool call wrapped in any of the common tags. We capture
+# everything between the open and close tag (non-greedy), then parse JSON
+# in code. Using `\{.*?\}` here would stop at the first `}`, which breaks
+# JSON with nested objects like {"name": "x", "parameters": {...}}.
 _TOOL_CALL_JSON_RE = re.compile(
-    r"<(?:tool_call|function|function_call|tool_use)>\s*(\{.*?\})\s*</(?:tool_call|function|function_call|tool_use)>",
+    r"<(tool_call|function|function_call|tool_use)>\s*(.*?)\s*</\1>",
     re.DOTALL,
 )
 _INVOKE_BLOCK_RE = re.compile(
@@ -1000,6 +1028,45 @@ _INVOKE_BLOCK_RE = re.compile(
 _PARAM_RE = re.compile(
     r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
 )
+
+
+def _extract_first_json_object(text: str) -> Optional[dict[str, Any]]:
+    """Pull the first balanced { ... } object out of text and json.loads it.
+
+    Useful when a model wraps the JSON in backticks, prefixes with commentary,
+    or trails a stray comma — we still want the structured payload.
+    """
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_str = False
+    escape = False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = text[start:i + 1]
+                try:
+                    obj = json.loads(candidate)
+                    return obj if isinstance(obj, dict) else None
+                except json.JSONDecodeError:
+                    return None
+    return None
 
 
 def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
@@ -1027,9 +1094,19 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
     calls: list[dict[str, Any]] = []
 
     for match in _TOOL_CALL_JSON_RE.finditer(text):
+        raw_inner = (match.group(2) or "").strip()
+        if not raw_inner:
+            continue
+        # Try strict JSON first
         try:
-            payload = json.loads(match.group(1))
+            payload = json.loads(raw_inner)
         except json.JSONDecodeError:
+            # The model sometimes wraps the JSON in extra whitespace + backticks
+            # or trails commentary. Pull the first balanced { ... } object out.
+            payload = _extract_first_json_object(raw_inner)
+            if payload is None:
+                continue
+        if not isinstance(payload, dict):
             continue
         name = payload.get("name")
         params = payload.get("parameters") or payload.get("arguments") or payload.get("input") or {}
