@@ -234,22 +234,38 @@ async def _embed_via_gateway(text: str) -> Optional[list[float]]:
     base = os.getenv("BONITO_API_BASE_URL", "http://localhost:8000").rstrip("/")
     url = f"{base}/v1/embeddings"
 
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as http:
-            r = await http.post(
-                url,
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
-                json={"model": PLATFORM_EMBED_MODEL, "input": text},
-            )
-            r.raise_for_status()
-            data = r.json()
-            return data["data"][0]["embedding"]
-    except Exception as e:
-        logger.warning("bonito-knowledge gateway embedding failed: %s", e)
-        return None
+    # Retry with backoff on 429s — Bedrock Titan rate-limits aggressively
+    # under bulk seeding. 4 attempts: 0s, 1s, 3s, 7s.
+    import asyncio as _asyncio
+
+    backoffs = [0, 1, 3, 7]
+    for attempt, delay in enumerate(backoffs):
+        if delay:
+            await _asyncio.sleep(delay)
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as http:
+                r = await http.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"model": PLATFORM_EMBED_MODEL, "input": text},
+                )
+                if r.status_code == 429 and attempt < len(backoffs) - 1:
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                return data["data"][0]["embedding"]
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < len(backoffs) - 1:
+                continue
+            logger.warning("bonito-knowledge gateway embedding failed: %s", e)
+            return None
+        except Exception as e:
+            logger.warning("bonito-knowledge gateway embedding failed: %s", e)
+            return None
+    return None
 
 
 async def retrieve_context_for_query(
