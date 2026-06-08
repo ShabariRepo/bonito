@@ -33,7 +33,14 @@ class UpdateAgentTool(OrigamiTool):
     input_schema = {
         "type": "object",
         "properties": {
-            "agent_id": {"type": "string", "description": "UUID of the agent to modify"},
+            "agent_id": {
+                "type": "string",
+                "description": "UUID of the agent to modify. If you only know the agent's display name, pass `agent_name` instead.",
+            },
+            "agent_name": {
+                "type": "string",
+                "description": "Display name of the agent — resolved to a UUID server-side. Use this when chaining updates by name across a multi-step plan.",
+            },
             "name": {"type": "string", "minLength": 1, "maxLength": 255},
             "description": {"type": "string", "maxLength": 2000},
             "system_prompt": {
@@ -56,7 +63,7 @@ class UpdateAgentTool(OrigamiTool):
             "max_tokens": {"type": "integer", "minimum": 64, "maximum": 8192},
             "rate_limit_rpm": {"type": "integer", "minimum": 1, "maximum": 10000},
         },
-        "required": ["agent_id"],
+        "required": [],
         "additionalProperties": False,
     }
     is_write = True
@@ -71,11 +78,42 @@ class UpdateAgentTool(OrigamiTool):
     ) -> dict[str, Any]:
         from app.models.agent import Agent
 
-        try:
-            agent_id = uuid.UUID(str(params.get("agent_id")))
-        except (TypeError, ValueError):
-            return {"success": False, "error": "invalid_agent_id",
-                    "message": "agent_id must be a valid UUID."}
+        agent_id_raw = params.get("agent_id")
+        agent_name = (params.get("agent_name") or "").strip()
+        # Mismatch detection — same defensive pattern as link_kb_to_agent.
+        if agent_id_raw and agent_name:
+            check = await db.execute(
+                select(Agent).where(Agent.org_id == org_id, Agent.name == agent_name)
+            )
+            named = check.scalar_one_or_none()
+            if named and str(named.id) != str(agent_id_raw):
+                return {
+                    "success": False,
+                    "error": "agent_id_name_mismatch",
+                    "message": (
+                        f"agent_id '{agent_id_raw}' and agent_name "
+                        f"'{agent_name}' refer to different agents. "
+                        f"Pass only one, or make them agree."
+                    ),
+                }
+        if agent_id_raw:
+            try:
+                agent_id = uuid.UUID(str(agent_id_raw))
+            except (TypeError, ValueError):
+                return {"success": False, "error": "invalid_agent_id",
+                        "message": "agent_id must be a valid UUID."}
+        elif agent_name:
+            row = await db.execute(
+                select(Agent).where(Agent.name == agent_name, Agent.org_id == org_id)
+            )
+            named = row.scalar_one_or_none()
+            if not named:
+                return {"success": False, "error": "agent_not_found",
+                        "message": f"Agent '{agent_name}' not found in your organization."}
+            agent_id = named.id
+        else:
+            return {"success": False, "error": "missing_agent_reference",
+                    "message": "Provide either agent_id (UUID) or agent_name."}
 
         row = await db.execute(
             select(Agent).where(Agent.id == agent_id, Agent.org_id == org_id)

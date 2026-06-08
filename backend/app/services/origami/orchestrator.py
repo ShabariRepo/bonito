@@ -219,7 +219,27 @@ need to look up the UUID first. Pass the display name in `kb_name` or \
 Use kb_id / agent_id when you already have the UUID (e.g. from a \
 ${step_N.field} reference earlier in the same plan). Use the *_name \
 form whenever the user mentions a resource by name — it saves a round \
-trip and there's no UUID for the LLM to hallucinate."""
+trip and there's no UUID for the LLM to hallucinate.
+
+CRITICAL — DO NOT pass BOTH agent_id (or kb_id) AND a different *_name \
+in the same call. If the names refer to different agents than the UUID, \
+the tool will REFUSE the call with id_name_mismatch. When linking the \
+SAME KB to multiple agents in one plan, prefer to pass ONLY agent_name \
+for each link (e.g. link_kb_to_agent(kb_name="X", agent_name="agent-A"), \
+link_kb_to_agent(kb_name="X", agent_name="agent-B"), etc.). Names are \
+unambiguous in this case.
+
+WIRING AGENTS TOGETHER: to set up handoff / escalation / data_feed / \
+trigger connections BETWEEN agents, ALWAYS use the connect_agents tool. \
+Never try to use update_agent for connections — update_agent only \
+modifies properties of a single agent (name, prompt, model, etc.), not \
+relationships. Example for hub-and-spoke:
+
+  1. create_agent(name="hub", ...)
+  2. create_agent(name="spoke-a", ...)
+  3. create_agent(name="spoke-b", ...)
+  4. connect_agents(source_agent_name="hub", target_agent_name="spoke-a", connection_type="handoff")
+  5. connect_agents(source_agent_name="hub", target_agent_name="spoke-b", connection_type="handoff")"""
 
 
 # ───────────────────────── Tool name aliases ────────────────────────
