@@ -12,7 +12,7 @@ via separate `upload_to_kb` calls in Phase 2.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +48,22 @@ class CreateKbTool(OrigamiTool):
             "embedding_model": {
                 "type": "string",
                 "description": "Embedding model id (default 'auto' lets Bonito pick)",
+            },
+            "project_id": {
+                "type": "string",
+                "description": (
+                    "Optional UUID of a project to associate this KB with. "
+                    "KBs live at org level but Origami tracks this association "
+                    "as a soft hint for organization."
+                ),
+            },
+            "project_name": {
+                "type": "string",
+                "description": (
+                    "Optional display name of a project to associate this KB "
+                    "with. Resolved to a UUID server-side. KBs live at the org "
+                    "level so this is informational only."
+                ),
             },
         },
         "required": ["name"],
@@ -98,12 +114,48 @@ class CreateKbTool(OrigamiTool):
         if not name:
             return {"success": False, "error": "missing_name", "message": "KB name is required."}
 
+        # Resolve project association hint (KBs are org-scoped at the DB
+        # level — this is a soft association stored in source_config so
+        # the UI and Origami can show "scoped to project X").
+        from app.models.project import Project as ProjectModel
+
+        project_hint: Optional[uuid.UUID] = None
+        project_id_raw = params.get("project_id")
+        project_name = (params.get("project_name") or "").strip()
+
+        if project_id_raw:
+            try:
+                pid = uuid.UUID(str(project_id_raw))
+                check = await db.execute(
+                    select(ProjectModel).where(
+                        ProjectModel.id == pid, ProjectModel.org_id == org_id
+                    )
+                )
+                if check.scalar_one_or_none():
+                    project_hint = pid
+            except (TypeError, ValueError):
+                pass
+        elif project_name:
+            check = await db.execute(
+                select(ProjectModel).where(
+                    ProjectModel.name == project_name,
+                    ProjectModel.org_id == org_id,
+                )
+            )
+            row = check.scalar_one_or_none()
+            if row:
+                project_hint = row.id
+
+        source_config: dict[str, Any] = {}
+        if project_hint:
+            source_config["project_id"] = str(project_hint)
+
         kb = KnowledgeBase(
             org_id=org_id,
             name=name,
             description=params.get("description"),
             source_type="upload",
-            source_config={},
+            source_config=source_config,
             embedding_model=params.get("embedding_model") or "auto",
             status="pending",
         )
@@ -117,5 +169,6 @@ class CreateKbTool(OrigamiTool):
             "name": kb.name,
             "status": kb.status,
             "embedding_model": kb.embedding_model,
+            "project_id": str(project_hint) if project_hint else None,
             "next_step": "Upload documents via upload_to_kb, or link to an agent via link_kb_to_agent.",
         }
