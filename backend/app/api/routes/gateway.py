@@ -619,6 +619,15 @@ async def completions(
             detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
         )
 
+    # Monthly request volume cap per tier (gateway_calls_per_month).
+    # Counts /v1/chat/completions + /v1/completions + /v1/embeddings +
+    # /v1/images + /v1/videos toward the same monthly bucket.
+    try:
+        from app.services.feature_gate import feature_gate
+        await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+    except HTTPException as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
     # Policy enforcement
     try:
         await gateway_service.enforce_policies(db, key, request.model)
@@ -652,6 +661,16 @@ async def embeddings(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
         )
+
+    # Monthly request volume cap per tier (gateway_calls_per_month).
+    # Embedding calls count toward the same monthly bucket as chat /
+    # completions / images / videos so a customer can't burn unlimited
+    # embeddings on a low-tier plan.
+    try:
+        from app.services.feature_gate import feature_gate
+        await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+    except HTTPException as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
 
     # Policy enforcement
     try:
