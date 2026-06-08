@@ -63,6 +63,22 @@ class ConnectAgentsTool(OrigamiTool):
                 "type": "string",
                 "description": "Display name of the target agent — resolved to a UUID server-side.",
             },
+            "from_agent_id": {
+                "type": "string",
+                "description": "Alias for source_agent_id. Accepted because models often use from/to terminology.",
+            },
+            "from_agent_name": {
+                "type": "string",
+                "description": "Alias for source_agent_name.",
+            },
+            "to_agent_id": {
+                "type": "string",
+                "description": "Alias for target_agent_id.",
+            },
+            "to_agent_name": {
+                "type": "string",
+                "description": "Alias for target_agent_name.",
+            },
             "connection_type": {
                 "type": "string",
                 "enum": sorted(_VALID_TYPES),
@@ -104,22 +120,30 @@ class ConnectAgentsTool(OrigamiTool):
                 ),
             }
 
+        # Accept from_*/to_* as aliases for source_*/target_* — models
+        # routinely use the friendlier names. Prefer the canonical name
+        # if both are set.
+        source_uuid = params.get("source_agent_id") or params.get("from_agent_id")
+        source_name = (
+            params.get("source_agent_name")
+            or params.get("from_agent_name")
+            or ""
+        ).strip()
+        target_uuid = params.get("target_agent_id") or params.get("to_agent_id")
+        target_name = (
+            params.get("target_agent_name")
+            or params.get("to_agent_name")
+            or ""
+        ).strip()
+
         source = await _resolve_agent(
-            db,
-            org_id=org_id,
-            uuid_raw=params.get("source_agent_id"),
-            name=(params.get("source_agent_name") or "").strip(),
-            role="source",
+            db, org_id=org_id, uuid_raw=source_uuid, name=source_name, role="source",
         )
         if isinstance(source, dict):
-            return source  # error envelope
+            return source
 
         target = await _resolve_agent(
-            db,
-            org_id=org_id,
-            uuid_raw=params.get("target_agent_id"),
-            name=(params.get("target_agent_name") or "").strip(),
-            role="target",
+            db, org_id=org_id, uuid_raw=target_uuid, name=target_name, role="target",
         )
         if isinstance(target, dict):
             return target
@@ -231,8 +255,14 @@ async def _resolve_agent(
         )
         agent = row.scalar_one_or_none()
     elif name:
+        # Names CAN duplicate across an org (no unique constraint). Pick the
+        # most recently created so chained writes in the same plan always
+        # find the agent that was just created earlier in the plan.
         row = await db.execute(
-            select(Agent).where(Agent.name == name, Agent.org_id == org_id)
+            select(Agent)
+            .where(Agent.name == name, Agent.org_id == org_id)
+            .order_by(Agent.created_at.desc())
+            .limit(1)
         )
         agent = row.scalar_one_or_none()
     else:

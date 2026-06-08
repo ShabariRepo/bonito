@@ -97,7 +97,10 @@ class LinkKbToAgentTool(OrigamiTool):
             agent = agent_row.scalar_one_or_none()
         elif agent_name:
             agent_row = await db.execute(
-                select(Agent).where(Agent.name == agent_name, Agent.org_id == org_id)
+                select(Agent)
+                .where(Agent.name == agent_name, Agent.org_id == org_id)
+                .order_by(Agent.created_at.desc())
+                .limit(1)
             )
             agent = agent_row.scalar_one_or_none()
         else:

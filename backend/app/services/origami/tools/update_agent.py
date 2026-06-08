@@ -104,7 +104,10 @@ class UpdateAgentTool(OrigamiTool):
                         "message": "agent_id must be a valid UUID."}
         elif agent_name:
             row = await db.execute(
-                select(Agent).where(Agent.name == agent_name, Agent.org_id == org_id)
+                select(Agent)
+                .where(Agent.name == agent_name, Agent.org_id == org_id)
+                .order_by(Agent.created_at.desc())
+                .limit(1)
             )
             named = row.scalar_one_or_none()
             if not named:
