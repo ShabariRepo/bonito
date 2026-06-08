@@ -218,7 +218,9 @@ class ShowEnterpriseOptionsTool(OrigamiTool):
         # Tier headlines
         tier_pricing = {
             "free": "$0 — invite-only, 3 providers, 25K requests/mo, basic failover.",
+            "builder": "$49/mo — 3 providers, 100K req/mo, 1 seat, 10 agents, RAG (1 KB). For solo builders.",
             "starter": "$199/mo — 3 providers, 100K req/mo, 5 seats, 2 agents.",
+            "growth": "$349/mo — 3 providers, 250K req/mo, 5 seats, 50 agents, RAG (5 KBs), approval queue, scheduled execution.",
             "pro": "$999/mo — 5 providers, 500K req/mo, unlimited seats, 5 agents.",
             "enterprise": "Starts at $6K/mo (typical band $6K-$20K) — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA. Single SKU; Enterprise+ with dedicated infra + multi-region + named TAM is on the roadmap.",
             "scale": "Custom ($200K+/yr) — dedicated infra, multi-region, 99.99% SLA, custom fine-tuning, dedicated account team.",

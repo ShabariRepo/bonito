@@ -24,7 +24,9 @@ logger = logging.getLogger(__name__)
 
 class SubscriptionTier(str, Enum):
     FREE = "free"
+    BUILDER = "builder"
     STARTER = "starter"
+    GROWTH = "growth"
     PRO = "pro"
     ENTERPRISE = "enterprise"
     SCALE = "scale"
@@ -89,6 +91,33 @@ class TierLimits:
             }
         },
 
+        SubscriptionTier.BUILDER: {
+            "providers": 3,
+            "gateway_calls_per_month": 100000,
+            "members": 1,
+            "features": {
+                "models": True,
+                "playground": True,
+                "routing": True,
+                "ai_context": True,
+                "analytics": False,
+                "cli": True,
+                "audit": False,
+                "notifications": False,
+                "budget_alerts": False,
+                "vectorboost": False,
+                "agent_hpa": False,
+                "sso": False,
+                "rbac": False,
+                "iac_templates": False,
+                "compliance": False,
+                "on_premise": False,
+                "custom_integrations": False,
+                "dedicated_support": False,
+                "bonbon_agents": 1,
+            }
+        },
+
         SubscriptionTier.STARTER: {
             "providers": 3,
             "gateway_calls_per_month": 100000,
@@ -113,6 +142,33 @@ class TierLimits:
                 "custom_integrations": False,
                 "dedicated_support": False,
                 "bonbon_agents": 2,
+            }
+        },
+
+        SubscriptionTier.GROWTH: {
+            "providers": 3,
+            "gateway_calls_per_month": 250000,
+            "members": 5,
+            "features": {
+                "models": True,
+                "playground": True,
+                "routing": True,
+                "ai_context": True,
+                "analytics": True,
+                "cli": True,
+                "audit": True,
+                "notifications": True,
+                "budget_alerts": True,
+                "vectorboost": False,
+                "agent_hpa": False,
+                "sso": False,
+                "rbac": False,
+                "iac_templates": False,
+                "compliance": False,
+                "on_premise": False,
+                "custom_integrations": False,
+                "dedicated_support": False,
+                "bonbon_agents": 3,
             }
         },
 
@@ -211,7 +267,7 @@ class TierLimits:
     @classmethod
     def get_required_tier_for_feature(cls, feature: str) -> Optional[SubscriptionTier]:
         """Get the minimum tier required for a feature"""
-        for tier in [SubscriptionTier.FREE, SubscriptionTier.STARTER, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE, SubscriptionTier.SCALE]:
+        for tier in [SubscriptionTier.FREE, SubscriptionTier.BUILDER, SubscriptionTier.STARTER, SubscriptionTier.GROWTH, SubscriptionTier.PRO, SubscriptionTier.ENTERPRISE, SubscriptionTier.SCALE]:
             if cls.get_feature_access(tier, feature):
                 return tier
         return None

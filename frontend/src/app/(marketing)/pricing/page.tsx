@@ -27,10 +27,10 @@ const plans = [
   },
   {
     name: "Builder",
-    price: "TBD",
-    period: "",
+    price: "$49",
+    period: "/mo",
     description: "For solo builders and indie devs shipping their first agentic app.",
-    badge: "NEW · COMING SOON",
+    badge: "NEW",
     features: [
       "Up to 3 cloud providers",
       "100,000 gateway API calls / month",
@@ -44,15 +44,15 @@ const plans = [
       "Email support",
       "30-day audit log retention",
     ],
-    cta: "Notify Me",
+    cta: "Start Free Trial",
     highlighted: false,
   },
   {
     name: "Growth",
-    price: "TBD",
-    period: "",
+    price: "$349",
+    period: "/mo",
     description: "For small teams scaling agents across multiple workstreams.",
-    badge: "NEW · COMING SOON",
+    badge: "NEW",
     features: [
       "Up to 5 cloud providers",
       "250,000 gateway API calls / month",
@@ -66,7 +66,7 @@ const plans = [
       "Token efficiency metrics",
       "60-day audit log retention",
     ],
-    cta: "Notify Me",
+    cta: "Start Free Trial",
     highlighted: false,
   },
   {

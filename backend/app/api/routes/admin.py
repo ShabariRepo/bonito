@@ -1054,15 +1054,17 @@ async def tier_utilization(
 
     # Per-tier provider caps (from CLAUDE.md tier descriptions)
     PROVIDER_CAPS = {
-        "free": 3, "starter": 3, "pro": 5,
+        "free": 3, "builder": 3, "starter": 3, "growth": 3, "pro": 5,
         "enterprise": None, "scale": None,  # unlimited
     }
     # Per-tier monthly tier band (for "revenue at risk" stat)
     TIER_BAND = {
         "free": 0,
+        "builder": 49,
         "starter": 199,
+        "growth": 349,
         "pro": 999,
-        "enterprise": 6000,  # new starts-at-$6K
+        "enterprise": 6000,  # starts-at-$6K
         "scale": 16667,      # ~$200K/yr / 12
     }
 

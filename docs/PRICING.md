@@ -22,6 +22,26 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 
 ---
 
+### Builder — $49/month
+
+For solo builders and indie devs shipping their first agentic app. Below Starter; above Free.
+
+| Feature | Included |
+|---|---|
+| Cloud provider connections | 3 |
+| Gateway requests | 100,000 / month |
+| Team seats | 1 |
+| Knowledge Bases | 1 |
+| Bonbon agents | Up to 10 |
+| AI Context (RAG) | ✅ |
+| CLI access | ✅ |
+| Memwright conversational memory | ✅ |
+| Cost analytics | — |
+| Audit log retention | 30 days |
+| Support | Community + email (72h response target) |
+
+---
+
 ### Starter — $199/month
 
 For small teams getting serious about multi-cloud AI. The "swipe your card without procurement" tier.
@@ -40,6 +60,28 @@ For small teams getting serious about multi-cloud AI. The "swipe your card witho
 | Support | Email |
 | Log retention | 45 days |
 | PATs | 5 |
+
+---
+
+### Growth — $349/month
+
+For small teams scaling agents across multiple workstreams. Between Starter and Pro.
+
+| Feature | Included |
+|---|---|
+| Cloud provider connections | 3 |
+| Gateway requests | 250,000 / month |
+| Team seats | 5 |
+| Knowledge Bases | 5 |
+| Bonbon agents | Up to 50 |
+| AI Context (RAG) | ✅ |
+| Persistent agent memory + vector search | ✅ |
+| Approval queue / human-in-the-loop | ✅ |
+| Scheduled autonomous execution | ✅ |
+| Token efficiency metrics | ✅ |
+| Cost analytics | ✅ |
+| Audit log retention | 60 days |
+| Support | Email (24h response target) |
 
 ---
 
