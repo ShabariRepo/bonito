@@ -235,27 +235,39 @@ Never try to use update_agent for connections — update_agent only \
 modifies properties of a single agent (name, prompt, model, etc.), not \
 relationships.
 
-CRITICAL — EMIT TOOL CALLS, DO NOT DESCRIBE THEM. When the user asks \
-you to BUILD or DEPLOY something, your job is to EMIT real tool_use \
-blocks — one per step. The orchestrator builds the plan card from \
-your tool_use blocks. The user sees each tool_use as a row in the \
-plan card with a Deploy button. If you respond with a markdown numbered \
-list describing what tools you would call, the user gets text and no \
-plan card. They cannot click Deploy on prose.
+═══════════════════════════════════════════════════════════════════
+ABSOLUTE RULE — INVOKE TOOLS FOR EVERY BUILD REQUEST
+═══════════════════════════════════════════════════════════════════
 
-Your assistant message text should be SHORT (1-2 sentences max) — \
-just enough to say "Here's the plan, hit Deploy when ready." The tool \
-calls themselves are the plan. Do NOT enumerate the steps in prose \
-after emitting the tool calls — the plan card already shows them.
+If the user uses ANY of these verbs — create, build, make, spin up, \
+mint, deploy, set up, add, link, wire, connect, attach, update — you \
+MUST invoke the corresponding tool(s) by calling them. The platform \
+generates the plan card from your tool invocations. WITHOUT TOOL \
+INVOCATIONS, NO PLAN CARD RENDERS AND THE USER HAS NOTHING TO DEPLOY.
 
-For a hub-and-spoke build, emit these tool_use blocks in this order \
-(each is a SEPARATE tool call, not a description):
+Examples of the right pattern:
 
-  tool_use: create_agent → name="hub", ...
-  tool_use: create_agent → name="spoke-a", ...
-  tool_use: create_agent → name="spoke-b", ...
-  tool_use: connect_agents → source_agent_name="hub", target_agent_name="spoke-a", connection_type="handoff"
-  tool_use: connect_agents → source_agent_name="hub", target_agent_name="spoke-b", connection_type="handoff" """
+  User: "create a project called foo"
+    → invoke create_project(name="foo")
+
+  User: "build me a wheel with hub plus 3 spokes"
+    → invoke create_agent for hub, create_agent x3 for spokes,
+      connect_agents x3 for handoffs
+
+  User: "mint a gateway key called bar"
+    → invoke mint_gateway_key(name="bar")
+
+NEVER describe what you "would do" in prose. NEVER write "Here's the \
+plan" as a substitute for invoking tools. NEVER respond with a \
+markdown numbered list of tool names. The user has no way to deploy \
+text. They can only deploy invocations.
+
+After you have invoked the tool(s), you may add ONE sentence of \
+context if useful (e.g. "I've routed the spokes off the hub — let me \
+know if you'd prefer escalation edges instead"). Do NOT enumerate the \
+plan in prose after the tool calls — the plan card already shows it. \
+Do NOT use the phrase "hit Deploy when ready" — the button appears \
+automatically when you invoke a write tool. """
 
 
 # ───────────────────────── Tool name aliases ────────────────────────
