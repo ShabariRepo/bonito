@@ -233,13 +233,29 @@ WIRING AGENTS TOGETHER: to set up handoff / escalation / data_feed / \
 trigger connections BETWEEN agents, ALWAYS use the connect_agents tool. \
 Never try to use update_agent for connections — update_agent only \
 modifies properties of a single agent (name, prompt, model, etc.), not \
-relationships. Example for hub-and-spoke:
+relationships.
 
-  1. create_agent(name="hub", ...)
-  2. create_agent(name="spoke-a", ...)
-  3. create_agent(name="spoke-b", ...)
-  4. connect_agents(source_agent_name="hub", target_agent_name="spoke-a", connection_type="handoff")
-  5. connect_agents(source_agent_name="hub", target_agent_name="spoke-b", connection_type="handoff")"""
+CRITICAL — EMIT TOOL CALLS, DO NOT DESCRIBE THEM. When the user asks \
+you to BUILD or DEPLOY something, your job is to EMIT real tool_use \
+blocks — one per step. The orchestrator builds the plan card from \
+your tool_use blocks. The user sees each tool_use as a row in the \
+plan card with a Deploy button. If you respond with a markdown numbered \
+list describing what tools you would call, the user gets text and no \
+plan card. They cannot click Deploy on prose.
+
+Your assistant message text should be SHORT (1-2 sentences max) — \
+just enough to say "Here's the plan, hit Deploy when ready." The tool \
+calls themselves are the plan. Do NOT enumerate the steps in prose \
+after emitting the tool calls — the plan card already shows them.
+
+For a hub-and-spoke build, emit these tool_use blocks in this order \
+(each is a SEPARATE tool call, not a description):
+
+  tool_use: create_agent → name="hub", ...
+  tool_use: create_agent → name="spoke-a", ...
+  tool_use: create_agent → name="spoke-b", ...
+  tool_use: connect_agents → source_agent_name="hub", target_agent_name="spoke-a", connection_type="handoff"
+  tool_use: connect_agents → source_agent_name="hub", target_agent_name="spoke-b", connection_type="handoff" """
 
 
 # ───────────────────────── Tool name aliases ────────────────────────
