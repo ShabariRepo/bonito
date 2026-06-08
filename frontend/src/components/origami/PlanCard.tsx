@@ -160,6 +160,20 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
                 "failed",
                 typeof ev.error === "string" ? ev.error : ev.code || "failed",
               );
+            } else if (ev.type === "tool_retried" && typeof ev.step === "number") {
+              // Auto-repair retry — flip the row back to running. Allow
+              // regression from "failed" specifically (our updateStep
+              // normally refuses to regress done/failed back to running).
+              setStepStates((prev) => {
+                const next = prev.slice();
+                next[ev.step] = "running";
+                return next;
+              });
+              setStepErrors((prev) => {
+                const next = prev.slice();
+                next[ev.step] = `auto-retry: ${ev.repair}`;
+                return next;
+              });
             } else if (ev.type === "execution_done") {
               setFinalStatus(ev.status || "done");
               // Sweep any still-queued steps to a final state so the UI

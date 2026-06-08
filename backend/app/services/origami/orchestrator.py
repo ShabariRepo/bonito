@@ -1227,24 +1227,54 @@ async def execute_plan(
             # should be counted as failures even though no exception fired.
             tool_succeeded = result.get("success", True) if isinstance(result, dict) else True
             if not tool_succeeded:
-                yield OrigamiEvent("tool_failed", {
-                    "tool_name": change.action,
-                    "step": step_idx,
-                    "error": (result.get("message") or result.get("error") or "unspecified") if isinstance(result, dict) else "unknown",
-                    "code": result.get("error") if isinstance(result, dict) else None,
-                })
-                failed_count += 1
-                await metering.record_origami_audit(
-                    db=db, org_id=user.org_id, user_id=user.id,
-                    og_token_id=None, project_id=project_id,
-                    session_id=session_id,
-                    plan_card_id=uuid.UUID(plan_card_id),
-                    intent_summary=plan.intent, tool_name=change.action,
-                    tool_params=params, tier_at_time=tier,
-                    confirmation="user_clicked", status="failed",
-                    error=str(result.get("message") or result.get("error"))[:1000] if isinstance(result, dict) else None,
+                # ── AUTO-RETRY with smart param repair ──────────────────
+                # Try to infer corrected params and re-run once before
+                # giving up. Solves the common model errors (missing
+                # source_agent_name, bare-name agent_id, etc).
+                repair = _repair_failed_step(
+                    resolved_action, params, result, plan.changes, step_idx, step_results,
                 )
-                continue
+                if repair is not None:
+                    repaired_params, repair_note = repair
+                    yield OrigamiEvent("tool_retried", {
+                        "tool_name": change.action,
+                        "step": step_idx,
+                        "repair": repair_note,
+                    })
+                    try:
+                        result = await instance.execute(
+                            org_id=user.org_id, user=user,
+                            params=repaired_params, db=db,
+                        )
+                        # Update step_results with the new outcome
+                        step_results[-1] = result if isinstance(result, dict) else {}
+                        results[-1] = {"action": change.action, "result": result}
+                        params = repaired_params
+                        tool_succeeded = result.get("success", True) if isinstance(result, dict) else True
+                    except Exception as retry_e:
+                        logger.exception("execute_plan: retry of %s also failed", change.action)
+                        tool_succeeded = False
+
+                if not tool_succeeded:
+                    yield OrigamiEvent("tool_failed", {
+                        "tool_name": change.action,
+                        "step": step_idx,
+                        "error": (result.get("message") or result.get("error") or "unspecified") if isinstance(result, dict) else "unknown",
+                        "code": result.get("error") if isinstance(result, dict) else None,
+                    })
+                    failed_count += 1
+                    await metering.record_origami_audit(
+                        db=db, org_id=user.org_id, user_id=user.id,
+                        og_token_id=None, project_id=project_id,
+                        session_id=session_id,
+                        plan_card_id=uuid.UUID(plan_card_id),
+                        intent_summary=plan.intent, tool_name=change.action,
+                        tool_params=params, tier_at_time=tier,
+                        confirmation="user_clicked", status="failed",
+                        error=str(result.get("message") or result.get("error"))[:1000] if isinstance(result, dict) else None,
+                    )
+                    continue
+                # Retry succeeded — fall through to the tool_completed path below
 
             yield OrigamiEvent("tool_completed", {
                 "tool_name": change.action,
@@ -1501,6 +1531,79 @@ def _heuristic_fill_link_params(
                 out["kb_id"] = sr["kb_id"]
                 break
     return out
+
+
+def _repair_failed_step(
+    action: str,
+    params: dict[str, Any],
+    result: dict[str, Any],
+    plan_changes: list[Any],
+    step_idx: int,
+    step_results: list[dict[str, Any]],
+) -> Optional[tuple[dict[str, Any], str]]:
+    """Attempt to repair a failed tool call so it can be auto-retried.
+
+    Returns (repaired_params, repair_note) if a fix is possible, None if not.
+    The repair_note is a short human-readable string streamed to the UI
+    so the user can see "auto-corrected: inferred source from create_agent
+    step 4".
+
+    Repair patterns supported:
+    - connect_agents missing source_agent_name: infer from the first
+      create_agent step in the plan (typically the hub).
+    - update_agent agent_id not a UUID and no agent_name: try agent_id
+      as agent_name.
+    - Any tool where agent_id is a bare display name string: convert to
+      agent_name.
+    """
+    if not isinstance(result, dict):
+        return None
+    error_code = result.get("error", "")
+    error_msg = result.get("message", "")
+
+    # ── connect_agents — missing source_agent_name ────────────────────
+    if action == "connect_agents" and "source" in error_code:
+        # Find the first create_agent invocation in the plan (likely the hub)
+        hub_name = None
+        for c in plan_changes:
+            if c.action == "create_agent":
+                hub_name = c.params.get("name")
+                if hub_name:
+                    break
+        if hub_name:
+            repaired = dict(params)
+            repaired["source_agent_name"] = hub_name
+            return repaired, f"inferred source_agent_name='{hub_name}' from plan's first create_agent"
+
+    # ── update_agent / link_kb_to_agent — agent_id is a bare name ────
+    if action in {"update_agent", "link_kb_to_agent"} and error_code in {"invalid_agent_id", "agent_not_found"}:
+        agent_id_raw = params.get("agent_id")
+        if isinstance(agent_id_raw, str) and not _looks_uuid(agent_id_raw) and not params.get("agent_name"):
+            repaired = dict(params)
+            repaired.pop("agent_id", None)
+            repaired["agent_name"] = agent_id_raw
+            return repaired, f"reinterpreted '{agent_id_raw}' as agent_name (not a UUID)"
+
+    # ── upload_to_kb — kb_id is a bare name ──────────────────────────
+    if action == "upload_to_kb" and error_code in {"invalid_kb_id", "kb_not_found"}:
+        kb_id_raw = params.get("kb_id")
+        if isinstance(kb_id_raw, str) and not _looks_uuid(kb_id_raw) and not params.get("kb_name"):
+            repaired = dict(params)
+            repaired.pop("kb_id", None)
+            repaired["kb_name"] = kb_id_raw
+            return repaired, f"reinterpreted '{kb_id_raw}' as kb_name"
+
+    return None
+
+
+def _looks_uuid(s: Any) -> bool:
+    if not isinstance(s, str):
+        return False
+    try:
+        uuid.UUID(s)
+        return True
+    except (ValueError, AttributeError):
+        return False
 
 
 def _try_parse_function_call_syntax(text: str) -> Optional[tuple[str, dict[str, Any]]]:

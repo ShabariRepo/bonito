@@ -76,6 +76,7 @@ export type OrigamiEvent =
       result_summary?: Record<string, unknown>;
     }
   | { type: "tool_failed"; tool_name: string; tool_call_id?: string; step?: number; error?: string; code?: string }
+  | { type: "tool_retried"; tool_name: string; step?: number; repair: string }
   | { type: "plan_ready"; plan_card: PlanCardData }
   | { type: "awaiting_confirmation"; plan_card_id: string }
   | { type: "execution_started"; plan_card_id: string; total_steps: number }
@@ -299,6 +300,40 @@ export function useOrigamiSession() {
               : entry,
           ),
         );
+        break;
+      }
+
+      case "tool_retried": {
+        // Auto-retry happened — flip the row back to "creating" with a
+        // small retry note. tool_completed (or tool_failed) will follow
+        // and resolve to its final state.
+        const stepIdx = ev.step;
+        setResources((rs) =>
+          rs.map((r) => {
+            const meta = r.meta as { action?: string; step?: number; repair?: string } | undefined;
+            const actionMatches = meta?.action === ev.tool_name;
+            const stepMatches = stepIdx === undefined || meta?.step === stepIdx;
+            if (actionMatches && stepMatches) {
+              return {
+                ...r,
+                state: "creating" as ResourceState,
+                error: undefined,
+                meta: { ...(r.meta || {}), repair: ev.repair },
+              };
+            }
+            return r;
+          }),
+        );
+        setActivity((a) => [
+          ...a,
+          {
+            id: `retry-${ev.step}-${Date.now()}`,
+            tool: ev.tool_name,
+            status: "running",
+            startedAt: Date.now(),
+            summary: { note: `auto-retry: ${ev.repair}` },
+          },
+        ]);
         break;
       }
 
