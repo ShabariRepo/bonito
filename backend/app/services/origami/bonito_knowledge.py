@@ -1,14 +1,25 @@
-"""bonito_knowledge — per-org "bonito-knowledge" KB seeding and retrieval.
+"""bonito_knowledge — PLATFORM-SHARED knowledge base for Origami.
 
-The Origami orchestrator can manipulate platform state (create projects,
-agents, KBs, gateway keys) but it cannot answer "how does Bonito work"
-questions without a corpus to read from. This module provides the
-seeding side (write platform docs + OpenAPI schema + CLI help into a
-per-org `bonito-knowledge` KB) and the retrieval side (embed a query,
-return top-K matching chunks for RAG injection into the system prompt).
+Origami is the conversational builder for non-technical users. They need
+to ask "how do I connect a provider", "what's a project token", "how do
+I use the CLI" and get real answers. Those answers don't change between
+customers — the same Bonito docs apply to every org.
 
-Both sides reuse `kb_ingestion.EmbeddingGenerator` + `search_chunks`,
-so we don't reinvent the embed/vector layer.
+So bonito-knowledge is a SINGLE platform-shared KB, not per-org. It
+lives under a designated platform organization, gets seeded once, and is
+read by Origami's orchestrator on every turn regardless of which
+customer is chatting. The customer's own org_id still controls every
+write (projects, agents, KBs they build) — only the platform reference
+corpus is shared.
+
+Implementation:
+- A platform Organization is auto-created with a fixed UUID
+  (PLATFORM_ORG_ID). The seeded KB lives there with source_type='platform'.
+- retrieve_context_for_query bypasses the caller's org_id and reads the
+  platform KB directly. Safe because the content is platform docs only,
+  never customer data.
+- seed_platform_knowledge() is idempotent; ops/cron can re-run on every
+  docs update and only new chunks land.
 """
 
 from __future__ import annotations
@@ -24,74 +35,99 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 
+# Fixed UUID for the platform-shared organization that hosts bonito-knowledge.
+# Picked as a recognizable-but-unlikely-to-collide value. Stored in the
+# organizations table once, then reused forever.
+PLATFORM_ORG_ID = uuid.UUID("00000000-0000-0000-0000-b04170900001")
+PLATFORM_ORG_NAME = "_bonito_platform"
+
 BONITO_KNOWLEDGE_KB_NAME = "bonito-knowledge"
 BONITO_KNOWLEDGE_DESCRIPTION = (
     "Platform reference corpus: Bonito docs, OpenAPI surface, and CLI "
-    "help. Used by Origami to answer 'how does X work' questions."
+    "help. Shared across all orgs. Read by Origami on every turn so "
+    "non-technical users can ask 'how does X work' and get real answers."
 )
+BONITO_KNOWLEDGE_SOURCE_TYPE = "platform"
 
 
-async def get_or_create_bonito_knowledge_kb(
-    db: AsyncSession,
-    org_id: uuid.UUID,
-):
-    """Return the org's bonito-knowledge KB, creating it if missing.
+async def _ensure_platform_org(db: AsyncSession):
+    """Make sure the platform organization row exists. Returns the row."""
+    from app.models.organization import Organization
 
-    Idempotent. Safe to call on every Origami turn (it just SELECTs after
-    the first call).
+    row = await db.execute(
+        select(Organization).where(Organization.id == PLATFORM_ORG_ID)
+    )
+    org = row.scalar_one_or_none()
+    if org:
+        return org
+
+    org = Organization(
+        id=PLATFORM_ORG_ID,
+        name=PLATFORM_ORG_NAME,
+        subscription_tier="enterprise",  # so it has no quota limits
+    )
+    db.add(org)
+    await db.flush()
+    return org
+
+
+async def get_or_create_platform_kb(db: AsyncSession):
+    """Return the platform-shared bonito-knowledge KB, creating if missing.
+
+    Idempotent. Safe to call on every Origami turn (just SELECTs after
+    the first time).
     """
     from app.models.knowledge_base import KnowledgeBase
 
     row = await db.execute(
         select(KnowledgeBase).where(
-            KnowledgeBase.org_id == org_id,
             KnowledgeBase.name == BONITO_KNOWLEDGE_KB_NAME,
+            KnowledgeBase.source_type == BONITO_KNOWLEDGE_SOURCE_TYPE,
         )
     )
     kb = row.scalar_one_or_none()
     if kb:
         return kb
 
+    await _ensure_platform_org(db)
+
     kb = KnowledgeBase(
-        org_id=org_id,
+        org_id=PLATFORM_ORG_ID,
         name=BONITO_KNOWLEDGE_KB_NAME,
         description=BONITO_KNOWLEDGE_DESCRIPTION,
-        source_type="manual",  # docs come from extractors, not a cloud bucket
+        source_type=BONITO_KNOWLEDGE_SOURCE_TYPE,
         status="active",
     )
     db.add(kb)
     await db.flush()
+    await db.commit()
     return kb
 
 
-async def seed_for_org(
+async def seed_platform_knowledge(
     db: AsyncSession,
-    org_id: uuid.UUID,
     sources: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Run the ingestion extractors and write IngestionRecords into the
-    org's bonito-knowledge KB as KBDocuments with status='pending'.
+    platform-shared bonito-knowledge KB as KBDocuments with status='pending'.
 
-    The existing kb_ingestion pipeline picks up pending docs from there,
-    chunks + embeds + writes vectors. Same path as inline `upload_to_kb`.
+    Runs ONCE for the whole platform, not per-org. Idempotent — re-running
+    only inserts new records (matched by stable_id stored as file_name).
 
     Returns a summary dict with counts per source + total written.
     """
     from app.models.knowledge_base import KBDocument
     from app.services.origami.ingestion.unified_ingester import ingest_all, summarize
 
-    kb = await get_or_create_bonito_knowledge_kb(db, org_id)
+    kb = await get_or_create_platform_kb(db)
 
     records = ingest_all(sources=sources) if sources else ingest_all()
     summary = summarize(records)
 
-    # Idempotency: skip records whose stable_id already exists for this KB.
-    # The KBDocument.file_name column carries the stable_id so future re-runs
-    # only insert new chunks.
     existing_rows = await db.execute(
         select(KBDocument.file_name).where(
             KBDocument.knowledge_base_id == kb.id,
-            KBDocument.org_id == org_id,
+            KBDocument.org_id == PLATFORM_ORG_ID,
         )
     )
     existing_ids = {r[0] for r in existing_rows.all()}
@@ -104,7 +140,7 @@ async def seed_for_org(
         content_bytes = r.content.encode("utf-8")
         kbd = KBDocument(
             knowledge_base_id=kb.id,
-            org_id=org_id,
+            org_id=PLATFORM_ORG_ID,
             file_name=sid,
             file_path=None,
             file_type="md",
@@ -126,6 +162,7 @@ async def seed_for_org(
     return {
         "kb_id": str(kb.id),
         "kb_name": kb.name,
+        "platform_org_id": str(PLATFORM_ORG_ID),
         "extracted": summary,
         "written": written,
         "skipped_existing": len(existing_ids),
@@ -134,25 +171,31 @@ async def seed_for_org(
 
 async def retrieve_context_for_query(
     db: AsyncSession,
-    org_id: uuid.UUID,
     query: str,
     top_k: int = 3,
     min_score: float = 0.4,
+    # Backwards-compat: orchestrator used to pass org_id. Accept and ignore.
+    org_id: Optional[uuid.UUID] = None,
 ) -> list[dict[str, Any]]:
-    """Embed `query`, search the org's bonito-knowledge KB, return top-K chunks.
+    """Embed `query`, search the PLATFORM-shared bonito-knowledge KB,
+    return top-K chunks.
 
-    Returns an empty list if the KB doesn't exist yet OR if no chunks match
-    above min_score. The orchestrator should gracefully skip injection in
-    those cases (a fresh org with no seed = no platform context, fall back
-    to the system prompt alone).
+    Cross-tenant by design: the platform KB is shared so all orgs see the
+    same answers about how Bonito works. The caller's org_id is accepted
+    for backwards-compat but unused — security is fine because the KB
+    only contains public platform documentation, no customer data.
+
+    Returns empty list if the platform KB hasn't been seeded yet OR no
+    chunks match above min_score. Orchestrator falls back to its baseline
+    system prompt in that case.
     """
     from app.models.knowledge_base import KnowledgeBase
     from app.services.kb_ingestion import EmbeddingGenerator, search_chunks
 
     kb_row = await db.execute(
         select(KnowledgeBase).where(
-            KnowledgeBase.org_id == org_id,
             KnowledgeBase.name == BONITO_KNOWLEDGE_KB_NAME,
+            KnowledgeBase.source_type == BONITO_KNOWLEDGE_SOURCE_TYPE,
         )
     )
     kb = kb_row.scalar_one_or_none()
@@ -160,7 +203,7 @@ async def retrieve_context_for_query(
         return []
 
     try:
-        gen = EmbeddingGenerator(org_id=org_id)
+        gen = EmbeddingGenerator(org_id=PLATFORM_ORG_ID)
         embeddings = await gen.generate_embeddings(
             [query],
             dimensions=kb.embedding_dimensions if hasattr(kb, "embedding_dimensions") else None,
@@ -173,12 +216,14 @@ async def retrieve_context_for_query(
         return []
 
     try:
+        # Use the platform org_id to satisfy search_chunks' ownership check.
+        # The KB belongs to the platform org by design.
         chunks = await search_chunks(
             kb_id=kb.id,
             query_embedding=embeddings[0],
             top_k=top_k,
             min_score=min_score,
-            org_id=org_id,
+            org_id=PLATFORM_ORG_ID,
         )
     except Exception as e:
         logger.warning("bonito-knowledge vector search failed: %s", e)
@@ -195,15 +240,46 @@ def format_context_for_prompt(chunks: list[dict[str, Any]]) -> str:
     """
     if not chunks:
         return ""
-    parts = ["## Platform reference (retrieved from bonito-knowledge):"]
+    parts = ["## Bonito platform reference (use as ground truth when explaining how the product works):"]
     for i, c in enumerate(chunks, start=1):
         text = c.get("content") or c.get("text") or ""
         if not text:
             continue
         parts.append(f"\n[{i}] {text.strip()}")
     parts.append(
-        "\nUse the above as ground truth when the user asks about how "
-        "Bonito works. Cite specific terms when relevant. If the question "
-        "isn't covered above, say so plainly instead of guessing."
+        "\nWhen the user asks how Bonito works (providers, CLI, agents, "
+        "KBs, tokens, billing, etc.) use the snippets above. If the "
+        "question isn't covered, say so plainly instead of guessing. "
+        "Always tailor the answer to a non-technical reader unless they "
+        "ask for technical detail."
     )
     return "\n".join(parts)
+
+
+# ── Backwards-compat aliases (orchestrator + script still call old names) ─
+
+async def seed_for_org(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+    sources: Optional[list[str]] = None,
+) -> dict[str, Any]:
+    """DEPRECATED: alias to seed_platform_knowledge.
+
+    The KB is now platform-shared, so the org_id parameter is ignored.
+    Kept so existing scripts don't break. Prefer
+    seed_platform_knowledge() in new code.
+    """
+    logger.info(
+        "seed_for_org called with org_id=%s — routing to platform-shared KB. "
+        "org_id is ignored.",
+        org_id,
+    )
+    return await seed_platform_knowledge(db, sources=sources)
+
+
+async def get_or_create_bonito_knowledge_kb(
+    db: AsyncSession,
+    org_id: Optional[uuid.UUID] = None,
+):
+    """DEPRECATED: alias to get_or_create_platform_kb. org_id ignored."""
+    return await get_or_create_platform_kb(db)
