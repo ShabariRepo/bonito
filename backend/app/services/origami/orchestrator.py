@@ -512,9 +512,25 @@ async def run_origami_turn(
             logger.exception("Memwright recall failed (non-fatal)")
             memory_context = ""
 
+    # Pull relevant platform-reference chunks from bonito-knowledge so the
+    # model can answer "how does Bonito work" questions without guessing.
+    # Empty string if the KB isn't seeded yet (fresh org) — fail open.
+    platform_context = ""
+    try:
+        from app.services.origami import bonito_knowledge as bk
+        bk_chunks = await bk.retrieve_context_for_query(
+            db=db, org_id=org_id, query=message, top_k=3, min_score=0.4
+        )
+        platform_context = bk.format_context_for_prompt(bk_chunks)
+    except Exception:
+        logger.exception("bonito-knowledge retrieval failed (non-fatal)")
+        platform_context = ""
+
     user_content = message
     if memory_context:
         user_content = f"{memory_context}\n\nUser message: {message}"
+    if platform_context:
+        user_content = f"{platform_context}\n\n{user_content}"
 
     messages: list[dict[str, Any]] = [
         {"role": "user", "content": user_content},

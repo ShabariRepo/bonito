@@ -216,3 +216,117 @@ async def list_turns(
             for r in rows
         ],
     }
+
+
+@router.get("/launch-metrics")
+async def launch_metrics(
+    user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+):
+    """One-call launch readiness snapshot for Phase 4 monitoring.
+
+    Returns this-period vs. prior-period totals (turns, success rate,
+    avg tool calls, unique orgs / users) plus a daily breakdown for
+    sparklines and the top 10 tool names by call count.
+
+    Designed for a single dashboard fetch — no parameters.
+    """
+    now = datetime.now(timezone.utc)
+    this_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if this_start.month == 1:
+        prior_start = this_start.replace(year=this_start.year - 1, month=12)
+    else:
+        prior_start = this_start.replace(month=this_start.month - 1)
+
+    async def period_summary(start: datetime, end: datetime) -> dict:
+        r = await db.execute(
+            select(
+                func.count(OrigamiTurnLog.id).label("total"),
+                func.count(OrigamiTurnLog.id).filter(
+                    OrigamiTurnLog.status == "success"
+                ).label("success"),
+                func.coalesce(func.sum(OrigamiTurnLog.tool_calls_count), 0).label("tools"),
+                func.coalesce(func.sum(OrigamiTurnLog.cost_usd), 0).label("cost"),
+                func.count(func.distinct(OrigamiTurnLog.org_id)).label("orgs"),
+                func.count(func.distinct(OrigamiTurnLog.user_id)).label("users"),
+            )
+            .where(
+                OrigamiTurnLog.created_at >= start,
+                OrigamiTurnLog.created_at < end,
+            )
+        )
+        row = r.one()
+        total = int(row.total or 0)
+        success = int(row.success or 0)
+        return {
+            "total_turns": total,
+            "success_count": success,
+            "success_rate": round(success / total, 4) if total else 0.0,
+            "tool_calls_total": int(row.tools or 0),
+            "avg_tool_calls_per_turn": round(int(row.tools or 0) / total, 2) if total else 0.0,
+            "total_cost_usd": round(float(row.cost or 0), 4),
+            "unique_orgs": int(row.orgs or 0),
+            "unique_users": int(row.users or 0),
+        }
+
+    this_period = await period_summary(this_start, now)
+    prior_period = await period_summary(prior_start, this_start)
+
+    # Daily breakdown of this period (for sparkline)
+    daily = await db.execute(
+        select(
+            func.date_trunc("day", OrigamiTurnLog.created_at).label("day"),
+            func.count(OrigamiTurnLog.id).label("turns"),
+        )
+        .where(OrigamiTurnLog.created_at >= this_start)
+        .group_by("day")
+        .order_by("day")
+    )
+    daily_series = [
+        {"day": row.day.date().isoformat(), "turns": int(row.turns)}
+        for row in daily.all()
+    ]
+
+    # Top tools by call count this period
+    top_tools = await db.execute(
+        select(
+            OrigamiAuditLog.tool_name,
+            func.count(OrigamiAuditLog.id).label("calls"),
+            func.count(OrigamiAuditLog.id).filter(
+                OrigamiAuditLog.status == "success"
+            ).label("success"),
+        )
+        .where(OrigamiAuditLog.created_at >= this_start)
+        .group_by(OrigamiAuditLog.tool_name)
+        .order_by(desc("calls"))
+        .limit(10)
+    )
+    top_tools_list = [
+        {
+            "tool_name": row.tool_name,
+            "calls": int(row.calls),
+            "success_count": int(row.success),
+            "success_rate": round(int(row.success) / int(row.calls), 4) if row.calls else 0.0,
+        }
+        for row in top_tools.all()
+    ]
+
+    def growth(now: float, prev: float) -> Optional[float]:
+        if prev == 0:
+            return None
+        return round((now - prev) / prev, 4)
+
+    return {
+        "this_period_start": this_start.isoformat(),
+        "now": now.isoformat(),
+        "this_period": this_period,
+        "prior_period": prior_period,
+        "growth": {
+            "turns_pct": growth(this_period["total_turns"], prior_period["total_turns"]),
+            "cost_pct": growth(this_period["total_cost_usd"], prior_period["total_cost_usd"]),
+            "users_pct": growth(this_period["unique_users"], prior_period["unique_users"]),
+            "orgs_pct": growth(this_period["unique_orgs"], prior_period["unique_orgs"]),
+        },
+        "daily_turns": daily_series,
+        "top_tools": top_tools_list,
+    }

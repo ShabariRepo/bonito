@@ -243,6 +243,16 @@ def get_turn_cap(tier: str) -> int | float:
     return TIER_TURN_CAPS.get(tier.lower(), TIER_TURN_CAPS["free"])
 
 
+def get_overage_rate(tier: str) -> float:
+    """Per-turn overage rate above the tier base, USD. 0.0 for Free / no-overage tiers."""
+    t = tier.lower()
+    if t == "enterprise":
+        return 0.10
+    if t in {"builder", "starter", "growth", "pro"}:
+        return 0.12
+    return 0.0
+
+
 async def check_quota(
     db: AsyncSession,
     org_id: uuid.UUID,
@@ -292,3 +302,88 @@ async def check_quota(
         "hard_cap": hard_cap and over_cap,
         "overage_rate_usd": overage_rate,
     }
+
+
+# ── Overage reporting (Stripe metered-billing scaffold) ─────────────────
+#
+# Pre-Stripe: these functions compute what would be reported. Use them
+# from a script for ops visibility OR call them directly when Stripe
+# webhook integration lands.
+#
+# Stripe hook-in (when Stripe is set up):
+#   1. Set STRIPE_PRICE_ORIGAMI_OVERAGE in env (a "metered" Stripe Price).
+#   2. On the 1st of every month, for every org with subscription_tier in
+#      the overage-eligible set, call get_period_overage() for the prior
+#      month and POST stripe.SubscriptionItem.create_usage_record with
+#      `quantity=overage_turns`, `timestamp=now`. Stripe charges from the
+#      Price.
+#   3. Or use Stripe's usage-record-summary endpoint for reconciliation.
+#
+# The math here is the SINGLE source of truth. Do not duplicate it.
+
+
+async def get_period_overage(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+    tier: str,
+    period_start: datetime,
+    period_end: datetime,
+) -> dict[str, Any]:
+    """Compute overage for an arbitrary billing period.
+
+    Returns:
+        {
+          "tier": "pro",
+          "period_start": "...",
+          "period_end": "...",
+          "turns_total": 1247,
+          "tier_cap": 1000,
+          "overage_turns": 247,
+          "overage_rate_usd": 0.12,
+          "overage_amount_usd": 29.64,
+        }
+
+    Turns are counted from `origami_turn_log` filtered by org_id and the
+    period bounds. Period bounds are inclusive of start, exclusive of end
+    (standard SQL half-open interval).
+    """
+    result = await db.execute(
+        select(func.count(OrigamiTurnLog.id)).where(
+            OrigamiTurnLog.org_id == org_id,
+            OrigamiTurnLog.created_at >= period_start,
+            OrigamiTurnLog.created_at < period_end,
+        )
+    )
+    total_turns = int(result.scalar_one() or 0)
+
+    cap = get_turn_cap(tier)
+    overage_turns = max(0, total_turns - int(cap)) if cap != float("inf") else 0
+    overage_rate = get_overage_rate(tier)
+    overage_amount = round(overage_turns * overage_rate, 2)
+
+    return {
+        "tier": tier.lower(),
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+        "turns_total": total_turns,
+        "tier_cap": int(cap) if cap != float("inf") else None,
+        "overage_turns": overage_turns,
+        "overage_rate_usd": overage_rate,
+        "overage_amount_usd": overage_amount,
+    }
+
+
+async def get_current_month_overage(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+    tier: str,
+) -> dict[str, Any]:
+    """Convenience: overage for the current calendar month so far (UTC)."""
+    now = datetime.now(timezone.utc)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # End-of-month: jump to next month's day 1
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return await get_period_overage(db, org_id, tier, start, end)
