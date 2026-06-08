@@ -38,6 +38,7 @@ import {
   Lock,
   Crown,
   Wand2,
+  TrendingUp,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -92,6 +93,7 @@ const adminNavigation = [
   { name: "All Users", href: "/admin/users", icon: UsersRound },
   { name: "Access Requests", href: "/admin/access-requests", icon: UserPlus },
   { name: "Agent Health", href: "/admin/agent-health", icon: HeartPulse },
+  { name: "Tier Utilization", href: "/admin/tier-utilization", icon: TrendingUp },
   { name: "Discover Logs", href: "/admin/discover-logs", icon: Sparkles },
   { name: "System", href: "/admin/system", icon: Server },
   { name: "Knowledge Base", href: "/admin/kb", icon: BookOpen },

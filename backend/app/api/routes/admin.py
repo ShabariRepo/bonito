@@ -1020,3 +1020,161 @@ async def list_discover_logs(
             for log in logs
         ],
     }
+
+
+# ───────────────────────── Tier utilization radar ─────────────────────────
+#
+# Pre-launch upsell signal: per-org cap percentages across the dimensions
+# that gate paid tiers. CSM/sales uses this to spot "Acme is at 95% of their
+# Pro tier, time to call about Enterprise."
+
+
+@router.get("/tier-utilization")
+async def tier_utilization(
+    user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-org cap utilization across the dimensions that gate paid tiers.
+
+    Returns one row per org with:
+    - tier name + monthly billing band
+    - PAT cap utilization (active PATs / cap per tier)
+    - Project-token cap utilization
+    - Origami turn cap utilization (current month)
+    - Active providers count vs documented tier cap
+    - Worst dimension score (max % across all dims) — used for sort
+    - Status bucket: ok (<60%), near (60-85%), at_cap (85-100%), over (>100%)
+
+    Sorted by worst-dimension descending so upsell candidates land at top.
+    """
+    from app.models.access_token import AccessToken
+    from app.models.origami_logs import OrigamiTurnLog
+    from app.services.origami.metering import get_turn_cap
+    from app.api.routes.access_tokens import PAT_LIMITS, PROJECT_TOKEN_LIMITS
+
+    # Per-tier provider caps (from CLAUDE.md tier descriptions)
+    PROVIDER_CAPS = {
+        "free": 3, "starter": 3, "pro": 5,
+        "enterprise": None, "scale": None,  # unlimited
+    }
+    # Per-tier monthly tier band (for "revenue at risk" stat)
+    TIER_BAND = {
+        "free": 0,
+        "starter": 199,
+        "pro": 999,
+        "enterprise": 6000,  # new starts-at-$6K
+        "scale": 16667,      # ~$200K/yr / 12
+    }
+
+    # Current month bounds for Origami turn counting
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    orgs = (await db.execute(select(Organization))).scalars().all()
+
+    rows = []
+    for org in orgs:
+        tier_raw = (org.subscription_tier or "free")
+        tier = tier_raw.value if hasattr(tier_raw, "value") else str(tier_raw).lower()
+
+        # Active PATs across all users in the org
+        pat_count = int((await db.execute(
+            select(func.count(AccessToken.id)).where(
+                AccessToken.org_id == org.id,
+                AccessToken.token_type == "personal",
+                AccessToken.revoked_at.is_(None),
+            )
+        )).scalar_one() or 0)
+        pat_cap = PAT_LIMITS.get(tier, 2)
+
+        # Active project tokens
+        pt_count = int((await db.execute(
+            select(func.count(AccessToken.id)).where(
+                AccessToken.org_id == org.id,
+                AccessToken.token_type == "project",
+                AccessToken.revoked_at.is_(None),
+            )
+        )).scalar_one() or 0)
+        pt_cap = PROJECT_TOKEN_LIMITS.get(tier, 0)
+
+        # Origami turns this month
+        turns = int((await db.execute(
+            select(func.count(OrigamiTurnLog.id)).where(
+                OrigamiTurnLog.org_id == org.id,
+                OrigamiTurnLog.created_at >= month_start,
+            )
+        )).scalar_one() or 0)
+        turn_cap_val = get_turn_cap(tier)
+        turn_cap = int(turn_cap_val) if turn_cap_val != float("inf") else None
+
+        # Active providers
+        prov_count = int((await db.execute(
+            select(func.count(CloudProvider.id)).where(
+                CloudProvider.org_id == org.id,
+                CloudProvider.status == "active",
+            )
+        )).scalar_one() or 0)
+        prov_cap = PROVIDER_CAPS.get(tier)
+
+        # User count for seat tracking
+        user_count = int((await db.execute(
+            select(func.count(User.id)).where(User.org_id == org.id)
+        )).scalar_one() or 0)
+
+        def pct(used, cap):
+            if cap is None or cap == 0:
+                return 0
+            return round(min(used / cap * 100, 999), 1)
+
+        dims = {
+            "pats": {"used": pat_count, "cap": pat_cap, "pct": pct(pat_count, pat_cap)},
+            "project_tokens": {"used": pt_count, "cap": pt_cap, "pct": pct(pt_count, pt_cap)},
+            "origami_turns": {"used": turns, "cap": turn_cap, "pct": pct(turns, turn_cap) if turn_cap else 0},
+            "providers": {"used": prov_count, "cap": prov_cap, "pct": pct(prov_count, prov_cap) if prov_cap else 0},
+        }
+        worst_pct = max(d["pct"] for d in dims.values())
+
+        if worst_pct >= 100:
+            status_bucket = "over"
+        elif worst_pct >= 85:
+            status_bucket = "at_cap"
+        elif worst_pct >= 60:
+            status_bucket = "near"
+        else:
+            status_bucket = "ok"
+
+        rows.append({
+            "org_id": str(org.id),
+            "org_name": org.name,
+            "tier": tier,
+            "tier_band_usd": TIER_BAND.get(tier, 0),
+            "user_count": user_count,
+            "dimensions": dims,
+            "worst_pct": worst_pct,
+            "status": status_bucket,
+            "subscription_status": getattr(org, "subscription_status", None),
+        })
+
+    rows.sort(key=lambda r: r["worst_pct"], reverse=True)
+
+    # Roll-up summary stats for the dashboard header
+    over_count = sum(1 for r in rows if r["status"] == "over")
+    at_cap_count = sum(1 for r in rows if r["status"] == "at_cap")
+    near_count = sum(1 for r in rows if r["status"] == "near")
+    revenue_at_risk = sum(
+        TIER_BAND.get(r["tier"], 0)
+        for r in rows
+        if r["status"] in ("at_cap", "over")
+    )
+
+    return {
+        "summary": {
+            "total_orgs": len(rows),
+            "over_cap": over_count,
+            "at_cap": at_cap_count,
+            "near_cap": near_count,
+            "healthy": len(rows) - over_count - at_cap_count - near_count,
+            "monthly_revenue_at_risk_usd": revenue_at_risk,
+        },
+        "orgs": rows,
+    }
