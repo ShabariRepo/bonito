@@ -26,13 +26,24 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import uuid
 from typing import Any, Optional
 
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+
+# Embedding model the gateway should route to. Bedrock Titan V2 is native
+# 1024-dim (matches the KB column), is already what the rest of Bonito's
+# KB pipeline uses by default, and works on any org that has AWS connected.
+# Override via env if you prefer a different routable model.
+PLATFORM_EMBED_MODEL = os.getenv(
+    "ORIGAMI_EMBED_MODEL", "amazon.titan-embed-text-v2:0"
+)
 
 
 # Fixed UUID for the platform-shared organization that hosts bonito-knowledge.
@@ -109,14 +120,20 @@ async def seed_platform_knowledge(
     sources: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Run the ingestion extractors and write IngestionRecords into the
-    platform-shared bonito-knowledge KB as KBDocuments with status='pending'.
+    platform-shared bonito-knowledge KB.
 
-    Runs ONCE for the whole platform, not per-org. Idempotent — re-running
-    only inserts new records (matched by stable_id stored as file_name).
+    Each IngestionRecord is already pre-chunked by the extractor, so we
+    write one KBDocument + one KBChunk per record. Embedding happens
+    inline via the Bonito gateway (same path as retrieval), so no
+    dependency on the platform org having a connected provider.
 
-    Returns a summary dict with counts per source + total written.
+    Runs ONCE for the whole platform, not per-org. Idempotent — records
+    whose stable_id already exists are skipped.
+
+    Returns a summary dict with counts per source + total written + any
+    embedding failures.
     """
-    from app.models.knowledge_base import KBDocument
+    from app.models.knowledge_base import KBDocument, KBChunk
     from app.services.origami.ingestion.unified_ingester import ingest_all, summarize
 
     kb = await get_or_create_platform_kb(db)
@@ -133,10 +150,18 @@ async def seed_platform_knowledge(
     existing_ids = {r[0] for r in existing_rows.all()}
 
     written = 0
+    embed_failed = 0
     for r in records:
         sid = r.stable_id()
         if sid in existing_ids:
             continue
+
+        # Embed inline via gateway
+        vector = await _embed_via_gateway(r.content)
+        if not vector:
+            embed_failed += 1
+            continue
+
         content_bytes = r.content.encode("utf-8")
         kbd = KBDocument(
             knowledge_base_id=kb.id,
@@ -146,7 +171,8 @@ async def seed_platform_knowledge(
             file_type="md",
             file_size=len(content_bytes),
             file_hash=hashlib.sha256(content_bytes).hexdigest(),
-            status="pending",
+            status="ready",  # Already embedded, skip the pending pipeline
+            chunk_count=1,
             extra_metadata={
                 "source": "bonito-knowledge",
                 "source_type": r.source_type.value if hasattr(r.source_type, "value") else str(r.source_type),
@@ -156,6 +182,23 @@ async def seed_platform_knowledge(
             },
         )
         db.add(kbd)
+        await db.flush()
+
+        chunk = KBChunk(
+            document_id=kbd.id,
+            knowledge_base_id=kb.id,
+            org_id=PLATFORM_ORG_ID,
+            content=r.content,
+            chunk_index=0,
+            embedding=vector,
+            source_file=sid,
+            source_section=r.title,
+            extra_metadata={
+                "source_type": kbd.extra_metadata.get("source_type"),
+                "title": r.title,
+            },
+        )
+        db.add(chunk)
         written += 1
 
     await db.commit()
@@ -166,7 +209,47 @@ async def seed_platform_knowledge(
         "extracted": summary,
         "written": written,
         "skipped_existing": len(existing_ids),
+        "embed_failed": embed_failed,
     }
+
+
+async def _embed_via_gateway(text: str) -> Optional[list[float]]:
+    """Generate a single embedding by calling Bonito's own gateway.
+
+    Uses ORIGAMI_GATEWAY_KEY (the same bn- key Origami's chat path uses)
+    against the gateway's /v1/embeddings endpoint. The gateway routes via
+    LiteLLM to whatever provider the key's org has connected (Bedrock,
+    GCP, Azure, OpenAI). No platform embedding key needed.
+
+    Returns the embedding vector on success, None on any failure. Caller
+    treats None as "fail open, skip RAG injection."
+    """
+    key = os.getenv("ORIGAMI_GATEWAY_KEY")
+    if not key or not key.startswith("bn-"):
+        logger.warning("ORIGAMI_GATEWAY_KEY missing or wrong prefix; skipping bonito-knowledge embed")
+        return None
+
+    # In-container default: backend listens on :8000 (host:8001 -> container:8000).
+    # On host: hit the mapped port 8001. Override via BONITO_API_BASE_URL in prod.
+    base = os.getenv("BONITO_API_BASE_URL", "http://localhost:8000").rstrip("/")
+    url = f"{base}/v1/embeddings"
+
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as http:
+            r = await http.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                json={"model": PLATFORM_EMBED_MODEL, "input": text},
+            )
+            r.raise_for_status()
+            data = r.json()
+            return data["data"][0]["embedding"]
+    except Exception as e:
+        logger.warning("bonito-knowledge gateway embedding failed: %s", e)
+        return None
 
 
 async def retrieve_context_for_query(
@@ -185,12 +268,15 @@ async def retrieve_context_for_query(
     for backwards-compat but unused — security is fine because the KB
     only contains public platform documentation, no customer data.
 
+    Embeds via Bonito's own gateway (dogfood), not a separate platform
+    API key.
+
     Returns empty list if the platform KB hasn't been seeded yet OR no
     chunks match above min_score. Orchestrator falls back to its baseline
     system prompt in that case.
     """
     from app.models.knowledge_base import KnowledgeBase
-    from app.services.kb_ingestion import EmbeddingGenerator, search_chunks
+    from app.services.kb_ingestion import search_chunks
 
     kb_row = await db.execute(
         select(KnowledgeBase).where(
@@ -202,17 +288,8 @@ async def retrieve_context_for_query(
     if not kb:
         return []
 
-    try:
-        gen = EmbeddingGenerator(org_id=PLATFORM_ORG_ID)
-        embeddings = await gen.generate_embeddings(
-            [query],
-            dimensions=kb.embedding_dimensions if hasattr(kb, "embedding_dimensions") else None,
-        )
-    except Exception as e:
-        logger.warning("bonito-knowledge query embedding failed: %s", e)
-        return []
-
-    if not embeddings or not embeddings[0]:
+    vector = await _embed_via_gateway(query)
+    if not vector:
         return []
 
     try:
@@ -220,7 +297,7 @@ async def retrieve_context_for_query(
         # The KB belongs to the platform org by design.
         chunks = await search_chunks(
             kb_id=kb.id,
-            query_embedding=embeddings[0],
+            query_embedding=vector,
             top_k=top_k,
             min_score=min_score,
             org_id=PLATFORM_ORG_ID,
