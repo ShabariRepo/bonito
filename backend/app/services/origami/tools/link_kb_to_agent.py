@@ -7,10 +7,13 @@ inject org_id).
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
 from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -154,9 +157,32 @@ class LinkKbToAgentTool(OrigamiTool):
                     "message": "Provide either kb_id (UUID) or kb_name."}
 
         if not kb:
-            ref = kb_id_raw or kb_name
-            return {"success": False, "error": "kb_not_found",
-                    "message": f"Knowledge base '{ref}' not found in your organization."}
+            # If a kb_name was specified, auto-create the KB on the fly.
+            # The model may have skipped a create_kb step (Bedrock+Opus
+            # tool-call instability). Creating the KB inline keeps the
+            # build flowing instead of cascading 4 failures.
+            if kb_name and not kb_id_raw:
+                logger.info(
+                    "link_kb_to_agent: KB '%s' not found — auto-creating "
+                    "to keep the build flowing.",
+                    kb_name,
+                )
+                kb = KnowledgeBase(
+                    org_id=org_id,
+                    name=kb_name,
+                    description="Auto-created by Origami because link_kb_to_agent "
+                                "referenced a KB that didn't exist yet.",
+                    source_type="upload",
+                    source_config={},
+                    embedding_model="auto",
+                    status="pending",
+                )
+                db.add(kb)
+                await db.flush()
+            else:
+                ref = kb_id_raw or kb_name
+                return {"success": False, "error": "kb_not_found",
+                        "message": f"Knowledge base '{ref}' not found in your organization."}
 
         kb_id_str = str(kb.id)
 

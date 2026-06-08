@@ -25,6 +25,13 @@ from app.services.origami.tools.base import OrigamiTool, register_tool
 class CreateKbTool(OrigamiTool):
     name = "create_kb"
     description = (
+        "INVOKE THIS TOOL whenever the user says 'create a KB', 'spin up a "
+        "knowledge base', 'add a KB', 'make a knowledge base', 'set up a KB', "
+        "'create a KB called X', or any variant — even if they add details "
+        "like 'scoped to project Y' or 'for content Z'. Those details map to "
+        "project_name and description params; they are NOT reasons to skip "
+        "invoking the tool. Do not respond with text describing what the KB "
+        "will do — invoke this tool to actually create it. "
         "Create a new knowledge base for the user's organization. The KB starts "
         "empty; documents are added in a follow-up step. Use this when the user "
         "wants to give an agent a corpus of documents to reference (support docs, "
