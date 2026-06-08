@@ -220,7 +220,7 @@ class ShowEnterpriseOptionsTool(OrigamiTool):
             "free": "$0 — invite-only, 3 providers, 25K requests/mo, basic failover.",
             "starter": "$199/mo — 3 providers, 100K req/mo, 5 seats, 2 agents.",
             "pro": "$999/mo — 5 providers, 500K req/mo, unlimited seats, 5 agents.",
-            "enterprise": "$10K-$20K/mo — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA.",
+            "enterprise": "Starts at $6K/mo (typical band $6K-$20K) — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA. Single SKU; Enterprise+ with dedicated infra + multi-region + named TAM is on the roadmap.",
             "scale": "Custom ($200K+/yr) — dedicated infra, multi-region, 99.99% SLA, custom fine-tuning, dedicated account team.",
         }
 

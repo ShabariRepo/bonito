@@ -41,7 +41,7 @@ TIERS = {
     "free": "Free — 25K requests/mo, 3 providers, 3 seats, 1 agent",
     "starter": "Starter ($199/mo) — 100K requests/mo, 3 providers, 5 seats, 2 agents, RAG (2 KBs)",
     "pro": "Pro ($999/mo) — 500K requests/mo, 5 providers, unlimited seats, 5 agents, advanced routing, RAG (5 KBs)",
-    "enterprise": "Enterprise ($10K-$20K/mo) — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA",
+    "enterprise": "Enterprise (starts at $6K/mo, typical $6K-$20K) — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA",
     "scale": "Scale (custom, $200K+/yr) — dedicated infra, multi-region, 99.99% SLA, dedicated account team",
 }
 
@@ -188,7 +188,7 @@ PRICING_REFERENCE = dedent("""\
     - **Free** — 25K requests/mo, 3 providers, 3 seats, 1 agent, invite-only
     - **Starter ($199/mo)** — 100K requests/mo, 3 providers, 5 seats, 2 agents, RAG (2 KBs), CLI, email support
     - **Pro ($999/mo)** — 500K requests/mo, 5 providers, unlimited seats, 5 agents, advanced routing, RAG (5 KBs)
-    - **Enterprise ($10K-$20K/mo)** — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA, dedicated support
+    - **Enterprise (starts at $6K/mo, typical $6K-$20K)** — unlimited everything, SSO/SAML, RBAC, compliance, 99.9% SLA, dedicated support
     - **Scale (custom)** — dedicated infra, multi-region, 99.99% SLA, dedicated account team
 
     Email shabari@bonito.ai for procurement or to negotiate a custom tier.

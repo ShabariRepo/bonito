@@ -106,7 +106,7 @@ bonito/
 - **Free** — 3 providers, 25K requests/mo, 3 seats, 1 agent, basic failover, invite-only
 - **Starter** — $199/mo, 3 providers, 100K requests/mo, 5 seats, 2 agents, RAG (2 KBs), analytics, audit trail, CLI, email support. "Swipe your card" tier — no procurement approval needed.
 - **Pro** — $999/mo, 5 providers, 500K requests/mo, unlimited seats, 5 agents, advanced routing, RAG (5 KBs), analytics, audit trail
-- **Enterprise** — $10K-$20K/mo, unlimited providers/requests/seats, SSO/SAML, RBAC, compliance, 99.9% SLA
+- **Enterprise** — starts at $6K/mo (typical band $6K-$20K depending on volume), unlimited providers/requests/seats, SSO/SAML, RBAC, compliance, 99.9% SLA. Single SKU; Enterprise+ tier with dedicated infra + multi-region + named TAM is on the roadmap.
 - **Scale** — Custom ($200K+/yr), dedicated infra, multi-region, 99.99% SLA, custom fine-tuning, dedicated account team
 
 ## Key Architectural Patterns

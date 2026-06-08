@@ -95,9 +95,9 @@ const plans = [
   },
   {
     name: "Enterprise",
-    price: "$10K–$20K",
+    price: "From $6K",
     period: "/mo",
-    description: "For organizations with complex AI infrastructure and governance needs.",
+    description: "For organizations with complex AI infrastructure and governance needs. Custom pricing scales with volume.",
     features: [
       "Unlimited cloud providers",
       "Unlimited gateway API calls",

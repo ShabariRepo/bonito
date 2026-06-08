@@ -64,9 +64,11 @@ For teams shipping AI products across multiple providers who need full routing, 
 
 ---
 
-### Enterprise — $10,000–$20,000/month (annual contract)
+### Enterprise — starts at $6,000/month (annual contract)
 
-For organizations that need advanced governance, compliance, and unlimited scale. Priced based on usage volume and support level.
+For organizations that need advanced governance, compliance, and unlimited scale. Single SKU with a typical band of $6K-$20K/mo depending on volume and support level. Larger deals scale via custom pricing.
+
+> **Roadmap:** **Enterprise+** is planned for organizations needing dedicated infrastructure, multi-region deployments, named technical account manager, and 99.99% SLA. Pricing will start where Enterprise ceiling ends. Not available today — contact sales if interested.
 
 | Feature | Included |
 |---|---|
