@@ -148,6 +148,18 @@ async def count_user_tokens(db: AsyncSession, user_id: uuid.UUID) -> int:
     return result.scalar_one()
 
 
+async def count_org_project_tokens(db: AsyncSession, org_id: uuid.UUID) -> int:
+    """Count active (non-revoked) project tokens (bj-) across the whole org."""
+    result = await db.execute(
+        select(func.count(AccessToken.id)).where(
+            AccessToken.org_id == org_id,
+            AccessToken.token_type == "project",
+            AccessToken.revoked_at.is_(None),
+        )
+    )
+    return result.scalar_one()
+
+
 async def update_last_used(db: AsyncSession, token: AccessToken, ip: Optional[str] = None):
     """Update last_used_at and last_used_ip."""
     token.last_used_at = datetime.now(timezone.utc)

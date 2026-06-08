@@ -7,9 +7,26 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that wr
 - **Provider Management** – Connect and verify AWS Bedrock, Azure OpenAI, GCP Vertex AI, OpenAI, Anthropic, and Groq
 - **Model Management** – List, sync, and activate models across providers
 - **Unified Gateway** – Send chat completions through Bonito's OpenAI-compatible gateway
+- **Projects** – List and create projects (containers for agents, KBs, budgets)
 - **Agent Management** – Create and execute BonBon and Bonobot agents
-- **Knowledge Bases** – Create and manage knowledge bases
+- **Knowledge Bases** – Create KBs, upload inline documents, and link KBs to agents for RAG
 - **Cost & Observability** – Track costs per provider and view gateway logs
+
+Total: 22 tools (was 18 before the 2026-06-07 audit pass).
+
+## Audit notes (2026-06-07)
+
+Tools added in the latest audit pass: `list_projects`, `create_project`, `upload_to_kb`, `link_kb_to_agent`. Without these, KBs were inert (no way to load docs via MCP) and agents couldn't be scoped to projects (which the post-Phase 1 create_agent flow requires).
+
+Still missing from this MCP surface relative to the live platform — flag for the next pass:
+
+- Access-token CRUD (`bp-` and `bj-` create/list/revoke)
+- Image generation (`POST /v1/images/generations`)
+- Video generation (`POST /v1/videos` + status + content)
+- Agent-to-agent connections (`connect_agents` — handoff / escalation / data_feed / trigger)
+- Agent updates (`update_agent`)
+- Tier-aware model listing (current `list_models` is unfiltered)
+- Origami tool surface (16 tools) is intentionally separate; do NOT mirror into MCP without product review.
 
 ## Quick Start
 
