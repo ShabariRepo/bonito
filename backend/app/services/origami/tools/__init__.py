@@ -20,5 +20,6 @@ from app.services.origami.tools.show_enterprise_options import ShowEnterpriseOpt
 from app.services.origami.tools.delete_project import DeleteProjectTool
 from app.services.origami.tools.restore_project import RestoreProjectTool
 from app.services.origami.tools.list_deleted_projects import ListDeletedProjectsTool
+from app.services.origami.tools.configure_autoscaling import ConfigureAutoscalingTool
 
 __all__ = ["OrigamiTool", "TOOL_REGISTRY", "register_tool"]

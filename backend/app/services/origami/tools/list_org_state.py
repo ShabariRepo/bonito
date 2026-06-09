@@ -75,16 +75,49 @@ class ListOrgStateTool(OrigamiTool):
             for row in agents_result
         ]
 
-        # KBs
+        # KBs (with document status breakdown)
+        from app.models.knowledge_base import KBDocument
+        from sqlalchemy import func as _func
+
         kbs_result = await db.execute(
             select(KnowledgeBase.id, KnowledgeBase.name, KnowledgeBase.status).where(
                 KnowledgeBase.org_id == org_id
             ).limit(50)
         )
-        kbs = [
-            {"id": str(row.id), "name": row.name, "status": row.status}
-            for row in kbs_result
-        ]
+        kb_rows = list(kbs_result)
+        kb_ids = [r.id for r in kb_rows]
+
+        # Document counts per (kb_id, status)
+        doc_counts: dict[str, dict[str, int]] = {}
+        if kb_ids:
+            doc_count_rows = (await db.execute(
+                select(
+                    KBDocument.knowledge_base_id,
+                    KBDocument.status,
+                    _func.count(KBDocument.id),
+                )
+                .where(KBDocument.knowledge_base_id.in_(kb_ids))
+                .group_by(KBDocument.knowledge_base_id, KBDocument.status)
+            )).all()
+            for kb_id, status_v, n in doc_count_rows:
+                doc_counts.setdefault(str(kb_id), {})[status_v] = int(n)
+
+        kbs = []
+        for row in kb_rows:
+            kb_id_str = str(row.id)
+            docs = doc_counts.get(kb_id_str, {})
+            kbs.append({
+                "id": kb_id_str,
+                "name": row.name,
+                "status": row.status,
+                "documents": {
+                    "total": sum(docs.values()),
+                    "ready": docs.get("ready", 0),
+                    "pending": docs.get("pending", 0),
+                    "processing": docs.get("processing", 0),
+                    "error": docs.get("error", 0),
+                },
+            })
 
         # Projects
         projects_result = await db.execute(

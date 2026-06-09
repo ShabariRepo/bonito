@@ -28,9 +28,12 @@ from app.services.origami.tools.base import OrigamiTool, register_tool
 class MintGatewayKeyTool(OrigamiTool):
     name = "mint_gateway_key"
     description = (
-        "Mint a new bn- gateway key for the user's organization. They use this "
-        "key in their own application to call Bonito's gateway (Authorization: "
-        "Bearer bn-...). The raw value is returned ONCE in the response — the "
+        "INVOKE THIS TOOL whenever the user says 'mint a gateway key', "
+        "'create a key', 'make an API key', 'spin up a gateway key', or any "
+        "variant — even if they add details like 'scoped to project X' or "
+        "'for app Y'. Those details map to params; they are NOT reasons to "
+        "skip invoking the tool. Mint a new bn- gateway key for the user's "
+        "organization. The raw value is returned ONCE in the response — the "
         "frontend will show it with a Copy button. Tell the user to store it "
         "securely; we can only show a hashed prefix afterward. Default rate "
         "limit is 60 req/min."
@@ -49,6 +52,14 @@ class MintGatewayKeyTool(OrigamiTool):
                 "minimum": 1,
                 "maximum": 10000,
                 "description": "Per-minute rate limit (default 60)",
+            },
+            "project_id": {
+                "type": "string",
+                "description": "Optional project UUID for organizational tracking. Gateway keys live at the org level; this is a soft association.",
+            },
+            "project_name": {
+                "type": "string",
+                "description": "Optional project display name for organizational tracking. Resolved to a UUID server-side. Informational only.",
             },
         },
         "required": ["name"],
