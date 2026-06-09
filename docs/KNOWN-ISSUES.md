@@ -315,3 +315,36 @@ Tracking document for known issues, workarounds, and fixes. Useful for sales, su
 **Cause**: Two feature branches (logging system + bonobot/subscription) both forked from migration `019_add_sso_config` and added overlapping columns/tables.
 **Fix**: Created alembic merge migration + made duplicate migrations idempotent (check column/table existence before CREATE).
 **Impact**: Backend started but with `Migration FAILED` warning. DB was functional (columns existed from other branch).
+
+---
+
+## Open — Testing & CI Infrastructure
+
+### 37. Provider connect tests fail in CI (pgvector + Vault missing)
+**Date**: 2026-06-09
+**Symptom**: ~20 tests across `test_providers.py`, `test_direct_providers.py`, `test_groq_provider.py`, `test_schemas.py` all return HTTP 500 from `POST /api/providers/connect`. Failure shows:
+```
+Vault write FAILED: All connection attempts failed
+DB error: unknown type: public.vector
+```
+**Cause**: CI workflow (`.github/workflows/ci.yml`) spins up `postgres:16` and `redis:7` services but does NOT spin up Vault and does NOT install the pgvector extension in Postgres. The provider connect code path requires AT LEAST ONE of (Vault write, encrypted DB write) to succeed. CI has neither, so credential storage always returns 500.
+**Workaround**: None yet. Tests fail in CI but pass locally with `docker compose up` because the local stack has both. Until fixed, every PR shows ~20 red checks unrelated to the changes in the PR.
+**Fix path (recommended)**:
+1. Swap the postgres service in `ci.yml` from `postgres:16` to `pgvector/pgvector:pg16` (drop-in replacement with the extension pre-installed). Add a setup step that runs `CREATE EXTENSION IF NOT EXISTS vector` on the test database.
+2. Add a `vault` service block to `backend-tests`:
+   ```yaml
+   vault:
+     image: hashicorp/vault:1.15
+     env:
+       VAULT_DEV_ROOT_TOKEN_ID: test-token
+       VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+     ports: ['8200:8200']
+     options: --cap-add=IPC_LOCK
+   ```
+   Update `VAULT_ADDR` and `VAULT_TOKEN` env vars on the test job to point at it.
+3. Confirm `test_schemas.py::TestProviderType::test_enum_count` is also fixed (it may be a separate stale-test issue, like `test_rate_limiting` was — investigate after the env fix).
+
+**Alternative**: teach `_get_provider_secrets` / `store_credentials_in_vault` to short-circuit with a clear "no storage backend" error in test mode (when `ENV=test` or similar), then mark provider tests with `@pytest.mark.requires_storage` and skip in CI until env is fixed. Less work but masks the test signal.
+
+**Impact**: Cannot rely on CI as a merge gate. Anyone running `python -m pytest` locally with `docker compose up` sees these tests pass. This has been red across multiple commits (and predates 2026-06-09 — confirmed by checking prior CI runs). Blocks the `origami-mvp → main` merge if branch protection requires green checks.
+**Refs**: First explicit acknowledgement in PR #43059 CI run; failing examples: `test_connect_openai_provider`, `test_connect_aws_provider`, `test_credentials_stored_as_json`.
