@@ -43,7 +43,26 @@ frontend/src/app/origami/page.tsx
 | Var | Required | Default | Notes |
 |---|---|---|---|
 | `ORIGAMI_GATEWAY_KEY` | yes | — | A `bn-` key from Bonito's **system org** (`cat.shabari` today; permanent system-org via Vault in Phase 1.5). Same key for every customer's Origami session — see "Billing architecture" below. |
-| `BONITO_GATEWAY_URL` | no | `http://localhost:8001` | Where to POST chat completions. Local dev → `http://localhost:8001`. Prod → `https://api.getbonito.com`. |
+| `BONITO_GATEWAY_URL` | no | `http://localhost:8001` | Where to POST chat completions. Local dev → `http://localhost:8001`. Prod → `http://localhost:8080`. See "Why localhost in prod" below. |
+
+### Why `localhost` in prod
+
+The Origami orchestrator and the gateway endpoint (`POST /v1/chat/completions`) are part of the same FastAPI application running in the same Railway container. When the orchestrator calls the gateway, it's calling itself — `localhost` resolves to the container's own loopback interface, which is the same uvicorn process.
+
+The port on Railway is whatever `$PORT` is set to (currently `8080`). The full prod value is `http://localhost:8080`.
+
+Compared to the alternatives:
+
+| URL | Per-call latency | When you'd use it |
+|---|---|---|
+| `http://localhost:8080` | ~0.1 ms (kernel loopback, no network) | **Default — current setup** |
+| `http://bonito-backend.railway.internal:8080` | 1-5 ms (Railway private network) | If gateway and orchestrator ever split into separate Railway services |
+| `https://api.getbonito.com` | 20-50 ms + TLS handshake (out to public DNS, CDN, back to same container) | Last resort. Adds 100-750 ms per Origami turn (each turn fires 5-15 internal calls). |
+
+If you ever see `gateway_call_failed: All connection attempts failed` in prod, check:
+1. `BONITO_GATEWAY_URL` set correctly on Railway (must match `$PORT`)
+2. `ORIGAMI_GATEWAY_KEY` set on Railway (a `bn-` key from a real Bonito org with Sonnet 4.6 + Opus 4.7 routable)
+3. uvicorn actually bound to that port (check the deploy log: `🚀 Starting uvicorn on port {N}`)
 
 No `ANTHROPIC_API_KEY`, no `OPENAI_API_KEY`, no LLM provider key at all
 in the Origami code path — the system org's connected provider creds
