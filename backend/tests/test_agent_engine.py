@@ -383,18 +383,24 @@ class TestCoreExecution:
 
     @pytest.mark.asyncio
     async def test_rate_limiting(self, test_engine, test_session, agent, mock_redis):
-        """7. Rapid requests trigger rate limit (429)."""
+        """7. Rapid requests trigger rate limit (raises AgentRateLimitError)."""
+        # The engine raises AgentRateLimitError (not HTTPException) so the
+        # route handler can intercept it for queue-eligible agents before
+        # the global exception handler converts it to a 429 JSON response.
+        from app.services.agent_engine import AgentRateLimitError
+
         # Simulate redis returning current count == rate_limit_rpm
         redis = _build_mock_redis(rate_count=0)
         redis.get = AsyncMock(return_value=str(agent.rate_limit_rpm))  # Already at limit
 
         with _patch_gateway(_make_llm_response("Nope")):
             engine = AgentEngine()
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(AgentRateLimitError) as exc_info:
                 await engine.execute(agent, "Too fast", test_session, redis)
 
-        assert exc_info.value.status_code == 429
-        assert "rate limit" in exc_info.value.detail.lower()
+        assert exc_info.value.agent_name == agent.name
+        assert exc_info.value.effective_rpm == agent.rate_limit_rpm
+        assert "rate limit" in str(exc_info.value).lower()
 
     @pytest.mark.asyncio
     async def test_input_sanitization(self, test_engine, test_session, agent, mock_redis):

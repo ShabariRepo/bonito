@@ -352,5 +352,68 @@ def main() -> None:
         app.run(transport="stdio")
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Projects (added 2026-06-07)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@app.tool()
+async def list_projects(ctx) -> str:
+    """List all projects in the organization. Projects group agents, KBs, and budgets."""
+    result = await _client(ctx).list_projects()
+    return _json(result)
+
+
+@app.tool()
+async def create_project(
+    name: str,
+    description: str | None = None,
+    monthly_budget_usd: float | None = None,
+    ctx=None,
+) -> str:
+    """Create a new project. Agents and KBs live inside projects.
+
+    Args:
+        name: Project name (e.g. 'foundations-matchmaker')
+        description: Optional human-readable description
+        monthly_budget_usd: Optional monthly spend cap in USD
+    """
+    result = await _client(ctx).create_project(
+        name, description=description, monthly_budget_usd=monthly_budget_usd
+    )
+    return _json(result)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Knowledge Base data plane (added 2026-06-07)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@app.tool()
+async def upload_to_kb(kb_id: str, documents_json: str, ctx=None) -> str:
+    """Add inline text documents to an existing knowledge base.
+
+    Args:
+        kb_id: UUID of the destination KB
+        documents_json: JSON array of objects each with `title` and `content`,
+            e.g. '[{"title":"Sequoia thesis","content":"..."}]'
+    """
+    documents = json.loads(documents_json) if isinstance(documents_json, str) else documents_json
+    result = await _client(ctx).upload_to_kb(kb_id, documents)
+    return _json(result)
+
+
+@app.tool()
+async def link_kb_to_agent(agent_id: str, kb_id: str, ctx=None) -> str:
+    """Attach an existing KB to an existing agent so the agent can use it for RAG.
+
+    Args:
+        agent_id: UUID of the agent
+        kb_id: UUID of the knowledge base to attach
+    """
+    result = await _client(ctx).link_kb_to_agent(agent_id, kb_id)
+    return _json(result)
+
+
 if __name__ == "__main__":
     main()

@@ -25,6 +25,7 @@ Bonito solves this with:
   - **VectorBoost (KB Compression)** — Adaptive vector compression for knowledge base embeddings. 3.9x to 8x storage reduction with 95-99.5% recall preservation. Three compression methods with API/CLI/YAML configuration.
   - **Scheduled Autonomous Execution** — Cron-based task scheduling with timezone support. Agents run tasks automatically, deliver results via webhook/email/Slack, with full execution history and retry logic.
   - **Approval Queue / Human-in-the-Loop** — Configurable approval workflows for sensitive agent actions. Risk assessment, timeout handling, auto-approval conditions, and comprehensive audit trails for enterprise compliance.
+- **Origami — conversational platform interface** *(Phase 1 skeleton, in flight)* — Split-pane chat at `/origami` that knows your org, your tier, and the full platform. Ask in plain English ("what providers do I have?", "build me a support agent backed by these docs"), get a plan card, click Deploy. Built as a customer of Bonito's own gateway — Origami POSTs to `/v1/chat/completions` like any external user would, proving the platform on every interaction. Tier-gated with upgrade-in-place via inline Stripe Checkout when a build needs a feature your plan doesn't include. Full spec in `docs/ORIGAMI-MVP-PLAN.md`.
 
 ## How Bonito Compares
 

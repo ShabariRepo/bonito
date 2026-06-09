@@ -177,6 +177,12 @@ app.include_router(analytics.router, prefix="/api")
 app.include_router(knowledge_base.router, prefix="/api")
 app.include_router(secrets.router, prefix="/api")
 
+# Origami — conversational interface (Phase 1 skeleton, see docs/ORIGAMI-MVP-PLAN.md)
+from app.api.routes import origami as origami_routes
+from app.api.routes import origami_admin as origami_admin_routes
+app.include_router(origami_routes.router, prefix="/api")
+app.include_router(origami_admin_routes.router, prefix="/api")
+
 app.include_router(sso.router, prefix="/api")
 app.include_router(sso_admin.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")

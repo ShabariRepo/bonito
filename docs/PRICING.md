@@ -22,6 +22,26 @@ Get started with Bonito at no cost. Ideal for individual developers exploring mu
 
 ---
 
+### Builder — $49/month
+
+For solo builders and indie devs shipping their first agentic app. Below Starter; above Free.
+
+| Feature | Included |
+|---|---|
+| Cloud provider connections | 3 |
+| Gateway requests | 100,000 / month |
+| Team seats | 1 |
+| Knowledge Bases | 1 |
+| Bonbon agents | Up to 10 |
+| AI Context (RAG) | ✅ |
+| CLI access | ✅ |
+| Memwright conversational memory | ✅ |
+| Cost analytics | — |
+| Audit log retention | 30 days |
+| Support | Community + email (72h response target) |
+
+---
+
 ### Starter — $199/month
 
 For small teams getting serious about multi-cloud AI. The "swipe your card without procurement" tier.
@@ -40,6 +60,28 @@ For small teams getting serious about multi-cloud AI. The "swipe your card witho
 | Support | Email |
 | Log retention | 45 days |
 | PATs | 5 |
+
+---
+
+### Growth — $349/month
+
+For small teams scaling agents across multiple workstreams. Between Starter and Pro.
+
+| Feature | Included |
+|---|---|
+| Cloud provider connections | 3 |
+| Gateway requests | 250,000 / month |
+| Team seats | 5 |
+| Knowledge Bases | 5 |
+| Bonbon agents | Up to 50 |
+| AI Context (RAG) | ✅ |
+| Persistent agent memory + vector search | ✅ |
+| Approval queue / human-in-the-loop | ✅ |
+| Scheduled autonomous execution | ✅ |
+| Token efficiency metrics | ✅ |
+| Cost analytics | ✅ |
+| Audit log retention | 60 days |
+| Support | Email (24h response target) |
 
 ---
 
@@ -64,9 +106,11 @@ For teams shipping AI products across multiple providers who need full routing, 
 
 ---
 
-### Enterprise — $10,000–$20,000/month (annual contract)
+### Enterprise — starts at $6,000/month (annual contract)
 
-For organizations that need advanced governance, compliance, and unlimited scale. Priced based on usage volume and support level.
+For organizations that need advanced governance, compliance, and unlimited scale. Single SKU with a typical band of $6K-$20K/mo depending on volume and support level. Larger deals scale via custom pricing.
+
+> **Roadmap:** **Enterprise+** is planned for organizations needing dedicated infrastructure, multi-region deployments, named technical account manager, and 99.99% SLA. Pricing will start where Enterprise ceiling ends. Not available today — contact sales if interested.
 
 | Feature | Included |
 |---|---|

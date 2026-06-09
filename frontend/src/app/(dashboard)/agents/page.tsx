@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Bot, DollarSign, Activity, Calendar } from "lucide-react";
+import { Plus, Bot, DollarSign, Activity, Calendar, History, RotateCcw, Link2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,20 @@ interface Project {
   updated_at: string;
 }
 
+interface DeletedManifest {
+  manifest_id: string;
+  project_name: string;
+  description: string | null;
+  deleted_at: string | null;
+  deleted_by_user_id: string | null;
+  restored: boolean;
+  restored_at: string | null;
+  restored_to_project_id: string | null;
+  agent_count: number;
+  connection_count: number;
+  kb_count: number;
+}
+
 interface CreateProjectData {
   name: string;
   description?: string;
@@ -37,7 +51,10 @@ export default function AgentsOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"active" | "all">("active");
+  const [activeTab, setActiveTab] = useState<"active" | "all" | "deleted">("active");
+  const [deletedManifests, setDeletedManifests] = useState<DeletedManifest[]>([]);
+  const [manifestsLoading, setManifestsLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -69,6 +86,71 @@ export default function AgentsOverviewPage() {
       setLoading(false);
     }
   };
+
+  const fetchDeleted = async () => {
+    setManifestsLoading(true);
+    try {
+      const res = await apiRequest("/api/projects/deleted");
+      if (res.ok) {
+        const data = await res.json();
+        setDeletedManifests(data.manifests || []);
+      } else if (res.status === 403) {
+        toast({
+          title: "Admin only",
+          description: "Only org admins can view the project History.",
+          variant: "destructive",
+        });
+        setDeletedManifests([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch deleted projects:", error);
+    } finally {
+      setManifestsLoading(false);
+    }
+  };
+
+  const handleRestore = async (manifestId: string, projectName: string) => {
+    setRestoringId(manifestId);
+    try {
+      const res = await apiRequest(`/api/projects/deleted/${manifestId}/restore`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast({
+          title: `Restored ${projectName}`,
+          description: `${data.agents_created?.length || 0} agents and ${
+            data.connections_created?.length || 0
+          } connections rebuilt. KB content and gateway keys need to be re-added.`,
+        });
+        // Refresh both lists + flip to Active so the user sees it
+        await Promise.all([fetchProjects(), fetchDeleted()]);
+        setActiveTab("active");
+      } else {
+        const err = await res.text();
+        toast({
+          title: "Restore failed",
+          description: err.slice(0, 200),
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Restore failed:", error);
+      toast({
+        title: "Restore failed",
+        description: error instanceof Error ? error.message : "Network error",
+        variant: "destructive",
+      });
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "deleted") {
+      fetchDeleted();
+    }
+  }, [activeTab]);
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,32 +325,118 @@ export default function AgentsOverviewPage() {
       </div>
 
       {/* Tabs */}
-      {projects.length > 0 && (
-        <div className="flex gap-1 bg-muted/50 p-1 rounded-lg w-fit">
-          <button
-            onClick={() => setActiveTab("active")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "active"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Active ({projects.filter((p) => p.status === "active").length})
-          </button>
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "all"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            All ({projects.length})
-          </button>
-        </div>
-      )}
+      <div className="flex gap-1 bg-muted/50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveTab("active")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "active"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Active ({projects.filter((p) => p.status === "active").length})
+        </button>
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "all"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All ({projects.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("deleted")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+            activeTab === "deleted"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <History className="h-3.5 w-3.5" />
+          History
+          {deletedManifests.length > 0 && activeTab !== "deleted" && (
+            <span className="ml-1 text-xs">({deletedManifests.length})</span>
+          )}
+        </button>
+      </div>
 
-      {projects.length === 0 ? (
+      {activeTab === "deleted" ? (
+        manifestsLoading ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <CardDescription>Loading history…</CardDescription>
+            </CardContent>
+          </Card>
+        ) : deletedManifests.length === 0 ? (
+          <Card className="text-center py-12">
+            <CardContent>
+              <History className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <CardTitle className="mb-2">Nothing in history</CardTitle>
+              <CardDescription>
+                Projects deleted with the Origami `delete_project` tool will appear here.
+                The skeleton (project + agents + connections + KB stubs) can be one-click
+                restored. KB content and gateway keys need to be re-added.
+              </CardDescription>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {deletedManifests.map((m) => (
+              <Card key={m.manifest_id} className="h-full">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 min-w-0">
+                      <CardTitle className="text-lg truncate">{m.project_name}</CardTitle>
+                      <Badge variant="outline" className="text-xs">
+                        deleted{" "}
+                        {m.deleted_at
+                          ? new Date(m.deleted_at).toLocaleDateString()
+                          : "(unknown)"}
+                      </Badge>
+                    </div>
+                    <History className="h-5 w-5 text-muted-foreground shrink-0" />
+                  </div>
+                  {m.description && (
+                    <CardDescription className="line-clamp-2 pt-1">
+                      {m.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="text-center p-2 rounded bg-muted/40">
+                      <div className="font-semibold text-sm">{m.agent_count}</div>
+                      <div className="text-muted-foreground">Agents</div>
+                    </div>
+                    <div className="text-center p-2 rounded bg-muted/40">
+                      <div className="font-semibold text-sm">{m.connection_count}</div>
+                      <div className="text-muted-foreground">Edges</div>
+                    </div>
+                    <div className="text-center p-2 rounded bg-muted/40">
+                      <div className="font-semibold text-sm">{m.kb_count}</div>
+                      <div className="text-muted-foreground">KBs</div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleRestore(m.manifest_id, m.project_name)}
+                    disabled={restoringId === m.manifest_id}
+                    className="w-full gap-2"
+                    size="sm"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {restoringId === m.manifest_id ? "Restoring…" : "Restore skeleton"}
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    KB content + gateway keys need to be re-added after restore.
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : projects.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
             <Bot className="mx-auto h-12 w-12 text-muted-foreground mb-4" />

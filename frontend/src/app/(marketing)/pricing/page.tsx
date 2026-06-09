@@ -27,10 +27,10 @@ const plans = [
   },
   {
     name: "Builder",
-    price: "TBD",
-    period: "",
+    price: "$49",
+    period: "/mo",
     description: "For solo builders and indie devs shipping their first agentic app.",
-    badge: "NEW · COMING SOON",
+    badge: "NEW",
     features: [
       "Up to 3 cloud providers",
       "100,000 gateway API calls / month",
@@ -44,15 +44,15 @@ const plans = [
       "Email support",
       "30-day audit log retention",
     ],
-    cta: "Notify Me",
+    cta: "Start Free Trial",
     highlighted: false,
   },
   {
     name: "Growth",
-    price: "TBD",
-    period: "",
+    price: "$349",
+    period: "/mo",
     description: "For small teams scaling agents across multiple workstreams.",
-    badge: "NEW · COMING SOON",
+    badge: "NEW",
     features: [
       "Up to 5 cloud providers",
       "250,000 gateway API calls / month",
@@ -66,7 +66,7 @@ const plans = [
       "Token efficiency metrics",
       "60-day audit log retention",
     ],
-    cta: "Notify Me",
+    cta: "Start Free Trial",
     highlighted: false,
   },
   {
@@ -95,9 +95,9 @@ const plans = [
   },
   {
     name: "Enterprise",
-    price: "$10K–$20K",
+    price: "From $6K",
     period: "/mo",
-    description: "For organizations with complex AI infrastructure and governance needs.",
+    description: "For organizations with complex AI infrastructure and governance needs. Custom pricing scales with volume.",
     features: [
       "Unlimited cloud providers",
       "Unlimited gateway API calls",
@@ -365,62 +365,98 @@ export default function PricingPage() {
         </motion.p>
       </section>
 
-      {/* Platform Plan Cards */}
-      <section className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 max-w-7xl mx-auto pb-16">
-        {plans.map((plan, i) => (
-          <motion.div
-            key={plan.name}
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className={`relative rounded-xl p-8 border flex flex-col ${
-              plan.highlighted
-                ? "bg-[#7c3aed]/5 border-[#7c3aed]/40 ring-1 ring-[#7c3aed]/20"
-                : (plan as any).badge
-                ? "bg-[#0e0a18] border-[#7c3aed]/35 ring-1 ring-[#7c3aed]/10"
-                : "bg-[#111] border-[#1a1a1a]"
-            }`}
+      {/* Platform Plan Cards — split into Developers (Free/Builder/Growth)
+          and Organizations (Pro/Enterprise/Scale) to reduce congestion. */}
+      {(["developers", "organizations"] as const).map((audience) => {
+        const isDevs = audience === "developers";
+        const audiencePlans = isDevs
+          ? plans.filter((p) => ["Free", "Builder", "Growth"].includes(p.name))
+          : plans.filter((p) => ["Pro", "Enterprise", "Scale"].includes(p.name));
+        return (
+          <section
+            key={audience}
+            className={`max-w-6xl mx-auto ${isDevs ? "pt-2 pb-12" : "pt-4 pb-16"}`}
           >
-            {(plan as any).badge && (
+            <div className="text-center mb-8">
               <div
-                className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-[#7c3aed] text-white shadow-[0_0_18px_rgba(124,58,237,0.65)] ring-2 ring-[#0a0a0a]"
+                className="inline-block px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-[0.18em] mb-3"
+                style={{
+                  background: isDevs
+                    ? "rgba(124, 58, 237, 0.12)"
+                    : "rgba(245, 158, 11, 0.12)",
+                  color: isDevs ? "#a78bfa" : "#fbbf24",
+                  border: `1px solid ${
+                    isDevs ? "rgba(124, 58, 237, 0.3)" : "rgba(245, 158, 11, 0.3)"
+                  }`,
+                }}
               >
-                {(plan as any).badge}
+                {isDevs ? "For Developers" : "For Organizations"}
               </div>
-            )}
-            <h3 className="text-lg font-semibold">{plan.name}</h3>
-            <p className="text-sm text-[#888] mt-1">{plan.description}</p>
-            <div className="mt-6 mb-6">
-              <span className="text-4xl font-bold">{plan.price}</span>
-              <span className="text-[#888] ml-1">{plan.period}</span>
+              <h2 className="text-2xl md:text-3xl font-bold">
+                {isDevs ? "Build and ship solo." : "Scale teams in production."}
+              </h2>
+              <p className="text-sm text-[#888] mt-2 max-w-xl mx-auto">
+                {isDevs
+                  ? "For individuals and small teams shipping their first agentic apps. Start free, swipe a card when you need more."
+                  : "For teams running AI workloads in production. Advanced routing, governance, SSO, compliance, and dedicated support."}
+              </p>
             </div>
-            <ul className="space-y-3 mb-8 flex-1">
-              {plan.features.map((f) => (
-                <li key={f} className="flex items-start gap-3 text-sm text-[#999]">
-                  <Check className="w-4 h-4 text-[#7c3aed] flex-shrink-0 mt-0.5" />
-                  {f}
-                </li>
+            <div className="grid md:grid-cols-3 gap-5">
+              {audiencePlans.map((plan, i) => (
+                <motion.div
+                  key={plan.name}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className={`relative rounded-xl p-8 border flex flex-col ${
+                    plan.highlighted
+                      ? "bg-[#7c3aed]/5 border-[#7c3aed]/40 ring-1 ring-[#7c3aed]/20"
+                      : (plan as any).badge
+                      ? "bg-[#0e0a18] border-[#7c3aed]/35 ring-1 ring-[#7c3aed]/10"
+                      : "bg-[#111] border-[#1a1a1a]"
+                  }`}
+                >
+                  {(plan as any).badge && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-[#7c3aed] text-white shadow-[0_0_18px_rgba(124,58,237,0.65)] ring-2 ring-[#0a0a0a]">
+                      {(plan as any).badge}
+                    </div>
+                  )}
+                  <h3 className="text-lg font-semibold">{plan.name}</h3>
+                  <p className="text-sm text-[#888] mt-1">{plan.description}</p>
+                  <div className="mt-6 mb-6">
+                    <span className="text-4xl font-bold">{plan.price}</span>
+                    <span className="text-[#888] ml-1">{plan.period}</span>
+                  </div>
+                  <ul className="space-y-3 mb-8 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-3 text-sm text-[#999]">
+                        <Check className="w-4 h-4 text-[#7c3aed] flex-shrink-0 mt-0.5" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={
+                      plan.name === "Enterprise" || plan.name === "Scale"
+                        ? "/contact"
+                        : "/register"
+                    }
+                    className={`block text-center py-3 rounded-lg font-semibold transition ${
+                      plan.highlighted
+                        ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                        : (plan as any).badge
+                        ? "bg-[#7c3aed]/15 border border-[#7c3aed]/40 hover:bg-[#7c3aed]/25 text-[#a78bfa]"
+                        : "bg-[#1a1a1a] hover:bg-[#222] text-[#f5f0e8]"
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
+                </motion.div>
               ))}
-            </ul>
-            <Link
-              href={
-                plan.name === "Enterprise" || plan.name === "Scale" || (plan as any).badge
-                  ? "/contact"
-                  : "/register"
-              }
-              className={`block text-center py-3 rounded-lg font-semibold transition ${
-                plan.highlighted
-                  ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
-                  : (plan as any).badge
-                  ? "bg-[#7c3aed]/15 border border-[#7c3aed]/40 hover:bg-[#7c3aed]/25 text-[#a78bfa]"
-                  : "bg-[#1a1a1a] hover:bg-[#222] text-[#f5f0e8]"
-              }`}
-            >
-              {plan.cta}
-            </Link>
-          </motion.div>
-        ))}
-      </section>
+            </div>
+          </section>
+        );
+      })}
 
       {/* BonBon — Managed Agent Templates */}
       <section className="pb-24">

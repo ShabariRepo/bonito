@@ -36,6 +36,11 @@ logger = logging.getLogger(__name__)
 # Suppress litellm's verbose logging
 litellm.suppress_debug_info = True
 litellm.drop_params = True  # silently drop unsupported params per provider
+# Bedrock requires tools= on every call once any prior message has tool_calls.
+# modify_params adds a dummy tool when needed so multi-turn tool flows survive
+# the round-trip without UnsupportedParamsError. Required for Origami and any
+# customer using Bedrock-routed Claude with tool-calling.
+litellm.modify_params = True
 
 
 # ─── Provider credential mapping ───

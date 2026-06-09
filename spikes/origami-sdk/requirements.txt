@@ -1,0 +1,18 @@
+# claude-agent-sdk: Anthropic's official Python SDK that wraps the Claude Code CLI.
+# Package name on PyPI is `claude-agent-sdk` (NOT `claude-code-sdk` — that's the
+# older v0.0.x line; `claude-agent-sdk` is the rename/successor at v0.2.93+).
+#
+# IMPORTANT: This SDK requires the `claude` CLI binary to be installed on the host
+#   (npm install -g @anthropic-ai/claude-code), because it shells out to it via
+#   the subprocess_cli Transport. The Python SDK is a thin control-protocol layer
+#   on top of the CLI process, NOT a direct HTTPS client.
+claude-agent-sdk==0.2.93
+
+# tiktoken: for token counting baseline so we can estimate what a hand-rolled raw
+# API call would cost for the same logical work (without the SDK harness overhead).
+tiktoken>=0.7.0
+
+# anthropic: only used for the raw-API baseline comparison in test_run.py — we
+# call client.messages.count_tokens() to get a fair "what would a hand-roll cost"
+# number. Not used as runtime dependency of main.py.
+anthropic>=0.40.0

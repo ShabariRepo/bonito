@@ -39,6 +39,17 @@ services:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=bonito-dev-token
       - SENTRY_DSN=${SENTRY_DSN:-}
+      # Match the values bonito/app stores in Vault. Used by provider_service.py
+      # for DB-encrypted credential decryption fallback. Production sets these
+      # via environment / secret manager.
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-in-production-12345}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key-change-in-production-12345}
+      # Origami dev defaults — system gateway key for cat.shabari (here:
+      # Test Admin's org locally) + Bedrock-routed Claude that actually has
+      # a healthy deployment in dev. Override in prod via env.
+      - ORIGAMI_GATEWAY_KEY=${ORIGAMI_GATEWAY_KEY:-bn-19cfe4c7b04f7ef0053553ab3e882fb738d6ec556c61ab5f29b53fa0d6022ac7}
+      - ORIGAMI_MODEL=${ORIGAMI_MODEL:-anthropic.claude-opus-4-6-v1}
+      - BONITO_GATEWAY_URL=${BONITO_GATEWAY_URL:-http://backend:8000}
     depends_on:
       postgres:
         condition: service_healthy

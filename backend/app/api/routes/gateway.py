@@ -155,6 +155,29 @@ async def get_auth_context(
         )
         return pat_key, None
 
+    # Check for project token (bj- format) — gateway accepts these too.
+    # Org scope comes from token.org_id. Project attribution for cost
+    # tracking rides on the gateway_log row (cost-attribution by project
+    # is wired in the log writer, not on the auth wrapper).
+    elif raw_key.startswith("bj-"):
+        from app.services.access_token_service import validate_access_token, update_last_used
+        token = await validate_access_token(db, raw_key)
+        if not token or token.token_type != "project":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired project token")
+        await update_last_used(db, token, request.headers.get("x-forwarded-for", request.client.host if request.client else None))
+        proj_key = GatewayKey(
+            id=token.id,
+            org_id=token.org_id,
+            key_hash=token.token_hash,
+            key_prefix=token.token_prefix,
+            name=f"ProjectToken: {token.name}",
+            rate_limit=token.rate_limit,
+        )
+        # Stash project_id as a runtime-only attribute so cost-log writers
+        # downstream can attribute spend to this project. Not persisted.
+        proj_key._origin_project_id = token.project_id  # type: ignore[attr-defined]
+        return proj_key, None
+
     # Check for regular gateway key (bn- format)
     elif raw_key.startswith("bn-"):
         key = await gateway_service.validate_api_key(db, raw_key)
@@ -169,7 +192,7 @@ async def get_auth_context(
         return key, None
 
     else:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key format. Use bn- (gateway), bp- (personal access token), or rt- (routing policy).")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key format. Use bn- (gateway), bp- (personal access token), bj- (project token), or rt- (routing policy).")
 
 
 # ─── OpenAI-compatible endpoints (/v1/*) ───
@@ -596,6 +619,15 @@ async def completions(
             detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
         )
 
+    # Monthly request volume cap per tier (gateway_calls_per_month).
+    # Counts /v1/chat/completions + /v1/completions + /v1/embeddings +
+    # /v1/images + /v1/videos toward the same monthly bucket.
+    try:
+        from app.services.feature_gate import feature_gate
+        await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+    except HTTPException as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
     # Policy enforcement
     try:
         await gateway_service.enforce_policies(db, key, request.model)
@@ -629,6 +661,16 @@ async def embeddings(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
         )
+
+    # Monthly request volume cap per tier (gateway_calls_per_month).
+    # Embedding calls count toward the same monthly bucket as chat /
+    # completions / images / videos so a customer can't burn unlimited
+    # embeddings on a low-tier plan.
+    try:
+        from app.services.feature_gate import feature_gate
+        await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+    except HTTPException as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
 
     # Policy enforcement
     try:

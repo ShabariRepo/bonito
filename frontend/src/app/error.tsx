@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { RefreshCw, Home, AlertTriangle } from "lucide-react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 export default function Error({
   error,
@@ -38,16 +39,15 @@ export default function Error({
       ))}
 
       <div className="text-center px-6 relative z-10">
-        {/* Capsized fish */}
-        <motion.pre
-          initial={{ opacity: 0, rotate: 0 }}
-          animate={{ opacity: 1, rotate: 180 }}
+        {/* Purple origami bonito — capsized (replaces the old ASCII fish) */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-[#ef4444] text-xs md:text-sm font-mono mb-8 select-none inline-block"
-          aria-hidden="true"
+          className="flex justify-center mb-6"
         >
-{`><(((°>`}
-        </motion.pre>
+          <OrigamiBonitoFish mood="capsized" size={200} />
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -167,6 +167,14 @@ with overage potential.
 | Custom prompts library | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | One-click model activation | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Deployment provisioning | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Origami (conversational interface)** | | | | | | |
+| Origami chat access | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Origami turns / month (base) | 50 | 100 | 300 | 1,000 | 5,000 | Custom |
+| Overage rate (per turn over base) | hard cap | $0.12 | $0.12 | $0.12 | $0.10 | Custom |
+| Opus 4.7 escalation (vs Sonnet-only) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Plan card upgrade-in-place CTA | ✅ | ✅ | ✅ | ✅ | n/a | n/a |
+| Embeddable / white-label Origami | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Origami API (`og-` token programmatic access) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Security & Compliance** | | | | | | |
 | CLI access | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Audit trail | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -193,7 +201,90 @@ with overage potential.
 
 ---
 
-## Competitive Benchmarks (Request Volume)
+## Origami COGS & Tier Decision
+
+Origami (the conversational platform interface, spec at `docs/ORIGAMI-MVP-PLAN.md`) is **the only feature in Bonito with non-trivial per-use Bonito-side COGS** — every turn is a Sonnet or Opus call we pay for, not a passthrough on the customer's BYOK provider. The tier decision below is the result of working through the unit economics.
+
+### Per-turn cost (estimate, pending validation)
+
+Numbers below are first-pass estimates from token-count math, not real benchmarks. Validate against real Origami sessions before locking quotas in code.
+
+| Tier path | Tokens (in/out, est.) | Cost / turn |
+|---|---|---|
+| Sonnet 4.6 only | 7K in / 1K out | ~$0.036 |
+| Sonnet + Opus 4.7 escalation (20% of turns) | mixed | ~$0.066 average |
+| Opus 4.7 only (heavy planning) | 7K in / 1K out | ~$0.18 |
+
+### Monthly COGS at base quota
+
+Quotas calibrated for *realistic Origami use*, not abuse ceiling. Origami is structured assist (4-6 turns per agent build, plan card → deploy), not open-ended chat. A heavy Pro user doing 3 builds/day = ~450 turns/mo, well under the 1K cap.
+
+| Tier | Base quota | Model mix | Base COGS at cap | Tier price | % of revenue |
+|---|---|---|---|---|---|
+| Free | 50 | Sonnet only | $3.30 | $0 | absorbed |
+| Builder | 100 | mixed | $6.60 | ~$99 | ~7% |
+| Growth | 300 | mixed | $20 | ~$349 | ~6% |
+| Pro | 1,000 | mixed | $66 | $999 | ~7% |
+| Enterprise | 5,000 | mixed | $330 | $10K-$20K | ~2-3% |
+| Scale | Custom | mixed | — | $200K+/yr | — |
+
+### Realistic per-user numbers (not at cap)
+
+| Usage profile | Turns/mo | COGS/mo |
+|---|---|---|
+| Casual (1-2 builds/week) | 30-50 | $2-3 |
+| Active (1 build/day) | 150 | $10 |
+| Heavy (3 builds/day) | 450 | $30 |
+| Power user (5+ builds/day) | 750+ | $50+ |
+
+Most Pro users will land in $10-30/mo COGS. Origami pays for itself with room to spare.
+
+### Overage model
+
+Free is a hard cap — when users hit 50 turns, plan cards show "upgrade to Builder to keep building." That's the upgrade lever.
+
+Builder / Growth / Pro overage at **$0.12/turn** (~1.8x blended COGS, ~45% margin on overage usage). Customers stay under cap if they want, scale smoothly if they don't. No hard wall.
+
+Enterprise gets **$0.10/turn** overage (volume discount). Scale is fully custom.
+
+**Competitive context** (verified 2026-06-06):
+- Cursor Pro overage: $0.04/request (1 LLM call)
+- Replit Agent typical: $0.25+/checkpoint, complex jobs $5+
+- Origami turn (1-3 internal calls) at $0.12 sits cleanly between them — 3x Cursor's per-call rate (because we do more per turn) and ~2x cheaper than Replit's typical (because plan cards are lighter than code-gen checkpoints).
+
+### Why this works
+
+1. **BYOK kills the cost of everything else.** Customer's keys pay for gateway requests, agent executions, embedding calls. Origami is the only place Bonito burns its own tokens.
+2. **Tier price covers a 22-feature bundle.** $999 Pro isn't paying for 1K Origami turns — it's paying for 1M gateway requests + 200 agents + 20 KBs + advanced routing + analytics + Origami. Origami is one line item.
+3. **Quotas calibrated for real use, not abuse ceiling.** Old plan had Pro at 10K turns (abuse ceiling) which made COGS look scary. New plan has Pro at 1K (5x realistic heavy use) which makes COGS honest.
+
+### Tier-decision rationale
+
+**Why every tier gets Origami chat access (even Free):**
+
+Origami IS the SMB wedge. Gating it kills the value-prop for the buyers the new ladder was designed for. Free + Builder users *need* Origami to onboard at all — without it, they're back to "stare at 22 tabs and figure it out." Chat access is the sales surface, not the upsell.
+
+**Why Free gets only 50 turns + Sonnet-only:**
+
+Caps prevent runaway scripted abuse (someone setting up an org just to burn Sonnet via Origami). 50 turns is plenty for first-day onboarding + 1-2 simple agent builds. Opus escalation gated to Builder+ because Opus at Free scale is the one COGS path that could actually hurt — $0.18/turn times an abusing user gets ugly fast.
+
+**Why Growth+ gets `og-` programmatic access:**
+
+Builder is a single-user / small-team tier where chat-only is fine. Growth+ users want to embed Origami in their own ops scripts (CI/CD agent rebuilds, slack `/origami` commands), which needs the `og-` token API. This naturally upgrades the SMB power user into Growth.
+
+**Why Enterprise+ gets embeddable / white-label:**
+
+Phase 3 only. Memory Creative (Peller end-users) and similar agency partners want to deploy a custom-branded Origami to their end-users. Per-end-user `og-` tokens make this work, but the operational complexity (custom theming, brand voice tuning, SLA) belongs in Enterprise+.
+
+### Quotas to lock before Phase 1 build
+
+- Real Origami session token counts (system prompt + KB context + history + response). Math-based estimate above assumes 7K/1K — could be off by 2-3x either direction.
+- Opus escalation rate in practice. 20% is a guess. If router classifier escalates 50% of turns, COGS doubles.
+- Quota enforcement strategy: hard cutoff with upgrade prompt, or soft warning + meter past cap.
+
+### Marketing line (when prices firm up)
+
+"Origami included on every plan." Strong sales line. Pairs with the "you bring your own providers" BYOK story — Bonito gives you the chat that builds, you pay providers for what the agent does. Clean.
 
 | Platform | Tier / Price | Requests included | $/1K equivalent |
 |---|---|---|---|

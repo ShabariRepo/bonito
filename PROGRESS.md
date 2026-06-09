@@ -1,74 +1,89 @@
 # Bonito — Progress Tracker
 
-_Last updated: 2026-05-25_
+_Last updated: 2026-06-06 (end of session)_
 
-## Recently Completed
+## Most recent session — Origami Phase 1 skeleton
 
-### Phase 19: Agent HPA Autoscaling ✅ (2026-05-25)
+Save file for tomorrow-you. Branch: `origami-mvp`, 28 commits ahead of `main`.
 
-**Branch:** `feat/agent-hpa` | **PR:** #43048
+### What landed tonight
 
-Agent-level horizontal pod autoscaling — Phase 1 virtual scaling. Dynamically raises effective RPM in Redis when utilization crosses threshold.
+A full Phase 1 Origami skeleton, smoke-tested end-to-end against real Bedrock through our own gateway.
 
-**What was built:**
-- [x] Migration 043 — `autoscale_enabled`, `autoscale_config`, `primary_agent_id`, `replica_index` columns on agents; `agent_scaling_events` table
-- [x] `agent_autoscaler.py` service — reactive scale-up in `_check_rate_limit`, background scale-down loop (30s, advisory lock 839272)
-- [x] Modified `_check_rate_limit` in `agent_engine.py` — returns `(remaining, effective_rpm, scaling_active)` tuple
-- [x] 4 API endpoints: `GET /agents/{id}/scaling`, `GET /agents/{id}/scaling/events`, `POST /agents/{id}/scaling/configure`, `POST /agents/{id}/scaling/manual`
-- [x] Feature gate: `agent_hpa` — Enterprise+ only
-- [x] CLI: `bonito agents scaling status|configure|events|manual`
-- [x] YAML: `scaling` block in `bonito.yaml` agent config via `deploy.py`
-- [x] Frontend: HPA documentation section on `/docs` page
-- [x] SecurityMetadata response includes `effective_rpm` and `scaling_active`
-- [x] Wired into FastAPI lifespan (`start_autoscaler` / `stop_autoscaler`)
+**Code shipped:**
 
-**Load test results (100 tickets, Bulletproof-style):**
-| Metric | Result |
-|--------|--------|
-| Hallucinations | 0 |
-| Routing accuracy | 96.3% |
-| Scaling events | 5 (10→20→40→50 RPM + scale-down) |
-| Quality degradation | None |
-| Successful | 59/100 (41 rate-limited at max 50 RPM cap) |
+- **Phase 0 KB ingestion scaffold** — `backend/app/services/origami/ingestion/` — 6 modules, 24 tests, 444 IngestionRecords produced when run
+- **`og-` token type** — `backend/app/services/origami/auth.py` — auto-mint, revoke, FastAPI dependency, org-scope locked at the perimeter
+- **Hand-rolled orchestrator** — `backend/app/services/origami/orchestrator.py` — httpx → Bonito gateway, NO SDK. Streams `message_token` events token-by-token. Token-estimate fallback for Bedrock (LiteLLM doesn't echo usage on streaming).
+- **5 read tools** — `list_org_state`, `view_usage`, `view_logs`, `list_available_models`, `check_tier_access`
+- **Per-turn metering** — `origami_turn_log` table (migration 046), customer-org-attributed, tier-quota-enforced (Free 50/Builder 100/Growth 300/Pro 1000/Enterprise 5000, overage $0.12 / $0.10)
+- **Per-action audit** — `origami_audit_log` (migration 046) with project_id (migration 047)
+- **Admin endpoints** — `/api/admin/origami/usage-by-org`, `/recent-activity`, `/turns` (super-admin only, cross-tenant)
+- **Frontend chat** — `/origami` page, SSE parser, typewriter cursor, collapsible activity log
 
-**What's NOT built yet (Phase 2):**
-- [ ] Physical replicas — clone agent rows with load balancer
-- [ ] Session affinity for replicas
-- [ ] Graceful drain on scale-down
-- [ ] Cross-provider replica routing (replica 1 → Vertex, replica 2 → Bedrock)
-- [ ] Request queuing for rate-limited tickets (see below)
+**Decisions locked:**
 
-### Request Queuing (Planned — Phase 19b)
+- **SKIP `claude-agent-sdk`** — spike measured 18.9× token overhead + can't route through Bonito gateway (Anthropic format only). Dead, don't relitigate.
+- **Rename Origami** — collision with YC-backed `origami.chat`. Shortlist: Kigumi / Kunai / Jutsu. Pick + collision-check before any external mention.
+- **Pricing for Origami turns** — chat included every tier; quotas calibrated to ~3-5× realistic heavy use; overage $0.12/$0.10
+- **Workspace UX = Replit-style split-pane** — locked in spec, builds in Phase 3 (chat left, resources grid + activity log right)
+- **System-org pattern for gateway key** — single `bn-` key (cat.shabari in prod), customer attribution via OpenAI `user` field + X-Bonito headers, billing flows through `origami_turn_log` per customer
 
-41/100 tickets were dropped (429) during the load test because they exceeded the max scaled RPM (50). These requests currently fail immediately. A queuing layer would hold them and retry when capacity frees up.
+**Smoke test (proven on local DB):**
 
-**Status:** Not yet built. Design TBD — see active discussion.
+Returns real Claude Haiku 4.5 streaming response via `us.anthropic.claude-haiku-4-5-20251001-v1:0` (auto cross-region inference). Turn log row lands with `status=success`, real cost, real tokens.
+
+Local env tweaks made tonight:
+- `docker-compose.yml`: added `SECRET_KEY` + `ENCRYPTION_KEY` env vars to backend service (defaults match what's in Vault under `bonito/app`)
+- AWS Bedrock creds from `~/Desktop/code/bonito-infra/aws/terraform.tfstate` written into Test Admin's org's AWS provider via `store_credentials()`
+
+### What's open
+
+**Phase 1 leftovers (task #23 still in_progress):**
+
+- **`POST /api/origami/session/start` endpoint** — thin route that calls `get_or_create_origami_token(user)` and returns the `og-` token. Frontend can stash it on first `/origami` visit. ~15 min.
+- **Memwright session memory** — wire across-turn context so Origami remembers what was said. Currently each turn is fresh.
+- **Per-org `bn-` key resolution** — switch from env var to Vault path keyed on a system-org concept. Today's `ORIGAMI_GATEWAY_KEY=bn-...` env var works; production wants Vault-backed.
+
+**Phase 2 (real next jump — task #26):**
+
+- **Plan card UX + first write tool.** This is the moment Origami stops answering questions and starts building things. Structured response schema (`message`, `plan_card`), Deploy/Edit/Cancel buttons in React, then `create_kb` as the first write tool. Then `create_agent`. ~3-4 hours.
+
+**Phase 3 (task #28):**
+
+- **Split-pane workspace at `/origami`.** Resources grid + activity log + plan card inline + progress header + result preview. ~1 week of focused work.
+
+**Smaller open items:**
+
+- **Rename** — pick from Kigumi / Kunai / Jutsu, run collision check, search-and-replace across `backend/app/services/origami/`, `frontend/src/`, docs
+- **Danny email** — was copied to clipboard 2026-06-06 with subject "Origami update". Probably gone from clipboard by now; redo from `project_mucker_danny.md` memory if you didn't send
+- **Stripe metered overage** (task #34) — blocked on Shabari signing up for Stripe + getting account keys
+- **Usages page UI** (task #33) — customer-facing version of `/api/admin/origami/usage-by-org`, scoped to their own org. Reads `get_origami_usage_summary()`.
+
+### Files worth opening first tomorrow
+
+- `docs/ORIGAMI-MVP-PLAN.md` — the canonical spec (workspace UX, decisions, build phases, token model, audit, upgrade-in-place)
+- `docs/PRICING-STRATEGY-2026-06.md` — pricing matrix + Origami COGS analysis
+- `backend/app/services/origami/README.md` — how to run + billing architecture
+- `backend/app/services/origami/orchestrator.py` — streaming loop + tool dispatch + metering
+- `frontend/src/components/origami/OrigamiChat.tsx` — SSE parser + reducer + typewriter cursor
+
+### What you should NOT relitigate
+
+These took real effort tonight; don't undo them:
+
+- **SDK skip** — proven by measurement, not vibes. `spikes/origami-sdk/notes.md` has the math.
+- **Origami uses Bonito gateway, not direct provider** — three iterations to get this right. Final state in `_call_gateway` + `_stream_gateway` (httpx only, no LLM library).
+- **Customer-org metering via `origami_turn_log`, system-org gateway key for LLM cost** — this dual-path is intentional. Documented in `backend/app/services/origami/README.md` "Billing architecture".
+- **`org_id` injected server-side from auth context, never from model output** — load-bearing for multi-tenancy.
 
 ---
 
-## Previously Completed (2026-05-25)
+## Recently Completed (prior sessions, kept for reference)
 
-- [x] KB delete fix — raw SQL deletes to avoid pgvector OID error
-- [x] KB vector dimension fix — migration 041, 768→1024 dims for Titan V2
-- [x] Alembic multiple heads fix — merge migration 042
-- [x] pgvector greenlet_spawn fix — `checkout` event instead of `connect`
-- [x] Ingestion error handler fix — `db.rollback()` before status update
-- [x] GCS fast-fail — immediate failure without GCS credentials
-- [x] Embedding timeout — 30s→90s for Bedrock under rate limiting
-- [x] KB search quality fix — threshold 0.7→0.5, `MODEL_MAX_DIMENSIONS` clamping
-- [x] Gateway Vault fallback — `_get_provider_secrets()` with Vault → encrypted DB chain
-- [x] Gateway duplicate provider fix — keyed by provider UUID, not type
-- [x] External orchestration / Breadcrumbs tracing — `parent_agent_id` on execute
-- [x] Agent Health dashboard — `/admin/agent-health` with model health checks
+See `CHANGELOG.md` for full history.
 
-## What's Planned
-
-- [ ] **Request queuing** — hold rate-limited requests and retry (Phase 19b)
-- [ ] **Physical replicas** — clone agents with load balancer (Phase 2 HPA)
-- [ ] SOC-2 Type II certification
-- [ ] Smart routing (complexity-aware model selection)
-- [ ] VPC Gateway Agent (enterprise self-hosted data plane)
-- [ ] Additional providers (Cohere, Mistral, custom endpoints)
-- [ ] Advanced audit log export & SIEM integration
-- [ ] VectorBoost: wire compression into KB ingestion
-- [ ] Vault org-namespacing: `providers/{org_id}/{provider_id}` paths
+- **2026-06-06:** Origami Phase 1 skeleton (this session)
+- **2026-05-27:** Personal Access Tokens, project tokens, log retention tier gating, GCS log sink org-partitioning, KB linked-agents fix, queue drainer adaptive polling, UX onboarding improvements
+- **2026-05-25:** KB delete fix (pgvector), vector dimension fix, alembic merge migration 042, greenlet_spawn fix, ingestion error handler fix
+- **2026-05-23:** External orchestration / Breadcrumbs tracing, Agent Health dashboard, gateway duplicate-provider fix

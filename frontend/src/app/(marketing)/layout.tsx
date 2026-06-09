@@ -20,6 +20,7 @@ const navLinks = [
 
 const footerLinks = {
   Product: [
+    { href: "/origami", label: "Origami" },
     { href: "/discover", label: "Discover" },
     { href: "/use-cases", label: "Use Cases" },
     { href: "/compare", label: "Compare" },
@@ -60,6 +61,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
+            <Link
+              href="/origami"
+              className={`text-sm font-semibold px-3.5 py-1.5 rounded-full border transition ${
+                pathname?.startsWith("/origami")
+                  ? "bg-[#7c3aed] text-white border-[#7c3aed]"
+                  : "bg-[#7c3aed]/10 text-[#a78bfa] border-[#7c3aed]/30 hover:bg-[#7c3aed]/20 hover:text-white"
+              }`}
+            >
+              Origami
+            </Link>
             <Link
               href="/discover"
               className={`text-sm font-semibold px-3.5 py-1.5 rounded-full border transition ${
@@ -121,6 +132,17 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
               className="md:hidden border-t border-[#1a1a1a] bg-[#0a0a0a]"
             >
               <div className="px-4 py-4 space-y-4">
+                <Link
+                  href="/origami"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`inline-flex items-center text-sm font-semibold px-4 py-2 rounded-full border transition ${
+                    pathname?.startsWith("/origami")
+                      ? "bg-[#7c3aed] text-white border-[#7c3aed]"
+                      : "bg-[#7c3aed]/10 text-[#a78bfa] border-[#7c3aed]/30"
+                  }`}
+                >
+                  Origami
+                </Link>
                 <Link
                   href="/discover"
                   onClick={() => setIsMobileMenuOpen(false)}

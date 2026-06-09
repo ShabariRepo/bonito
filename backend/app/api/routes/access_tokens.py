@@ -19,7 +19,12 @@ from app.services import access_token_service
 router = APIRouter()
 
 # ── PAT tier limits (active, non-revoked) ──
-PAT_LIMITS = {"free": 2, "starter": 5, "pro": 10, "enterprise": 999, "scale": 999}
+PAT_LIMITS = {"free": 2, "builder": 3, "starter": 5, "growth": 7, "pro": 10, "enterprise": 999, "scale": 999}
+
+# ── Project token (bj-) tier limits per ORG (active, non-revoked) ──
+# Project tokens are admin-only and Pro+ gated. Numeric cap prevents a Pro
+# org from minting thousands of per-project credentials.
+PROJECT_TOKEN_LIMITS = {"pro": 20, "enterprise": 999, "scale": 999}
 
 
 # ─────────────────── Personal Access Tokens ───────────────────
@@ -121,6 +126,20 @@ async def create_project_token(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only organization admins can create project tokens",
         )
+
+    # Org-level numeric cap on active bj- tokens
+    from app.services.feature_gate import feature_gate
+
+    sub = await feature_gate.get_organization_subscription(db, str(user.org_id))
+    tier = sub["tier"].value if hasattr(sub["tier"], "value") else str(sub["tier"])
+    pt_limit = PROJECT_TOKEN_LIMITS.get(tier, 0)
+    pt_count = await access_token_service.count_org_project_tokens(db, user.org_id)
+    if pt_count >= pt_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Project-token limit reached ({pt_count}/{pt_limit}). Upgrade your plan for more.",
+        )
+
     # Verify project belongs to org
     from app.models.project import Project
     from sqlalchemy import select

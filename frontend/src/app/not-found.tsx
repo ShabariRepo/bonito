@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowLeft, Home } from "lucide-react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 const bubbles = Array.from({ length: 12 }, (_, i) => ({
   id: i,
@@ -41,20 +42,15 @@ export default function NotFound() {
       ))}
 
       <div className="text-center px-6 relative z-10">
-        {/* Fish ASCII art */}
-        <motion.pre
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
+        {/* Purple origami bonito — replaces the old ASCII fish */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-[#7c3aed] text-xs md:text-sm font-mono mb-8 select-none"
-          aria-hidden="true"
+          className="flex justify-center mb-6"
         >
-{`         ___
-       /    \\
- ><(((°>    |
-       \\____/
-`}
-        </motion.pre>
+          <OrigamiBonitoFish mood="lost" size={200} />
+        </motion.div>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}

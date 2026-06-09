@@ -37,6 +37,8 @@ import {
   HeartPulse,
   Lock,
   Crown,
+  Wand2,
+  TrendingUp,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -80,6 +82,7 @@ const spendNavigation = [
 ];
 
 const agentsNavigation = [
+  { name: "Origami", href: "/origami/workspace", icon: Wand2, badge: "NEW" as const },
   { name: "Projects", href: "/agents", icon: Bot },
   { name: "Breadcrumbs", href: "/agents/breadcrumbs", icon: Footprints },
   { name: "BonBon", href: "/agents/bonbon", icon: Package },
@@ -90,6 +93,8 @@ const adminNavigation = [
   { name: "All Users", href: "/admin/users", icon: UsersRound },
   { name: "Access Requests", href: "/admin/access-requests", icon: UserPlus },
   { name: "Agent Health", href: "/admin/agent-health", icon: HeartPulse },
+  { name: "Tier Utilization", href: "/admin/tier-utilization", icon: TrendingUp },
+  { name: "Origami Metrics", href: "/admin/origami-metrics", icon: Wand2 },
   { name: "Discover Logs", href: "/admin/discover-logs", icon: Sparkles },
   { name: "System", href: "/admin/system", icon: Server },
   { name: "Knowledge Base", href: "/admin/kb", icon: BookOpen },
@@ -482,8 +487,14 @@ export function Sidebar() {
                       animate="expanded"
                       exit="collapsed"
                       transition={{ duration: 0.2 }}
+                      className="flex items-center justify-between flex-1"
                     >
                       {item.name}
+                      {"badge" in item && item.badge && (
+                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">
+                          {item.badge}
+                        </span>
+                      )}
                     </motion.span>
                   )}
                 </AnimatePresence>

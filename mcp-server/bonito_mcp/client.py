@@ -171,3 +171,43 @@ class BonitoClient:
         if model:
             params["model"] = model
         return await self.get("/api/gateway/logs", params=params or None)
+
+    # ── Projects ──────────────────────────────────────────────────────
+
+    async def list_projects(self) -> Any:
+        return await self.get("/api/projects")
+
+    async def create_project(
+        self,
+        name: str,
+        description: str | None = None,
+        monthly_budget_usd: float | None = None,
+    ) -> Any:
+        body: dict[str, Any] = {"name": name}
+        if description:
+            body["description"] = description
+        if monthly_budget_usd is not None:
+            body["monthly_budget_usd"] = monthly_budget_usd
+        return await self.post("/api/projects", json=body)
+
+    # ── Knowledge Base (data plane) ──────────────────────────────────
+
+    async def upload_to_kb(
+        self,
+        kb_id: str,
+        documents: list[dict[str, str]],
+    ) -> Any:
+        """Add inline text documents to a KB.
+
+        documents: [{"title": "...", "content": "...", "file_type": "txt"}, ...]
+        """
+        return await self.post(
+            f"/api/knowledge-bases/{kb_id}/documents",
+            json={"documents": documents},
+        )
+
+    async def link_kb_to_agent(self, agent_id: str, kb_id: str) -> Any:
+        return await self.post(
+            f"/api/agents/{agent_id}/knowledge-bases",
+            json={"kb_id": kb_id},
+        )

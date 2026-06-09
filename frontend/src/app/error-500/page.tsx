@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Home, RefreshCw, AlertCircle } from "lucide-react";
+import { OrigamiBonitoFish } from "@/components/origami/OrigamiBonitoFish";
 
 export default function InternalServerError() {
   return (
@@ -33,30 +34,14 @@ export default function InternalServerError() {
       ))}
 
       <div className="text-center px-6 relative z-10">
-        {/* Belly-up fish with X eyes */}
+        {/* Purple origami bonito — capsized (belly up) replaces the X-eyed ASCII fish */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            rotate: [0, -2, 2, -2, 0],
-          }}
-          transition={{
-            opacity: { duration: 0.6 },
-            y: { duration: 0.6 },
-            rotate: { duration: 2, delay: 0.8, repeat: Infinity, repeatDelay: 1 }
-          }}
-          className="mb-8"
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="flex justify-center mb-6"
         >
-          <pre
-            className="text-[#ef4444] text-sm md:text-base font-mono select-none inline-block"
-            aria-hidden="true"
-          >
-{`      ___
-    /  X  \\
-<°)))><    |
-    \\__X__/`}
-          </pre>
+          <OrigamiBonitoFish mood="capsized" size={200} />
         </motion.div>
 
         <motion.div
