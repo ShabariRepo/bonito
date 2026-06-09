@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -246,6 +247,16 @@ function WorkspaceMock() {
 
 // ─── Main page ───
 export default function OrigamiPage() {
+  const router = useRouter();
+
+  // Logged-in visitors who land here get bounced into the actual workspace.
+  // Token lives in localStorage so this has to run client-side.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const token = window.localStorage.getItem("bonito_access_token");
+    if (token) router.replace("/origami/workspace");
+  }, [router]);
+
   return (
     <div className="relative z-10">
       {/* ─── Hero ─── */}

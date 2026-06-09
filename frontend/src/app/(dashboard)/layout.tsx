@@ -121,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((res) => {
         if (Array.isArray(res) && res.length === 0) {
           // Brand new org — promote Origami as the first thing they see
-          router.replace("/origami");
+          router.replace("/origami/workspace");
         }
       })
       .catch(() => {

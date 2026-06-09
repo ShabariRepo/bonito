@@ -85,7 +85,7 @@ export function OrigamiPanel() {
               <Button
                 onClick={() => {
                   setOpen(false);
-                  router.push("/origami");
+                  router.push("/origami/workspace");
                 }}
                 size="sm"
                 variant="ghost"

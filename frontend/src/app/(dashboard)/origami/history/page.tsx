@@ -122,11 +122,11 @@ export default function OrigamiHistoryPage() {
         title="Conversation history"
         description="Every Origami chat you've had, with the assistant's replies and plan cards. View, search, and download."
         breadcrumbs={[
-          { label: "Origami", href: "/origami" },
+          { label: "Origami", href: "/origami/workspace" },
           { label: "History" },
         ]}
         actions={
-          <Link href="/origami">
+          <Link href="/origami/workspace">
             <Button variant="outline" size="sm" className="gap-1.5">
               <Wand2 className="h-3.5 w-3.5" />
               New chat
@@ -156,7 +156,7 @@ export default function OrigamiHistoryPage() {
             {!loadingList && conversations.length === 0 && (
               <div className="px-4 py-6 text-sm text-muted-foreground italic">
                 You haven&apos;t talked to Origami yet.{" "}
-                <Link href="/origami" className="text-primary underline">
+                <Link href="/origami/workspace" className="text-primary underline">
                   Start a chat
                 </Link>
                 .

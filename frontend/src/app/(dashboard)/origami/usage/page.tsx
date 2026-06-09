@@ -69,7 +69,7 @@ export default function OrigamiUsagePage() {
         title="Origami usage"
         description="Track your Origami turns this billing period and see what your team has been building."
         breadcrumbs={[
-          { label: "Origami", href: "/origami" },
+          { label: "Origami", href: "/origami/workspace" },
           { label: "Usage" },
         ]}
       />

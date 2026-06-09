@@ -82,7 +82,7 @@ const spendNavigation = [
 ];
 
 const agentsNavigation = [
-  { name: "Origami", href: "/origami", icon: Wand2, badge: "NEW" as const },
+  { name: "Origami", href: "/origami/workspace", icon: Wand2, badge: "NEW" as const },
   { name: "Projects", href: "/agents", icon: Bot },
   { name: "Breadcrumbs", href: "/agents/breadcrumbs", icon: Footprints },
   { name: "BonBon", href: "/agents/bonbon", icon: Package },
