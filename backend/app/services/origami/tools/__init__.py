@@ -19,5 +19,6 @@ from app.services.origami.tools.show_integration_guide import ShowIntegrationGui
 from app.services.origami.tools.show_enterprise_options import ShowEnterpriseOptionsTool
 from app.services.origami.tools.delete_project import DeleteProjectTool
 from app.services.origami.tools.restore_project import RestoreProjectTool
+from app.services.origami.tools.list_deleted_projects import ListDeletedProjectsTool
 
 __all__ = ["OrigamiTool", "TOOL_REGISTRY", "register_tool"]

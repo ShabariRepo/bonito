@@ -520,3 +520,94 @@ async def get_project_graph(
         nodes=nodes,
         edges=edges
     )
+
+
+# ───────────────────────── Deleted projects / restore ─────────────────────
+#
+# Backs the /agents page "Deleted" tab. Lets org admins browse their
+# deleted-project manifests and restore the skeleton with one click —
+# same code path as the restore_project Origami tool.
+
+
+@router.get("/projects/deleted")
+async def list_deleted_projects_api(
+    include_restored: bool = False,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List ProjectManifest rows for the user's org.
+
+    Used by the Projects page "Deleted" tab. Org-scoped, admin-only.
+    """
+    from app.models.project_manifest import ProjectManifest
+
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only org admins can view deleted-project manifests.",
+        )
+
+    limit = max(1, min(limit, 200))
+    stmt = select(ProjectManifest).where(
+        ProjectManifest.org_id == current_user.org_id
+    )
+    if not include_restored:
+        stmt = stmt.where(ProjectManifest.restored_at.is_(None))
+    stmt = stmt.order_by(ProjectManifest.deleted_at.desc()).limit(limit)
+
+    rows = (await db.execute(stmt)).scalars().all()
+    return {
+        "count": len(rows),
+        "manifests": [
+            {
+                "manifest_id": str(m.id),
+                "project_name": m.project_name,
+                "description": m.description,
+                "deleted_at": m.deleted_at.isoformat() if m.deleted_at else None,
+                "deleted_by_user_id": str(m.deleted_by_user_id) if m.deleted_by_user_id else None,
+                "restored": m.restored_at is not None,
+                "restored_at": m.restored_at.isoformat() if m.restored_at else None,
+                "restored_to_project_id": (
+                    str(m.restored_to_project_id) if m.restored_to_project_id else None
+                ),
+                "agent_count": len((m.manifest or {}).get("agents", [])),
+                "connection_count": len((m.manifest or {}).get("connections", [])),
+                "kb_count": len((m.manifest or {}).get("knowledge_bases", [])),
+            }
+            for m in rows
+        ],
+    }
+
+
+@router.post("/projects/deleted/{manifest_id}/restore")
+async def restore_from_manifest_api(
+    manifest_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Restore a project from its manifest (UI-facing wrapper).
+
+    Calls the same logic as the Origami restore_project tool — admin
+    only, returns the new project_id + counts of what got rebuilt.
+    """
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only org admins can restore projects.",
+        )
+
+    from app.services.origami.tools.restore_project import RestoreProjectTool
+
+    result = await RestoreProjectTool().execute(
+        org_id=current_user.org_id,
+        user=current_user,
+        params={"manifest_id": str(manifest_id)},
+        db=db,
+    )
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("message") or "Restore failed.",
+        )
+    return result
