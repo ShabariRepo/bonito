@@ -88,6 +88,22 @@ OPENAI_MODELS = [
         "context_window": 0,
         "capabilities": ["image_generation"],
     },
+    {
+        "model_id": "gpt-image-1",
+        "model_name": "GPT Image 1",
+        "input_price_per_1m": 0.04,
+        "output_price_per_1m": 0.00,
+        "context_window": 0,
+        "capabilities": ["image_generation"],
+    },
+    {
+        "model_id": "dall-e-2",
+        "model_name": "DALL-E 2",
+        "input_price_per_1m": 0.02,
+        "output_price_per_1m": 0.00,
+        "context_window": 0,
+        "capabilities": ["image_generation"],
+    },
 ]
 
 
@@ -176,8 +192,13 @@ class OpenAIDirectProvider(CloudProvider):
 
             models = []
             for model_def in OPENAI_MODELS:
-                # Only include models that exist in API or use static catalog as fallback
-                if not api_model_ids or model_def["model_id"] in api_model_ids:
+                # Include if: (a) API discovery failed, OR
+                #             (b) model is listed in /v1/models, OR
+                #             (c) model is an image-gen model (OpenAI's /v1/models
+                #                 omits image-gen models for some key permissions,
+                #                 so we always include them from the static catalog).
+                is_image_gen = "image_generation" in model_def["capabilities"]
+                if not api_model_ids or model_def["model_id"] in api_model_ids or is_image_gen:
                     models.append(ModelInfo(
                         model_id=model_def["model_id"],
                         model_name=model_def["model_name"],
