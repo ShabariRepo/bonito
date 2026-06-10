@@ -1807,12 +1807,10 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
                 "function": {"name": name, "arguments": json.dumps(params)},
             })
 
-    # Last-resort: bare function-call syntax on their own lines, no
+    # Last-resort #1: bare function-call syntax on their own lines, no
     # angle-bracket wrappers at all. Bedrock-routed Claude does this
     # occasionally — emits `create_project(name="x", ...)\ncreate_agent(...)`
-    # as plain text instead of tool_use blocks. Only fires if the earlier
-    # paths found nothing AND every candidate line resolves to a tool we
-    # actually have registered. See KNOWN-ISSUES #38.
+    # as plain text instead of tool_use blocks. See KNOWN-ISSUES #38.
     if not calls:
         for line in text.splitlines():
             line = line.strip()
@@ -1832,7 +1830,90 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
                 "function": {"name": name, "arguments": json.dumps(params)},
             })
 
+    # Last-resort #2: bare JSON-shaped tool calls, also no angle-bracket
+    # wrappers. Observed in prod: model emits
+    #   {"tool": "create_project", "params": {"name": "x"}}
+    # inside a ```json``` codeblock or plain text. Scan every balanced JSON
+    # object in the text; if it has a known tool name + extractable params,
+    # treat as a tool call. Same TOOL_REGISTRY gate keeps it tight.
+    if not calls:
+        _NAME_KEYS_BARE = ("tool", "name", "function_name", "function", "tool_name")
+        _ARGS_KEYS_BARE = ("params", "parameters", "arguments", "input", "args")
+        for blob in _iter_balanced_json_objects(text):
+            try:
+                obj = json.loads(blob)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            name: Optional[str] = None
+            for k in _NAME_KEYS_BARE:
+                v = obj.get(k)
+                if isinstance(v, str) and v in TOOL_REGISTRY:
+                    name = v
+                    break
+            if not name:
+                continue
+            params: dict[str, Any] = {}
+            for k in _ARGS_KEYS_BARE:
+                v = obj.get(k)
+                if isinstance(v, dict):
+                    params = v
+                    break
+                if isinstance(v, str):
+                    try:
+                        parsed = json.loads(v)
+                        if isinstance(parsed, dict):
+                            params = parsed
+                            break
+                    except json.JSONDecodeError:
+                        continue
+            calls.append({
+                "id": f"inline-{len(calls)}",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(params)},
+            })
+
     return calls
+
+
+def _iter_balanced_json_objects(text: str):
+    """Yield every balanced { ... } substring in text in order.
+
+    Same scanner pattern as _extract_first_json_object, but keeps walking
+    after each match instead of returning the first.
+    """
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] != "{":
+            i += 1
+            continue
+        depth = 0
+        in_str = False
+        escape = False
+        start = i
+        while i < n:
+            ch = text[i]
+            if in_str:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        yield text[start:i + 1]
+                        i += 1
+                        break
+            i += 1
 
 
 def _params_from_parameter_tags(body: str) -> dict[str, Any]:
