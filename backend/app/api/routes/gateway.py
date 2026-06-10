@@ -83,6 +83,8 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 # Maximum request body size for /v1/* endpoints (1 MB)
 MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024
+# Higher cap specifically for image-edit endpoint — reference PNG can be 1-4MB.
+MAX_IMAGE_EDIT_BODY_BYTES = 20 * 1024 * 1024
 
 
 # ─── Gateway API key auth dependency ───
@@ -764,10 +766,10 @@ async def image_edits(
     label onto an AI-rendered scene, or making targeted edits to a scene.
     """
     content_length = raw_request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+    if content_length and int(content_length) > MAX_IMAGE_EDIT_BODY_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+            detail=f"Request body too large. Maximum image-edit body is {MAX_IMAGE_EDIT_BODY_BYTES // (1024*1024)}MB.",
         )
 
     key, policy = auth_context
