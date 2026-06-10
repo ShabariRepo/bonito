@@ -375,7 +375,7 @@ DB error: unknown type: public.vector
 3. **`orchestrator.py:55`** — at orchestrator startup or first turn, validate `ORIGAMI_MODEL` against `get_available_models(db, org_id)`. Fall back through an ordered list: `["claude-sonnet-4-6", "claude-sonnet-4-5-20250929", "claude-sonnet-4-20250514"]`. Fail loud + raise if none resolve.
 
 **Optional follow-ups (backlog):**
-- Add `bonito origami smoke` deploy-time test that submits a known prompt and asserts plan-card emission.
+- ~~Add deploy-time smoke test that submits a known prompt and asserts plan-card emission.~~ ✅ Done 2026-06-10: `backend/scripts/origami_smoke.py`. Submits a non-destructive read-only prompt (`list_org_state`), streams the SSE response, asserts `tool_started` OR `plan_ready` was emitted, fails if `message_complete{fallback=True}` fires. Run with `python -m scripts.origami_smoke --url $URL --token $BP_PAT`. Wire into post-deploy step.
 - Per-org `origami_settings` table to tune ORIGAMI_MODEL without env-var redeploy.
 - `provider_pin` arg on Origami's gateway calls so it never silently falls back to Bedrock when both providers are connected.
 - Document the alias regex contract in `ARCHITECTURAL_PATTERNS.md` — every Anthropic model_id format change has broken something.
