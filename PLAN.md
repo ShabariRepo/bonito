@@ -330,5 +330,25 @@ Deployed → monitoring → polished → ready to demo to real prospects
 - **Completed:** Phases 1-18 (full platform + model playground + routing policies + deployment provisioning + one-click activation)
 - **Completed:** SAML SSO ✅ (Okta, Azure AD, Google Workspace, Custom SAML — merged to main)
 - **Completed:** Bonobot v1 — Enterprise AI Agent Framework ✅ (on feature/bonobot-agents)
-- **Up Next:** End-to-end flow validation (gateway API → routing → cost tracking → dashboard)
-- **Remaining:** EULA display for AWS models, IaC export per deployment, production polish
+
+### Shipped Since May 17 (247 commits)
+- **Origami** — Multi-agent dev environment (Phases 0-4): plan card UX, write tools (create_kb, create_agent, link_kb_to_agent, delegate_provider_connection, update_agent, upload_to_kb), read tools (view_logs, list_available_models, check_tier_access), streaming, Memwright wiring, Redis plan store, dashboard shell integration
+- **Pricing v2** — Builder ($49/mo), Growth ($349/mo), Enterprise (starts at $6K), overage model ($0.12 paid / $0.10 Enterprise)
+- **Agent HPA autoscaling** — Virtual scaling, overflow queue for rate-limited requests, scale-to-zero
+- **Token efficiency analytics** — By model and provider, dashboard UI
+- **Log retention tiers** — Free=30d, Pro=60d, Enterprise=90d, GCS sink with per-feature log files
+- **Project tokens (bj-)** + **Personal access tokens (bp-)** — Scope enforcement, org/workspace partitioning
+- **Custom error pages** — 404/500 with origami bonito fish theme
+- **Breadcrumbs** — Agent interaction visualization and tracing page
+- **Discover Logs** — Admin page for usage log visibility
+- **Gateway endpoints** — POST /v1/videos, POST /v1/images/generations, geo-optimization
+- **Agent Health dashboard** — Platform-wide model deprecation monitoring
+- **Founding 10 landing page** + investor deck hosting
+- **KB fixes** — pgvector greenlet error, embedding dimensions, delete cascade, search threshold
+- **Origami Phase 4** — Chat window themes, crane watermark, Usage page, History page with persist/download
+
+### Up Next
+- End-to-end flow validation (gateway API → routing → cost tracking → dashboard)
+- IaC generation (Terraform export) for individual deployments
+- EULA display for AWS models (legal step)
+- Production polish
