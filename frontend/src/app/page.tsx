@@ -203,17 +203,46 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 pb-32 md:pt-32 md:pb-40">
-        <FadeInSection className="max-w-3xl">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
-            The Unified
-            <span className="text-[#7c3aed]"> AI Control Plane</span>
+      {/* Hero — thesis-shaped, not feature-list-shaped */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 pb-24 md:pt-32 md:pb-32">
+        <FadeInSection className="max-w-4xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#a78bfa] text-xs font-semibold tracking-wider uppercase mb-6">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#7c3aed]" />
+            Structurally cloud-neutral
+          </div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05]">
+            The control plane the
+            <span className="text-[#7c3aed]"> hyperscalers can&rsquo;t build</span>.
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-[#888] max-w-2xl leading-relaxed">
-            Manage every AI provider, model, and deployment from a single dashboard. 
-            Route intelligently. Control costs. Ship faster.
+          <p className="mt-6 text-lg md:text-xl text-[#aaa] max-w-3xl leading-relaxed">
+            Every AI workload eventually needs three things: multi-cloud routing,
+            cost governance, and audit. Bonito is the layer where they converge.
+            One ledger across OpenAI, Anthropic, Bedrock, Vertex, Azure, and
+            Groq. AWS will never route to Azure. We will.
           </p>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl">
+            <div className="rounded-lg border border-[#1a1a1a] bg-[#111] p-4">
+              <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Cloud-neutral moat</p>
+              <p className="mt-1.5 text-sm text-[#bbb] leading-relaxed">
+                Hyperscalers can&rsquo;t copy us &mdash; it would kill their
+                lock-in business model. Structural defense, not a feature.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[#1a1a1a] bg-[#111] p-4">
+              <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">One audit ledger</p>
+              <p className="mt-1.5 text-sm text-[#bbb] leading-relaxed">
+                Every model call, every agent run, every KB query in one
+                immutable log. Compliance teams answer their questions once.
+              </p>
+            </div>
+            <div className="rounded-lg border border-[#1a1a1a] bg-[#111] p-4">
+              <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Build by talking</p>
+              <p className="mt-1.5 text-sm text-[#bbb] leading-relaxed">
+                Origami spins up agents, KBs, and gateway keys from chat. New
+                category, not a wrapper on someone else&rsquo;s SDK.
+              </p>
+            </div>
+          </div>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <Link
               href="/register"
@@ -226,9 +255,30 @@ export default function LandingPage() {
               href="/discover"
               className="inline-flex items-center justify-center px-8 py-4 border border-[#333] hover:border-[#555] text-[#999] hover:text-[#f5f0e8] rounded-xl text-lg transition"
             >
-              See What Bonito Can Do For You
+              See it on your stack
             </Link>
           </div>
+
+          {/* Founder identity — Blackbirds flagged that B2B sites without
+              founder bios fail to convert enterprise. Fix is one line. */}
+          <div className="mt-10 flex items-center gap-3 text-sm text-[#888]">
+            <span className="h-8 w-8 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 flex items-center justify-center text-[#a78bfa] font-semibold text-xs">
+              SS
+            </span>
+            <span>
+              Built by{" "}
+              <a
+                href="https://www.linkedin.com/in/shabari-shenoy/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#ccc] hover:text-[#a78bfa] transition"
+              >
+                Shabari Shenoy
+              </a>
+              {" "}&middot; in stealth with enterprise design partners since Feb 2026
+            </span>
+          </div>
+
           <div className="mt-8">
             <a
               href="https://www.producthunt.com/products/bonito-cli?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-bonito-cli"
@@ -242,6 +292,35 @@ export default function LandingPage() {
                 src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1146468&theme=light&t=1778759307880"
               />
             </a>
+          </div>
+        </FadeInSection>
+      </section>
+
+      {/* Why hyperscalers can't build this — the structural moat argument
+          made explicit. Addresses Blackbirds' "category entry not creation"
+          critique by naming the wedge directly. */}
+      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-16 md:py-24 border-t border-[#1a1a1a]">
+        <FadeInSection className="max-w-3xl">
+          <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Why this is structurally defensible</p>
+          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
+            Every other &ldquo;AI gateway&rdquo; is owned by someone with a cloud to sell.
+          </h2>
+          <div className="mt-6 space-y-4 text-[#bbb] text-lg leading-relaxed max-w-2xl">
+            <p>
+              AWS Bedrock won&rsquo;t route to Azure. Microsoft won&rsquo;t optimize cost
+              across Google. Google won&rsquo;t audit calls to OpenAI. Their business
+              models structurally prevent it &mdash; honest multi-cloud kills the
+              lock-in their margins depend on.
+            </p>
+            <p>
+              Bonito doesn&rsquo;t sell a cloud. That&rsquo;s the moat. We&rsquo;re the only
+              consolidated platform allowed to be cloud-neutral by design,
+              and the hyperscalers cannot copy us without unwinding their own thesis.
+            </p>
+            <p className="text-[#888] text-base italic">
+              The category is &ldquo;sovereign AI infrastructure for the
+              multi-cloud reality.&rdquo; Not an LLM router with extra features.
+            </p>
           </div>
         </FadeInSection>
       </section>
