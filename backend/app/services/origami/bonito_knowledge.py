@@ -229,9 +229,20 @@ async def _embed_via_gateway(text: str) -> Optional[list[float]]:
         logger.warning("ORIGAMI_GATEWAY_KEY missing or wrong prefix; skipping bonito-knowledge embed")
         return None
 
-    # In-container default: backend listens on :8000 (host:8001 -> container:8000).
-    # On host: hit the mapped port 8001. Override via BONITO_API_BASE_URL in prod.
-    base = os.getenv("BONITO_API_BASE_URL", "http://localhost:8000").rstrip("/")
+    # URL resolution for the embed call:
+    #   1. BONITO_INTERNAL_API_URL — preferred. Loopback URL inside the same
+    #      container/host (fastest, no network hop, no DNS).
+    #   2. BONITO_API_BASE_URL — fallback, but note that var is ALSO used by
+    #      customer-facing tools (show_integration_guide) and there it must be
+    #      the public URL. Splitting the two lets prod set BONITO_API_BASE_URL
+    #      to https://api.getbonito.com for customers AND
+    #      BONITO_INTERNAL_API_URL=http://localhost:8080 for the embed loopback.
+    #   3. http://localhost:8000 — last-resort dev default.
+    base = (
+        os.getenv("BONITO_INTERNAL_API_URL")
+        or os.getenv("BONITO_API_BASE_URL")
+        or "http://localhost:8000"
+    ).rstrip("/")
     url = f"{base}/v1/embeddings"
 
     # Retry with backoff on 429s — Bedrock Titan rate-limits aggressively
