@@ -1403,6 +1403,127 @@ async def image_generation(
         raise
 
 
+async def image_edit(
+    model: str,
+    prompt: str,
+    image_bytes: bytes,
+    image_filename: str,
+    mask_bytes: Optional[bytes],
+    mask_filename: Optional[str],
+    size: str,
+    n: int,
+    quality: Optional[str],
+    org_id: uuid.UUID,
+    key_id: uuid.UUID,
+    db: AsyncSession,
+) -> dict:
+    """Reference-image-guided generation via OpenAI's /v1/images/edits.
+
+    Bypasses LiteLLM Router (which doesn't expose aimage_edit on all
+    versions) and calls OpenAI's edit endpoint directly through the
+    org's resolved OpenAI credentials. Logs cost + audit identical to
+    image_generation.
+    """
+    import io
+    import httpx
+    start = time.time()
+
+    log_entry = GatewayRequest(
+        org_id=org_id,
+        key_id=key_id,
+        model_requested=model,
+        status="success",
+    )
+
+    try:
+        # Resolve org's OpenAI API key
+        creds = await _get_provider_credentials(db, org_id)
+        api_key: Optional[str] = None
+        for _pid, c in creds.items():
+            if c.get("_provider_type") == "openai":
+                api_key = c.get("api_key")
+                break
+        if not api_key:
+            raise RuntimeError("No OpenAI credentials available for this org. /v1/images/edits requires an OpenAI provider connection.")
+
+        # Build multipart for OpenAI /v1/images/edits
+        files = {
+            "image": (image_filename, image_bytes, "image/png"),
+        }
+        if mask_bytes:
+            files["mask"] = (mask_filename or "mask.png", mask_bytes, "image/png")
+
+        form_data = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+            "n": str(n),
+        }
+        if quality:
+            form_data["quality"] = quality
+
+        async with httpx.AsyncClient(timeout=180.0) as http:
+            resp = await http.post(
+                "https://api.openai.com/v1/images/edits",
+                headers={"Authorization": f"Bearer {api_key}"},
+                files=files,
+                data=form_data,
+            )
+            resp.raise_for_status()
+            response = resp.json()
+
+        elapsed_ms = int((time.time() - start) * 1000)
+        log_entry.model_used = model
+        log_entry.input_tokens = 0
+        log_entry.output_tokens = 0
+        log_entry.latency_ms = elapsed_ms
+
+        # Cost: same per-image table as image_generation
+        per_image = _IMAGE_COST_FALLBACK.get(model, {}).get(size, 0.04)
+        log_entry.cost = per_image * n
+        log_entry.provider = await _resolve_provider_for_log(db, org_id, model)
+
+        db.add(log_entry)
+        await db.flush()
+        await _track_managed_inference(db, log_entry, org_id)
+
+        try:
+            await emit_gateway_event(
+                org_id, "request",
+                resource_type="model",
+                message=f"Image edit: {model}",
+                duration_ms=elapsed_ms,
+                cost=log_entry.cost,
+                metadata={"model": model, "n": n, "size": size, "endpoint": "edits"},
+            )
+        except Exception:
+            pass
+
+        return response
+
+    except Exception as e:
+        elapsed_ms = int((time.time() - start) * 1000)
+        log_entry.status = "error"
+        log_entry.error_message = str(e)[:1000]
+        log_entry.latency_ms = elapsed_ms
+        try:
+            async with get_db_session() as log_db:
+                log_db.add(log_entry)
+        except Exception as log_err:
+            logger.error(f"Failed to log image edit error: {log_err}")
+        try:
+            await emit_gateway_event(
+                org_id, "error",
+                severity="error",
+                message=f"Image edit error: {model} - {str(e)[:200]}",
+                duration_ms=elapsed_ms,
+                metadata={"model": model, "endpoint": "edits", "error": str(e)[:500]},
+            )
+        except Exception:
+            pass
+        raise
+
+
 # ─── Video Generation ───
 
 # Approximate cost per second of video

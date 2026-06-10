@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select, and_
@@ -741,6 +741,84 @@ async def image_generations(
         raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         logger.error(f"Image generation failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
+
+
+@router.post("/v1/images/edits")
+async def image_edits(
+    raw_request: Request,
+    model: str = Form(...),
+    prompt: str = Form(...),
+    image: UploadFile = File(...),
+    mask: Optional[UploadFile] = File(None),
+    size: str = Form("1024x1024"),
+    n: int = Form(1),
+    quality: Optional[str] = Form(None),
+    auth_context: tuple[Optional[GatewayKey], Optional[RoutingPolicy]] = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db),
+):
+    """OpenAI-compatible image edit endpoint. Accepts multipart/form-data
+    with a reference `image` (and optional `mask`) plus a `prompt`.
+
+    Used for reference-image-guided generation — e.g. compositing a brand
+    label onto an AI-rendered scene, or making targeted edits to a scene.
+    """
+    content_length = raw_request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Request body too large. Maximum size is {MAX_REQUEST_BODY_BYTES // 1024}KB.",
+        )
+
+    key, policy = auth_context
+    org_id = key.org_id if key else (policy.org_id if policy else None)
+
+    if org_id:
+        try:
+            await usage_tracker.track_gateway_request(db, str(org_id))
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
+
+    if key:
+        try:
+            from app.services.feature_gate import feature_gate
+            await feature_gate.require_usage_limit(db, str(key.org_id), "gateway_calls_per_month")
+        except HTTPException as e:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=e.detail)
+
+        try:
+            await gateway_service.enforce_policies(db, key, model)
+        except PolicyViolation as e:
+            raise HTTPException(status_code=e.status_code, detail=e.message)
+
+    key_id = key.id if key else None
+
+    # Read uploaded files into memory
+    image_bytes = await image.read()
+    mask_bytes = await mask.read() if mask else None
+
+    try:
+        result = await gateway_service.image_edit(
+            model=model,
+            prompt=prompt,
+            image_bytes=image_bytes,
+            image_filename=image.filename or "image.png",
+            mask_bytes=mask_bytes,
+            mask_filename=(mask.filename if mask else None),
+            size=size,
+            n=n,
+            quality=quality,
+            org_id=org_id,
+            key_id=key_id,
+            db=db,
+        )
+        return result
+    except HTTPException:
+        raise
+    except PolicyViolation as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        logger.error(f"Image edit failed: {type(e).__name__}: {e}")
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Upstream error: {str(e)}")
 
 
