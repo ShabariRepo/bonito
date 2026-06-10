@@ -117,6 +117,14 @@ def _generate_model_aliases(model_id: str) -> list[str]:
     if stripped != model_id:
         aliases.add(stripped)
 
+    # Strip Anthropic undelimited 8-digit date suffix (-20250929, etc.)
+    # without this, claude-sonnet-4-5-20250929 never registers a
+    # `claude-sonnet-4-5` short alias, and the Origami orchestrator
+    # silently falls through to Bedrock-routed Claude (see KNOWN-ISSUES #38).
+    stripped = re.sub(r"-\d{8}$", "", model_id)
+    if stripped != model_id:
+        aliases.add(stripped)
+
     # Strip GCP preview+date suffix (-preview-04-17, etc.)
     stripped = re.sub(r"-preview-\d{2}-\d{2}$", "", model_id)
     if stripped != model_id:

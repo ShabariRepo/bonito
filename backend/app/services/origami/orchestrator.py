@@ -48,11 +48,14 @@ logger = logging.getLogger(__name__)
 # this becomes https://api.getbonito.com. Override with BONITO_GATEWAY_URL.
 DEFAULT_GATEWAY_URL = os.getenv("BONITO_GATEWAY_URL", "http://localhost:8001")
 
-# Model name as the gateway exposes it. Sonnet 4.5 / 4.6 are routed
-# through the customer's connected provider (Anthropic, Bedrock, Vertex).
-# Override with ORIGAMI_MODEL env var for environments where the gateway
-# requires a specific provider-prefixed model id (e.g. Bedrock-routed dev).
-ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-5")
+# Model name as the gateway exposes it. We default to claude-sonnet-4-6
+# because it matches the canonical DB-synced model_id directly (no alias
+# resolution required). The earlier default of claude-sonnet-4-5 relied
+# on a short-alias that was missing in prod for orgs whose Anthropic
+# catalog used the undelimited 8-digit date suffix (20250929) — see
+# KNOWN-ISSUES #38 + the new -\d{8}$ alias rule in gateway.py.
+# Override with ORIGAMI_MODEL env var to pin a specific model id.
+ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-6")
 ORIGAMI_MAX_TOKENS = 2048
 ORIGAMI_MAX_TOOL_ITERATIONS = 5
 ORIGAMI_HTTP_TIMEOUT = 60.0  # seconds
@@ -1798,6 +1801,31 @@ def _extract_inline_tool_calls(text: str) -> list[dict[str, Any]]:
         body = match.group(2) or ""
         params = _params_from_parameter_tags(body)
         if name:
+            calls.append({
+                "id": f"inline-{len(calls)}",
+                "type": "function",
+                "function": {"name": name, "arguments": json.dumps(params)},
+            })
+
+    # Last-resort: bare function-call syntax on their own lines, no
+    # angle-bracket wrappers at all. Bedrock-routed Claude does this
+    # occasionally — emits `create_project(name="x", ...)\ncreate_agent(...)`
+    # as plain text instead of tool_use blocks. Only fires if the earlier
+    # paths found nothing AND every candidate line resolves to a tool we
+    # actually have registered. See KNOWN-ISSUES #38.
+    if not calls:
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or "(" not in line or not line.endswith(")"):
+                continue
+            open_paren = line.find("(")
+            candidate_name = line[:open_paren].strip()
+            if not candidate_name or candidate_name not in TOOL_REGISTRY:
+                continue
+            fc = _try_parse_function_call_syntax(line)
+            if fc is None:
+                continue
+            name, params = fc
             calls.append({
                 "id": f"inline-{len(calls)}",
                 "type": "function",
