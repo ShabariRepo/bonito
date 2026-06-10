@@ -348,3 +348,38 @@ DB error: unknown type: public.vector
 
 **Impact**: Cannot rely on CI as a merge gate. Anyone running `python -m pytest` locally with `docker compose up` sees these tests pass. This has been red across multiple commits (and predates 2026-06-09 — confirmed by checking prior CI runs). Blocks the `origami-mvp → main` merge if branch protection requires green checks.
 **Refs**: First explicit acknowledgement in PR #43059 CI run; failing examples: `test_connect_openai_provider`, `test_connect_aws_provider`, `test_credentials_stored_as_json`.
+
+### 38. Origami silent-response in prod — model alias gap + tool-call-as-text fallthrough
+**Date**: 2026-06-09
+**Symptom**: Origami's orchestrator in prod returns the hardcoded fallback `"I didn't quite catch that — could you rephrase?"` for nearly every prompt, simple or complex. Works perfectly in local docker dev for the same prompts. One observed failure mode: the model output text containing function-call pseudocode (`create_project(name="x", ...)` on bare lines) instead of emitting `<tool_use>` blocks.
+
+**Root cause (three compounding gaps):**
+
+1. **Model alias regex misses `-\d{8}$` suffix.** `backend/app/services/gateway.py:94-133` strips suffixes matching `-\d{3}$`, `-\d{4}-\d{2}-\d{2}$`, `-preview-\d{2}-\d{2}$`, `-preview.*$` to generate short aliases. None of these match `-20250929` (undelimited 8-digit date), so Anthropic models like `claude-sonnet-4-5-20250929` in the DB never register `claude-sonnet-4-5` as a short alias. The orchestrator default model `claude-sonnet-4-5` (orchestrator.py:55) is therefore unrouteable in prod.
+
+2. **LiteLLM fallback path goes through Bedrock-routed Claude.** When the alias is unresolved, LiteLLM falls back to internal pricing-catalog routing. For an org with both Anthropic + AWS providers connected, this can silently use Bedrock cross-region inference profiles (gateway.py:293-299) instead of direct Anthropic. Bedrock-routed Claude is known to ignore the OpenAI-shape `tools` parameter and emit tool calls as plain-text function syntax instead of structured tool_use blocks — exactly the symptom.
+
+3. **`looks_like_markup` check doesn't catch bare function-call syntax.** `orchestrator.py:788-794` only matches `<tool_call>`, `<invoke`, `<parameter`, `<thinking` angle-bracket markers. It does NOT match bare-line `name(args)` text. The inline parser `_try_parse_function_call_syntax` at orchestrator.py:1609 CAN parse this but is only reachable from inside a `_TOOL_CALL_JSON_RE` match. So bare function-call text bypasses tool extraction entirely → silent-fallback fires at orchestrator.py:815-825.
+
+**Why dev masked it:**
+- Local dev's `models` table contains an entry resolving the short alias cleanly (hand-seeded or different sync state).
+- Local Anthropic provider is non-managed → direct Anthropic API → tool calling works natively.
+- Local stack hits backend at `http://localhost:8001` with SOPS-decrypted credentials; no Bedrock fallback path activates.
+
+**Workaround applied tonight (2026-06-09):** Set `ORIGAMI_MODEL=claude-sonnet-4-6` on Railway (a model whose ID matches an exact DB row with no alias resolution needed). This unblocked Origami chat, but the orchestrator still occasionally produces function-call-as-text output on complex multi-step prompts. Workaround for that: build via CLI + REST API (`bonito projects create` + `bonito agents create` + curl for connections).
+
+**Fix path (one PR, ~3 files, ~40 lines):**
+
+1. **`gateway.py:94-133`** — add `r"-\d{8}$"` to the alias-stripping regex set so `claude-sonnet-4-5-20250929` produces `claude-sonnet-4-5` alias.
+2. **`orchestrator.py:788-794`** — extend `looks_like_markup` to detect bare `^\s*[a-z_]+\([^)]*\)\s*$` patterns matching registered tool names. Route matches through the existing `_try_parse_function_call_syntax` (currently unreachable from this path) so text-mode tool calls get synthesized into proper tool_use blocks.
+3. **`orchestrator.py:55`** — at orchestrator startup or first turn, validate `ORIGAMI_MODEL` against `get_available_models(db, org_id)`. Fall back through an ordered list: `["claude-sonnet-4-6", "claude-sonnet-4-5-20250929", "claude-sonnet-4-20250514"]`. Fail loud + raise if none resolve.
+
+**Optional follow-ups (backlog):**
+- Add `bonito origami smoke` deploy-time test that submits a known prompt and asserts plan-card emission.
+- Per-org `origami_settings` table to tune ORIGAMI_MODEL without env-var redeploy.
+- `provider_pin` arg on Origami's gateway calls so it never silently falls back to Bedrock when both providers are connected.
+- Document the alias regex contract in `ARCHITECTURAL_PATTERNS.md` — every Anthropic model_id format change has broken something.
+
+**Investigation:** Done by sub-agent 2026-06-09 23:55 UTC. Conversation continues in current session.
+
+**Impact:** Blocks any new Origami session on prod that needs the short-alias model name or hits the function-call-as-text fallthrough. Worked around tonight for Blackbird build; other customers using Origami will hit this until the PR ships.
