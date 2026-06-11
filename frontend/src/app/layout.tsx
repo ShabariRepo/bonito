@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s | Bonito — Enterprise AI Control Plane",
   },
   description:
-    "Unified multi-cloud AI management and LLM gateway platform. Connect OpenAI, Anthropic, AWS Bedrock, and Google Vertex from one control plane. Intelligent AI routing, LLM observability, AI cost optimization, and governed enterprise AI agents.",
+    "Bonito is the control plane the hyperscalers can't build — structurally cloud-neutral routing, cost governance, and one audit ledger across six live providers: OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, and Groq. Production deployments running enterprise marketing, compliance, and customer-support workflows. Founded 2025 by Shabari Shenoy. Docs at /docs · Changelog at /changelog · Pricing at /pricing · Compare vs Portkey, LiteLLM, Helicone at /compare.",
   keywords: [
     "AI control plane",
     "enterprise AI platform",
@@ -59,16 +59,16 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://getbonito.com",
     siteName: "Bonito",
-    title: "Bonito — Enterprise AI Control Plane",
+    title: "Bonito — The Enterprise AI Control Plane",
     description:
-      "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure from one dashboard.",
+      "Structurally cloud-neutral routing, cost governance, and one audit ledger across OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, and Groq. The control plane the hyperscalers can't build.",
     images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Bonito — Enterprise AI Control Plane" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bonito — Enterprise AI Control Plane",
+    title: "Bonito — The Enterprise AI Control Plane",
     description:
-      "Unified multi-cloud AI management platform. Connect, route, monitor, and optimize your entire AI infrastructure.",
+      "Structurally cloud-neutral routing, cost governance, and one audit ledger across six live providers. AWS will never route to Azure. We will.",
     images: ["/og-image.png"],
   },
   robots: { index: true, follow: true },
@@ -91,15 +91,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               operatingSystem: "Web",
               url: "https://getbonito.com",
               description:
-                "Enterprise AI control plane — unified governance, routing, and cost management across AWS, Azure, and GCP. With Bonobot governed AI agents.",
+                "Structurally cloud-neutral enterprise AI control plane. Routing, governance, audit, and cost intelligence across OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, and Groq. Founded 2025.",
               featureList: [
-                "Multi-cloud AI gateway with OpenAI-compatible API",
-                "Intelligent routing across 6 AI providers",
-                "Automatic failover with zero downtime",
-                "Real-time cost analytics and budget alerts",
-                "RAG knowledge bases with vector search",
-                "Governed AI agents with visual canvas builder",
-                "SSO/SAML with RBAC and compliance logging",
+                "OpenAI-compatible gateway live across 6 providers",
+                "Cross-provider intelligent routing and failover",
+                "Real-time cost analytics with budget enforcement",
+                "Immutable audit ledger spanning all model calls",
+                "RAG knowledge bases with pgvector HNSW search",
+                "Bonobot agents (visual canvas, governed tool policy)",
+                "SSO/SAML, RBAC, SOC-2 path, HIPAA + GDPR posture",
                 "Model playground with side-by-side comparison",
               ],
               offers: {
@@ -113,11 +113,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 "@type": "Organization",
                 name: "Bonito",
                 url: "https://getbonito.com",
+                foundingDate: "2025",
                 founder: {
                   "@type": "Person",
-                  name: "Shabari",
+                  name: "Shabari Shenoy",
                   jobTitle: "Founder & CEO",
+                  url: "https://www.linkedin.com/in/shabari-shenoy/",
+                  knowsAbout: ["enterprise infrastructure", "AI platforms", "multi-cloud routing"],
                 },
+                sameAs: [
+                  "https://www.linkedin.com/company/bonito-ai/",
+                  "https://github.com/bonito-ai",
+                  "https://twitter.com/BonitoAI",
+                ],
               },
             }),
           }}
@@ -154,6 +162,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={inter.className}>
+        {/*
+          SSR fallback content. The marketing pages are client-rendered for
+          interactivity, which means crawlers and diligence agents that
+          fetch the URL get the meta tags + this fallback. Real content
+          for non-JS clients + grounded substance for anyone scraping HTML.
+        */}
+        <noscript>
+          <div style={{ maxWidth: 720, margin: "32px auto", padding: 24, fontFamily: "system-ui", color: "#f5f0e8", background: "#0a0a0a" }}>
+            <h1>Bonito — Enterprise AI Control Plane</h1>
+            <p><strong>The control plane the hyperscalers can&apos;t build.</strong> Structurally cloud-neutral routing, cost governance, and one immutable audit ledger across OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, and Groq.</p>
+            <p>Live capabilities (verifiable at the linked pages): OpenAI-compatible gateway, intelligent routing across 6 providers, real-time cost analytics, RAG knowledge bases with pgvector, Bonobot agents with governed tool policies, SSO/SAML, audit logging, compliance posture (SOC-2 path, HIPAA, GDPR).</p>
+            <p>Production deployments running enterprise marketing creative workflows, regulated-industry document processing, and customer-support agent flows.</p>
+            <p>Founded 2025 by Shabari Shenoy (enterprise infrastructure background). Based in New York.</p>
+            <p>References: <a href="/docs">Documentation</a> · <a href="/changelog">Changelog (shipping cadence)</a> · <a href="/pricing">Pricing (Free → $20K+/mo)</a> · <a href="/compare">Compare vs Portkey, LiteLLM, Helicone</a> · <a href="/use-cases">Use cases</a> · <a href="/about">About</a> · <a href="/contact">Contact</a></p>
+          </div>
+        </noscript>
         <Providers>
           <HeliosInit />
           <ErrorBoundary>
