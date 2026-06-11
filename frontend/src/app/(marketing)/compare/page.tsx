@@ -11,6 +11,11 @@ const categoryIcons: Record<string, typeof Shield> = {
   portkey: Route,
   langsmith: GitCompareArrows,
   arize: BarChart3,
+  litellm: Route,
+  martian: Route,
+  "kong-ai-gateway": Cloud,
+  apigee: Cloud,
+  zuplo: Route,
 };
 
 export default function ComparePage() {
@@ -28,8 +33,8 @@ export default function ComparePage() {
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
             How Bonito Compares
           </h1>
-          <p className="mt-4 text-lg text-[#888] max-w-2xl">
-            Bonito is the enterprise AI control plane that unifies LLM observability, AI routing, governed agents, and multi-cloud management. See how it compares to other platforms in the space.
+          <p className="mt-4 text-lg text-[#888] max-w-3xl">
+            Bonito is the only neutral control plane above the hyperscalers. Six AI providers live in one OpenAI-compatible gateway — OpenAI, Anthropic, AWS Bedrock, Google Vertex AI, Azure AI, Groq — with cross-provider routing, immutable audit ledger, RAG knowledge bases, governed Bonobot agents, and one cost ledger across all of them. The comparisons below cover the three categories of competitor: developer-tier observability and routing tools, API-gateway incumbents extending into LLM, and single-cloud platforms.
           </p>
         </motion.div>
       </section>
@@ -50,13 +55,13 @@ export default function ComparePage() {
             },
             {
               icon: Cloud,
-              title: "Multi-Cloud Management",
-              description: "Connect AWS, Azure, and GCP accounts directly. Manage models across all providers from one dashboard.",
+              title: "Structural Cloud-Neutrality",
+              description: "The only position above AWS Bedrock, Google Vertex AI, and Azure AI that no hyperscaler can replicate without killing its own lock-in.",
             },
             {
               icon: Shield,
-              title: "Enterprise Governance",
-              description: "Compliance-ready architecture with full audit trails, RBAC, and data isolation.",
+              title: "Enterprise Governance + Audit",
+              description: "Immutable audit ledger across every model call, agent run, KB query. SSO/SAML (4 IdPs), RBAC, SOC-2 path, HIPAA, GDPR.",
             },
           ].map((item, i) => (
             <motion.div
