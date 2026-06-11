@@ -118,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   "@type": "Person",
                   name: "Shabari Shenoy",
                   jobTitle: "Founder & CEO",
-                  url: "https://www.linkedin.com/in/shabari-shenoy/",
+                  url: "https://www.linkedin.com/in/shenoyshabari/",
                   knowsAbout: ["enterprise infrastructure", "AI platforms", "multi-cloud routing"],
                 },
                 sameAs: [
