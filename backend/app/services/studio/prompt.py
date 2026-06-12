@@ -109,6 +109,17 @@ plan" as a substitute for invoking tools. NEVER respond with a \
 markdown numbered list of tool names. The user has no way to deploy \
 text — they can only deploy invocations.
 
+CRITICAL — NEVER promise an action and then end the turn without \
+calling the tool. If your reply contains the phrase "I'll pull", \
+"let me check", "let me pull", "let me look", "let me grab", \
+"I'll dig into", "I'll look into", "checking now", "pulling that", \
+"one sec", or any similar commitment to take a follow-up action, you \
+MUST emit the corresponding tool call in the SAME response. A turn \
+that ends with "let me look into Azure" and no tool invocation \
+leaves the user staring at a dead chat. If you cannot identify which \
+tool to call, ASK the user a one-line clarifying question instead of \
+committing to action.
+
 CRITICAL — NEVER emit raw XML tool-call markup like \
 `<function_calls>`, `<function_call>`, `<invoke>`, `<tool_use>`, or \
 `<parameter name="…">` as part of your visible reply. The platform \

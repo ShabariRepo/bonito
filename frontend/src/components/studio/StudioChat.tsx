@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PlanCard } from "../origami/PlanCard";
 import SchematicBackground from "../SchematicBackground";
+import { StudioMarkdown } from "./StudioMarkdown";
 import { StudioOpener } from "./StudioOpener";
 import { StudioReminderBanner } from "./StudioReminderBanner";
 import { SwimmingFish } from "./SwimmingFish";
@@ -24,6 +25,10 @@ export function StudioChat() {
   const [draft, setDraft] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Container the schematic canvas sizes against, so the animation
+  // stays inside Studio's chat surface instead of spilling across the
+  // dashboard layout / sidebar.
+  const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({
@@ -44,13 +49,19 @@ export function StudioChat() {
     // notification-bell row (~52px on lg+), p-8 padding (32px top), and
     // the bottom padding (32px). Using 100dvh so mobile address-bar
     // collapse doesn't push the composer below the fold either.
-    <div className="relative flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8">
-      {/* Animated schematic backdrop — same canvas used on the marketing
-          landing. Renders fixed across the viewport at z-0; the
-          sidebar's opaque card background covers the left strip, and
-          Studio's translucent surfaces (header / composer at /50) let
-          it show through behind the chat body. */}
-      <SchematicBackground />
+    <div
+      ref={chatRef}
+      className="relative flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8 overflow-hidden"
+    >
+      {/* Animated schematic backdrop — same canvas used on the
+          marketing landing, but here it's scoped to the chat container
+          via `absolute inset-0` + a containerRef sizing hint. The
+          schematic stays inside Studio's chat surface and doesn't
+          spill over the sidebar or the dashboard chrome. */}
+      <SchematicBackground
+        className="absolute inset-0 pointer-events-none"
+        containerRef={chatRef}
+      />
 
       {/* All chat content sits in a z-10 layer above the canvas. */}
       <div className="relative z-10 flex flex-col h-full">
@@ -133,16 +144,22 @@ export function StudioChat() {
                 />
               );
             }
+            if (m.role === "user") {
+              return (
+                <div
+                  key={m.id}
+                  className="ml-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md text-sm bg-primary text-primary-foreground whitespace-pre-wrap"
+                >
+                  {m.text}
+                </div>
+              );
+            }
             return (
               <div
                 key={m.id}
-                className={
-                  m.role === "user"
-                    ? "ml-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md text-sm bg-primary text-primary-foreground whitespace-pre-wrap"
-                    : "mr-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted text-foreground whitespace-pre-wrap leading-relaxed"
-                }
+                className="mr-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted text-foreground"
               >
-                {m.text}
+                <StudioMarkdown text={m.text} />
                 {m.streaming && (
                   <span className="inline-block w-1.5 h-3.5 ml-1 align-middle animate-pulse rounded-sm bg-current opacity-60" />
                 )}

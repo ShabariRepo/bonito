@@ -124,7 +124,27 @@ function lerp(a: number, b: number, t: number) {
 }
 
 // ─── Component ──────────────────────────────────────────────
-export default function SchematicBackground() {
+type Props = {
+  /**
+   * Override the default `fixed inset-0` positioning. Pass
+   * `absolute inset-0 pointer-events-none` to scope the canvas to
+   * a positioned parent (Studio uses this so the schematic shows
+   * behind the chat surface only, not behind the dashboard layout).
+   */
+  className?: string;
+  /**
+   * When provided, the canvas sizes against this element instead of
+   * the window. Pair with `className="absolute …"` to confine the
+   * animation to a single container. ResizeObserver keeps it in
+   * sync as the container grows / shrinks.
+   */
+  containerRef?: React.RefObject<HTMLElement | null>;
+};
+
+export default function SchematicBackground({
+  className = "fixed inset-0 pointer-events-none",
+  containerRef,
+}: Props = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -216,8 +236,15 @@ export default function SchematicBackground() {
 
     function resize() {
       if (!canvas || !ctx) return;
-      w = window.innerWidth;
-      h = window.innerHeight;
+      const container = containerRef?.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        w = Math.max(1, rect.width);
+        h = Math.max(1, rect.height);
+      } else {
+        w = window.innerWidth;
+        h = window.innerHeight;
+      }
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       canvas.style.width = w + "px";
@@ -448,16 +475,27 @@ export default function SchematicBackground() {
     const onResize = () => { resize(); init(); };
     window.addEventListener("resize", onResize);
 
+    // When confined to a container, ResizeObserver picks up parent
+    // size changes (sidebar collapse, viewport rotation) that don't
+    // fire window resize events.
+    let ro: ResizeObserver | null = null;
+    const container = containerRef?.current;
+    if (container && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(() => { resize(); init(); });
+      ro.observe(container);
+    }
+
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", onResize);
+      if (ro) ro.disconnect();
     };
-  }, []);
+  }, [containerRef]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none"
+      className={className}
       style={{ zIndex: 0 }}
       aria-hidden="true"
     />
