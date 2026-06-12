@@ -36,7 +36,7 @@ export function ThinkingMascot({
     case "candy":
       return <CandyLollipop size={size} className={className} />;
     case "japanese":
-      return <WafuKoi size={size} className={className} />;
+      return <WafuSumo size={size} className={className} />;
     case "dracula":
       return <DraculaBat size={size} className={className} />;
     case "lofi":
@@ -46,92 +46,94 @@ export function ThinkingMascot({
   }
 }
 
-// ─── Oregon Trail — polygon bull pulling a wooden wagon ──────────────
+// ─── Oregon Trail — Apple II green-on-black bull + wagon ─────────────
+// Pixelated silhouettes in bright phosphor green, evoking the original
+// 1985 Apple II Oregon Trail title screen. No gradients, no strokes —
+// just chunky rectangles, the way an 8-bit CRT would render it.
 function OregonBullWagon({ size, className }: { size: number; className?: string }) {
+  const GREEN = "#00ff66";
   return (
     <motion.span
       style={{ width: size * 2.6, height: size * 1.1, display: "inline-block" }}
-      animate={{ x: [-4, 4, -4] }}
+      animate={{ x: [-3, 3, -3] }}
       transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
       className={className}
-      aria-label="Studio is thinking — wagon trail"
+      aria-label="Studio is thinking — Oregon Trail"
       role="status"
     >
       <svg
         viewBox="0 0 42 18"
         xmlns="http://www.w3.org/2000/svg"
+        shapeRendering="crispEdges"
         style={{ width: "100%", height: "100%", overflow: "visible" }}
       >
-        {/* Wagon body — wooden box */}
-        <polygon points="20,7 34,7 34,12 20,12" fill="#8b5a2b" />
-        {/* Wagon canopy — cream */}
-        <path
-          d="M 20 7 Q 27 1.5 34 7 Z"
-          fill="#f5e6c8"
-          stroke="#3d2817"
-          strokeWidth="0.4"
-        />
-        {/* Wagon canopy stripes */}
-        <line x1="23" y1="4.6" x2="23" y2="7" stroke="#8b5a2b" strokeWidth="0.3" />
-        <line x1="27" y1="3.5" x2="27" y2="7" stroke="#8b5a2b" strokeWidth="0.3" />
-        <line x1="31" y1="4.6" x2="31" y2="7" stroke="#8b5a2b" strokeWidth="0.3" />
-        {/* Wagon wheels — spin while moving */}
+        {/* Wagon canopy — three blocky ribs in green */}
+        <rect x="20" y="3.5" width="14" height="3.5" fill={GREEN} />
+        <rect x="20" y="2.5" width="4" height="4.5" fill={GREEN} />
+        <rect x="25" y="2.5" width="4" height="4.5" fill={GREEN} />
+        <rect x="30" y="2.5" width="4" height="4.5" fill={GREEN} />
+        {/* Wagon canopy slits — black gaps between ribs */}
+        <rect x="24" y="2.5" width="1" height="4.5" fill="#000" />
+        <rect x="29" y="2.5" width="1" height="4.5" fill="#000" />
+        {/* Wagon body — block underneath canopy */}
+        <rect x="20" y="7" width="14" height="5" fill={GREEN} />
+        {/* Wagon wheels — chunky pixel rings, spin in place */}
         {[22, 32].map((cx) => (
           <motion.g
             key={cx}
             style={{ originX: `${cx}px`, originY: "14px" }}
             animate={{ rotate: [0, 360] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
           >
-            <circle cx={cx} cy={14} r={2} fill="#3d2817" />
-            <circle cx={cx} cy={14} r={1.4} fill="#8b5a2b" />
-            <line x1={cx - 1.4} y1={14} x2={cx + 1.4} y2={14} stroke="#3d2817" strokeWidth="0.3" />
-            <line x1={cx} y1={12.6} x2={cx} y2={15.4} stroke="#3d2817" strokeWidth="0.3" />
+            <rect x={cx - 2} y={12.5} width={4} height={4} fill={GREEN} />
+            <rect x={cx - 1} y={13.5} width={2} height={2} fill="#000" />
+            <rect x={cx - 2} y={14} width={4} height={0.5} fill="#000" />
+            <rect x={cx - 0.25} y={12.5} width={0.5} height={4} fill="#000" />
           </motion.g>
         ))}
-        {/* Yoke connecting bull to wagon */}
-        <line x1="14" y1="9" x2="20" y2="9" stroke="#3d2817" strokeWidth="0.5" />
-        {/* Bull body */}
-        <polygon points="4,8 14,8 14,12 4,12" fill="#5c3a1e" />
-        <polygon points="4,8 8,5 14,5 14,8" fill="#7a4a26" />
-        {/* Bull head */}
-        <polygon points="2,9 4,7 4,12 2,11" fill="#3d2817" />
-        {/* Horns */}
-        <polygon points="3.2,7.2 2.4,5.8 3,6.8" fill="#f5e6c8" />
-        <polygon points="3.8,7.2 4.6,5.8 4,6.8" fill="#f5e6c8" />
-        {/* Eye */}
-        <circle cx="2.6" cy="9.2" r="0.35" fill="white" />
+        {/* Yoke — pixel beam */}
+        <rect x="14" y="9" width="6" height="0.6" fill={GREEN} />
+        {/* Bull body — chunky silhouette */}
+        <rect x="4" y="7" width="10" height="5" fill={GREEN} />
+        <rect x="6" y="5.5" width="8" height="1.5" fill={GREEN} />
+        {/* Bull head + snout */}
+        <rect x="2.5" y="7.5" width="2" height="3" fill={GREEN} />
+        <rect x="1.5" y="8" width="1" height="2" fill={GREEN} />
+        {/* Horns — two short green pixels */}
+        <rect x="3" y="6.5" width="0.6" height="1.2" fill={GREEN} />
+        <rect x="4.2" y="6.5" width="0.6" height="1.2" fill={GREEN} />
+        {/* Eye — single black square so the bull reads */}
+        <rect x="2.8" y="8.6" width="0.6" height="0.6" fill="#000" />
         {/* Legs — alternating gait */}
-        {[5, 8, 11, 13].map((x, i) => (
-          <motion.line
+        {[5, 7, 11, 13].map((x, i) => (
+          <motion.rect
             key={x}
-            x1={x}
-            y1={12}
-            x2={x}
-            y2={15}
-            stroke="#3d2817"
-            strokeWidth="0.7"
-            animate={{ y1: [12, 11.5, 12] }}
+            x={x}
+            y={12}
+            width={1}
+            height={3}
+            fill={GREEN}
+            animate={{ y: [12, 11.6, 12] }}
             transition={{
-              duration: 0.6,
-              delay: i * 0.15,
+              duration: 0.5,
+              delay: i * 0.12,
               repeat: Infinity,
               ease: "easeInOut",
             }}
           />
         ))}
-        {/* Dust kicked up behind */}
+        {/* Dust kicked up behind — green CRT dots */}
         {[0, 0.4, 0.8].map((delay, i) => (
-          <motion.circle
+          <motion.rect
             key={i}
-            cx={1}
-            cy={15}
-            r={0.4}
-            fill="#d4a574"
+            x={1}
+            y={15}
+            width={0.7}
+            height={0.7}
+            fill={GREEN}
             animate={{
-              cx: [1, -2],
-              opacity: [0, 0.6, 0],
-              r: [0.3, 0.7],
+              x: [1, -2.5],
+              opacity: [0, 0.7, 0],
             }}
             transition={{
               duration: 1.4,
@@ -227,43 +229,158 @@ function CandyLollipop({ size, className }: { size: number; className?: string }
   );
 }
 
-// ─── Wafū — red koi fish, calmer than the Bonito fish ────────────────
-function WafuKoi({ size, className }: { size: number; className?: string }) {
+// ─── Wafū — sumo wrestler stomping, dirt pops on impact ──────────────
+// Squat polygon body, mawashi belt, topknot. Weight rocks side-to-side;
+// each foot lifts then slams down, dust bursts out from under it. The
+// stomp rhythm is offset between the two feet so something is always
+// in motion.
+function WafuSumo({ size, className }: { size: number; className?: string }) {
+  // Palette pulled from the Wafū theme so the sumo lives in its world.
+  const SKIN = "#f5ead0";
+  const MAWASHI = "#9f1b0f"; // belt
+  const HAIR = "#1a1a1a";    // topknot + brow
+  const DIRT = "#8b7355";    // earth pops
   return (
     <motion.span
-      style={{ width: size * 1.55, height: size, display: "inline-block" }}
-      animate={{ x: [-4, 4, 4, -4, -4], scaleX: [1, 1, -1, -1, 1] }}
-      transition={{
-        duration: 3.2,
-        times: [0, 0.45, 0.5, 0.95, 1],
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
+      style={{ width: size * 1.6, height: size * 1.5, display: "inline-block" }}
+      animate={{ rotate: [-2, 2, -2] }}
+      transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       className={className}
-      aria-label="Studio is thinking"
+      aria-label="Studio is thinking — sumo stomping"
       role="status"
     >
       <svg
-        viewBox="0 0 24 16"
+        viewBox="0 0 26 26"
         xmlns="http://www.w3.org/2000/svg"
         style={{ width: "100%", height: "100%", overflow: "visible" }}
       >
-        {/* Tail */}
-        <polygon points="5,8 1,3.5 3,8 1,12.5" fill="#9f1b0f" />
-        {/* Body — deep red */}
-        <polygon points="5,8 10,2.8 19,5.8 22,8" fill="#9f1b0f" />
-        <polygon points="5,8 22,8 19,10.2 10,13.2" fill="#7a140b" />
-        {/* White belly stripe */}
-        <polygon points="5.5,8 22,8 19,8.6 6,8.6" fill="#faf3e0" opacity="0.95" />
-        {/* Fins */}
-        <polygon points="11,3.5 12,0.4 14,4" fill="#9f1b0f" />
-        <polygon points="12,12.4 13,14.6 15,12" fill="#7a140b" />
-        {/* Scale dots */}
-        <circle cx="11" cy="6" r="0.6" fill="#faf3e0" opacity="0.7" />
-        <circle cx="14" cy="6.2" r="0.5" fill="#faf3e0" opacity="0.7" />
-        {/* Eye */}
-        <circle cx="18.6" cy="7" r="0.95" fill="white" />
-        <circle cx="18.6" cy="7" r="0.45" fill="#1a1a1a" />
+        {/* Topknot — small dark blob above the head */}
+        <polygon points="11,3 13,1 15,3 14,4 12,4" fill={HAIR} />
+        {/* Head — round-ish skin polygon */}
+        <polygon points="9,4 17,4 18,7 16,9 10,9 8,7" fill={SKIN} />
+        {/* Brow line */}
+        <rect x="10" y="6.2" width="6" height="0.5" fill={HAIR} />
+        {/* Eyes — two tiny black dots */}
+        <circle cx="11.5" cy="7" r="0.4" fill={HAIR} />
+        <circle cx="14.5" cy="7" r="0.4" fill={HAIR} />
+        {/* Shoulders / chest — wide squat polygon */}
+        <polygon points="5,10 21,10 22,15 4,15" fill={SKIN} />
+        {/* Mawashi belt — dark red band across waist */}
+        <rect x="4" y="14.5" width="18" height="2" fill={MAWASHI} />
+        {/* Mawashi knot detail */}
+        <polygon points="12,16.5 14,16.5 13.5,18 12.5,18" fill={MAWASHI} />
+        {/* Belly bulge below belt */}
+        <polygon points="5,16.5 21,16.5 19,20 7,20" fill={SKIN} />
+        {/* Arms — stout, slightly out to balance */}
+        <polygon points="4,10.5 1,12 1,16 4,15" fill={SKIN} />
+        <polygon points="22,10.5 25,12 25,16 22,15" fill={SKIN} />
+
+        {/* Left thigh + foot — stomps first */}
+        <motion.g
+          style={{ originX: "9px", originY: "20px" }}
+          animate={{ rotate: [0, -8, 0, 0, 0] }}
+          transition={{
+            duration: 1.0,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <motion.polygon
+            points="7,20 11,20 11,24 7,24"
+            fill={SKIN}
+            animate={{ y: [0, -1.2, 0, 0] }}
+            transition={{
+              duration: 1.0,
+              times: [0, 0.25, 0.5, 1],
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+          {/* Foot */}
+          <motion.rect
+            x={6.5}
+            y={23.5}
+            width={5}
+            height={1.5}
+            fill={HAIR}
+            animate={{ y: [0, -1.2, 0, 0] }}
+            transition={{
+              duration: 1.0,
+              times: [0, 0.25, 0.5, 1],
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+        </motion.g>
+
+        {/* Right thigh + foot — stomps in counter-phase */}
+        <motion.g
+          style={{ originX: "17px", originY: "20px" }}
+          animate={{ rotate: [0, 0, 8, 0, 0] }}
+          transition={{
+            duration: 1.0,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <motion.polygon
+            points="15,20 19,20 19,24 15,24"
+            fill={SKIN}
+            animate={{ y: [0, 0, -1.2, 0] }}
+            transition={{
+              duration: 1.0,
+              times: [0, 0.4, 0.65, 1],
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+          <motion.rect
+            x={14.5}
+            y={23.5}
+            width={5}
+            height={1.5}
+            fill={HAIR}
+            animate={{ y: [0, 0, -1.2, 0] }}
+            transition={{
+              duration: 1.0,
+              times: [0, 0.4, 0.65, 1],
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+        </motion.g>
+
+        {/* DIRT POPS — bursts from under each foot at the moment it
+            slams. Three particles per side, each fades up + out. The
+            delay timing matches the foot-down half of the cycle. */}
+        {[
+          { x: 5, delayBase: 0.45 },  // left foot side
+          { x: 9, delayBase: 0.45 },
+          { x: 13, delayBase: 0.95 }, // right foot side
+          { x: 17, delayBase: 0.95 },
+          { x: 21, delayBase: 0.95 },
+        ].map(({ x, delayBase }, i) => (
+          <motion.circle
+            key={`dirt-${i}`}
+            cx={x}
+            cy={25}
+            r={0.6}
+            fill={DIRT}
+            animate={{
+              cy: [25, 23],
+              cx: [x, x + (i % 2 === 0 ? -1.2 : 1.2)],
+              r: [0.4, 1.1],
+              opacity: [0, 0.7, 0],
+            }}
+            transition={{
+              duration: 0.55,
+              delay: delayBase + (i % 2) * 0.05,
+              repeat: Infinity,
+              ease: "easeOut",
+              repeatDelay: 0,
+            }}
+          />
+        ))}
       </svg>
     </motion.span>
   );

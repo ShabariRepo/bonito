@@ -74,24 +74,23 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
   oregon: {
     id: "oregon",
     label: "Oregon Trail",
-    swatch: ["#3d2817", "#8b5a2b", "#d4a574", "#f5e6c8"],
-    scrollBg:
-      "bg-gradient-to-b from-[#f5e6c8] to-[#d4a574]/40 dark:from-[#2a1d10] dark:to-[#3d2817]",
-    surfaceBg: "bg-[#d4a574]/30 backdrop-blur-sm",
+    swatch: ["#000000", "#00ff66", "#00bb44", "#003311"],
+    scrollBg: "bg-black",
+    surfaceBg: "bg-black/85 backdrop-blur-sm",
     userBubble:
-      "bg-[#8b5a2b] text-[#f5e6c8] border border-[#3d2817]/50 shadow-sm",
+      "bg-[#00ff66]/15 text-[#00ff66] border border-[#00ff66]/50 shadow-[0_0_10px_rgba(0,255,102,0.15)]",
     assistantBubble:
-      "bg-[#f5e6c8] text-[#3d2817] border-2 border-[#8b5a2b]/60 dark:bg-[#3d2817] dark:text-[#f5e6c8] dark:border-[#8b5a2b]/80",
-    composerBg:
-      "border-t-2 border-[#8b5a2b]/50 bg-[#f5e6c8]/80 dark:bg-[#2a1d10]/80",
+      "bg-[#001a08] text-[#00ff66] border border-[#00ff66]/35 shadow-[0_0_8px_rgba(0,255,102,0.10)]",
+    composerBg: "border-t border-[#00ff66]/30 bg-black",
     inputClass:
-      "bg-[#f5e6c8] text-[#3d2817] placeholder:text-[#8b5a2b]/70 border-[#8b5a2b]/60 focus:border-[#3d2817] dark:bg-[#3d2817] dark:text-[#f5e6c8] caret-[#8b5a2b]",
-    sendBtnClass: "bg-[#8b5a2b] text-[#f5e6c8] hover:bg-[#3d2817]",
-    font: "font-serif",
-    cursorClass: "bg-[#8b5a2b]",
-    mutedTextClass: "text-[#8b5a2b]",
-    separatorClass: "border-[#8b5a2b]/40",
-    watermarkColor: "#ffffff",
+      "bg-black text-[#00ff66] placeholder:text-[#00ff66]/40 border-[#00ff66]/40 focus:border-[#00ff66] caret-[#00ff66]",
+    sendBtnClass:
+      "bg-[#00ff66] text-black hover:bg-[#33ff88] font-mono uppercase tracking-wider",
+    font: "font-mono",
+    cursorClass: "bg-[#00ff66]",
+    mutedTextClass: "text-[#00ff66]/60",
+    separatorClass: "border-[#00ff66]/30",
+    watermarkColor: "#00ff66",
     watermarkOpacity: 0.06,
   },
 
