@@ -38,6 +38,8 @@ import {
   Wand2,
   TrendingUp,
   MessageSquare,
+  ChevronDown,
+  ChevronRight as ChevronCollapsed,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
@@ -122,7 +124,11 @@ type NavItem = {
 };
 
 /** Renders one labeled (or unlabeled) sidebar section with the lock /
- *  badge / active-state logic the old code repeated inline 5 times.  */
+ *  badge / active-state logic the old code repeated inline 5 times.
+ *  Each labeled section is independently collapsible — the label is a
+ *  toggle button, state persists to localStorage, and item rendering
+ *  is suppressed while the section is collapsed. Items are always
+ *  shown in icon-only sidebar mode (no labels to gate against).  */
 function NavSection({
   label,
   items,
@@ -130,6 +136,7 @@ function NavSection({
   isCollapsed,
   isMobile,
   isFeatureLocked,
+  defaultCollapsed = true,
 }: {
   label?: string;
   items: ReadonlyArray<NavItem>;
@@ -137,29 +144,72 @@ function NavSection({
   isCollapsed: boolean;
   isMobile: boolean;
   isFeatureLocked: (tier?: string) => boolean;
+  defaultCollapsed?: boolean;
 }) {
+  const storageKey = label
+    ? `bonito:sidebar:section:${label.toLowerCase()}`
+    : null;
+  const [sectionCollapsed, setSectionCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !storageKey) return defaultCollapsed;
+    const saved = window.localStorage.getItem(storageKey);
+    if (saved === null) return defaultCollapsed;
+    return saved === "true";
+  });
+
+  const sidebarShowsLabels = !isCollapsed || isMobile;
+  // In icon-only sidebar mode there's no per-section label to click,
+  // so per-section collapse is meaningless — always render items.
+  const showItems = !label || !sidebarShowsLabels || !sectionCollapsed;
+
+  function toggleSection() {
+    setSectionCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined" && storageKey) {
+        window.localStorage.setItem(storageKey, String(next));
+      }
+      return next;
+    });
+  }
+
   return (
     <>
       {label !== undefined && (
         <>
           <div className="border-b border-border my-2" />
           <AnimatePresence>
-            {(!isCollapsed || isMobile) && (
-              <motion.p
+            {sidebarShowsLabels && (
+              <motion.button
+                key={`section-${label}`}
+                onClick={toggleSection}
                 variants={contentVariants}
                 initial="collapsed"
                 animate="expanded"
                 exit="collapsed"
                 transition={{ duration: 0.2 }}
-                className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+                className="w-full px-3 py-1 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 hover:text-foreground transition-colors group"
+                aria-expanded={!sectionCollapsed}
+                aria-label={
+                  sectionCollapsed
+                    ? `Expand ${label} section`
+                    : `Collapse ${label} section`
+                }
               >
-                {label}
-              </motion.p>
+                <span>{label}</span>
+                {sectionCollapsed ? (
+                  <ChevronCollapsed
+                    className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity"
+                  />
+                ) : (
+                  <ChevronDown
+                    className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity"
+                  />
+                )}
+              </motion.button>
             )}
           </AnimatePresence>
         </>
       )}
-      {items.map((item) => {
+      {showItems && items.map((item) => {
         const matchesPath =
           pathname === item.href || pathname?.startsWith(item.href + "/");
         const hasMoreSpecificMatch = items.some(
@@ -408,7 +458,10 @@ export function Sidebar() {
 
         {/* Domain-grouped sections — 6 buckets that cover all 23+ pages
             without overwhelming first-time users. Lock/badge handling is
-            in NavSection (see top of file). */}
+            in NavSection (see top of file). Each section header is a
+            toggle button — Agents stays expanded by default so the
+            most-used surface is one click away; the others collapse on
+            first paint and the user's preference persists per section. */}
         <NavSection
           label="Agents"
           items={agentsNavigation}
@@ -416,6 +469,7 @@ export function Sidebar() {
           isCollapsed={isCollapsed}
           isMobile={isMobile}
           isFeatureLocked={isFeatureLocked}
+          defaultCollapsed={false}
         />
         <NavSection
           label="Knowledge"
