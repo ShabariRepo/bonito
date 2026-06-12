@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanCard } from "../origami/PlanCard";
 import { StudioOpener } from "./StudioOpener";
+import { SwimmingFish } from "./SwimmingFish";
 import { useStudioSession } from "./useStudioSession";
 
 export function StudioChat() {
@@ -49,8 +50,8 @@ export function StudioChat() {
           </div>
           <div className="text-xs text-muted-foreground">
             {session.busy ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Loader2 size={11} className="animate-spin" />
+              <span className="inline-flex items-center gap-2">
+                <SwimmingFish size={14} />
                 thinking…
               </span>
             ) : (
@@ -123,7 +124,7 @@ export function StudioChat() {
           {session.busy &&
             session.messages[session.messages.length - 1]?.role === "user" && (
               <div className="flex items-center gap-2 pl-1">
-                <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                <SwimmingFish size={20} />
                 <span className="text-xs text-muted-foreground">
                   thinking…
                 </span>
