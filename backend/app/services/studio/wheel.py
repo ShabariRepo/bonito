@@ -98,6 +98,24 @@ _BARE_AGENT_NAME_RE = re.compile(
     re.DOTALL,
 )
 
+# Pass D — function-call syntax: `invoke_agent("studio-builder")` or
+# `invoke_agent(agent_name="studio-builder")`. Claude sometimes writes
+# the tool call in Python-style syntax instead of a structured call.
+# Saw this in PROD 2026-06-12: "Let me get that started for you.\n\n
+# invoke_agent(\"studio-builder\")".
+_FUNC_CALL_AGENT_RE = re.compile(
+    r"""invoke_agent\s*\(
+        \s*
+        (?:agent_name\s*=\s*)?         # optional kwarg name
+        ['"]                            # opening quote
+        (studio-(?:builder|advisor|platform|explorer))
+        ['"]                            # closing quote
+        [^)]*                           # tolerate extra args (e.g. reason="…")
+        \)
+    """,
+    re.VERBOSE | re.IGNORECASE,
+)
+
 
 # ─── invoke_agent tool definition for the router ───────────────────
 
@@ -231,14 +249,41 @@ OPENING THE CONVERSATION (first turn, no chat history yet):
   - Active gateway → "You did <N> requests this past week. Want to look at usage, work on agents, or something else?"
   - Returning user → "Welcome back. Anything from last session, or new direction?"
 
-CRITICAL RULES:
-  - NEVER emit raw XML like <function_calls>, <invoke>, <function>, <tool_call> \
-    as text — use the structured tool_calls field.
+CRITICAL — HOW TO INVOKE A SPOKE:
+
+You have ONE tool: invoke_agent. To use it, emit a structured tool_call \
+in the API tool-use field. Do NOT write any of the following in your \
+visible reply text:
+
+  - `invoke_agent("studio-builder")`                  ← WRONG (function syntax)
+  - `invoke_agent(agent_name="studio-advisor")`       ← WRONG (function syntax)
+  - `{"agent_name": "studio-platform"}`               ← WRONG (bare JSON)
+  - `<tool_calls>[…]</tool_calls>`                    ← WRONG (XML)
+  - `<function_calls>…</function_calls>`              ← WRONG (XML)
+  - `<invoke name="invoke_agent">…</invoke>`          ← WRONG (XML)
+
+ALL of these will leak as visible characters in the user's chat. The \
+ONLY correct way is to use the structured tool_calls mechanism — your \
+reply text should mention what you're doing in ONE plain-English \
+sentence, and the invocation goes through the structured field.
+
+CORRECT examples (text + structured tool call):
+  Text reply: "Let me pull that up for you."
+  Tool call (structured): invoke_agent(agent_name="studio-advisor")
+
+  Text reply: "I'll set that up."
+  Tool call (structured): invoke_agent(agent_name="studio-builder")
+
+If the model interface ever feels like it doesn't have a tool to call, \
+re-read this section — the tool IS available. Emit it through the \
+structured channel, not as text.
+
+OTHER RULES:
   - When you DO route, your reply text should be ONE short sentence ("Let me \
-    pull that up" / "I'll handle that") AND the invoke_agent call in the \
-    SAME response. Never commit to action without invoking.
-  - For direct snapshot answers: be specific. "You have 2 projects: \
-    vc-dd-bots and customer-support." NOT "You have 2 projects."
+    pull that up" / "I'll handle that") AND the structured invoke_agent in \
+    the SAME response. Never commit to action without the structured call.
+  - For direct snapshot answers (no routing): be specific. "You have 2 \
+    projects: vc-dd-bots and customer-support." NOT "You have 2 projects."
 """
 
 
@@ -383,6 +428,16 @@ async def _stream_router_decision(
             yield ("done", finish_reason or "stop")
             return
 
+    # Pass D: function-call syntax. `invoke_agent("studio-builder")` or
+    # `invoke_agent(agent_name="studio-builder", reason="…")`.
+    if accumulated_text:
+        fn_call = _FUNC_CALL_AGENT_RE.search(accumulated_text)
+        if fn_call:
+            spoke = fn_call.group(1)
+            yield ("tool_call", json.dumps({"agent_name": spoke}))
+            yield ("done", finish_reason or "stop")
+            return
+
     # No tool call emitted at all.
     yield ("done", finish_reason or "stop")
 
@@ -456,7 +511,8 @@ async def run_studio_wheel_turn(
                 stripped = _TOOL_CALL_JSON_RE.sub("", visible)
                 stripped = _INVOKE_BLOCK_RE.sub("", stripped)
                 stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
-                stripped = _BARE_AGENT_NAME_RE.sub("", stripped).strip()
+                stripped = _BARE_AGENT_NAME_RE.sub("", stripped)
+                stripped = _FUNC_CALL_AGENT_RE.sub("", stripped).strip()
                 yield OrigamiEvent(
                     "message_complete",
                     {
