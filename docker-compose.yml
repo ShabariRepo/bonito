@@ -39,6 +39,12 @@ services:
       - VAULT_ADDR=http://vault:8200
       - VAULT_TOKEN=bonito-dev-token
       - SENTRY_DSN=${SENTRY_DSN:-}
+      # Studio wheel engine selection (see app/services/studio/wheel.py).
+      # When STUDIO_ENGINE=wheel, every org runs on the wheel. Otherwise
+      # only orgs in STUDIO_WHEEL_ORG_IDS (csv of UUIDs) route through it;
+      # everyone else stays on the monolithic Studio prompt.
+      - STUDIO_ENGINE=${STUDIO_ENGINE:-}
+      - STUDIO_WHEEL_ORG_IDS=${STUDIO_WHEEL_ORG_IDS:-}
       # Match the values bonito/app stores in Vault. Used by provider_service.py
       # for DB-encrypted credential decryption fallback. Production sets these
       # via environment / secret manager.

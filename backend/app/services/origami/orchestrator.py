@@ -1702,7 +1702,7 @@ _TOOL_CALL_JSON_RE = re.compile(
     # extraction). Including the wrapper here strips the leftover
     # `<function_calls>…</function_calls>` tags from the visible text so
     # they don't render in the chat bubble (Studio bug 2026-06-12).
-    r"<(tool_call|function|function_call|function_calls|tool_use)>\s*(.*?)\s*</\1>",
+    r"<(tool_call|tool_calls|function|function_call|function_calls|tool_use)>\s*(.*?)\s*</\1>",
     re.DOTALL,
 )
 _INVOKE_BLOCK_RE = re.compile(

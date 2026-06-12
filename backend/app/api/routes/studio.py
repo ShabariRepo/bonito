@@ -39,6 +39,10 @@ from app.services.studio.prompt import (
     render_snapshot_for_prompt,
 )
 from app.services.studio.snapshot import get_org_snapshot
+from app.services.studio.wheel import (
+    is_wheel_engine_for_org,
+    run_studio_wheel_turn,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,18 +98,39 @@ async def studio_turn(
     snapshot = await get_org_snapshot(db=db, org_id=user.org_id)
     snapshot_context = render_snapshot_for_prompt(snapshot)
 
+    # Per-org engine routing: wheel vs monolith. While we're rolling
+    # the wheel out, only allowlisted org_ids (or full STUDIO_ENGINE=wheel)
+    # see the new path; everyone else stays on the monolithic Studio prompt.
+    use_wheel = is_wheel_engine_for_org(user.org_id)
+    logger.info(
+        "studio.turn: org=%s engine=%s",
+        user.org_id,
+        "wheel" if use_wheel else "monolith",
+    )
+
     async def event_generator() -> AsyncIterator[str]:
         try:
-            async for event in run_origami_turn(
-                user=user,
-                message=body.message,
-                conversation_id=body.conversation_id,
-                project_id=parsed_project_id,
-                db=db,
-                system_prompt=STUDIO_SYSTEM_PROMPT,
-                extra_context=snapshot_context,
-            ):
-                yield event.to_sse()
+            if use_wheel:
+                async for event in run_studio_wheel_turn(
+                    user=user,
+                    message=body.message,
+                    conversation_id=body.conversation_id,
+                    project_id=parsed_project_id,
+                    db=db,
+                    extra_context=snapshot_context,
+                ):
+                    yield event.to_sse()
+            else:
+                async for event in run_origami_turn(
+                    user=user,
+                    message=body.message,
+                    conversation_id=body.conversation_id,
+                    project_id=parsed_project_id,
+                    db=db,
+                    system_prompt=STUDIO_SYSTEM_PROMPT,
+                    extra_context=snapshot_context,
+                ):
+                    yield event.to_sse()
         except Exception as e:
             logger.exception("Studio turn failed at the route layer")
             err = OrigamiEvent(
