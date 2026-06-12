@@ -87,6 +87,37 @@ EXPLORER_NAME = "studio-explorer"
 
 VALID_SPOKES = {BUILDER_NAME, ADVISOR_NAME, PLATFORM_NAME, EXPLORER_NAME}
 
+# Per-conversation memory of the last visible assistant reply (router
+# text + spoke text) so the next turn's spoke can see what was just
+# asked. Memwright handles long-term recall; this is the short-term
+# crutch for the "answer to a clarifying question" pattern. Capped at
+# 4KB per conversation to keep memory bounded. LRU eviction at 1000
+# conversations.
+from collections import OrderedDict
+_LAST_REPLY_CACHE: "OrderedDict[str, str]" = OrderedDict()
+_LAST_REPLY_CACHE_CAP = 1000
+
+
+def _cache_last_reply(conversation_id: str, reply: str) -> None:
+    if not conversation_id or not reply:
+        return
+    text = reply.strip()[:4000]
+    if not text:
+        return
+    _LAST_REPLY_CACHE[conversation_id] = text
+    _LAST_REPLY_CACHE.move_to_end(conversation_id)
+    while len(_LAST_REPLY_CACHE) > _LAST_REPLY_CACHE_CAP:
+        _LAST_REPLY_CACHE.popitem(last=False)
+
+
+def _get_last_reply(conversation_id: str) -> Optional[str]:
+    if not conversation_id:
+        return None
+    text = _LAST_REPLY_CACHE.get(conversation_id)
+    if text:
+        _LAST_REPLY_CACHE.move_to_end(conversation_id)
+    return text
+
 # Matches a bare `{"agent_name": "studio-xyz"}` JSON object the router
 # sometimes emits inside its visible text without any wrapper. Captures
 # the spoke name so the dispatcher can both extract it AND strip it
@@ -288,9 +319,15 @@ OTHER RULES:
 
 
 # ─── Per-spoke runtime config ──────────────────────────────────────
-
+# Builder path uses Origami's existing monolithic SYSTEM_PROMPT — one
+# source of truth, no wheel-specific fork that would drift. If the
+# builder fails a specific case (e.g. answering a clarifying question
+# without invoking), fix Origami's prompt, not this file. The wheel's
+# value-add for the build path is the routing decision and the
+# prior-reply context injection below; the actual build execution is
+# Origami's job and has been since cc1dc43.
 SPOKE_PROMPTS = {
-    BUILDER_NAME: ORIGAMI_BUILDER_PROMPT,  # Use Origami's full proven prompt
+    BUILDER_NAME: ORIGAMI_BUILDER_PROMPT,
     ADVISOR_NAME: ADVISOR_PROMPT,
     PLATFORM_NAME: PLATFORM_PROMPT,
     EXPLORER_NAME: EXPLORER_PROMPT,
@@ -464,11 +501,21 @@ async def run_studio_wheel_turn(
     org_id = user.org_id
     session_id = uuid.uuid4()
 
-    # Build the router's user_content — snapshot is prepended so the
-    # router can decide routing based on what the org actually has.
+    # Build the router's user_content. Three layers, in order:
+    #   1. snapshot (extra_context) — so router sees org state
+    #   2. prior assistant reply if any — so router can resolve answers
+    #      to clarifying questions ("call it X" is a build instruction
+    #      iff a previous turn asked "what should we call it?")
+    #   3. the user's current message
+    prior_reply = _get_last_reply(conversation_id) if conversation_id else None
     user_content = message
     if extra_context:
-        user_content = f"{extra_context}\n\n{message}"
+        user_content = f"{extra_context}\n\n{user_content}"
+    if prior_reply:
+        user_content = (
+            f"[Previous assistant reply in this conversation]\n{prior_reply}\n"
+            f"[/Previous]\n\n{user_content}"
+        )
 
     yield OrigamiEvent(
         "turn_started",
@@ -588,7 +635,11 @@ async def run_studio_wheel_turn(
                 break
 
     if invoke_target is None:
-        # Router answered directly from the snapshot. Done.
+        # Router answered directly from the snapshot. Cache its reply
+        # so the next turn (which may be a follow-up to this answer)
+        # has context.
+        if conversation_id and router_text.strip():
+            _cache_last_reply(conversation_id, router_text.strip())
         yield OrigamiEvent("done", {"finish_reason": "router_direct"})
         return
 
@@ -623,6 +674,22 @@ async def run_studio_wheel_turn(
 
     spoke_prompt = SPOKE_PROMPTS[invoke_target]
 
+    # Stack the spoke's context: snapshot first, then the prior reply
+    # so the spoke can answer-resolve as well. (Origami's run_origami_turn
+    # also pulls memwright recall on top of this.)
+    spoke_extra_context = extra_context
+    if prior_reply:
+        prior_block = (
+            f"[Previous assistant reply in this conversation]\n{prior_reply}\n"
+            f"[/Previous]"
+        )
+        spoke_extra_context = (
+            f"{prior_block}\n\n{extra_context}" if extra_context else prior_block
+        )
+
+    # Track the spoke's visible text so we can cache it for the next turn.
+    spoke_visible = ""
+
     async for ev in run_origami_turn(
         user=user,
         message=message,
@@ -630,10 +697,25 @@ async def run_studio_wheel_turn(
         project_id=project_id,
         db=db,
         system_prompt=spoke_prompt,
-        extra_context=extra_context,
+        extra_context=spoke_extra_context,
     ):
         # Skip the spoke's own turn_started — we already emitted one
         # for the wheel as a whole. Pass everything else through.
         if ev.type == "turn_started":
             continue
+        # Accumulate visible text for the next-turn cache. message_complete
+        # gives us the canonical (stripped) text after every spoke reply.
+        if ev.type == "message_complete":
+            text_piece = (ev.payload or {}).get("text") or ""
+            if text_piece:
+                spoke_visible = (
+                    f"{spoke_visible}\n\n{text_piece}" if spoke_visible else text_piece
+                )
         yield ev
+
+    # Cache for the next turn. Prefer the spoke's reply (more specific);
+    # fall back to the router's text if the spoke didn't say anything
+    # visible (e.g. it emitted only plan card tool calls).
+    final_visible = spoke_visible or router_text.strip()
+    if conversation_id and final_visible:
+        _cache_last_reply(conversation_id, final_visible)

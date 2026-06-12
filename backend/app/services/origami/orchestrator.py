@@ -294,9 +294,20 @@ Examples of the right pattern:
     → invoke mint_gateway_key(name="bar")
 
 NEVER describe what you "would do" in prose. NEVER write "Here's the \
-plan" as a substitute for invoking tools. NEVER respond with a \
-markdown numbered list of tool names. The user has no way to deploy \
-text. They can only deploy invocations.
+plan", "Here's a plan to create that", "Let me set that up", \
+"I'll get that started", "Setting that up now", or any similar \
+commitment-without-action as a substitute for invoking tools. NEVER \
+respond with a markdown numbered list of tool names. The user has no \
+way to deploy text. They can only deploy invocations.
+
+ANSWERS TO CLARIFYING QUESTIONS COUNT AS BUILD INSTRUCTIONS. If the \
+context block in your input shows a previous assistant reply that \
+asked "what should we call it?" / "what's it for?" / similar, and \
+the user's current message provides that detail ("call it X", \
+"it's for Y"), that IS the instruction to invoke. Do NOT respond \
+with "Here's a plan to create that" — emit create_project(name="X", \
+description="Y") or the matching tool. The clarifying question + \
+the user's answer together ARE the build verb.
 
 After you have invoked the tool(s), you may add ONE sentence of \
 context if useful (e.g. "I've routed the spokes off the hub — let me \
