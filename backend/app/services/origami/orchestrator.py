@@ -668,6 +668,8 @@ async def run_origami_turn(
     conversation_id: Optional[str],
     project_id: Optional[uuid.UUID] = None,
     db: AsyncSession,
+    system_prompt: Optional[str] = None,
+    extra_context: Optional[str] = None,
 ) -> AsyncIterator[OrigamiEvent]:
     """Run one Origami turn: gateway call → tool dispatch loop → final response.
 
@@ -681,7 +683,17 @@ async def run_origami_turn(
     user's REAL org_id, summed cost across all internal LLM calls, tokens,
     and tool-call count. This is what the Usage page reads and what tier
     quota enforcement counts against.
+
+    OPTIONAL PARAMS:
+        system_prompt — override the default Origami system prompt. Used by
+            Bonito Studio to swap in a BDR-flavored prompt while reusing the
+            same orchestrator + tool registry. Defaults to SYSTEM_PROMPT.
+        extra_context — prepended to user_content ahead of platform_context
+            and memwright. Used by Bonito Studio to inject the org snapshot
+            (providers / agents / KBs / usage) so the first turn opens with
+            something specific. Plain text; the model treats it as context.
     """
+    active_system_prompt = system_prompt or SYSTEM_PROMPT
     org_id = user.org_id
     session_id = uuid.uuid4()
     started_at_ms = int(time.time() * 1000)
@@ -783,6 +795,10 @@ async def run_origami_turn(
         user_content = f"{memory_context}\n\nUser message: {message}"
     if platform_context:
         user_content = f"{platform_context}\n\n{user_content}"
+    if extra_context:
+        # Studio injects the org snapshot here so the model can ground its
+        # first reply in actual provider/agent/KB counts and recent usage.
+        user_content = f"{extra_context}\n\n{user_content}"
 
     messages: list[dict[str, Any]] = [
         {"role": "user", "content": user_content},
@@ -820,7 +836,7 @@ async def run_origami_turn(
 
         try:
             async for chunk in _stream_gateway(
-                system=SYSTEM_PROMPT,
+                system=active_system_prompt,
                 messages=messages,
                 tools=tools_for_model,
                 customer_org_id=org_id,
@@ -951,7 +967,7 @@ async def run_origami_turn(
 
         if prompt_tokens == 0:
             # Rough estimate: 1.3 tokens per word across system + tools + history
-            sys_words = len(SYSTEM_PROMPT.split())
+            sys_words = len(active_system_prompt.split())
             history_words = sum(
                 len(str(m.get("content") or "").split()) for m in messages
             )

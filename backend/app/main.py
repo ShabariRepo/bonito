@@ -183,6 +183,10 @@ from app.api.routes import origami_admin as origami_admin_routes
 app.include_router(origami_routes.router, prefix="/api")
 app.include_router(origami_admin_routes.router, prefix="/api")
 
+# Bonito Studio — chat-first front door (see docs/BONITO-STUDIO-PLAN.md)
+from app.api.routes import studio as studio_routes
+app.include_router(studio_routes.router, prefix="/api")
+
 app.include_router(sso.router, prefix="/api")
 app.include_router(sso_admin.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
