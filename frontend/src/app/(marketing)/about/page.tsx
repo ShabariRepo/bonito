@@ -178,12 +178,12 @@ export default function AboutPage() {
                 </p>
                 <p className="text-[#888] italic">
                   In stealth with enterprise design partners since February 2026.
-                  Reach Shabari directly at{" "}
+                  Reach the team at{" "}
                   <a
-                    href="mailto:shabari@bonito.ai"
+                    href="mailto:hello@trybonito.com"
                     className="text-[#ccc] not-italic hover:text-[#a78bfa] transition"
                   >
-                    shabari@bonito.ai
+                    hello@trybonito.com
                   </a>
                   .
                 </p>

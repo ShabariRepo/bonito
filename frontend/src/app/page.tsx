@@ -204,8 +204,8 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero — thesis-shaped, not feature-list-shaped */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 pb-24 md:pt-32 md:pb-32">
-        <FadeInSection className="max-w-4xl mx-auto text-center">
+      <section className="relative z-10 max-w-[1600px] mx-auto px-6 md:px-12 lg:px-20 pt-20 pb-24 md:pt-32 md:pb-32">
+        <FadeInSection className="max-w-6xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#a78bfa] text-xs font-semibold tracking-wider uppercase mb-6">
             <span className="h-1.5 w-1.5 rounded-full bg-[#7c3aed]" />
             Structurally cloud-neutral
@@ -214,13 +214,13 @@ export default function LandingPage() {
             The control plane the
             <span className="text-[#7c3aed]"> hyperscalers can&rsquo;t build</span>.
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-[#aaa] max-w-3xl mx-auto leading-relaxed">
+          <p className="mt-6 text-lg md:text-xl text-[#aaa] max-w-4xl mx-auto leading-relaxed">
             Every AI workload eventually needs three things: multi-cloud routing,
             cost governance, and audit. Bonito is the layer where they converge.
             One ledger across OpenAI, Anthropic, Bedrock, Vertex, Azure, and
             Groq. AWS will never route to Azure. We will.
           </p>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto text-left">
             <div className="rounded-lg border border-[#1a1a1a] bg-[#111] p-4">
               <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Cloud-neutral moat</p>
               <p className="mt-1.5 text-sm text-[#bbb] leading-relaxed">
