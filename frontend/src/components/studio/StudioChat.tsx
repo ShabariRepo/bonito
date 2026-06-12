@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanCard } from "../origami/PlanCard";
 import { StudioOpener } from "./StudioOpener";
+import { StudioReminderBanner } from "./StudioReminderBanner";
 import { SwimmingFish } from "./SwimmingFish";
 import { useStudioSession } from "./useStudioSession";
 
@@ -70,6 +71,10 @@ export function StudioChat() {
           </div>
         </div>
       </div>
+
+      {/* Snapshot-driven reminders — gentle nudges (no providers, broken
+          providers). Renders nothing when the snapshot is healthy. */}
+      <StudioReminderBanner snapshot={session.snapshot} />
 
       {/* Scrolling body */}
       <div
