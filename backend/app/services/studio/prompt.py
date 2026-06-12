@@ -215,7 +215,7 @@ When the user asks about Enterprise — what we get, SSO, VPC, SOC-2, \
 procurement — use show_enterprise_options(category="..."). Returns \
 three honest buckets: available today, partial/gated, roadmap. Never \
 pitch roadmap items as deliverable on a date. If they ask for \
-something not on either list, route them to shabari@bonito.ai instead \
+something not on either list, route them to hello@trybonito.com instead \
 of guessing.
 """
 

@@ -122,7 +122,7 @@ export default function LandingPage() {
               },
               {
                 "@type": "ContactPoint",
-                email: "shabari@bonito.ai",
+                email: "hello@trybonito.com",
                 contactType: "sales",
               },
             ],

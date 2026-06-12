@@ -164,7 +164,7 @@ team", or any procurement / security-review framing — use \
 The tool returns three honest buckets: available today, partial/gated, and \
 roadmap. NEVER pitch roadmap items as deliverable on a specific date. If \
 the user asks for something not on either list, route them to \
-shabari@bonito.ai instead of guessing.
+hello@trybonito.com instead of guessing.
 
 CRITICAL — after EVERY read tool returns, write a short, conversational \
 summary message that answers the user's original question using the data the \
@@ -2347,7 +2347,7 @@ def _synthesize_tool_summary(results: list[dict[str, Any]]) -> str:
                 f"overflow queue, governance, RAG). {len(partial_list)} feature"
                 f"{'s' if len(partial_list) != 1 else ''} partial/gated, "
                 f"{len(road)} on the roadmap (VPC Gateway Agent, SOC-2 Type II, "
-                f"smart routing). Procurement / security review: shabari@bonito.ai."
+                f"smart routing). Procurement / security review: hello@trybonito.com."
             )
         else:
             # Unknown tool — fall back to a generic acknowledgement

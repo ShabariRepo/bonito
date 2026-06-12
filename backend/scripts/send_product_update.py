@@ -9,7 +9,7 @@ Usage:
   python scripts/send_product_update.py
 
   # Send to a single email first (test):
-  python scripts/send_product_update.py --test-email shabari@bonito.ai
+  python scripts/send_product_update.py --test-email hello@trybonito.com
 
 Requires: RESEND_API_KEY and DATABASE_URL env vars (or Vault configured).
 """

@@ -210,7 +210,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <p>Founded 2025 by <a href="https://www.linkedin.com/in/shenoyshabari/">Shabari Shenoy</a> — enterprise infrastructure background, prior to Bonito. New York based.</p>
 
             <h2>Verifiable references</h2>
-            <p><a href="/docs">Documentation (API reference, SDKs, integration guides)</a> · <a href="/changelog">Changelog (shipping cadence)</a> · <a href="/pricing">Pricing</a> · <a href="/compare">Competitive matrix vs Portkey, LiteLLM, Helicone, Martian, Kong</a> · <a href="/use-cases">Use cases</a> · <a href="/about">About</a> · <a href="/contact">Contact (shabari@bonito.ai)</a></p>
+            <p><a href="/docs">Documentation (API reference, SDKs, integration guides)</a> · <a href="/changelog">Changelog (shipping cadence)</a> · <a href="/pricing">Pricing</a> · <a href="/compare">Competitive matrix vs Portkey, LiteLLM, Helicone, Martian, Kong</a> · <a href="/use-cases">Use cases</a> · <a href="/about">About</a> · <a href="/contact">Contact (hello@trybonito.com)</a></p>
           </div>
         </noscript>
         <Providers>

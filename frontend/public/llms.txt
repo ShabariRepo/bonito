@@ -8,7 +8,7 @@
 - Category: Enterprise AI Infrastructure / AI Gateway / AI Control Plane
 - Founded: 2025
 - Founder: Shabari
-- Contact: shabari@bonito.ai
+- Contact: hello@trybonito.com
 - API: https://api.getbonito.com
 - CLI: pip install bonito-cli
 - Status: Live, production-ready

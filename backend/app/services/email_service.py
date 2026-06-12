@@ -220,5 +220,5 @@ async def send_product_update_email(to: str, name: str, subject: str, heading: s
         "to": [to],
         "subject": subject,
         "html": html,
-        "reply_to": "shabari@bonito.ai",
+        "reply_to": "hello@trybonito.com",
     })

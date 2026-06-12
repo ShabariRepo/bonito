@@ -38,7 +38,7 @@ class ShowEnterpriseOptionsTool(OrigamiTool):
         "/ compliance / SLA / audit log export', or anything similar. "
         "Returns three honest buckets: available, partial/gated, and "
         "roadmap. Read-only, no plan card. Always cite the contact path "
-        "(shabari@bonito.ai) for procurement, pricing, and roadmap "
+        "(hello@trybonito.com) for procurement, pricing, and roadmap "
         "questions you can't answer from the structured output."
     )
     input_schema = {
@@ -240,9 +240,9 @@ class ShowEnterpriseOptionsTool(OrigamiTool):
             "partial_or_gated": partial,
             "roadmap": roadmap,
             "contact": {
-                "procurement": "shabari@bonito.ai",
-                "roadmap_questions": "shabari@bonito.ai",
-                "security_review": "shabari@bonito.ai",
+                "procurement": "hello@trybonito.com",
+                "roadmap_questions": "hello@trybonito.com",
+                "security_review": "hello@trybonito.com",
             },
             "notes": [
                 "Available-today items are shipped and routinely exercised in prod.",
@@ -253,6 +253,6 @@ class ShowEnterpriseOptionsTool(OrigamiTool):
                 "If you have a specific enterprise concern (compliance audit, "
                 "VPC requirement, custom SLA, security review), reply with the "
                 "specific ask and I'll either point at the live capability or "
-                "loop in Shabari at shabari@bonito.ai."
+                "loop in the team at hello@trybonito.com."
             ),
         }

@@ -110,14 +110,14 @@ export default function FoundingPage() {
         className="text-center pb-16"
       >
         <a
-          href="mailto:shabari@bonito.ai?subject=Founding%2010%20—%20Interest&body=Hi%20Shabari%2C%0A%0AI%27m%20interested%20in%20the%20Founding%2010%20offer.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ACurrent%20AI%20providers%3A%20%0A%0AThanks!"
+          href="mailto:hello@trybonito.com?subject=Founding%2010%20—%20Interest&body=Hi%20Bonito%20team%2C%0A%0AI%27m%20interested%20in%20the%20Founding%2010%20offer.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ACurrent%20AI%20providers%3A%20%0A%0AThanks!"
           className="inline-flex items-center gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold px-8 py-4 rounded-xl text-lg transition"
         >
           Claim Your Spot
           <ArrowRight className="w-5 h-5" />
         </a>
         <p className="mt-3 text-sm text-[#555]">
-          Or email <span className="text-[#888]">shabari@bonito.ai</span> directly
+          Or email <span className="text-[#888]">hello@trybonito.com</span> directly
         </p>
       </motion.section>
 
@@ -214,7 +214,7 @@ export default function FoundingPage() {
             Founding customers get a direct line to our engineering team. Your use cases become our priorities.
           </p>
           <a
-            href="mailto:shabari@bonito.ai?subject=Founding%2010%20—%20Interest&body=Hi%20Shabari%2C%0A%0AI%27m%20interested%20in%20the%20Founding%2010%20offer.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ACurrent%20AI%20providers%3A%20%0A%0AThanks!"
+            href="mailto:hello@trybonito.com?subject=Founding%2010%20—%20Interest&body=Hi%20Bonito%20team%2C%0A%0AI%27m%20interested%20in%20the%20Founding%2010%20offer.%0A%0ACompany%3A%20%0ATeam%20size%3A%20%0ACurrent%20AI%20providers%3A%20%0A%0AThanks!"
             className="inline-flex items-center gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold px-8 py-4 rounded-xl text-lg transition"
           >
             Claim Your Spot

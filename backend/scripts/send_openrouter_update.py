@@ -3,7 +3,7 @@ Send product update email for OpenRouter + PH launch to production users.
 Runs locally with just RESEND_API_KEY — no DB needed.
 
 Usage:
-  python scripts/send_openrouter_update.py --test-email shabari@bonito.ai
+  python scripts/send_openrouter_update.py --test-email hello@trybonito.com
   python scripts/send_openrouter_update.py
 """
 
@@ -162,7 +162,7 @@ def main():
             "to": [test_email],
             "subject": SUBJECT,
             "html": html,
-            "reply_to": "shabari@bonito.ai",
+            "reply_to": "hello@trybonito.com",
         })
         print("Sent!")
         return
@@ -178,7 +178,7 @@ def main():
                 "to": [r["email"]],
                 "subject": SUBJECT,
                 "html": html,
-                "reply_to": "shabari@bonito.ai",
+                "reply_to": "hello@trybonito.com",
             })
             sent += 1
             print(f"  Sent to: {r['email']}")
