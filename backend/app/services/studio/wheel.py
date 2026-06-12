@@ -530,35 +530,62 @@ async def run_studio_wheel_turn(
 
     # ── Step 2: dispatch on the routing decision ──────────────────
     if invoke_target is None:
-        # Belt-and-suspenders for the "router talked about routing but
-        # didn't actually invoke" failure mode. If the visible text
-        # mentions handing off / delegating / consulting but no tool
-        # call landed, infer the intended spoke from the verbiage and
-        # route anyway. Better to attempt the right specialist than
-        # leave the user looking at a dead-end "I'll hand you off to X"
-        # with no follow-up.
-        lowered = router_text.lower()
-        ROUTE_HINTS = {
-            BUILDER_NAME: ("builder", "build", "create", "spin up", "set up"),
-            ADVISOR_NAME: ("advisor", "what's next", "next step", "recommend"),
-            PLATFORM_NAME: ("platform", "enterprise", "integration", "documentation"),
-            EXPLORER_NAME: ("explorer", "details", "tell you about", "describe"),
-        }
-        if any(phrase in lowered for phrase in (
-            "hand you off", "hand off", "let me route", "let me delegate",
-            "let me consult", "delegating", "routing to", "passing this to",
-            "hand this to", "the advisor", "the explorer", "the platform",
-            "the builder",
-        )):
-            for spoke, hints in ROUTE_HINTS.items():
-                if any(h in lowered for h in hints):
-                    invoke_target = spoke
-                    invoke_reason = "router talked about routing without invoking; inferred from text"
-                    logger.warning(
-                        "wheel: router did not emit invoke_agent; "
-                        "inferred target=%s from text", spoke,
-                    )
-                    break
+        # Belt-and-suspenders for "router committed to action without
+        # invoking". Could be either:
+        #   a) Explicit handoff verbiage ("I'll hand you off to advisor")
+        #   b) Implicit commitment ("I'll set that up", "let me get that
+        #      started") — these are build-verb completions where the
+        #      model dropped the tool call but the verb makes routing
+        #      obvious.
+        # The original user message often makes the spoke obvious too
+        # ("create a project" → builder). Use both the user message AND
+        # the router's text to classify; first match wins.
+        # Better to attempt the right specialist than leave the user
+        # looking at a dead-end "I'll set that up" with no follow-up.
+        classifier_text = (message + " " + router_text).lower()
+        VERB_HINTS = [
+            # Build path — action verbs the user/router say when they
+            # mean a write. Ordered roughly by specificity.
+            (BUILDER_NAME, (
+                "create", "build", "make", "spin up", "spin-up",
+                "set up", "set-up", "mint", "deploy", "wire", "link",
+                "connect", "add a", "set that up", "set that going",
+                "get that set", "get that started", "get that going",
+                "i'll handle", "i'll set up", "i'll create",
+            )),
+            # Advice path
+            (ADVISOR_NAME, (
+                "what should i", "what's next", "what is next",
+                "next step", "recommend", "suggestions", "what would you",
+                "i'm stuck", "i am stuck", "lost", "where do i",
+                "the advisor",
+            )),
+            # Platform Q&A path
+            (PLATFORM_NAME, (
+                "how does", "how do i call", "enterprise", "compliance",
+                "sso", "soc-2", "soc 2", "integration", "snippet",
+                "documentation", "docs about",
+                "the platform",
+            )),
+            # Resource detail path
+            (EXPLORER_NAME, (
+                "tell me about", "describe", "what's in", "what is in",
+                "what's inside", "show me details",
+                "the explorer",
+            )),
+        ]
+        for spoke, hints in VERB_HINTS:
+            if any(h in classifier_text for h in hints):
+                invoke_target = spoke
+                invoke_reason = (
+                    "router committed without invoking; inferred from "
+                    f"user+router verb classifier → {spoke}"
+                )
+                logger.warning(
+                    "wheel: router did not emit invoke_agent; "
+                    "verb-classifier inferred target=%s", spoke,
+                )
+                break
 
     if invoke_target is None:
         # Router answered directly from the snapshot. Done.
