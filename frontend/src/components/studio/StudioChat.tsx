@@ -13,6 +13,7 @@ import { Send, Loader2, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PlanCard } from "../origami/PlanCard";
+import SchematicBackground from "../SchematicBackground";
 import { StudioOpener } from "./StudioOpener";
 import { StudioReminderBanner } from "./StudioReminderBanner";
 import { SwimmingFish } from "./SwimmingFish";
@@ -43,7 +44,16 @@ export function StudioChat() {
     // notification-bell row (~52px on lg+), p-8 padding (32px top), and
     // the bottom padding (32px). Using 100dvh so mobile address-bar
     // collapse doesn't push the composer below the fold either.
-    <div className="flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8">
+    <div className="relative flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8">
+      {/* Animated schematic backdrop — same canvas used on the marketing
+          landing. Renders fixed across the viewport at z-0; the
+          sidebar's opaque card background covers the left strip, and
+          Studio's translucent surfaces (header / composer at /50) let
+          it show through behind the chat body. */}
+      <SchematicBackground />
+
+      {/* All chat content sits in a z-10 layer above the canvas. */}
+      <div className="relative z-10 flex flex-col h-full">
       {/* Header — minimal, brand + state */}
       <div className="border-b border-border/60 px-6 py-3 shrink-0 bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -189,10 +199,11 @@ export function StudioChat() {
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground/70 mt-1.5 text-center">
-            Bonito Studio · plan-cards run on confirmation, no surprises
+            Bonito Studio · plans run automatically, no surprises
           </p>
         </div>
       </div>
+      </div>{/* close z-10 chat layer */}
     </div>
   );
 }
