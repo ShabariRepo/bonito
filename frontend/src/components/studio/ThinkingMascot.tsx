@@ -31,6 +31,8 @@ export function ThinkingMascot({
       return <SwimmingFish size={size} className={className} />;
     case "oregon":
       return <OregonBullWagon size={size} className={className} />;
+    case "pitch":
+      return <PitchPlayer size={size} className={className} />;
     case "hacker":
       return <HackerSnake size={size} className={className} />;
     case "candy":
@@ -137,6 +139,144 @@ function OregonBullWagon({ size, className }: { size: number; className?: string
             }}
             transition={{
               duration: 1.4,
+              delay,
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
+        ))}
+      </svg>
+    </motion.span>
+  );
+}
+
+// ─── Pitch — polygon footballer dribbling a soccer ball ─────────────
+// Player runs left↔right (mirrors direction on flip, like the Bonito
+// fish), legs alternate in a running cadence, ball at their feet
+// spins on its own axis. Small grass tufts pop up from underneath
+// each footfall to sell the impact on turf.
+function PitchPlayer({ size, className }: { size: number; className?: string }) {
+  const SKIN = "#f5d4a8";
+  const JERSEY = "#dc2626";          // bold red (works on green field)
+  const JERSEY_TRIM = "#fbbf24";     // gold sleeve trim
+  const SHORTS = "#1a1a1a";
+  const SOCK = "#ffffff";
+  const SHOE = "#1a1a1a";
+  const BALL_LIGHT = "#ffffff";
+  const BALL_DARK = "#1a1a1a";
+  const GRASS_TUFT = "#34d399";
+  return (
+    <motion.span
+      style={{ width: size * 2.2, height: size * 1.4, display: "inline-block" }}
+      animate={{ x: [-3, 3, 3, -3, -3], scaleX: [1, 1, -1, -1, 1] }}
+      transition={{
+        duration: 3.0,
+        times: [0, 0.45, 0.5, 0.95, 1],
+        repeat: Infinity,
+        ease: "easeInOut",
+      }}
+      className={className}
+      aria-label="Studio is thinking — dribbling"
+      role="status"
+    >
+      <svg
+        viewBox="0 0 26 18"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ width: "100%", height: "100%", overflow: "visible" }}
+      >
+        {/* Head */}
+        <polygon points="4,1.5 6,1.5 6.5,3.5 6,5 4,5 3.5,3.5" fill={SKIN} />
+        {/* Hair */}
+        <polygon points="3.5,3 4,1 6,1 6.5,3" fill="#3a2818" />
+
+        {/* Jersey — red trapezoid with gold sleeve trim band */}
+        <polygon points="2,5.5 8,5.5 8.5,11 1.5,11" fill={JERSEY} />
+        <polygon points="2,5.5 2.5,5.5 2,7 1.6,7" fill={JERSEY_TRIM} />
+        <polygon points="7.5,5.5 8,5.5 8.4,7 7.8,7" fill={JERSEY_TRIM} />
+        {/* Jersey number-style chest stripe (subtle) */}
+        <rect x="4.5" y="7" width="1" height="2.5" fill={JERSEY_TRIM} opacity="0.65" />
+
+        {/* Arms — slightly back, runner's pump */}
+        <polygon points="1.5,6 0.5,9 1.5,9.5 2.5,6.5" fill={SKIN} />
+        <polygon points="8,6.5 9,6 10,9 9,9.5" fill={SKIN} />
+
+        {/* Shorts */}
+        <polygon points="2,11 8,11 7.5,13.5 2.5,13.5" fill={SHORTS} />
+
+        {/* Back leg — slightly bent, planted */}
+        <motion.g
+          animate={{ y: [0, 0, -0.6, 0] }}
+          transition={{
+            duration: 0.7,
+            times: [0, 0.4, 0.55, 1],
+            repeat: Infinity,
+            ease: "easeOut",
+          }}
+        >
+          <polygon points="3,13.5 4.5,13.5 4,16 2.5,16" fill={SOCK} />
+          <polygon points="2,16 5,16 5.2,17 1.8,17" fill={SHOE} />
+        </motion.g>
+
+        {/* Front leg — kicks forward toward the ball */}
+        <motion.g
+          style={{ originX: "6.5px", originY: "13.5px" }}
+          animate={{ rotate: [-5, 15, 0, -5] }}
+          transition={{
+            duration: 0.7,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        >
+          <polygon points="6,13.5 7.5,13.5 8,16 6.5,16" fill={SOCK} />
+          <polygon points="6,16 9,16 9.2,17 5.8,17" fill={SHOE} />
+        </motion.g>
+
+        {/* Soccer ball — spins continuously on its own axis */}
+        <motion.g
+          style={{ originX: "13px", originY: "15.5px" }}
+          animate={{ rotate: [0, 360] }}
+          transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+        >
+          <circle cx="13" cy="15.5" r="2.1" fill={BALL_LIGHT} />
+          {/* Classic black pentagonal patches */}
+          <polygon
+            points="13,14.1 14.3,14.85 13.85,16.2 12.15,16.2 11.7,14.85"
+            fill={BALL_DARK}
+          />
+          <polygon
+            points="11.1,14.6 11.5,15.1 11.1,15.5 10.7,15.1"
+            fill={BALL_DARK}
+          />
+          <polygon
+            points="14.9,14.6 15.3,15.1 14.9,15.5 14.5,15.1"
+            fill={BALL_DARK}
+          />
+          <polygon
+            points="11.4,16.7 11.8,17.1 11.4,17.5 11,17.1"
+            fill={BALL_DARK}
+          />
+          <polygon
+            points="14.6,16.7 15,17.1 14.6,17.5 14.2,17.1"
+            fill={BALL_DARK}
+          />
+        </motion.g>
+
+        {/* Grass tufts — pop up from under each footfall and fade */}
+        {[
+          { x: 3, delay: 0.0  },
+          { x: 7, delay: 0.35 },
+          { x: 1.5, delay: 0.7 },
+        ].map(({ x, delay }, i) => (
+          <motion.polygon
+            key={`tuft-${i}`}
+            points={`${x},17.5 ${x - 0.4},16.7 ${x},17.1 ${x + 0.3},16.6 ${x + 0.5},17.4`}
+            fill={GRASS_TUFT}
+            animate={{
+              opacity: [0, 0.85, 0],
+              y: [0, -0.8, -1.4],
+            }}
+            transition={{
+              duration: 0.9,
               delay,
               repeat: Infinity,
               ease: "easeOut",

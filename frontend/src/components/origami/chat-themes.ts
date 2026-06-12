@@ -11,6 +11,7 @@
 export type ChatThemeId =
   | "default"
   | "oregon"
+  | "pitch"
   | "hacker"
   | "candy"
   | "japanese"
@@ -95,6 +96,35 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
     separatorClass: "border-[#8b5a2b]/40",
     watermarkColor: "#00ff66",
     watermarkOpacity: 0.06,
+  },
+
+  pitch: {
+    id: "pitch",
+    label: "Pitch ⚽",
+    swatch: ["#0a7c3b", "#ffffff", "#fbbf24", "#dc2626"],
+    // Field gradient — darker near top (stand shadow) to brighter at
+    // bottom (sunlit grass). Reads like a TV broadcast camera angle.
+    scrollBg:
+      "bg-gradient-to-b from-[#0a4a25] via-[#0a7c3b] to-[#0c5f2a]",
+    surfaceBg: "bg-[#0a4a25]/85 backdrop-blur-sm",
+    // User bubble = referee's gold/yellow card. Assistant bubble = the
+    // chalk-line panel on the field — white on green reads like a
+    // tactics board overlay.
+    userBubble:
+      "bg-[#fbbf24] text-[#1a1a1a] font-medium border border-[#d97706]/50 shadow-sm",
+    assistantBubble:
+      "bg-white text-[#0a4a25] border-2 border-white/80 shadow-sm",
+    composerBg: "border-t-2 border-white/40 bg-[#0a4a25]/85",
+    inputClass:
+      "bg-[#053a1a] text-white placeholder:text-white/40 border-white/30 focus:border-[#fbbf24] caret-white",
+    sendBtnClass:
+      "bg-[#fbbf24] text-[#1a1a1a] hover:bg-[#f59e0b] font-semibold",
+    font: "font-sans",
+    cursorClass: "bg-white",
+    mutedTextClass: "text-white/70",
+    separatorClass: "border-white/30",
+    watermarkColor: "#ffffff",
+    watermarkOpacity: 0.05,
   },
 
   hacker: {
