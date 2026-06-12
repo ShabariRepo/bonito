@@ -22,7 +22,11 @@ export function useSidebar() {
 }
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Default to COLLAPSED so Studio (the post-auth landing) feels clean
+  // out of the gate — Danny's feedback was that the expanded sidebar
+  // is overload for first-time users. Power users can pin it open via
+  // toggleCollapse(); state persists in localStorage.
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -31,13 +35,14 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024); // lg breakpoint
     };
-    
+
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Load collapse state from localStorage
+  // Load collapse state from localStorage (overrides the collapsed default
+  // for users who explicitly pinned the sidebar open in a prior session)
   useEffect(() => {
     const saved = localStorage.getItem("sidebar-collapsed");
     if (saved !== null) {

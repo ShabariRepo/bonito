@@ -49,7 +49,8 @@ function SSOCallbackContent() {
       return;
     }
 
-    // Store tokens and redirect to dashboard
+    // Store tokens and redirect to Studio (the post-auth landing).
+    // The legacy dashboard view is reachable from the sidebar at /dashboard.
     setTokens({ access_token: accessToken, refresh_token: refreshToken });
 
     // Clean the URL (remove hash with tokens)
@@ -57,7 +58,7 @@ function SSOCallbackContent() {
 
     // Refresh auth context and navigate
     refresh().then(() => {
-      router.push("/dashboard");
+      router.push("/studio");
     });
   }, [searchParams, refresh, router]);
 
@@ -99,7 +100,7 @@ function SSOCallbackContent() {
           <div>
             <h2 className="text-lg font-semibold text-[#f5f0e8]">Completing Sign In</h2>
             <p className="text-sm text-[#888] mt-1">
-              {processing ? "Verifying your identity..." : "Redirecting to dashboard..."}
+              {processing ? "Verifying your identity..." : "Opening Bonito Studio..."}
             </p>
           </div>
         </div>

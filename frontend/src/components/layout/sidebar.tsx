@@ -39,13 +39,19 @@ import {
   Crown,
   Wand2,
   TrendingUp,
+  MessageSquare,
 } from "lucide-react";
 import { cn, API_URL } from "@/lib/utils";
 import { useSidebar } from "./sidebar-context";
 import { useAuth } from "@/components/auth/auth-context";
 
-// Top-level (always visible, no section header)
+// Top-level (always visible, no section header).
+// Studio is the chat-first front door (the post-auth landing); Dashboard
+// is the legacy metrics view that pre-Studio users may still want to hit.
+// See docs/BONITO-STUDIO-PLAN.md for the planned 7-item domain grouping
+// that consolidates the sections below.
 const topNavigation = [
+  { name: "Studio", href: "/studio", icon: MessageSquare },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 ];
 
@@ -155,7 +161,7 @@ export function Sidebar() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-16 items-center border-b border-border px-4 shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2.5">
+        <Link href="/studio" className="flex items-center gap-2.5">
           <Image src="/bonito-icon.png" alt="Bonito" width={36} height={18} className="shrink-0" priority />
           <AnimatePresence>
             {(!isCollapsed || isMobile) && (

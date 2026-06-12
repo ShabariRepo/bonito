@@ -27,10 +27,12 @@ export default function LoginPage() {
     const passwordVal = passwordRef.current?.value || password;
     try {
       await login(emailVal, passwordVal);
-      // Update auth context BEFORE navigating — prevents the dashboard
-      // guard from seeing stale user=null and bouncing back to login
+      // Update auth context BEFORE navigating — prevents the guard from
+      // seeing stale user=null and bouncing back to login. Post-auth
+      // landing is /studio (Bonito Studio chat surface); the legacy
+      // dashboard view lives at /dashboard.
       await refresh();
-      router.push("/dashboard");
+      router.push("/studio");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Login failed";
       setError(message);
