@@ -57,13 +57,14 @@ DEFAULT_GATEWAY_URL = os.getenv("BONITO_GATEWAY_URL", "http://localhost:8001")
 # Override with ORIGAMI_MODEL env var to pin a specific model id.
 ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-6")
 # Output budget for the planning response. Multi-agent plans where each
-# create_agent carries a multi-paragraph system_prompt easily exceed 2K
-# tokens — the model's only chance to emit the plan is a single response,
-# and undersized budgets cause silent truncation of the longest tool
-# calls (typically the create_agent ones), leaving connect_agents /
-# link_kb_to_agent steps that reference agents never created. 4096 fits
-# realistic wheel topologies of up to ~6 agents with substantial prompts.
-ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "4096"))
+# create_agent carries a multi-paragraph system_prompt routinely exceed
+# 4K tokens once you account for JSON serialization overhead of tool_use
+# blocks. Undersized budgets cause Claude to either truncate the longest
+# tool calls (typically create_agent ones) or — observed in PROD on the
+# deal-review 4-agent prompt — degrade entirely to text-mode "here's the
+# plan" output with no tool_use blocks at all. 8192 is the current cap on
+# Claude Sonnet output; we use the full budget on planning.
+ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "8192"))
 ORIGAMI_MAX_TOOL_ITERATIONS = 5
 ORIGAMI_HTTP_TIMEOUT = 60.0  # seconds
 
@@ -246,45 +247,29 @@ modifies properties of a single agent (name, prompt, model, etc.), not \
 relationships.
 
 ═══════════════════════════════════════════════════════════════════
-DEPENDENCY RULES — EMIT CREATE BEFORE WIRE
+DEPENDENCY RULE — INVOKE create_* BEFORE INVOKING wire/link
 ═══════════════════════════════════════════════════════════════════
 
-Your tool calls become a plan card in a SINGLE response — the platform \
-does NOT loop back to ask you for missing steps. Every agent, KB, or \
-project that a later step references MUST be created earlier in the \
-same response (or already exist in the org). Specifically:
+This is about which TOOL INVOCATIONS go in your tool_calls array, \
+in what order. It is NOT about how to respond in text. Do not narrate \
+this. Do not list these in markdown. Invoke them.
 
-  connect_agents(source_agent_name='X', target_agent_name='Y')
-    → REQUIRES that both 'X' and 'Y' are either (a) referenced in a
-      create_agent call earlier in this same response, or (b) the user
-      explicitly named them as existing agents. If neither, DO NOT emit
-      the connect_agents call — emit the create_agent calls first.
+Every agent, KB, or project referenced by a connect_agents, \
+link_kb_to_agent, or upload_to_kb invocation must be created by a \
+create_agent / create_kb / create_project invocation earlier in the \
+SAME tool_calls array (or already exist in the org). If neither, the \
+platform's plan validator will reject the plan and ask you to re-emit \
+with the missing creates. So in a multi-agent build request, invoke \
+all the create_agent tools first, then the connect_agents tools, then \
+the link_kb_to_agent tools — all in one tool_calls array on one \
+response.
 
-  link_kb_to_agent(agent_name='A', kb_name='K')
-    → REQUIRES that 'A' exists (create_agent earlier OR existing) AND
-      'K' exists (create_kb earlier OR existing).
-
-  upload_to_kb(kb_name='K', ...)
-    → REQUIRES that 'K' exists.
-
-When the user describes a wheel (hub + N spokes) or any multi-agent \
-topology, ALWAYS emit ALL create_agent calls FIRST, then connect_agents, \
-then link_kb_to_agent. This is the canonical order:
-
-  1. create_project        (if a new project)
-  2. create_kb             (if new KBs needed)
-  3. mint_gateway_key      (if requested)
-  4. create_agent x N      (one per agent — ALL of them, before any wire)
-  5. connect_agents x M    (wiring)
-  6. link_kb_to_agent x P  (KB attachments)
-
-OUTPUT BUDGET DISCIPLINE: if you would have to skip or shorten any \
-create_agent call to fit the rest of the plan, instead emit a SMALLER \
-plan that creates fewer agents this turn. The user can ask you for \
-the remaining agents in a follow-up turn. NEVER emit a plan where \
-connect_agents or link_kb_to_agent references an agent or KB that no \
-create_* call in the same response makes. The platform will reject \
-such plans before they reach the user.
+OUTPUT BUDGET: if you cannot fit all required create_agent \
+invocations alongside the wire/link invocations within your output \
+budget, invoke a SMALLER set of create_agents this turn (just the hub, \
+for example) and tell the user the rest will need a follow-up. Never \
+invoke a connect_agents or link_kb_to_agent that references an agent \
+the same tool_calls array did not create.
 
 ═══════════════════════════════════════════════════════════════════
 ABSOLUTE RULE — INVOKE TOOLS FOR EVERY BUILD REQUEST
@@ -1901,12 +1886,25 @@ def _looks_uuid(s: Any) -> bool:
         return False
 
 
+_TEMPLATE_REF_RE = __import__("re").compile(r"\$\{([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+)\}")
+
+
 def _try_parse_function_call_syntax(text: str) -> Optional[tuple[str, dict[str, Any]]]:
     """Parse `name(arg=value, arg=value)` style calls inside tool-call tags.
 
     Bedrock's Anthropic models sometimes pick this instead of JSON, so we
     parse it as a fallback. Uses Python's ast module to safely evaluate
     just the kwargs (no execution).
+
+    Preprocessing: Origami's own template syntax ``${step_N.field}`` is
+    not valid Python and previously made ast.parse() throw SyntaxError —
+    silently no-op'ing the entire fallback. We rewrite those references
+    to quoted strings so the parse succeeds, and ``_resolve_template_params``
+    downstream resolves them at execute time exactly the same way as if
+    the model had emitted real tool_use blocks. Without this, when the
+    model degrades to text-mode tool calls (which it does for complex
+    plans even with raised max_tokens), the fallback fails and the user
+    gets prose with no plan card.
     """
     import ast
 
@@ -1917,10 +1915,13 @@ def _try_parse_function_call_syntax(text: str) -> Optional[tuple[str, dict[str, 
     name = text[:open_paren].strip()
     if not name or not name.replace("_", "").isalnum():
         return None
-    # Parse the whole `name(args)` expression directly — it's already a valid
-    # Python call expression. Don't wrap.
+    # Rewrite ${step_N.field} -> "${step_N.field}" so the expression
+    # becomes a valid Python call literal. The string survives ast.parse
+    # and the downstream template resolver re-detects the ${...} pattern
+    # before execution.
+    safe_text = _TEMPLATE_REF_RE.sub(r'"${\1}"', text)
     try:
-        tree = ast.parse(text, mode="eval")
+        tree = ast.parse(safe_text, mode="eval")
     except SyntaxError:
         return None
     if not isinstance(tree.body, ast.Call):
