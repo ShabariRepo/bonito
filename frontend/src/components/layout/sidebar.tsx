@@ -35,8 +35,6 @@ import {
   UserPlus,
   Footprints,
   HeartPulse,
-  Lock,
-  Crown,
   Wand2,
   TrendingUp,
   MessageSquare,
@@ -58,41 +56,190 @@ const topNavigation = [
 // Tier hierarchy for comparison
 const TIER_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, enterprise: 3, scale: 4 };
 
-// Setup — provider/model/infra configuration
-const setupNavigation = [
-  { name: "Providers", href: "/providers", icon: Cloud },
-  { name: "Models", href: "/models", icon: Box },
-  { name: "Deployments", href: "/deployments", icon: Rocket },
-  { name: "API Gateway", href: "/gateway", icon: Radio },
-  { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
-  { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen, requiredTier: "pro" as const },
-  { name: "Playground", href: "/playground", icon: Play },
-  { name: "Team", href: "/team", icon: Users },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
+// Domain-grouped navigation — 6 sections that preserve every existing
+// route, just rolled up by what the user is actually trying to do.
+// See docs/BONITO-STUDIO-PLAN.md for the rationale (Danny feedback:
+// the un-grouped sidebar is too crowded for first-time users).
 
-// Observability — monitoring, compliance, logs
-const observabilityNavigation = [
-  { name: "Analytics", href: "/analytics", icon: BarChart3, requiredTier: "pro" as const },
-  { name: "Governance", href: "/governance", icon: Shield, requiredTier: "enterprise" as const },
-  { name: "Logs", href: "/logs", icon: FileText },
-  { name: "Audit", href: "/audit", icon: ScrollText, requiredTier: "pro" as const },
-  { name: "Code Review", href: "/code-review", icon: GitPullRequest },
-  { name: "Notifications", href: "/notifications", icon: Bell, requiredTier: "pro" as const },
-  { name: "Alerts", href: "/alerts", icon: AlertTriangle, requiredTier: "pro" as const },
-];
-
-// Spend — cost tracking and optimization
-const spendNavigation = [
-  { name: "Costs", href: "/costs", icon: DollarSign },
-];
-
+// Agents — everything for designing + operating agent systems.
 const agentsNavigation = [
   { name: "Origami", href: "/origami/workspace", icon: Wand2, badge: "NEW" as const },
   { name: "Projects", href: "/agents", icon: Bot },
   { name: "Breadcrumbs", href: "/agents/breadcrumbs", icon: Footprints },
   { name: "BonBon", href: "/agents/bonbon", icon: Package },
 ];
+
+// Knowledge — RAG / KB management.
+const knowledgeNavigation = [
+  { name: "Knowledge Base", href: "/knowledge-base", icon: BookOpen, requiredTier: "pro" as const },
+];
+
+// Gateway — proxy, routing, costs, observability of LLM traffic.
+const gatewayNavigation = [
+  { name: "API Gateway", href: "/gateway", icon: Radio },
+  { name: "Models", href: "/models", icon: Box },
+  { name: "Routing Policies", href: "/routing-policies", icon: GitBranch },
+  { name: "Playground", href: "/playground", icon: Play },
+  { name: "Costs", href: "/costs", icon: DollarSign },
+  { name: "Analytics", href: "/analytics", icon: BarChart3, requiredTier: "pro" as const },
+  { name: "Logs", href: "/logs", icon: FileText },
+  { name: "Code Review", href: "/code-review", icon: GitPullRequest },
+];
+
+// Integrations — provider connections + deployment targets.
+const integrationsNavigation = [
+  { name: "Providers", href: "/providers", icon: Cloud },
+  { name: "Deployments", href: "/deployments", icon: Rocket },
+];
+
+// Team — members, access control, audit, compliance.
+const teamNavigation = [
+  { name: "Team", href: "/team", icon: Users },
+  { name: "Audit", href: "/audit", icon: ScrollText, requiredTier: "pro" as const },
+  { name: "Governance", href: "/governance", icon: Shield, requiredTier: "enterprise" as const },
+];
+
+// Settings — plan, billing, notifications.
+const settingsNavigation = [
+  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Notifications", href: "/notifications", icon: Bell, requiredTier: "pro" as const },
+  { name: "Alerts", href: "/alerts", icon: AlertTriangle, requiredTier: "pro" as const },
+];
+
+// Shared between every section's render. Lives at module level so the
+// NavSection helper below can use it.
+const contentVariants = {
+  expanded: { opacity: 1, x: 0 },
+  collapsed: { opacity: 0, x: -20 },
+};
+
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  requiredTier?: "pro" | "enterprise";
+  badge?: string;
+};
+
+/** Renders one labeled (or unlabeled) sidebar section with the lock /
+ *  badge / active-state logic the old code repeated inline 5 times.  */
+function NavSection({
+  label,
+  items,
+  pathname,
+  isCollapsed,
+  isMobile,
+  isFeatureLocked,
+}: {
+  label?: string;
+  items: ReadonlyArray<NavItem>;
+  pathname: string | null;
+  isCollapsed: boolean;
+  isMobile: boolean;
+  isFeatureLocked: (tier?: string) => boolean;
+}) {
+  return (
+    <>
+      {label !== undefined && (
+        <>
+          <div className="border-b border-border my-2" />
+          <AnimatePresence>
+            {(!isCollapsed || isMobile) && (
+              <motion.p
+                variants={contentVariants}
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                transition={{ duration: 0.2 }}
+                className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
+              >
+                {label}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </>
+      )}
+      {items.map((item) => {
+        const matchesPath =
+          pathname === item.href || pathname?.startsWith(item.href + "/");
+        const hasMoreSpecificMatch = items.some(
+          (other) =>
+            other.href !== item.href &&
+            other.href.startsWith(item.href + "/") &&
+            (pathname === other.href ||
+              pathname?.startsWith(other.href + "/")),
+        );
+        const isActive = matchesPath && !hasMoreSpecificMatch;
+        const locked = isFeatureLocked(item.requiredTier);
+
+        return (
+          <Link
+            key={item.name}
+            href={locked ? "/settings" : item.href}
+            className="relative block"
+            title={
+              locked
+                ? `Requires ${item.requiredTier === "pro" ? "Pro" : "Enterprise"} plan`
+                : undefined
+            }
+          >
+            {isActive && !locked && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 rounded-md bg-accent"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              />
+            )}
+            <div
+              className={cn(
+                "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
+                locked
+                  ? "text-muted-foreground/40 cursor-not-allowed"
+                  : isActive
+                    ? "text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                isCollapsed && !isMobile && "justify-center",
+              )}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              <AnimatePresence>
+                {(!isCollapsed || isMobile) && (
+                  <motion.span
+                    variants={contentVariants}
+                    initial="collapsed"
+                    animate="expanded"
+                    exit="collapsed"
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center justify-between flex-1"
+                  >
+                    {item.name}
+                    {locked && (
+                      <span
+                        className={cn(
+                          "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
+                          item.requiredTier === "pro"
+                            ? "bg-violet-500/10 text-violet-400"
+                            : "bg-amber-500/10 text-amber-400",
+                        )}
+                      >
+                        {item.requiredTier === "pro" ? "Pro" : "Ent"}
+                      </span>
+                    )}
+                    {!locked && item.badge && (
+                      <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">
+                        {item.badge}
+                      </span>
+                    )}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+          </Link>
+        );
+      })}
+    </>
+  );
+}
 
 const adminNavigation = [
   { name: "Organizations", href: "/admin/organizations", icon: Building2 },
@@ -151,11 +298,7 @@ export function Sidebar() {
     expanded: { width: 256 },
     collapsed: { width: 64 },
   };
-
-  const contentVariants = {
-    expanded: { opacity: 1, x: 0 },
-    collapsed: { opacity: 0, x: -20 },
-  };
+  // `contentVariants` is now module-level so NavSection can use it too.
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
@@ -263,306 +406,69 @@ export function Sidebar() {
           );
         })}
 
-        {/* Setup section */}
-        <div className="border-b border-border my-2" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.p
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
-            >
-              Setup
-            </motion.p>
-          )}
-        </AnimatePresence>
-        {setupNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-          const locked = isFeatureLocked(item.requiredTier);
-          return (
-            <Link key={item.name} href={locked ? "/settings" : item.href} className="relative block" title={locked ? `Requires ${item.requiredTier === "pro" ? "Pro" : "Enterprise"} plan` : undefined}>
-              {isActive && !locked && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-accent"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <div
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
-                  locked ? "text-muted-foreground/40 cursor-not-allowed" :
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <AnimatePresence>
-                  {(!isCollapsed || isMobile) && (
-                    <motion.span
-                      variants={contentVariants}
-                      initial="collapsed"
-                      animate="expanded"
-                      exit="collapsed"
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center justify-between flex-1"
-                    >
-                      {item.name}
-                      {locked && (
-                        <span className={cn(
-                          "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                          item.requiredTier === "pro" ? "bg-violet-500/10 text-violet-400" : "bg-amber-500/10 text-amber-400"
-                        )}>
-                          {item.requiredTier === "pro" ? "Pro" : "Ent"}
-                        </span>
-                      )}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </Link>
-          );
-        })}
+        {/* Domain-grouped sections — 6 buckets that cover all 23+ pages
+            without overwhelming first-time users. Lock/badge handling is
+            in NavSection (see top of file). */}
+        <NavSection
+          label="Agents"
+          items={agentsNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
+        <NavSection
+          label="Knowledge"
+          items={knowledgeNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
+        <NavSection
+          label="Gateway"
+          items={gatewayNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
+        <NavSection
+          label="Integrations"
+          items={integrationsNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
+        <NavSection
+          label="Team"
+          items={teamNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
+        <NavSection
+          label="Settings"
+          items={settingsNavigation}
+          pathname={pathname}
+          isCollapsed={isCollapsed}
+          isMobile={isMobile}
+          isFeatureLocked={isFeatureLocked}
+        />
 
-        {/* Observability section */}
-        <div className="border-b border-border my-2" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.p
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
-            >
-              Observability
-            </motion.p>
-          )}
-        </AnimatePresence>
-        {observabilityNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-          const locked = isFeatureLocked(item.requiredTier);
-          return (
-            <Link key={item.name} href={locked ? "/settings" : item.href} className="relative block" title={locked ? `Requires ${item.requiredTier === "pro" ? "Pro" : "Enterprise"} plan` : undefined}>
-              {isActive && !locked && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-accent"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <div
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
-                  locked ? "text-muted-foreground/40 cursor-not-allowed" :
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <AnimatePresence>
-                  {(!isCollapsed || isMobile) && (
-                    <motion.span
-                      variants={contentVariants}
-                      initial="collapsed"
-                      animate="expanded"
-                      exit="collapsed"
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center justify-between flex-1"
-                    >
-                      {item.name}
-                      {locked && (
-                        <span className={cn(
-                          "ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full",
-                          item.requiredTier === "pro" ? "bg-violet-500/10 text-violet-400" : "bg-amber-500/10 text-amber-400"
-                        )}>
-                          {item.requiredTier === "pro" ? "Pro" : "Ent"}
-                        </span>
-                      )}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </Link>
-          );
-        })}
-
-        {/* Spend section */}
-        <div className="border-b border-border my-2" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.p
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
-            >
-              Spend
-            </motion.p>
-          )}
-        </AnimatePresence>
-        {spendNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-          return (
-            <Link key={item.name} href={item.href} className="relative block">
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-accent"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <div
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <AnimatePresence>
-                  {(!isCollapsed || isMobile) && (
-                    <motion.span
-                      variants={contentVariants}
-                      initial="collapsed"
-                      animate="expanded"
-                      exit="collapsed"
-                      transition={{ duration: 0.2 }}
-                    >
-                      {item.name}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </Link>
-          );
-        })}
-
-        {/* Agents section */}
-        <div className="border-b border-border my-2" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.p
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
-            >
-              Agents
-            </motion.p>
-          )}
-        </AnimatePresence>
-        {agentsNavigation.map((item) => {
-          const matchesPath = pathname === item.href || pathname?.startsWith(item.href + "/");
-          const hasMoreSpecificMatch = agentsNavigation.some(
-            (other) => other.href !== item.href &&
-              other.href.startsWith(item.href + "/") &&
-              (pathname === other.href || pathname?.startsWith(other.href + "/"))
-          );
-          const isActive = matchesPath && !hasMoreSpecificMatch;
-          return (
-            <Link key={item.name} href={item.href} className="relative block">
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-accent"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <div
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <AnimatePresence>
-                  {(!isCollapsed || isMobile) && (
-                    <motion.span
-                      variants={contentVariants}
-                      initial="collapsed"
-                      animate="expanded"
-                      exit="collapsed"
-                      transition={{ duration: 0.2 }}
-                      className="flex items-center justify-between flex-1"
-                    >
-                      {item.name}
-                      {"badge" in item && item.badge && (
-                        <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-400">
-                          {item.badge}
-                        </span>
-                      )}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </Link>
-          );
-        })}
-
-        {/* Admin / Platform section — only visible to platform superadmins */}
-        {user?.is_platform_admin && (<>
-        <div className="border-b border-border my-2" />
-        <AnimatePresence>
-          {(!isCollapsed || isMobile) && (
-            <motion.p
-              variants={contentVariants}
-              initial="collapsed"
-              animate="expanded"
-              exit="collapsed"
-              transition={{ duration: 0.2 }}
-              className="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60"
-            >
-              Platform
-            </motion.p>
-          )}
-        </AnimatePresence>
-        {adminNavigation.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-          return (
-            <Link key={item.name} href={item.href} className="relative block">
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-accent"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <div
-                className={cn(
-                  "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors min-h-[44px]",
-                  isActive ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
-                  isCollapsed && !isMobile && "justify-center"
-                )}
-              >
-                <item.icon className="h-4 w-4 shrink-0" />
-                <AnimatePresence>
-                  {(!isCollapsed || isMobile) && (
-                    <motion.span
-                      variants={contentVariants}
-                      initial="collapsed"
-                      animate="expanded"
-                      exit="collapsed"
-                      transition={{ duration: 0.2 }}
-                    >
-                      {item.name}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-            </Link>
-          );
-        })}
-        </>)}
+        {/* Platform admin section — only visible to platform superadmins */}
+        {user?.is_platform_admin && (
+          <NavSection
+            label="Platform"
+            items={adminNavigation}
+            pathname={pathname}
+            isCollapsed={isCollapsed}
+            isMobile={isMobile}
+            isFeatureLocked={isFeatureLocked}
+          />
+        )}
       </nav>
 
       {/* Footer */}
