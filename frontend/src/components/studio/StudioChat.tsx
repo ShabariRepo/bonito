@@ -13,15 +13,18 @@ import { Send, Loader2, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { PlanCard } from "../origami/PlanCard";
+import { ChatThemePicker } from "../origami/ChatThemePicker";
+import { useOrigamiChatTheme } from "../origami/useOrigamiChatTheme";
 import SchematicBackground from "../SchematicBackground";
 import { StudioMarkdown } from "./StudioMarkdown";
 import { StudioOpener } from "./StudioOpener";
 import { StudioReminderBanner } from "./StudioReminderBanner";
-import { SwimmingFish } from "./SwimmingFish";
+import { ThinkingMascot } from "./ThinkingMascot";
 import { useStudioSession } from "./useStudioSession";
 
 export function StudioChat() {
   const session = useStudioSession();
+  const { theme, themeId, setThemeId } = useOrigamiChatTheme();
   const [draft, setDraft] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -37,6 +40,22 @@ export function StudioChat() {
     });
   }, [session.messages, session.busy]);
 
+  // Cursor returns to the composer once the agent stops streaming, so
+  // the user can prompt the next thing without clicking back into the
+  // box. Only refocus on the busy → false transition (not on snapshot
+  // load or initial mount, which `autoFocus` already handles).
+  const wasBusyRef = useRef(false);
+  useEffect(() => {
+    if (wasBusyRef.current && !session.busy) {
+      inputRef.current?.focus();
+    }
+    wasBusyRef.current = session.busy;
+  }, [session.busy]);
+
+  // The schematic dot-grid only fits Bonito's clean palette. Other
+  // themes ship their own backgrounds, so hide it when one is active.
+  const showSchematic = themeId === "default";
+
   async function onSend(text?: string) {
     const message = (text ?? draft).trim();
     if (!message) return;
@@ -51,33 +70,35 @@ export function StudioChat() {
     // collapse doesn't push the composer below the fold either.
     <div
       ref={chatRef}
-      className="relative flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8 overflow-hidden"
+      className={`relative flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8 overflow-hidden ${theme.font} ${theme.scrollBg}`}
     >
-      {/* Animated schematic backdrop — same canvas used on the
-          marketing landing, but here it's scoped to the chat container
-          via `absolute inset-0` + a containerRef sizing hint. The
-          schematic stays inside Studio's chat surface and doesn't
-          spill over the sidebar or the dashboard chrome. */}
-      <SchematicBackground
-        className="absolute inset-0 pointer-events-none"
-        containerRef={chatRef}
-      />
+      {/* Animated schematic backdrop — only renders for the Bonito
+          default theme. Other themes ship their own backgrounds
+          (Oregon's gradient, Hacker's black, etc.) and the schematic
+          would clash. Scoped to the chat container via `absolute
+          inset-0` + a containerRef sizing hint when shown. */}
+      {showSchematic && (
+        <SchematicBackground
+          className="absolute inset-0 pointer-events-none"
+          containerRef={chatRef}
+        />
+      )}
 
       {/* All chat content sits in a z-10 layer above the canvas. */}
       <div className="relative z-10 flex flex-col h-full">
       {/* Header — minimal, brand + state */}
-      <div className="border-b border-border/60 px-6 py-3 shrink-0 bg-background/50 backdrop-blur-sm">
+      <div className={`border-b ${theme.separatorClass} px-6 py-3 shrink-0 ${theme.surfaceBg}`}>
         <div className="flex items-center justify-between max-w-3xl mx-auto">
           <div>
-            <h1 className="text-base font-semibold text-foreground tracking-tight">
+            <h1 className="text-base font-semibold tracking-tight">
               Bonito
             </h1>
-            <p className="text-[11px] text-muted-foreground -mt-0.5">Studio</p>
+            <p className={`text-[11px] -mt-0.5 ${theme.mutedTextClass}`}>Studio</p>
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <div className={`flex items-center gap-4 text-xs ${theme.mutedTextClass}`}>
             {session.busy ? (
               <span className="inline-flex items-center gap-2">
-                <SwimmingFish size={14} />
+                <ThinkingMascot themeId={themeId} size={14} />
                 thinking…
               </span>
             ) : (
@@ -86,13 +107,14 @@ export function StudioChat() {
             {session.messages.length > 0 && !session.busy && (
               <button
                 onClick={session.clearChat}
-                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-1 hover:opacity-100 opacity-80 transition-opacity"
                 title="Start a fresh conversation (history clears, org context stays)"
               >
                 <MessageSquarePlus size={12} />
                 New chat
               </button>
             )}
+            <ChatThemePicker themeId={themeId} onChange={setThemeId} />
           </div>
         </div>
       </div>
@@ -148,7 +170,7 @@ export function StudioChat() {
               return (
                 <div
                   key={m.id}
-                  className="ml-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md text-sm bg-primary text-primary-foreground whitespace-pre-wrap"
+                  className={`ml-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-br-md text-sm whitespace-pre-wrap ${theme.userBubble}`}
                 >
                   {m.text}
                 </div>
@@ -157,11 +179,11 @@ export function StudioChat() {
             return (
               <div
                 key={m.id}
-                className="mr-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm bg-muted text-foreground"
+                className={`mr-auto max-w-[85%] px-4 py-2.5 rounded-2xl rounded-bl-md text-sm ${theme.assistantBubble}`}
               >
                 <StudioMarkdown text={m.text} />
                 {m.streaming && (
-                  <span className="inline-block w-1.5 h-3.5 ml-1 align-middle animate-pulse rounded-sm bg-current opacity-60" />
+                  <span className={`inline-block w-1.5 h-3.5 ml-1 align-middle animate-pulse rounded-sm opacity-60 ${theme.cursorClass}`} />
                 )}
               </div>
             );
@@ -171,8 +193,8 @@ export function StudioChat() {
           {session.busy &&
             session.messages[session.messages.length - 1]?.role === "user" && (
               <div className="flex items-center gap-2 pl-1">
-                <SwimmingFish size={20} />
-                <span className="text-xs text-muted-foreground">
+                <ThinkingMascot themeId={themeId} size={20} />
+                <span className={`text-xs ${theme.mutedTextClass}`}>
                   thinking…
                 </span>
               </div>
@@ -181,7 +203,7 @@ export function StudioChat() {
       </div>
 
       {/* Composer */}
-      <div className="border-t border-border/60 px-4 md:px-6 py-3 shrink-0 bg-background/50">
+      <div className={`px-4 md:px-6 py-3 shrink-0 ${theme.composerBg}`}>
         <div className="max-w-3xl mx-auto">
           <div className="flex gap-2 items-end">
             <Textarea
@@ -201,7 +223,7 @@ export function StudioChat() {
               // min-h matches the prior h-10 visually for short prompts;
               // textarea grows with content up to the max-h cap so long
               // prompts stay readable without a separate modal.
-              className="flex-1 min-h-[40px] max-h-[160px] resize-none py-2 leading-snug"
+              className={`flex-1 min-h-[40px] max-h-[160px] resize-none py-2 leading-snug ${theme.inputClass}`}
               rows={1}
               autoFocus
             />
@@ -210,12 +232,12 @@ export function StudioChat() {
               disabled={session.busy || !draft.trim()}
               size="icon"
               aria-label="Send"
-              className="h-10 w-10"
+              className={`h-10 w-10 ${theme.sendBtnClass ?? ""}`}
             >
               <Send size={15} />
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground/70 mt-1.5 text-center">
+          <p className={`text-[10px] mt-1.5 text-center ${theme.mutedTextClass} opacity-70`}>
             Bonito Studio · plans run automatically, no surprises
           </p>
         </div>
