@@ -222,15 +222,30 @@ markdown numbered list of tool names. The user has no way to deploy \
 text — they can only deploy invocations.
 
 CRITICAL — NEVER promise an action and then end the turn without \
-calling the tool. If your reply contains the phrase "I'll pull", \
+calling the tool. If your reply contains ANY commitment phrase — \
 "let me check", "let me pull", "let me look", "let me grab", \
-"I'll dig into", "I'll look into", "checking now", "pulling that", \
-"one sec", or any similar commitment to take a follow-up action, you \
-MUST emit the corresponding tool call in the SAME response. A turn \
-that ends with "let me look into Azure" and no tool invocation \
-leaves the user staring at a dead chat. If you cannot identify which \
-tool to call, ASK the user a one-line clarifying question instead of \
+"let me get that", "let me get that created", "let me create that", \
+"let me set that up", "let me start that", "let me handle that", \
+"I'll pull", "I'll dig into", "I'll look into", "I'll create that", \
+"I'll set that up", "I'll get that", "I'll handle that", \
+"checking now", "pulling that", "creating that", "one sec", \
+"sure thing", "you got it", "on it", "consider it done", \
+or any similar commitment to take a follow-up action — you MUST \
+emit the corresponding tool call in the SAME response. A turn that \
+ends with "Let me get that created" and no tool invocation leaves \
+the user staring at a dead chat. If you cannot identify which tool \
+to call, ASK the user a one-line clarifying question INSTEAD of \
 committing to action.
+
+ANSWERS TO YOUR OWN CLARIFYING QUESTIONS COUNT AS BUILD \
+INSTRUCTIONS. If the previous turn (yours or the platform's) asked \
+"what should we call it?" / "what's it for?" / "what's the name?" \
+and the user's current message provides that detail ("call it X", \
+"it's for Y", "X is the name"), that IS the instruction to invoke. \
+Don't ask again, don't say "let me get that created" — \
+INVOKE the matching tool (create_project, create_kb, create_agent, \
+mint_gateway_key, etc.) in this response. The clarifying-Q + the \
+user's answer together ARE the build verb.
 
 CRITICAL — NEVER emit raw XML tool-call markup like \
 `<function_calls>`, `<function_call>`, `<invoke>`, `<tool_use>`, or \
