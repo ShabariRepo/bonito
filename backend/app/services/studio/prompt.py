@@ -371,19 +371,54 @@ def render_snapshot_for_prompt(snapshot: StudioSnapshot) -> str:
             + ", ".join(provider_strs)
         )
 
-    # Projects + Agents
-    lines.append(f"Projects: {snapshot.project_count}")
+    # Projects + Agents — including NAMES so the model can answer
+    # "what are my projects/agents called?" directly without a tool call.
+    # Names are capped server-side at NAME_CAP_PER_CATEGORY (20); if
+    # there are more, indicate the overflow so the model can offer to
+    # call list_org_state for the long tail.
+    if snapshot.project_count == 0:
+        lines.append("Projects: none yet")
+    elif snapshot.project_names:
+        names_str = ", ".join(snapshot.project_names)
+        overflow = (
+            f" (+{snapshot.project_count - len(snapshot.project_names)} more)"
+            if snapshot.project_count > len(snapshot.project_names) else ""
+        )
+        lines.append(f"Projects ({snapshot.project_count}): {names_str}{overflow}")
+    else:
+        lines.append(f"Projects: {snapshot.project_count}")
+
     if snapshot.agent_count == 0:
         lines.append("Agents: none yet")
+    elif snapshot.agent_names:
+        names_str = ", ".join(snapshot.agent_names)
+        overflow = (
+            f" (+{snapshot.agent_count - len(snapshot.agent_names)} more)"
+            if snapshot.agent_count > len(snapshot.agent_names) else ""
+        )
+        lines.append(
+            f"Agents ({snapshot.agent_count} total, "
+            f"{snapshot.agent_active_count} active): {names_str}{overflow}"
+        )
     else:
         lines.append(
             f"Agents: {snapshot.agent_count} total "
             f"({snapshot.agent_active_count} active)"
         )
 
-    # KBs
+    # KBs — same treatment, include names
     if snapshot.kb_count == 0:
         lines.append("Knowledge bases: none yet")
+    elif snapshot.kb_names:
+        names_str = ", ".join(snapshot.kb_names)
+        overflow = (
+            f" (+{snapshot.kb_count - len(snapshot.kb_names)} more)"
+            if snapshot.kb_count > len(snapshot.kb_names) else ""
+        )
+        lines.append(
+            f"Knowledge bases ({snapshot.kb_count}, "
+            f"{snapshot.kb_total_documents} docs indexed): {names_str}{overflow}"
+        )
     else:
         lines.append(
             f"Knowledge bases: {snapshot.kb_count} "

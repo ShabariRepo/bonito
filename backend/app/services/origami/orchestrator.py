@@ -937,13 +937,21 @@ async def run_origami_turn(
             inline = _extract_inline_tool_calls(content)
             if inline:
                 tool_calls = inline
-                # Strip the inline tool-call syntax from the visible message —
-                # it's noise the user shouldn't see. Run all four patterns;
-                # whichever the model used gets removed.
-                stripped = _TOOL_CALL_JSON_RE.sub("", content)
-                stripped = _INVOKE_BLOCK_RE.sub("", stripped)
-                stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
-                stripped = stripped.strip()
+
+        # ALWAYS strip XML tool-call wrappers from visible content, even
+        # if no inline calls were extracted. Some models emit empty
+        # `<function_calls></function_calls>` wrappers mid-stream when
+        # they get confused — those would otherwise render as literal
+        # tags in the chat (Studio bug 2026-06-12, transcript showed
+        # "<function_calls>\n\n</function_calls>" surfacing in a reply).
+        # The regexes are no-ops when no matches exist, so this is safe
+        # to run unconditionally.
+        if content:
+            stripped = _TOOL_CALL_JSON_RE.sub("", content)
+            stripped = _INVOKE_BLOCK_RE.sub("", stripped)
+            stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
+            stripped = stripped.strip()
+            if stripped != content:
                 accumulated_content = stripped
                 content = stripped
                 stripped_inline = True

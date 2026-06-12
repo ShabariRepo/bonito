@@ -38,6 +38,11 @@ from app.models.project import Project
 
 logger = logging.getLogger(__name__)
 
+# Cap how many names we ship per category — keeps the snapshot prompt
+# block small for orgs with 100+ resources. The BDR agent can still
+# call list_org_state for the long-tail list when the user asks.
+NAME_CAP_PER_CATEGORY = 20
+
 
 @dataclass
 class ProviderSummary:
@@ -65,6 +70,10 @@ class StudioSnapshot:
     Every field is best-effort. Missing fields signal we couldn't reach the
     underlying table for some reason — the opener template renders around
     that gracefully.
+
+    Names lists are capped at NAME_CAP_PER_CATEGORY so the prompt block
+    stays small. The orchestrator's read tools (list_org_state) still
+    return the full set when the user explicitly asks for it.
     """
 
     org_id: str
@@ -72,11 +81,14 @@ class StudioSnapshot:
     providers: list[ProviderSummary] = field(default_factory=list)
     agent_count: int = 0
     agent_active_count: int = 0
+    agent_names: list[str] = field(default_factory=list)
     kb_count: int = 0
     kb_total_documents: int = 0
+    kb_names: list[str] = field(default_factory=list)
     gateway: GatewayUsage = field(default_factory=GatewayUsage)
     billing: BillingSummary = field(default_factory=BillingSummary)
     project_count: int = 0
+    project_names: list[str] = field(default_factory=list)
     generated_at: str = field(
         default_factory=lambda: datetime.now(tz=timezone.utc).isoformat()
     )
@@ -91,8 +103,10 @@ class StudioSnapshot:
             ],
             "agent_count": self.agent_count,
             "agent_active_count": self.agent_active_count,
+            "agent_names": self.agent_names,
             "kb_count": self.kb_count,
             "kb_total_documents": self.kb_total_documents,
+            "kb_names": self.kb_names,
             "gateway": {
                 "requests_7d": self.gateway.requests_7d,
                 "cost_7d_usd": round(self.gateway.cost_7d_usd, 4),
@@ -106,6 +120,7 @@ class StudioSnapshot:
                 "days_since_signup": self.billing.days_since_signup,
             },
             "project_count": self.project_count,
+            "project_names": self.project_names,
             "generated_at": self.generated_at,
         }
 
@@ -154,7 +169,8 @@ async def _fetch_providers(
 
 async def _fetch_agent_counts(
     db: AsyncSession, org_id: uuid.UUID
-) -> tuple[int, int]:
+) -> tuple[int, int, list[str]]:
+    """Return (total, active_count, names_capped)."""
     try:
         total = (
             await db.execute(
@@ -168,15 +184,25 @@ async def _fetch_agent_counts(
                 )
             )
         ).scalar() or 0
-        return int(total), int(active)
+        name_rows = (
+            await db.execute(
+                select(Agent.name)
+                .where(Agent.org_id == org_id)
+                .order_by(Agent.created_at.desc())
+                .limit(NAME_CAP_PER_CATEGORY)
+            )
+        ).all()
+        names = [n for (n,) in name_rows if n]
+        return int(total), int(active), names
     except Exception:
         logger.exception("studio.snapshot: agent count failed for %s", org_id)
-        return 0, 0
+        return 0, 0, []
 
 
 async def _fetch_kb_summary(
     db: AsyncSession, org_id: uuid.UUID
-) -> tuple[int, int]:
+) -> tuple[int, int, list[str]]:
+    """Return (count, total_documents, names_capped)."""
     try:
         row = (
             await db.execute(
@@ -186,12 +212,23 @@ async def _fetch_kb_summary(
                 ).where(KnowledgeBase.org_id == org_id)
             )
         ).one_or_none()
-        if not row:
-            return 0, 0
-        return int(row[0] or 0), int(row[1] or 0)
+        kb_count = int(row[0] or 0) if row else 0
+        kb_docs = int(row[1] or 0) if row else 0
+        names: list[str] = []
+        if kb_count > 0:
+            name_rows = (
+                await db.execute(
+                    select(KnowledgeBase.name)
+                    .where(KnowledgeBase.org_id == org_id)
+                    .order_by(KnowledgeBase.created_at.desc())
+                    .limit(NAME_CAP_PER_CATEGORY)
+                )
+            ).all()
+            names = [n for (n,) in name_rows if n]
+        return kb_count, kb_docs, names
     except Exception:
         logger.exception("studio.snapshot: kb summary failed for %s", org_id)
-        return 0, 0
+        return 0, 0, []
 
 
 async def _fetch_gateway_usage(
@@ -243,17 +280,31 @@ async def _fetch_gateway_usage(
         return GatewayUsage()
 
 
-async def _fetch_project_count(db: AsyncSession, org_id: uuid.UUID) -> int:
+async def _fetch_project_count(
+    db: AsyncSession, org_id: uuid.UUID
+) -> tuple[int, list[str]]:
+    """Return (count, names_capped)."""
     try:
         n = (
             await db.execute(
                 select(func.count(Project.id)).where(Project.org_id == org_id)
             )
         ).scalar() or 0
-        return int(n)
+        names: list[str] = []
+        if int(n) > 0:
+            name_rows = (
+                await db.execute(
+                    select(Project.name)
+                    .where(Project.org_id == org_id)
+                    .order_by(Project.created_at.desc())
+                    .limit(NAME_CAP_PER_CATEGORY)
+                )
+            ).all()
+            names = [pn for (pn,) in name_rows if pn]
+        return int(n), names
     except Exception:
         logger.exception("studio.snapshot: project count failed for %s", org_id)
-        return 0
+        return 0, []
 
 
 async def get_org_snapshot(
@@ -282,8 +333,9 @@ async def get_org_snapshot(
     )
 
     org_name, billing = org_summary
-    agent_total, agent_active = agent_counts
-    kb_count, kb_docs = kb_summary
+    agent_total, agent_active, agent_names = agent_counts
+    kb_count, kb_docs, kb_names = kb_summary
+    project_total, project_names = project_count
 
     return StudioSnapshot(
         org_id=str(org_id),
@@ -291,9 +343,12 @@ async def get_org_snapshot(
         providers=providers,
         agent_count=agent_total,
         agent_active_count=agent_active,
+        agent_names=agent_names,
         kb_count=kb_count,
         kb_total_documents=kb_docs,
+        kb_names=kb_names,
         gateway=gateway_usage,
         billing=billing,
-        project_count=project_count,
+        project_count=project_total,
+        project_names=project_names,
     )

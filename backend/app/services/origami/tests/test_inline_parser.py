@@ -109,3 +109,40 @@ def test_malformed_line_returns_none() -> None:
 def test_positional_args_rejected() -> None:
     """Origami tools require named args; positional-only calls bail."""
     assert _try_parse_function_call_syntax('create_kb("just-a-name")') is None
+
+
+def test_empty_function_calls_wrapper_strips_to_empty() -> None:
+    """Regression for 2026-06-12 PROD bug.
+
+    The model emitted `<function_calls>\\n\\n</function_calls>` as visible
+    text — no <invoke> blocks inside, just an empty wrapper from a
+    confused mid-stream. The old strip path was gated on extracting at
+    least one inline call, so an empty wrapper bypassed the strip and
+    rendered as literal tags in chat. The fix is to run the strip
+    regexes unconditionally. This test asserts the regex behavior.
+    """
+    import re
+    from app.services.origami.orchestrator import (
+        _TOOL_CALL_JSON_RE,
+        _INVOKE_BLOCK_RE,
+        _PARAMETERIZED_FUNCTION_RE,
+    )
+
+    cases = [
+        "<function_calls>\n\n</function_calls>",
+        "<function_calls></function_calls>",
+        "before <function_calls></function_calls> after",
+        "<tool_call></tool_call>",
+        "<function></function>",
+    ]
+    for raw in cases:
+        stripped = _TOOL_CALL_JSON_RE.sub("", raw)
+        stripped = _INVOKE_BLOCK_RE.sub("", stripped)
+        stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
+        stripped = stripped.strip()
+        # After stripping, the wrapper tags must be gone — only the
+        # surrounding context text (if any) survives.
+        assert "<function_calls>" not in stripped, raw
+        assert "<tool_call>" not in stripped, raw
+        assert "<function>" not in stripped, raw
+        assert "</function_calls>" not in stripped, raw

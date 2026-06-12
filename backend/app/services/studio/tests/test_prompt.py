@@ -126,6 +126,40 @@ def test_snapshot_active_org_surfaces_gateway_usage_and_top_models():
     assert "Providers connected (2):" in rendered
 
 
+def test_snapshot_renders_project_agent_kb_names_when_present():
+    """Regression for 2026-06-12 PROD bug: 'which projects do I have' returned
+    only a count, because the snapshot didn't ship names. Names in the
+    rendered block let the model answer name questions without a tool call."""
+    s = _make_snapshot(
+        project_count=2,
+        project_names=["vc-dd-bots", "customer-support"],
+        agent_count=3,
+        agent_active_count=3,
+        agent_names=["intake", "market-analyst", "team-analyst"],
+        kb_count=1,
+        kb_total_documents=42,
+        kb_names=["vc-dd-bots"],
+    )
+    rendered = render_snapshot_for_prompt(s)
+    assert "Projects (2): vc-dd-bots, customer-support" in rendered
+    assert "Agents (3 total, 3 active): intake, market-analyst, team-analyst" in rendered
+    assert "Knowledge bases (1, 42 docs indexed): vc-dd-bots" in rendered
+
+
+def test_snapshot_marks_overflow_when_more_resources_than_cap():
+    """When count exceeds the visible names list, the prompt should
+    indicate the overflow so the model knows to offer list_org_state
+    for the long tail."""
+    s = _make_snapshot(
+        agent_count=25,
+        agent_active_count=25,
+        # Snapshot service caps at 20; here we hand-fake just 20 names.
+        agent_names=[f"agent-{i}" for i in range(20)],
+    )
+    rendered = render_snapshot_for_prompt(s)
+    assert "+5 more" in rendered
+
+
 def test_snapshot_dict_round_trip_is_json_safe():
     """The /init endpoint returns this dict — must be plain JSON-able."""
     import json
