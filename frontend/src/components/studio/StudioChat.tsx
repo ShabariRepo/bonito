@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlanCard } from "../origami/PlanCard";
@@ -48,7 +48,7 @@ export function StudioChat() {
             </h1>
             <p className="text-[11px] text-muted-foreground -mt-0.5">Studio</p>
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {session.busy ? (
               <span className="inline-flex items-center gap-2">
                 <SwimmingFish size={14} />
@@ -56,6 +56,16 @@ export function StudioChat() {
               </span>
             ) : (
               <span>ready</span>
+            )}
+            {session.messages.length > 0 && !session.busy && (
+              <button
+                onClick={session.clearChat}
+                className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                title="Start a fresh conversation (history clears, org context stays)"
+              >
+                <MessageSquarePlus size={12} />
+                New chat
+              </button>
             )}
           </div>
         </div>

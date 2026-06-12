@@ -19,8 +19,55 @@ import { API_URL } from "@/lib/utils";
 import type { PlanCardData, PlanChange } from "../origami/PlanCard";
 import type { StudioEvent, StudioMessage, StudioSnapshot } from "./types";
 
+// localStorage keys. Single-user-per-browser assumption — fine for V1
+// since localStorage is already browser-scoped. Re-key per user_id once
+// we hit a multi-user-browser case.
+const STORAGE_KEY_MESSAGES = "bonito:studio:messages";
+const STORAGE_KEY_CONVERSATION_ID = "bonito:studio:conversation_id";
+
+// Cap persisted history to keep localStorage healthy + the UI snappy. The
+// backend already runs stateless turns (snapshot + memwright + current
+// message only) so this cap is purely a frontend / UX bound.
+const MAX_PERSIST_MESSAGES = 100;
+
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function readStoredConversationId(): string {
+  if (typeof window === "undefined") return uid();
+  const saved = window.localStorage.getItem(STORAGE_KEY_CONVERSATION_ID);
+  if (saved && saved.length >= 4) return saved;
+  const fresh = uid();
+  window.localStorage.setItem(STORAGE_KEY_CONVERSATION_ID, fresh);
+  return fresh;
+}
+
+function readStoredMessages(): StudioMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_MESSAGES);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Defensive: only keep messages that look like our shape, and only
+    // user/assistant text. Plan cards are intentionally dropped on
+    // persist — they reference plan_card_ids the backend has TTL'd by
+    // the time the user returns; re-rendering them in pending state
+    // would be confusing. The actual deployed resources still exist.
+    return parsed
+      .filter(
+        (m): m is StudioMessage =>
+          m &&
+          typeof m === "object" &&
+          typeof m.id === "string" &&
+          (m.role === "user" || m.role === "assistant") &&
+          typeof m.text === "string",
+      )
+      .map((m) => ({ ...m, streaming: false }));
+  } catch {
+    return [];
+  }
 }
 
 export function useStudioSession() {
@@ -29,8 +76,46 @@ export function useStudioSession() {
   const [snapshot, setSnapshot] = useState<StudioSnapshot | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
   const [tier, setTier] = useState<string | null>(null);
-  const [conversationId] = useState<string>(() => uid());
+  // Conversation id is stable across remounts so backend memwright recall
+  // builds context over time and survives tab switches.
+  const [conversationId] = useState<string>(() => readStoredConversationId());
   const planCardIdToResources = useRef<Map<string, string[]>>(new Map());
+  // Restored-from-storage flag prevents the persist effect from clobbering
+  // localStorage with `[]` on the very first render before the restore
+  // effect has a chance to run.
+  const restoredRef = useRef(false);
+
+  // ── Restore persisted chat history on mount ──────────────────────
+  // Run synchronously in a layout-style effect so the empty-state opener
+  // never flashes before the restored bubbles paint.
+  useEffect(() => {
+    const restored = readStoredMessages();
+    if (restored.length > 0) {
+      setMessages(restored);
+    }
+    restoredRef.current = true;
+  }, []);
+
+  // ── Persist user + assistant text every time messages change ─────
+  // Plan cards are dropped (stale state, TTL'd plan_card_ids). Capped at
+  // MAX_PERSIST_MESSAGES — older messages roll off.
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    if (typeof window === "undefined") return;
+    const persistable = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .filter((m) => !m.streaming) // wait until message_complete
+      .slice(-MAX_PERSIST_MESSAGES)
+      .map(({ id, role, text }) => ({ id, role, text }));
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY_MESSAGES,
+        JSON.stringify(persistable),
+      );
+    } catch {
+      /* quota exceeded? drop silently — chat still works in-memory */
+    }
+  }, [messages]);
 
   // ── Snapshot fetch on mount ───────────────────────────────────────
   useEffect(() => {
@@ -226,6 +311,22 @@ export function useStudioSession() {
     [dispatch],
   );
 
+  // Clear the visible chat AND rotate the conversation id so the next
+  // turn starts a fresh memwright recall thread. The org snapshot is
+  // intentionally untouched — it loads fresh per /studio/init call.
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_KEY_MESSAGES);
+      const fresh = uid();
+      window.localStorage.setItem(STORAGE_KEY_CONVERSATION_ID, fresh);
+      // We don't restart the hook — conversationId stays the old value
+      // until next page mount. That's fine; the next turn will use the
+      // new id once the user reloads. Tradeoff for not adding setState
+      // for the id, which would re-render the whole tree.
+    }
+  }, []);
+
   return {
     messages,
     busy,
@@ -235,6 +336,7 @@ export function useStudioSession() {
     conversationId,
     send,
     handleExternalEvent,
+    clearChat,
   };
 }
 
