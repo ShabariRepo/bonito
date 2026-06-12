@@ -74,11 +74,14 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
   oregon: {
     id: "oregon",
     label: "Oregon Trail",
-    swatch: ["#000000", "#00ff66", "#00bb44", "#003311"],
+    swatch: ["#000000", "#00ff66", "#8b5a2b", "#d4a574"],
     scrollBg: "bg-black",
     surfaceBg: "bg-black/85 backdrop-blur-sm",
+    // User bubble carries the brown splash — feels like a worn leather
+    // strap on a CRT screen. Assistant stays pure phosphor green so
+    // the conversation still reads as the game terminal.
     userBubble:
-      "bg-[#00ff66]/15 text-[#00ff66] border border-[#00ff66]/50 shadow-[0_0_10px_rgba(0,255,102,0.15)]",
+      "bg-[#8b5a2b]/20 text-[#d4a574] border border-[#8b5a2b]/60",
     assistantBubble:
       "bg-[#001a08] text-[#00ff66] border border-[#00ff66]/35 shadow-[0_0_8px_rgba(0,255,102,0.10)]",
     composerBg: "border-t border-[#00ff66]/30 bg-black",
@@ -88,8 +91,8 @@ export const CHAT_THEMES: Record<ChatThemeId, ChatTheme> = {
       "bg-[#00ff66] text-black hover:bg-[#33ff88] font-mono uppercase tracking-wider",
     font: "font-mono",
     cursorClass: "bg-[#00ff66]",
-    mutedTextClass: "text-[#00ff66]/60",
-    separatorClass: "border-[#00ff66]/30",
+    mutedTextClass: "text-[#d4a574]/70",
+    separatorClass: "border-[#8b5a2b]/40",
     watermarkColor: "#00ff66",
     watermarkOpacity: 0.06,
   },

@@ -229,155 +229,135 @@ function CandyLollipop({ size, className }: { size: number; className?: string }
   );
 }
 
-// ─── Wafū — sumo wrestler stomping, dirt pops on impact ──────────────
-// Squat polygon body, mawashi belt, topknot. Weight rocks side-to-side;
-// each foot lifts then slams down, dust bursts out from under it. The
-// stomp rhythm is offset between the two feet so something is always
-// in motion.
+// ─── Wafū — sumo wrestler in shiko squat, dirt pops on impact ────────
+// Classic deep-squat pose: round head + topknot up top, big belly in
+// the middle, both knees bent wide and out to form a triangular base.
+// Body rocks gently side-to-side; each foot lifts a few pixels then
+// slams down with a burst of dirt particles underneath. Wider polygon
+// silhouette than the previous version, matching the low-poly sumo
+// reference Shabari sent.
 function WafuSumo({ size, className }: { size: number; className?: string }) {
-  // Palette pulled from the Wafū theme so the sumo lives in its world.
-  const SKIN = "#f5ead0";
-  const MAWASHI = "#9f1b0f"; // belt
-  const HAIR = "#1a1a1a";    // topknot + brow
-  const DIRT = "#8b7355";    // earth pops
+  const SKIN = "#f5ead0";       // light flesh tone
+  const SKIN_SHADE = "#dccda4"; // belly shadow / under-arm shade
+  const MAWASHI = "#1a1a1a";    // dark loincloth (classic black)
+  const HAIR = "#1a1a1a";       // topknot + brow + eyes
+  const DIRT = "#8b7355";
   return (
     <motion.span
-      style={{ width: size * 1.6, height: size * 1.5, display: "inline-block" }}
-      animate={{ rotate: [-2, 2, -2] }}
+      style={{ width: size * 1.8, height: size * 1.8, display: "inline-block" }}
+      animate={{ rotate: [-1.5, 1.5, -1.5] }}
       transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       className={className}
-      aria-label="Studio is thinking — sumo stomping"
+      aria-label="Studio is thinking — sumo shiko"
       role="status"
     >
       <svg
-        viewBox="0 0 26 26"
+        viewBox="0 0 30 32"
         xmlns="http://www.w3.org/2000/svg"
         style={{ width: "100%", height: "100%", overflow: "visible" }}
       >
-        {/* Topknot — small dark blob above the head */}
-        <polygon points="11,3 13,1 15,3 14,4 12,4" fill={HAIR} />
-        {/* Head — round-ish skin polygon */}
-        <polygon points="9,4 17,4 18,7 16,9 10,9 8,7" fill={SKIN} />
-        {/* Brow line */}
-        <rect x="10" y="6.2" width="6" height="0.5" fill={HAIR} />
-        {/* Eyes — two tiny black dots */}
-        <circle cx="11.5" cy="7" r="0.4" fill={HAIR} />
-        <circle cx="14.5" cy="7" r="0.4" fill={HAIR} />
-        {/* Shoulders / chest — wide squat polygon */}
-        <polygon points="5,10 21,10 22,15 4,15" fill={SKIN} />
-        {/* Mawashi belt — dark red band across waist */}
-        <rect x="4" y="14.5" width="18" height="2" fill={MAWASHI} />
-        {/* Mawashi knot detail */}
-        <polygon points="12,16.5 14,16.5 13.5,18 12.5,18" fill={MAWASHI} />
-        {/* Belly bulge below belt */}
-        <polygon points="5,16.5 21,16.5 19,20 7,20" fill={SKIN} />
-        {/* Arms — stout, slightly out to balance */}
-        <polygon points="4,10.5 1,12 1,16 4,15" fill={SKIN} />
-        <polygon points="22,10.5 25,12 25,16 22,15" fill={SKIN} />
+        {/* Topknot — small black dome on top of the head */}
+        <polygon points="13,1 17,1 18,3.5 12,3.5" fill={HAIR} />
+        {/* Head — hexagonal skin polygon */}
+        <polygon points="11,3.5 19,3.5 21,7 19,10.5 11,10.5 9,7" fill={SKIN} />
+        {/* Brow band — slight horizontal shade above eyes */}
+        <polygon points="11,7 19,7 19,7.6 11,7.6" fill={SKIN_SHADE} />
+        {/* Eyes */}
+        <circle cx="13" cy="8.2" r="0.5" fill={HAIR} />
+        <circle cx="17" cy="8.2" r="0.5" fill={HAIR} />
+        {/* Mouth — small horizontal line */}
+        <rect x="14" y="9.5" width="2" height="0.5" fill={HAIR} />
 
-        {/* Left thigh + foot — stomps first */}
+        {/* Shoulders + upper torso — wide polygon flowing into belly */}
+        <polygon points="6,11 24,11 26,16 4,16" fill={SKIN} />
+        {/* Big round belly — the dominant feature */}
+        <polygon
+          points="4,16 26,16 27,22 22,25 8,25 3,22"
+          fill={SKIN}
+        />
+        {/* Belly shadow — subtle crescent at bottom of belly */}
+        <polygon
+          points="6,22 24,22 22,25 8,25"
+          fill={SKIN_SHADE}
+        />
+
+        {/* Arms — hang from the shoulders, slightly forward / out, with
+            hands resting near the knees (the shiko pose). */}
+        <polygon points="5,12 8,11.5 8,21 5,21.5" fill={SKIN} />
+        <polygon points="22,11.5 25,12 25,21.5 22,21" fill={SKIN} />
+        {/* Hands resting on thighs */}
+        <polygon points="3,21 8,20 9,22 3,23" fill={SKIN} />
+        <polygon points="22,20 27,21 27,23 21,22" fill={SKIN} />
+
+        {/* Mawashi — black band across waist + front flap between legs */}
+        <rect x="6" y="19.5" width="18" height="2" fill={MAWASHI} />
+        <polygon points="13,21 17,21 16.5,26 13.5,26" fill={MAWASHI} />
+
+        {/* LEFT LEG — shiko stance, thigh going down-out, calf coming
+            back in to a wide flat foot. The whole g flexes a tiny bit
+            on the foot-down phase so the stomp reads physically. */}
         <motion.g
-          style={{ originX: "9px", originY: "20px" }}
-          animate={{ rotate: [0, -8, 0, 0, 0] }}
+          animate={{ y: [0, -1.2, 0, 0] }}
           transition={{
             duration: 1.0,
+            times: [0, 0.25, 0.5, 1],
             repeat: Infinity,
-            ease: "easeInOut",
+            ease: "easeOut",
           }}
         >
-          <motion.polygon
-            points="7,20 11,20 11,24 7,24"
-            fill={SKIN}
-            animate={{ y: [0, -1.2, 0, 0] }}
-            transition={{
-              duration: 1.0,
-              times: [0, 0.25, 0.5, 1],
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-          />
-          {/* Foot */}
-          <motion.rect
-            x={6.5}
-            y={23.5}
-            width={5}
-            height={1.5}
-            fill={HAIR}
-            animate={{ y: [0, -1.2, 0, 0] }}
-            transition={{
-              duration: 1.0,
-              times: [0, 0.25, 0.5, 1],
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-          />
+          {/* Thigh: hip (8,22) → knee (1,26) */}
+          <polygon points="6,22 11,22 8,28 1,27" fill={SKIN} />
+          {/* Calf: knee → ankle */}
+          <polygon points="1,27 8,28 7,31 2,30" fill={SKIN_SHADE} />
+          {/* Foot — flat black slab */}
+          <rect x="0.5" y="30" width="8" height="1.5" fill={HAIR} />
         </motion.g>
 
-        {/* Right thigh + foot — stomps in counter-phase */}
+        {/* RIGHT LEG — mirror, counter-phase stomp */}
         <motion.g
-          style={{ originX: "17px", originY: "20px" }}
-          animate={{ rotate: [0, 0, 8, 0, 0] }}
+          animate={{ y: [0, 0, -1.2, 0] }}
           transition={{
             duration: 1.0,
+            times: [0, 0.4, 0.65, 1],
             repeat: Infinity,
-            ease: "easeInOut",
+            ease: "easeOut",
           }}
         >
-          <motion.polygon
-            points="15,20 19,20 19,24 15,24"
-            fill={SKIN}
-            animate={{ y: [0, 0, -1.2, 0] }}
-            transition={{
-              duration: 1.0,
-              times: [0, 0.4, 0.65, 1],
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-          />
-          <motion.rect
-            x={14.5}
-            y={23.5}
-            width={5}
-            height={1.5}
-            fill={HAIR}
-            animate={{ y: [0, 0, -1.2, 0] }}
-            transition={{
-              duration: 1.0,
-              times: [0, 0.4, 0.65, 1],
-              repeat: Infinity,
-              ease: "easeOut",
-            }}
-          />
+          <polygon points="19,22 24,22 29,27 22,28" fill={SKIN} />
+          <polygon points="22,28 29,27 28,30 23,31" fill={SKIN_SHADE} />
+          <rect x="21.5" y="30" width="8" height="1.5" fill={HAIR} />
         </motion.g>
 
-        {/* DIRT POPS — bursts from under each foot at the moment it
-            slams. Three particles per side, each fades up + out. The
-            delay timing matches the foot-down half of the cycle. */}
+        {/* DIRT POPS — bursts from under each foot the moment it lands.
+            Left side fires on the first stomp half, right side on the
+            second half. Each particle fades up + grows outward. */}
         {[
-          { x: 5, delayBase: 0.45 },  // left foot side
-          { x: 9, delayBase: 0.45 },
-          { x: 13, delayBase: 0.95 }, // right foot side
-          { x: 17, delayBase: 0.95 },
-          { x: 21, delayBase: 0.95 },
-        ].map(({ x, delayBase }, i) => (
+          // Left foot impact pops
+          { x: 1.5, delay: 0.42, dx: -1.6 },
+          { x: 4.0, delay: 0.45, dx:  0   },
+          { x: 6.5, delay: 0.42, dx:  1.6 },
+          // Right foot impact pops
+          { x: 22.5, delay: 0.92, dx: -1.6 },
+          { x: 25.0, delay: 0.95, dx:  0   },
+          { x: 27.5, delay: 0.92, dx:  1.6 },
+        ].map(({ x, delay, dx }, i) => (
           <motion.circle
             key={`dirt-${i}`}
             cx={x}
-            cy={25}
-            r={0.6}
+            cy={31.5}
+            r={0.5}
             fill={DIRT}
             animate={{
-              cy: [25, 23],
-              cx: [x, x + (i % 2 === 0 ? -1.2 : 1.2)],
-              r: [0.4, 1.1],
-              opacity: [0, 0.7, 0],
+              cy: [31.5, 29.5],
+              cx: [x, x + dx],
+              r: [0.4, 1.2],
+              opacity: [0, 0.75, 0],
             }}
             transition={{
               duration: 0.55,
-              delay: delayBase + (i % 2) * 0.05,
+              delay,
               repeat: Infinity,
               ease: "easeOut",
-              repeatDelay: 0,
             }}
           />
         ))}
