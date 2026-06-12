@@ -56,7 +56,14 @@ DEFAULT_GATEWAY_URL = os.getenv("BONITO_GATEWAY_URL", "http://localhost:8001")
 # KNOWN-ISSUES #38 + the new -\d{8}$ alias rule in gateway.py.
 # Override with ORIGAMI_MODEL env var to pin a specific model id.
 ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-6")
-ORIGAMI_MAX_TOKENS = 2048
+# Output budget for the planning response. Multi-agent plans where each
+# create_agent carries a multi-paragraph system_prompt easily exceed 2K
+# tokens — the model's only chance to emit the plan is a single response,
+# and undersized budgets cause silent truncation of the longest tool
+# calls (typically the create_agent ones), leaving connect_agents /
+# link_kb_to_agent steps that reference agents never created. 4096 fits
+# realistic wheel topologies of up to ~6 agents with substantial prompts.
+ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "4096"))
 ORIGAMI_MAX_TOOL_ITERATIONS = 5
 ORIGAMI_HTTP_TIMEOUT = 60.0  # seconds
 
@@ -237,6 +244,47 @@ trigger connections BETWEEN agents, ALWAYS use the connect_agents tool. \
 Never try to use update_agent for connections — update_agent only \
 modifies properties of a single agent (name, prompt, model, etc.), not \
 relationships.
+
+═══════════════════════════════════════════════════════════════════
+DEPENDENCY RULES — EMIT CREATE BEFORE WIRE
+═══════════════════════════════════════════════════════════════════
+
+Your tool calls become a plan card in a SINGLE response — the platform \
+does NOT loop back to ask you for missing steps. Every agent, KB, or \
+project that a later step references MUST be created earlier in the \
+same response (or already exist in the org). Specifically:
+
+  connect_agents(source_agent_name='X', target_agent_name='Y')
+    → REQUIRES that both 'X' and 'Y' are either (a) referenced in a
+      create_agent call earlier in this same response, or (b) the user
+      explicitly named them as existing agents. If neither, DO NOT emit
+      the connect_agents call — emit the create_agent calls first.
+
+  link_kb_to_agent(agent_name='A', kb_name='K')
+    → REQUIRES that 'A' exists (create_agent earlier OR existing) AND
+      'K' exists (create_kb earlier OR existing).
+
+  upload_to_kb(kb_name='K', ...)
+    → REQUIRES that 'K' exists.
+
+When the user describes a wheel (hub + N spokes) or any multi-agent \
+topology, ALWAYS emit ALL create_agent calls FIRST, then connect_agents, \
+then link_kb_to_agent. This is the canonical order:
+
+  1. create_project        (if a new project)
+  2. create_kb             (if new KBs needed)
+  3. mint_gateway_key      (if requested)
+  4. create_agent x N      (one per agent — ALL of them, before any wire)
+  5. connect_agents x M    (wiring)
+  6. link_kb_to_agent x P  (KB attachments)
+
+OUTPUT BUDGET DISCIPLINE: if you would have to skip or shorten any \
+create_agent call to fit the rest of the plan, instead emit a SMALLER \
+plan that creates fewer agents this turn. The user can ask you for \
+the remaining agents in a follow-up turn. NEVER emit a plan where \
+connect_agents or link_kb_to_agent references an agent or KB that no \
+create_* call in the same response makes. The platform will reject \
+such plans before they reach the user.
 
 ═══════════════════════════════════════════════════════════════════
 ABSOLUTE RULE — INVOKE TOOLS FOR EVERY BUILD REQUEST
@@ -456,6 +504,173 @@ async def _stream_gateway(
                 except json.JSONDecodeError:
                     logger.warning("Origami: dropped malformed SSE chunk: %r", data[:200])
                     continue
+
+
+# ──────────────────── Plan dependency validator ────────────────────
+#
+# Built to catch the failure mode where the planner emits connect_agents /
+# link_kb_to_agent / upload_to_kb tool calls that reference agents or KBs
+# by NAME that no create_agent / create_kb call in the same response
+# makes. This happens silently in PROD with complex prompts (multi-agent
+# wheels with multi-paragraph system_prompts) because the model has to
+# fit the entire plan in a single response within ORIGAMI_MAX_TOKENS,
+# and the longer create_agent calls get truncated while the shorter
+# connect/link calls make it through. The result is a plan that looks
+# complete but every wire/link step fails with "agent X not found" or
+# "kb K not found" at execution time.
+#
+# This validator runs BEFORE the plan is saved + emitted. If it finds
+# dangling references, the orchestrator injects synthetic tool_result
+# messages plus a user-message with the validation errors and lets the
+# model retry inside the remaining MAX_TOOL_ITERATIONS budget. The model
+# typically corrects itself in one extra iteration.
+
+
+async def _validate_plan_dependencies(
+    plan_changes: list[PlanChange],
+    *,
+    db: AsyncSession,
+    org_id: uuid.UUID,
+) -> list[str]:
+    """Return list of human-readable error strings; [] means valid.
+
+    For each connect_agents / link_kb_to_agent / upload_to_kb step that
+    references a resource BY NAME (not by UUID), the name must either
+    be created earlier in this plan OR already exist in the org. If
+    neither, append an error.
+    """
+    created_agents: set[str] = set()
+    created_kbs: set[str] = set()
+    for c in plan_changes:
+        action = _resolve_tool_name(c.action)
+        params = c.params or {}
+        if action == "create_agent":
+            name = (params.get("name") or "").strip()
+            if name:
+                created_agents.add(name)
+        elif action == "create_kb":
+            name = (params.get("name") or "").strip()
+            if name:
+                created_kbs.add(name)
+
+    errors: list[str] = []
+
+    for idx, c in enumerate(plan_changes):
+        action = _resolve_tool_name(c.action)
+        params = c.params or {}
+        if action == "connect_agents":
+            # Both source and target need to resolve. Accept either
+            # source_agent_* / from_agent_* and target_agent_* /
+            # to_agent_*.
+            for role, id_keys, name_keys in (
+                (
+                    "source",
+                    ("source_agent_id", "from_agent_id"),
+                    ("source_agent_name", "from_agent_name"),
+                ),
+                (
+                    "target",
+                    ("target_agent_id", "to_agent_id"),
+                    ("target_agent_name", "to_agent_name"),
+                ),
+            ):
+                if any(params.get(k) for k in id_keys):
+                    continue  # UUID supplied
+                name = ""
+                for k in name_keys:
+                    v = (params.get(k) or "").strip()
+                    if v:
+                        name = v
+                        break
+                if not name:
+                    continue
+                if name in created_agents:
+                    continue
+                if await _agent_exists_in_org(db, org_id=org_id, name=name):
+                    continue
+                errors.append(
+                    f"step {idx + 1} ({c.action}): {role} agent '{name}' is "
+                    f"neither created earlier in this plan nor exists in the "
+                    f"org. Emit create_agent(name='{name}', ...) before this "
+                    f"connect_agents call."
+                )
+
+        elif action == "link_kb_to_agent":
+            if not params.get("agent_id"):
+                agent_name = (params.get("agent_name") or "").strip()
+                if agent_name and agent_name not in created_agents:
+                    if not await _agent_exists_in_org(db, org_id=org_id, name=agent_name):
+                        errors.append(
+                            f"step {idx + 1} ({c.action}): agent "
+                            f"'{agent_name}' is neither created earlier in "
+                            f"this plan nor exists in the org. Emit "
+                            f"create_agent(name='{agent_name}', ...) first."
+                        )
+            if not params.get("kb_id"):
+                kb_name = (params.get("kb_name") or "").strip()
+                if kb_name and kb_name not in created_kbs:
+                    if not await _kb_exists_in_org(db, org_id=org_id, name=kb_name):
+                        errors.append(
+                            f"step {idx + 1} ({c.action}): kb '{kb_name}' is "
+                            f"neither created earlier in this plan nor "
+                            f"exists in the org. Emit "
+                            f"create_kb(name='{kb_name}', ...) first."
+                        )
+
+        elif action == "upload_to_kb":
+            if not params.get("kb_id"):
+                kb_name = (params.get("kb_name") or "").strip()
+                if kb_name and kb_name not in created_kbs:
+                    if not await _kb_exists_in_org(db, org_id=org_id, name=kb_name):
+                        errors.append(
+                            f"step {idx + 1} ({c.action}): kb '{kb_name}' is "
+                            f"neither created earlier in this plan nor "
+                            f"exists in the org."
+                        )
+
+    # Dedup
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for e in errors:
+        if e in seen:
+            continue
+        seen.add(e)
+        deduped.append(e)
+    return deduped
+
+
+async def _agent_exists_in_org(
+    db: AsyncSession,
+    *,
+    org_id: uuid.UUID,
+    name: str,
+) -> bool:
+    from sqlalchemy import select
+    from app.models.agent import Agent
+
+    row = await db.execute(
+        select(Agent.id)
+        .where(Agent.org_id == org_id, Agent.name == name)
+        .limit(1)
+    )
+    return row.scalar_one_or_none() is not None
+
+
+async def _kb_exists_in_org(
+    db: AsyncSession,
+    *,
+    org_id: uuid.UUID,
+    name: str,
+) -> bool:
+    from sqlalchemy import select
+    from app.models.knowledge_base import KnowledgeBase
+
+    row = await db.execute(
+        select(KnowledgeBase.id)
+        .where(KnowledgeBase.org_id == org_id, KnowledgeBase.name == name)
+        .limit(1)
+    )
+    return row.scalar_one_or_none() is not None
 
 
 # ────────────────────────── Orchestrator entry point ──────────────────────────
@@ -925,6 +1140,83 @@ async def run_origami_turn(
                     is_write=bool(tcls and tcls.is_write),
                     summary=(tcls.description if tcls else None),
                 ))
+
+            # ── Validate plan dependencies BEFORE emitting plan_ready.
+            #
+            # Catches the failure mode where the model emitted
+            # connect_agents / link_kb_to_agent calls that reference
+            # agents/KBs by name without emitting the corresponding
+            # create_agent / create_kb calls (typically because the
+            # output budget got tight and the longer create_agent calls
+            # were dropped). When that happens, inject synthetic
+            # tool_result messages plus a user-message describing the
+            # errors and let the model retry within the remaining
+            # iteration budget. The model corrects itself most of the
+            # time on the very next iteration.
+            validation_errors = await _validate_plan_dependencies(
+                plan_changes, db=db, org_id=org_id,
+            )
+            iterations_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
+            if validation_errors and iterations_left > 0:
+                logger.info(
+                    "Origami plan validation failed (iteration %d, %d errors); "
+                    "injecting feedback for model retry. errors=%s",
+                    iteration, len(validation_errors), validation_errors[:3],
+                )
+                yield OrigamiEvent("plan_revision", {
+                    "iteration": iteration,
+                    "errors": validation_errors,
+                    "iterations_left": iterations_left,
+                })
+                # Inject one tool_result per tool_call so the conversation
+                # state stays valid for the next iteration.
+                for tc in tool_calls:
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "content": json.dumps({
+                            "status": "deferred",
+                            "reason": "plan_validation_pending",
+                        }),
+                    })
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Your plan has dependency errors — it references "
+                        "agents or KBs by name that no create_* call in the "
+                        "same response makes:\n\n"
+                        + "\n".join(f"  • {e}" for e in validation_errors)
+                        + "\n\nRe-emit the FULL plan including the missing "
+                        "create_agent / create_kb calls. Per the dependency "
+                        "rules, ALL create_* calls must come BEFORE any "
+                        "connect_agents / link_kb_to_agent calls in the same "
+                        "response. If fitting them all would force you to "
+                        "truncate, emit a smaller plan covering fewer agents "
+                        "and tell me what's left for a follow-up."
+                    ),
+                })
+                # Continue the iteration loop; model gets the feedback.
+                continue
+
+            if validation_errors:
+                # Out of iteration budget — log and emit a warning event
+                # but still surface the plan so the user sees the attempt.
+                logger.warning(
+                    "Origami plan validation failed on final iteration "
+                    "(%d errors, no retries left). Emitting plan with "
+                    "warnings. errors=%s",
+                    len(validation_errors), validation_errors[:5],
+                )
+                yield OrigamiEvent("plan_warning", {
+                    "code": "dependency_errors",
+                    "errors": validation_errors,
+                    "message": (
+                        "This plan references agents or KBs that aren't "
+                        "created in the same plan. Deploy will fail on "
+                        "the affected steps. Ask me to re-emit the plan "
+                        "with explicit create_agent / create_kb calls."
+                    ),
+                })
 
             plan = PlanCard(
                 id=uuid.uuid4(),
@@ -2050,7 +2342,27 @@ def _synthesize_tool_summary(results: list[dict[str, Any]]) -> str:
 
 
 def _summarize_result(result: dict[str, Any]) -> dict[str, Any]:
-    """Compact summary of a tool result for SSE events."""
+    """Compact summary of a tool result for SSE events.
+
+    Most tool results don't need to be transmitted in full over the SSE
+    channel — the frontend only needs a quick visual confirmation that
+    "create_agent succeeded". For those, we return only the key names.
+
+    But a handful of tools produce values that are INTENDED to be shown
+    to the user once (gateway-key raw value, next-step instructions
+    with concrete URLs, prefix identifiers). Those fields are passed
+    through verbatim so the user can copy them. They're listed in
+    ``_USER_VISIBLE_FIELDS``.
+
+    Background: a prior bug had mint_gateway_key succeeding server-side
+    while the raw ``bn-`` key never appeared in the chat because the
+    summarizer only echoed the result's key NAMES. The key was minted,
+    the row was in the DB, but the user couldn't use it — they'd have
+    to revoke and re-mint.
+    """
+    if not isinstance(result, dict):
+        return {}
+
     if "counts" in result:
         return {"counts": result["counts"], "tier": result.get("tier")}
     if "gateway_requests" in result:
@@ -2058,4 +2370,43 @@ def _summarize_result(result: dict[str, Any]) -> dict[str, Any]:
             "tier": result.get("tier"),
             "percent_used": result["gateway_requests"].get("percent_used"),
         }
-    return {"keys": list(result.keys())[:10]}
+
+    summary: dict[str, Any] = {"keys": list(result.keys())[:10]}
+    for field in _USER_VISIBLE_FIELDS:
+        if field in result and result[field] is not None:
+            summary[field] = result[field]
+    return summary
+
+
+# Fields that, when present in a tool result, are intended to be shown
+# to the user verbatim in the chat surface. The summarizer copies them
+# through so the frontend can render them with appropriate UI affordances
+# (copy buttons, "shown once" warnings, etc.). Anything not in this list
+# is dropped from the SSE summary as a default-deny security posture.
+_USER_VISIBLE_FIELDS = (
+    # mint_gateway_key — the raw bn- value is shown ONCE at creation
+    "raw_key",
+    "raw_key_warning",
+    "key_prefix",
+    # create_project, create_kb, create_agent — names + ids the user
+    # may want to reference in follow-up turns
+    "project_id",
+    "project_name",
+    "kb_id",
+    "kb_name",
+    "agent_id",
+    "agent_name",
+    "name",
+    # connection_id from connect_agents (so users can reference for unlinks)
+    "connection_id",
+    "source_agent_name",
+    "target_agent_name",
+    "connection_type",
+    # Generic next-step instructions emitted by most write tools — these
+    # are short prose with URLs / curl commands meant for the user
+    "next_step",
+    # Tier-related context surfaced by show_enterprise_options etc.
+    "tier",
+    # Idempotency hint — tells the user "this already existed, here's the id"
+    "already_exists",
+)
