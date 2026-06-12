@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { PlanCard } from "../origami/PlanCard";
 import { StudioOpener } from "./StudioOpener";
 import { StudioReminderBanner } from "./StudioReminderBanner";
@@ -22,7 +22,7 @@ export function StudioChat() {
   const session = useStudioSession();
   const [draft, setDraft] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     scrollerRef.current?.scrollTo({
@@ -157,11 +157,13 @@ export function StudioChat() {
       <div className="border-t border-border/60 px-4 md:px-6 py-3 shrink-0 bg-background/50">
         <div className="max-w-3xl mx-auto">
           <div className="flex gap-2 items-end">
-            <Input
+            <Textarea
               ref={inputRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
+                // Enter sends; Shift+Enter inserts a newline like every
+                // other modern chat composer.
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   onSend();
@@ -169,20 +171,12 @@ export function StudioChat() {
               }}
               disabled={session.busy}
               placeholder="Tell Bonito what you want to do…"
-              className="flex-1 h-10"
+              // min-h matches the prior h-10 visually for short prompts;
+              // textarea grows with content up to the max-h cap so long
+              // prompts stay readable without a separate modal.
+              className="flex-1 min-h-[40px] max-h-[160px] resize-none py-2 leading-snug"
+              rows={1}
               autoFocus
-              // Anti-autofill: Chrome was misclassifying this as a
-              // credit-card field and dropping the Visa picker on top
-              // of the composer. The combination below is what actually
-              // suppresses every major manager — autoComplete="off"
-              // alone is widely ignored.
-              name="bonito-studio-prompt"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={true}
-              data-1p-ignore="true"
-              data-lpignore="true"
-              data-form-type="other"
             />
             <Button
               onClick={() => onSend()}
