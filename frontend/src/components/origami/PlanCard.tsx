@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Rocket,
   X,
@@ -43,6 +43,14 @@ type Props = {
   onExecuted?: (result: unknown) => void;
   onCancelled?: () => void;
   onEvent?: (event: { type: string; payload: Record<string, unknown> }) => void;
+  /**
+   * When true, the card fires its deploy flow automatically on mount —
+   * no Deploy click required. Used by Bonito Studio where the chat
+   * surface is intentionally friction-free; the card is shown for
+   * visibility / details, not as a gating action. Origami's workspace
+   * leaves this false so users keep their Deploy / Edit / Cancel choice.
+   */
+  autoDeploy?: boolean;
 };
 
 type StepState = "queued" | "running" | "done" | "failed";
@@ -60,10 +68,14 @@ function StepIcon({ state }: { state: StepState }) {
   return <Clock className="h-3.5 w-3.5 text-muted-foreground mt-1 shrink-0" />;
 }
 
-export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
+export function PlanCard({ plan, onExecuted, onCancelled, onEvent, autoDeploy = false }: Props) {
   const [deploying, setDeploying] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const [finalStatus, setFinalStatus] = useState<string | null>(null);
+  // Track whether the auto-deploy mount effect has already fired so React's
+  // strict-mode double-invoke (and any future state churn) can't re-trigger
+  // the deploy POST.
+  const autoDeployedRef = useRef(false);
   const [stepStates, setStepStates] = useState<StepState[]>(() =>
     plan.changes.map(() => "queued" as StepState),
   );
@@ -203,6 +215,18 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent }: Props) {
       setDeploying(false);
     }
   }
+
+  // Studio's friction-free mode — fire deploy immediately on mount when
+  // autoDeploy is true. Ref-guarded against React strict-mode double-mount
+  // and against re-renders that might otherwise re-trigger the POST.
+  useEffect(() => {
+    if (!autoDeploy) return;
+    if (autoDeployedRef.current) return;
+    if (deploying || cancelled || finalStatus) return;
+    autoDeployedRef.current = true;
+    void deploy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDeploy]);
 
   async function cancel() {
     if (deploying || cancelled || finalStatus) return;

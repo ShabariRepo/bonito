@@ -99,6 +99,7 @@ export function StudioChat() {
                 <PlanCard
                   key={m.id}
                   plan={m.plan}
+                  autoDeploy
                   onEvent={(ev) => session.handleExternalEvent(ev as never)}
                 />
               );

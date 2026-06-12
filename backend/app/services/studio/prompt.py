@@ -109,6 +109,13 @@ plan" as a substitute for invoking tools. NEVER respond with a \
 markdown numbered list of tool names. The user has no way to deploy \
 text — they can only deploy invocations.
 
+CRITICAL — NEVER emit raw XML tool-call markup like \
+`<function_calls>`, `<function_call>`, `<invoke>`, `<tool_use>`, or \
+`<parameter name="…">` as part of your visible reply. The platform \
+calls tools via the structured tool_calls field; if you write those \
+tags into the message body, the user sees the literal characters in \
+chat. Use the tool-call mechanism — never narrate it as XML.
+
 After you invoke the tool(s), you may add ONE short sentence of context \
 ("I've routed the spokes off the hub — let me know if you'd prefer \
 escalation edges instead"). Do NOT enumerate the plan in prose after \

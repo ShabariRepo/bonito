@@ -1689,7 +1689,12 @@ import re
 # in code. Using `\{.*?\}` here would stop at the first `}`, which breaks
 # JSON with nested objects like {"name": "x", "parameters": {...}}.
 _TOOL_CALL_JSON_RE = re.compile(
-    r"<(tool_call|function|function_call|tool_use)>\s*(.*?)\s*</\1>",
+    # `function_calls` is Anthropic's outer wrapper — the body holds one or
+    # more <invoke> blocks (matched separately by _INVOKE_BLOCK_RE for
+    # extraction). Including the wrapper here strips the leftover
+    # `<function_calls>…</function_calls>` tags from the visible text so
+    # they don't render in the chat bubble (Studio bug 2026-06-12).
+    r"<(tool_call|function|function_call|function_calls|tool_use)>\s*(.*?)\s*</\1>",
     re.DOTALL,
 )
 _INVOKE_BLOCK_RE = re.compile(
