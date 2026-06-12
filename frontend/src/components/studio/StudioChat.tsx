@@ -39,7 +39,11 @@ export function StudioChat() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] -mt-2 -mx-4 md:-mx-8">
+    // Height accounts for the (dashboard) layout chrome above Studio:
+    // notification-bell row (~52px on lg+), p-8 padding (32px top), and
+    // the bottom padding (32px). Using 100dvh so mobile address-bar
+    // collapse doesn't push the composer below the fold either.
+    <div className="flex flex-col h-[calc(100dvh-9rem)] -mt-2 -mx-4 md:-mx-8">
       {/* Header — minimal, brand + state */}
       <div className="border-b border-border/60 px-6 py-3 shrink-0 bg-background/50 backdrop-blur-sm">
         <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -167,6 +171,18 @@ export function StudioChat() {
               placeholder="Tell Bonito what you want to do…"
               className="flex-1 h-10"
               autoFocus
+              // Anti-autofill: Chrome was misclassifying this as a
+              // credit-card field and dropping the Visa picker on top
+              // of the composer. The combination below is what actually
+              // suppresses every major manager — autoComplete="off"
+              // alone is widely ignored.
+              name="bonito-studio-prompt"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={true}
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-form-type="other"
             />
             <Button
               onClick={() => onSend()}
