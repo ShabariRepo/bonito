@@ -128,17 +128,68 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Team */}
+      {/* Founder */}
       <section className="pb-24">
-        <div className="bg-[#111] border border-[#1a1a1a] rounded-2xl p-12 text-center">
-          <Users className="w-12 h-12 text-[#7c3aed] mx-auto mb-6" />
-          <h2 className="text-3xl font-bold mb-4">Built by engineers who&apos;ve managed AI at scale</h2>
-          <p className="text-[#888] max-w-2xl mx-auto leading-relaxed">
-            Our team has built and operated AI infrastructure at companies processing millions of
-            requests per day. We know the pain of managing multiple cloud providers, juggling IAM policies,
-            and explaining surprise cloud bills — because we&apos;ve lived it. Bonito is the tool we
-            wished existed.
-          </p>
+        <div className="bg-[#111] border border-[#1a1a1a] rounded-2xl p-10 md:p-12">
+          <div className="grid md:grid-cols-[auto_1fr] gap-8 md:gap-12 items-start">
+            {/* Founder identity column */}
+            <div className="flex flex-col items-center md:items-start gap-3 shrink-0">
+              <div className="h-28 w-28 rounded-2xl bg-gradient-to-br from-[#7c3aed]/30 to-[#7c3aed]/10 border border-[#7c3aed]/30 flex items-center justify-center text-[#a78bfa] text-3xl font-semibold tracking-tight">
+                SS
+              </div>
+              <div className="text-center md:text-left">
+                <p className="text-base font-semibold text-[#f5f0e8]">Shabari Shenoy</p>
+                <p className="text-xs text-[#888]">Founder &amp; CEO</p>
+              </div>
+              <a
+                href="https://www.linkedin.com/in/shabari-shenoy/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-[#888] hover:text-[#a78bfa] transition mt-1"
+              >
+                LinkedIn &rarr;
+              </a>
+            </div>
+
+            {/* Bio column */}
+            <div>
+              <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold mb-3">
+                The founder
+              </p>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-5 leading-tight">
+                A career spent inside large enterprise stacks — and what's missing in every one of them.
+              </h2>
+              <div className="space-y-4 text-[#bbb] leading-relaxed">
+                <p>
+                  Shabari has spent the last decade building and operating production
+                  infrastructure across financial services, telecommunications, and
+                  enterprise software — most recently at TD and Fidelity (via Cognizant).
+                  Across every engagement the same pattern: AI workloads sprawling across
+                  three or four clouds, no consolidated view of cost, no audit trail
+                  that compliance can answer with, and no team comfortable making the
+                  routing decisions that matter.
+                </p>
+                <p>
+                  Bonito is the layer Shabari kept watching enterprises try (and fail) to
+                  build internally. One ledger across OpenAI, Anthropic, Bedrock, Vertex,
+                  Azure, and Groq. One audit log. One control surface. Structurally
+                  cloud-neutral because no hyperscaler can be — their lock-in margins
+                  depend on it.
+                </p>
+                <p className="text-[#888] italic">
+                  In stealth with enterprise design partners since February 2026.
+                  Reach Shabari directly at{" "}
+                  <a
+                    href="mailto:shabari@bonito.ai"
+                    className="text-[#ccc] not-italic hover:text-[#a78bfa] transition"
+                  >
+                    shabari@bonito.ai
+                  </a>
+                  .
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </div>

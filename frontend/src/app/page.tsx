@@ -205,7 +205,7 @@ export default function LandingPage() {
 
       {/* Hero — thesis-shaped, not feature-list-shaped */}
       <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-20 pb-24 md:pt-32 md:pb-32">
-        <FadeInSection className="max-w-4xl">
+        <FadeInSection className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 text-[#a78bfa] text-xs font-semibold tracking-wider uppercase mb-6">
             <span className="h-1.5 w-1.5 rounded-full bg-[#7c3aed]" />
             Structurally cloud-neutral
@@ -214,13 +214,13 @@ export default function LandingPage() {
             The control plane the
             <span className="text-[#7c3aed]"> hyperscalers can&rsquo;t build</span>.
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-[#aaa] max-w-3xl leading-relaxed">
+          <p className="mt-6 text-lg md:text-xl text-[#aaa] max-w-3xl mx-auto leading-relaxed">
             Every AI workload eventually needs three things: multi-cloud routing,
             cost governance, and audit. Bonito is the layer where they converge.
             One ledger across OpenAI, Anthropic, Bedrock, Vertex, Azure, and
             Groq. AWS will never route to Azure. We will.
           </p>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl">
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3 max-w-3xl mx-auto text-left">
             <div className="rounded-lg border border-[#1a1a1a] bg-[#111] p-4">
               <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Cloud-neutral moat</p>
               <p className="mt-1.5 text-sm text-[#bbb] leading-relaxed">
@@ -243,7 +243,7 @@ export default function LandingPage() {
               </p>
             </div>
           </div>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4">
+          <div className="mt-10 flex flex-col sm:flex-row gap-4 sm:justify-center">
             <Link
               href="/register"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-semibold rounded-xl text-lg transition group"
@@ -259,24 +259,18 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          {/* Founder identity — Blackbirds flagged that B2B sites without
-              founder bios fail to convert enterprise. Fix is one line. */}
-          <div className="mt-10 flex items-center gap-3 text-sm text-[#888]">
-            <span className="h-8 w-8 rounded-full bg-[#7c3aed]/10 border border-[#7c3aed]/20 flex items-center justify-center text-[#a78bfa] font-semibold text-xs">
-              SS
-            </span>
-            <span>
-              Built by{" "}
-              <a
-                href="https://www.linkedin.com/in/shabari-shenoy/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#ccc] hover:text-[#a78bfa] transition"
-              >
-                Shabari Shenoy
-              </a>
-              {" "}&middot; in stealth with enterprise design partners since Feb 2026
-            </span>
+          {/* Founder bio surfaced on /about instead of inline — "Built by"
+              reads dev-built; enterprise buyers expect an About page. */}
+          <div className="mt-10 flex items-center justify-center gap-3 text-sm text-[#888]">
+            <Link
+              href="/about"
+              className="inline-flex items-center gap-2 text-[#999] hover:text-[#a78bfa] transition"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-[#7c3aed]" />
+              About the team & thesis
+            </Link>
+            <span className="text-[#555]">·</span>
+            <span>In stealth with enterprise design partners since Feb 2026</span>
           </div>
 
           <div className="mt-8">
@@ -300,12 +294,12 @@ export default function LandingPage() {
           made explicit. Addresses Blackbirds' "category entry not creation"
           critique by naming the wedge directly. */}
       <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-16 md:py-24 border-t border-[#1a1a1a]">
-        <FadeInSection className="max-w-3xl">
+        <FadeInSection className="max-w-3xl mx-auto text-center">
           <p className="text-xs uppercase tracking-wider text-[#7c3aed] font-semibold">Why this is structurally defensible</p>
           <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
             Every other &ldquo;AI gateway&rdquo; is owned by someone with a cloud to sell.
           </h2>
-          <div className="mt-6 space-y-4 text-[#bbb] text-lg leading-relaxed max-w-2xl">
+          <div className="mt-6 space-y-4 text-[#bbb] text-lg leading-relaxed max-w-2xl mx-auto">
             <p>
               AWS Bedrock won&rsquo;t route to Azure. Microsoft won&rsquo;t optimize cost
               across Google. Google won&rsquo;t audit calls to OpenAI. Their business
