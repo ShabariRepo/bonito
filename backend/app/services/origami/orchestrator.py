@@ -949,19 +949,16 @@ async def run_origami_turn(
             if inline:
                 tool_calls = inline
 
-        # ALWAYS strip XML tool-call wrappers from visible content, even
-        # if no inline calls were extracted. Some models emit empty
-        # `<function_calls></function_calls>` wrappers mid-stream when
-        # they get confused — those would otherwise render as literal
-        # tags in the chat (Studio bug 2026-06-12, transcript showed
-        # "<function_calls>\n\n</function_calls>" surfacing in a reply).
-        # The regexes are no-ops when no matches exist, so this is safe
-        # to run unconditionally.
+        # ALWAYS strip every known tool-call leak shape from visible
+        # content. Some models emit XML wrappers (<function_calls>),
+        # some emit bare JSON ({"name": "create_X", ...}), some emit
+        # code-fenced JSON (```json {...}```), some emit Python-style
+        # function-call syntax (invoke_agent("studio-x")). The unified
+        # sanitizer catches all of them; the regexes are whitelist-
+        # gated against real platform tool names so they can't
+        # false-strip arbitrary JSON the user might discuss.
         if content:
-            stripped = _TOOL_CALL_JSON_RE.sub("", content)
-            stripped = _INVOKE_BLOCK_RE.sub("", stripped)
-            stripped = _PARAMETERIZED_FUNCTION_RE.sub("", stripped)
-            stripped = stripped.strip()
+            stripped = _sanitize_tool_call_leaks(content)
             if stripped != content:
                 accumulated_content = stripped
                 content = stripped
@@ -1088,18 +1085,25 @@ async def run_origami_turn(
             })
             # Store the turn in Memwright so future turns can recall context.
             # No-op for zero-budget models (Haiku/Flash); never blocks.
+            # IMPORTANT: sanitize assistant_msg before storing so Memwright
+            # never holds tool-call leak shapes that would feed back to the
+            # model on recall and re-pollute future turns. The live strip
+            # above catches most leaks before display; this is the last line
+            # of defense for memory contamination (Studio bug 2026-06-12).
             if conversation_id and accumulated_content:
                 try:
                     mw = _get_memwright()
-                    await mw.store(
-                        session_id=conversation_id,
-                        agent_id=ORIGAMI_MEMWRIGHT_AGENT_ID,
-                        org_id=str(org_id),
-                        user_msg=message,
-                        assistant_msg=accumulated_content,
-                        model_id=ORIGAMI_MODEL,
-                        tags=["origami"],
-                    )
+                    sanitized_memory = _sanitize_tool_call_leaks(accumulated_content)
+                    if sanitized_memory:
+                        await mw.store(
+                            session_id=conversation_id,
+                            agent_id=ORIGAMI_MEMWRIGHT_AGENT_ID,
+                            org_id=str(org_id),
+                            user_msg=message,
+                            assistant_msg=sanitized_memory,
+                            model_id=ORIGAMI_MODEL,
+                            tags=["origami"],
+                        )
                 except Exception:
                     logger.exception("Memwright store failed (non-fatal)")
             await _record_turn(
@@ -1722,6 +1726,93 @@ _INVOKE_BLOCK_RE = re.compile(
 _PARAM_RE = re.compile(
     r'<parameter\s+name="([^"]+)">\s*(.*?)\s*</parameter>', re.DOTALL
 )
+
+# Known platform tool names — used to build sanitizer regexes that only
+# strip text matching a real tool, not arbitrary JSON the user might be
+# discussing. Keep this list aligned with TOOL_REGISTRY + the wheel's
+# invoke_agent. Adding a new platform tool? Add its name here too.
+_PLATFORM_TOOL_NAMES = (
+    "create_project|create_kb|create_agent|create_connection|connect_agents|"
+    "link_kb_to_agent|upload_to_kb|update_agent|update_kb|mint_gateway_key|"
+    "delete_project|view_usage|view_logs|list_org_state|list_available_models|"
+    "list_deleted_projects|check_tier_access|configure_autoscaling|"
+    "delegate_provider_connection|restore_project|show_enterprise_options|"
+    "show_integration_guide|invoke_agent"
+)
+# Bare JSON tool-call leak — `{"name": "create_X", "parameters": {...}}` or
+# `{"tool": "create_X", "params": {...}}`. Restricted to platform tool names
+# so it can't false-match unrelated JSON. Also accepts list-wrapped form
+# `[{"name": "X", ...}]` since Claude sometimes wraps in a list.
+_BARE_JSON_TOOL_CALL_RE = re.compile(
+    rf"""
+    (?:\[\s*)?                                     # optional leading [
+    \{{                                             # opening brace
+    \s*"(?:name|tool|function_name)"\s*:\s*
+    "(?:{_PLATFORM_TOOL_NAMES})"                    # tool name (whitelisted)
+    \s*,?\s*                                        # optional comma
+    "(?:parameters|params|arguments|input)"\s*:\s*
+    \{{[^{{}}]*\}}                                  # params object (no nesting)
+    \s*\}}                                          # closing brace
+    (?:\s*\])?                                      # optional trailing ]
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+# Code-fenced version of the same — `\`\`\`json {...} \`\`\``. Same
+# whitelist so we don't strip arbitrary JSON snippets the user pastes.
+_CODE_FENCED_TOOL_CALL_RE = re.compile(
+    rf"""
+    ```(?:json)?\s*
+    (?:\[\s*)?\{{
+    \s*"(?:name|tool|function_name)"\s*:\s*
+    "(?:{_PLATFORM_TOOL_NAMES})"
+    .*?
+    \}}(?:\s*\])?\s*
+    ```
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+# Python-style function-call syntax — `invoke_agent("...")`, also handles
+# any platform tool name to be safe: `create_project(name="X")`. The
+# wheel's _FUNC_CALL_AGENT_RE is narrower (only invoke_agent + studio-x).
+# This wider one catches every platform-tool-as-function-call leak.
+_TOOL_FUNCTION_CALL_RE = re.compile(
+    rf"\b(?:{_PLATFORM_TOOL_NAMES})\s*\([^)]*\)",
+)
+
+
+def _sanitize_tool_call_leaks(text: str) -> str:
+    """Strip ALL known tool-call leak shapes from text.
+
+    Used in two places:
+      1. The live visible-text strip in run_origami_turn — so users don't
+         see leaked tool-call markup in chat bubbles.
+      2. Right before `mw.store()` — so Memwright never stores polluted
+         content that would feed back to the model on next-turn recall
+         and reinforce the leak (Studio contamination bug 2026-06-12).
+
+    Patterns covered:
+      - XML wrappers: <tool_call>, <function_calls>, <invoke>, <function>
+      - Bare JSON: {"name": "create_X", "parameters": {...}}
+                   {"tool": "create_X", "params": {...}}
+                   [{"name": "..."}, ...]
+      - Code-fenced JSON: ```json {"name": "create_X", ...} ```
+      - Function-call syntax: invoke_agent("studio-x"),
+        create_project(name="X")
+
+    All whitelisted against the real platform tool names so we don't
+    strip arbitrary JSON or function-call-looking text the user might
+    legitimately discuss.
+    """
+    if not text:
+        return text
+    text = _CODE_FENCED_TOOL_CALL_RE.sub("", text)
+    text = _TOOL_CALL_JSON_RE.sub("", text)
+    text = _INVOKE_BLOCK_RE.sub("", text)
+    text = _PARAMETERIZED_FUNCTION_RE.sub("", text)
+    text = _BARE_JSON_TOOL_CALL_RE.sub("", text)
+    text = _TOOL_FUNCTION_CALL_RE.sub("", text)
+    return text.strip()
+
 # Claude's chain-of-thought block. The model uses these to reason out loud
 # but they're internal — the user should never see them. Stripped before
 # AND after tool-call parsing because the model sometimes hides tool-call
