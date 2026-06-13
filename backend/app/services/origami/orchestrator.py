@@ -91,6 +91,26 @@ def _is_anthropic_model(model_id: str) -> bool:
     """True when the model routes to Anthropic (where cache_control applies)."""
     m = (model_id or "").lower()
     return any(k in m for k in ("claude", "anthropic", "sonnet", "haiku", "opus"))
+
+
+# Studio/Origami model failover — WE ARE BONITO, the orchestrator should fail
+# over like the platform promises. ORIGAMI_MODEL is the primary; if a gateway
+# call fails before producing output (rate limit, model unavailable, 5xx),
+# the orchestrator retries the SAME turn against each model in
+# ORIGAMI_FALLBACK_MODELS (comma-separated) in order. Empty by default; set in
+# env, e.g. ORIGAMI_FALLBACK_MODELS="claude-sonnet-4-5,claude-haiku-4-5".
+ORIGAMI_FALLBACK_MODELS = [
+    m.strip() for m in os.getenv("ORIGAMI_FALLBACK_MODELS", "").split(",") if m.strip()
+]
+
+
+def _model_chain() -> list[str]:
+    """Primary model followed by configured fallbacks (deduped, order-kept)."""
+    chain: list[str] = []
+    for m in [ORIGAMI_MODEL, *ORIGAMI_FALLBACK_MODELS]:
+        if m and m not in chain:
+            chain.append(m)
+    return chain
 # Bumped 5 → 8 (2026-06-12) to give headroom for up to 3
 # committed-without-invoke corrections PLUS plan-validation retries
 # PLUS the actual plan emission, all within one turn. The model
@@ -411,15 +431,21 @@ def _build_gateway_body(
     customer_org_id: Optional[uuid.UUID],
     customer_user_id: Optional[uuid.UUID],
     stream: bool,
+    model: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Common request body builder for streaming + non-streaming gateway calls."""
+    """Common request body builder for streaming + non-streaming gateway calls.
+
+    `model` overrides ORIGAMI_MODEL — used by the failover loop to retry a
+    turn against a fallback model.
+    """
+    active_model = model or ORIGAMI_MODEL
     # Cache the static prefix (tools + system) on Anthropic. Marking the END
     # of the system block as an ephemeral breakpoint caches everything up to
     # it — Anthropic processes tools first, then system, so this one marker
     # covers both. Belt-and-suspenders: also mark the last tool so the tool
     # schemas are cached even if the upstream orders them after system.
     # Behaviour-neutral: the model still receives the identical tokens.
-    use_cache = ORIGAMI_PROMPT_CACHE and _is_anthropic_model(ORIGAMI_MODEL)
+    use_cache = ORIGAMI_PROMPT_CACHE and _is_anthropic_model(active_model)
     if use_cache:
         system_msg: dict[str, Any] = {
             "role": "system",
@@ -435,7 +461,7 @@ def _build_gateway_body(
         system_msg = {"role": "system", "content": system}
     full_messages = [system_msg] + messages
     body: dict[str, Any] = {
-        "model": ORIGAMI_MODEL,
+        "model": active_model,
         "max_tokens": ORIGAMI_MAX_TOKENS,
         "messages": full_messages,
     }
@@ -510,6 +536,7 @@ async def _stream_gateway(
     tools: list[dict[str, Any]],
     customer_org_id: Optional[uuid.UUID] = None,
     customer_user_id: Optional[uuid.UUID] = None,
+    model: Optional[str] = None,
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream chat completion chunks from Bonito's gateway.
 
@@ -527,7 +554,7 @@ async def _stream_gateway(
     body = _build_gateway_body(
         system=system, messages=messages, tools=tools,
         customer_org_id=customer_org_id, customer_user_id=customer_user_id,
-        stream=True,
+        stream=True, model=model,
     )
     headers = _gateway_headers(api_key, customer_org_id, customer_user_id)
 
@@ -555,6 +582,76 @@ async def _stream_gateway(
                 except json.JSONDecodeError:
                     logger.warning("Origami: dropped malformed SSE chunk: %r", data[:200])
                     continue
+
+
+async def _stream_gateway_failover(
+    *,
+    system: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    customer_org_id: Optional[uuid.UUID] = None,
+    customer_user_id: Optional[uuid.UUID] = None,
+    model_chain: list[str],
+) -> AsyncIterator[dict[str, Any]]:
+    """Stream from the gateway, failing over across `model_chain`.
+
+    Tries each model in order. If a model's gateway call fails BEFORE
+    yielding any chunk (rate limit, model unavailable, 5xx — the gateway
+    raises on status >= 400 before streaming), advances to the next model
+    and retries the same turn. Once the first chunk is yielded, it commits
+    to that model (a mid-stream failure re-raises rather than duplicating
+    partial output). Exhausting the chain re-raises the last error so the
+    caller's existing error path runs. This is Bonito's own failover, applied
+    to its own orchestrator — Studio shouldn't die because one model blips.
+    """
+    chain = model_chain or [ORIGAMI_MODEL]
+    last_exc: Optional[Exception] = None
+    for i, m in enumerate(chain):
+        produced = False          # have we yielded REAL output (content/tool)?
+        err_chunk: Optional[dict] = None
+        has_next = i + 1 < len(chain)
+        try:
+            async for chunk in _stream_gateway(
+                system=system,
+                messages=messages,
+                tools=tools,
+                customer_org_id=customer_org_id,
+                customer_user_id=customer_user_id,
+                model=m,
+            ):
+                # The gateway surfaces upstream failures as a 200 SSE chunk
+                # {"error": ...} rather than an HTTP error. Treat a pre-output
+                # error chunk as a failover trigger — don't yield it (so the
+                # caller never sees the dead model's error) and try the next.
+                if isinstance(chunk, dict) and chunk.get("error") and not produced:
+                    err_chunk = chunk
+                    break
+                ch = (chunk.get("choices") or [{}])[0] if isinstance(chunk, dict) else {}
+                delta = ch.get("delta") or {}
+                if delta.get("content") or delta.get("tool_calls"):
+                    produced = True
+                yield chunk
+            if err_chunk is not None and not produced:
+                if has_next:
+                    logger.warning(
+                        "Origami model failover: %r errored pre-output (%s) — trying %r",
+                        m, str(err_chunk.get("error"))[:160], chain[i + 1],
+                    )
+                    continue
+                # Last model also errored — surface it via the caller's path.
+                raise RuntimeError(f"all models in chain failed; last: {m}: {err_chunk.get('error')}")
+            return  # stream completed (real output produced, or clean empty)
+        except Exception as e:  # noqa: BLE001 — surface after chain exhausted
+            last_exc = e
+            if produced or not has_next:
+                raise  # mid-stream failure, or no models left
+            logger.warning(
+                "Origami model failover: %r raised pre-output (%s) — trying %r",
+                m, str(e)[:160], chain[i + 1],
+            )
+            continue
+    if last_exc:
+        raise last_exc
 
 
 # ──────────────────── Plan dependency validator ────────────────────
@@ -999,6 +1096,12 @@ async def run_origami_turn(
     # summary if the model goes silent after tool_use (Bedrock+Opus quirk).
     results: list[dict[str, Any]] = []
 
+    # Model failover: primary + configured fallbacks. _stream_gateway_failover
+    # advances through the chain on a pre-output gateway failure (rate limit,
+    # model unavailable, 5xx). WE ARE BONITO — Studio fails over like the
+    # platform promises instead of dying on a single model's bad day.
+    model_chain = _model_chain()
+
     for iteration in range(ORIGAMI_MAX_TOOL_ITERATIONS):
         # ── Streaming accumulators ─────────────────────────
         # As chunks arrive from the gateway we accumulate text + tool calls
@@ -1010,12 +1113,13 @@ async def run_origami_turn(
         chunk_usage: dict[str, Any] = {}
 
         try:
-            async for chunk in _stream_gateway(
+            async for chunk in _stream_gateway_failover(
                 system=active_system_prompt,
                 messages=messages,
                 tools=tools_for_model,
                 customer_org_id=org_id,
                 customer_user_id=user.id,
+                model_chain=model_chain,
             ):
                 # Track which model the gateway routed to (only on first chunk
                 # that includes it). Useful for the metering row.

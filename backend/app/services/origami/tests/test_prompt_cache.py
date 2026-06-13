@@ -72,6 +72,34 @@ def test_cache_on_non_anthropic_is_plain_string(monkeypatch):
     assert all("cache_control" not in t for t in body["tools"])
 
 
+def test_model_chain_primary_plus_fallbacks(monkeypatch):
+    monkeypatch.setattr(orch, "ORIGAMI_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setattr(orch, "ORIGAMI_FALLBACK_MODELS", ["claude-sonnet-4-5", "claude-haiku-4-5"])
+    assert orch._model_chain() == ["claude-sonnet-4-6", "claude-sonnet-4-5", "claude-haiku-4-5"]
+
+
+def test_model_chain_dedupes_and_keeps_order(monkeypatch):
+    monkeypatch.setattr(orch, "ORIGAMI_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setattr(orch, "ORIGAMI_FALLBACK_MODELS", ["claude-sonnet-4-6", "claude-haiku-4-5"])
+    assert orch._model_chain() == ["claude-sonnet-4-6", "claude-haiku-4-5"]
+
+
+def test_model_chain_no_fallbacks_is_primary_only(monkeypatch):
+    monkeypatch.setattr(orch, "ORIGAMI_MODEL", "claude-sonnet-4-6")
+    monkeypatch.setattr(orch, "ORIGAMI_FALLBACK_MODELS", [])
+    assert orch._model_chain() == ["claude-sonnet-4-6"]
+
+
+def test_build_body_honors_model_override(monkeypatch):
+    monkeypatch.setattr(orch, "ORIGAMI_PROMPT_CACHE", True)
+    monkeypatch.setattr(orch, "ORIGAMI_MODEL", "claude-sonnet-4-6")
+    # override to a non-anthropic model => plain string + that model
+    body = _build_gateway_body(system="S", messages=[], tools=[], customer_org_id=None,
+                               customer_user_id=None, stream=False, model="gpt-4o")
+    assert body["model"] == "gpt-4o"
+    assert body["messages"][0]["content"] == "S"  # cache gate is per active model
+
+
 def test_original_tool_schemas_not_mutated(monkeypatch):
     pristine = copy.deepcopy(_TOOLS)
     tools = copy.deepcopy(_TOOLS)
