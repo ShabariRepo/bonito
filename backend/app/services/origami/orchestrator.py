@@ -1401,6 +1401,33 @@ async def run_origami_turn(
                 params = _heuristic_fill_link_params(tname, params, executed_step_results)
                 params = _heuristic_fill_project_id(tname, params, executed_step_results)
 
+                # DEDUP: the model sometimes re-emits a create_* call it
+                # already made earlier this turn (it loses track across the
+                # batch round-trips). Re-running would hit a unique
+                # constraint (duplicate KB name, etc.). If we already ran an
+                # identical (action, name) this turn, feed back the prior
+                # result instead of executing again.
+                dedup_name = (params or {}).get("name")
+                dedup_key = (tname, dedup_name) if dedup_name else None
+                if dedup_key is not None:
+                    prior = next(
+                        (
+                            (c, r, ok)
+                            for (c, r, ok) in executed_changes
+                            if c.action == tname
+                            and (c.params or {}).get("name") == dedup_name
+                            and ok
+                        ),
+                        None,
+                    )
+                    if prior is not None:
+                        _pc, prior_result, _ok = prior
+                        messages.append({
+                            "role": "tool", "tool_call_id": tc_id,
+                            "content": json.dumps(_summarize_result(prior_result)),
+                        })
+                        continue  # skip duplicate execution
+
                 step_idx = len(executed_changes)
                 yield OrigamiEvent("tool_started", {
                     "tool_name": tname, "step": step_idx,
