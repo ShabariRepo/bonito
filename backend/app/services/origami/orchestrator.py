@@ -1372,15 +1372,17 @@ async def run_origami_turn(
             # the model is truly done it emits finish_reason != tool_calls
             # (a plain text wrap-up) and we fall through to finalize.
             iters_left_collect = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
-            logger.warning(
-                "WHEEL-DIAG iter=%d batch_tools=%s finish_reason=%r "
-                "accumulated=%s iters_left=%d",
-                iteration,
-                [c.action for c in current_changes],
-                finish_reason,
-                [c.action for c in accumulated_plan_changes],
-                iters_left_collect,
-            )
+            yield OrigamiEvent("_diag", {
+                "iter": iteration,
+                "batch": [c.action for c in current_changes],
+                "finish_reason": finish_reason,
+                "accumulated": [c.action for c in accumulated_plan_changes],
+                "iters_left": iters_left_collect,
+                "raw_tool_names": [
+                    _resolve_tool_name(tc.get("function", {}).get("name", ""))
+                    for tc in tool_calls
+                ],
+            })
             if finish_reason == "tool_calls" and iters_left_collect > 0:
                 # Synthetic result per tool_call: success with a placeholder
                 # id keyed by step so downstream ${step_N.field} refs the
