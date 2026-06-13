@@ -1034,6 +1034,68 @@ async def run_origami_turn(
             emitted_visible_text = True
 
         if not tool_calls:
+            # ── FINALIZE ACCUMULATED MULTI-BATCH PLAN ──────────────
+            # If we've been collecting write tool calls across batches
+            # and the model just emitted a text wrap-up (no new tools),
+            # the build is complete — finalize the plan from everything
+            # accumulated. Without this, a multi-batch build's text
+            # "all done!" wrap-up would fall through to the retry/
+            # fallback path and the plan would never render.
+            if accumulated_plan_changes:
+                plan_changes = accumulated_plan_changes
+                validation_errors = await _validate_plan_dependencies(
+                    plan_changes, db=db, org_id=org_id,
+                )
+                if validation_errors:
+                    logger.warning(
+                        "Origami multi-batch plan has dependency warnings "
+                        "(%d) at finalize. Emitting anyway. errors=%s",
+                        len(validation_errors), validation_errors[:5],
+                    )
+                    yield OrigamiEvent("plan_warning", {
+                        "code": "dependency_errors",
+                        "errors": validation_errors,
+                        "message": (
+                            "Some plan steps reference resources not created "
+                            "in this plan. The affected steps may fail on "
+                            "deploy."
+                        ),
+                    })
+                plan = PlanCard(
+                    id=uuid.uuid4(),
+                    session_id=session_id,
+                    intent=message[:500] if message else "(no intent recorded)",
+                    changes=plan_changes,
+                    status=PlanCardStatus.AWAITING_CONFIRMATION,
+                )
+                await plan_store.save_plan(
+                    plan=plan, user_id=user.id, org_id=org_id,
+                    project_id=project_id, conversation_id=conversation_id,
+                    user_message=message,
+                )
+                plan_dict = plan.model_dump(mode="json")
+                yield OrigamiEvent("plan_ready", {"plan_card": plan_dict})
+                yield OrigamiEvent("awaiting_confirmation", {
+                    "plan_card_id": str(plan.id),
+                })
+                await origami_messages.record_plan_message(
+                    db=db, org_id=org_id, user_id=user.id,
+                    project_id=project_id,
+                    conversation_id=effective_conversation_id,
+                    session_id=session_id, plan_card=plan_dict,
+                )
+                await _record_turn(
+                    db=db, user=user, org_id=org_id, project_id=project_id,
+                    session_id=session_id, conversation_id=conversation_id,
+                    message=message, input_tokens=total_input_tokens,
+                    output_tokens=total_output_tokens,
+                    tool_calls_count=total_tool_calls,
+                    model_used=last_model_used, status="success",
+                    finish_reason="plan_ready", tier=tier,
+                    started_at_ms=started_at_ms,
+                )
+                return
+
             # ── COMMITTED-WITHOUT-INVOKE RETRY ─────────────────────
             # The dominant Claude multi-step failure: the model emits
             # "On it — creating the KB, the agent, then wiring them
