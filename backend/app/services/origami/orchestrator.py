@@ -77,8 +77,13 @@ ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "8192"))
 # models only (cache_control is an Anthropic feature; LiteLLM >=1.81
 # translates the OpenAI-format marker). Flag off OR non-Anthropic model =>
 # byte-identical to the previous uncached path that produced the 20/20.
-ORIGAMI_PROMPT_CACHE = os.getenv("ORIGAMI_PROMPT_CACHE", "1") not in (
-    "0", "false", "False", "no", "off", "",
+# Default OFF: deploying this code is a no-op until the flag is flipped, so
+# pushing can't touch the proven build path. Turn on with ORIGAMI_PROMPT_CACHE=1
+# in the Railway env (no redeploy) once you're ready to watch it under load;
+# the cache_creation/cache_read telemetry below confirms engagement, and
+# flipping back to 0 reverts instantly.
+ORIGAMI_PROMPT_CACHE = os.getenv("ORIGAMI_PROMPT_CACHE", "0") in (
+    "1", "true", "True", "yes", "on",
 )
 
 
