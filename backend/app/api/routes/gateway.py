@@ -7,6 +7,7 @@ Auth model:
 """
 
 import json
+import re
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -68,13 +69,29 @@ async def _resolve_provider(model_name: str, org_id, db: AsyncSession) -> Option
                 return row
     except Exception:
         logger.warning(f"DB provider resolution failed for model {model_name}, falling back to heuristic", exc_info=True)
-    # Fallback: heuristic from model name
-    if any(k in model_name for k in ("bedrock", "anthropic", "amazon", "nova", "titan")):
+    # Fallback: heuristic from model name. Bedrock ids are provider-
+    # namespaced / region-prefixed ("anthropic.claude-...",
+    # "us.anthropic.claude-...", "meta.llama...", often ":0"-suffixed) — match
+    # those BEFORE the bare model-family checks so Bedrock Claude isn't
+    # mislabelled. Bare "claude-..." (no namespace) is Anthropic-direct.
+    m = model_name or ""
+    if (
+        re.match(r"^(us|eu|apac|us-gov)\.", m)
+        or re.match(r"^(anthropic|amazon|meta|mistral|cohere|ai21|deepseek|stability)\.", m)
+        or m.endswith(":0")
+        or any(k in m for k in ("bedrock", "nova", "titan"))
+    ):
         return "aws"
-    elif any(k in model_name for k in ("azure", "gpt-", "o1-", "o3-", "o4-", "dall-e")):
+    elif "azure" in m:
         return "azure"
-    elif any(k in model_name for k in ("vertex", "gemini", "palm")):
+    elif any(k in m for k in ("vertex", "gemini", "palm")):
         return "gcp"
+    elif any(k in m for k in ("gpt-", "o1-", "o3-", "o4-", "dall-e", "chatgpt")):
+        return "openai"
+    elif "claude" in m:
+        return "anthropic"
+    elif any(k in m for k in ("llama", "mixtral", "gemma")):
+        return "groq"
     return None
 
 router = APIRouter(tags=["gateway"])
@@ -406,20 +423,13 @@ async def _handle_streaming_completion(
 
             cost = 0.0
             try:
-                if total_prompt_tokens or total_completion_tokens:
-                    # Determine the provider-prefixed model name for cost lookup
-                    cost_model = model_used
-                    if "bedrock" not in cost_model and "azure" not in cost_model and "vertex_ai" not in cost_model:
-                        if "amazon" in cost_model or "anthropic.claude" in cost_model or "meta.llama" in cost_model:
-                            cost_model = f"bedrock/{cost_model}"
-                        elif "gemini" in cost_model:
-                            cost_model = f"vertex_ai/{cost_model}"
-                    prompt_cost, compl_cost = litellm.cost_per_token(
-                        model=cost_model,
-                        prompt_tokens=total_prompt_tokens,
-                        completion_tokens=total_completion_tokens,
-                    )
-                    cost = (prompt_cost + compl_cost) or 0.0
+                # Shared cost helper: tries LiteLLM, falls back to a static
+                # per-family table when LiteLLM can't price the model (e.g.
+                # unmapped Bedrock Claude-4.6 ids that previously logged $0,
+                # making real AWS/Bedrock spend invisible in the dashboard).
+                cost = gateway_service.compute_request_cost(
+                    model_used, total_prompt_tokens, total_completion_tokens
+                )
             except Exception:
                 logger.warning(
                     "Cost calculation failed for model %s (tokens: %d/%d) — cost will be recorded as $0",

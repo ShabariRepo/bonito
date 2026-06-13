@@ -65,6 +65,32 @@ ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-6")
 # plan" output with no tool_use blocks at all. 8192 is the current cap on
 # Claude Sonnet output; we use the full budget on planning.
 ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "8192"))
+# Anthropic prompt caching for the orchestrator's STATIC prefix — the
+# system prompt (~9.2K tokens) plus the 13 tool schemas. That block is
+# byte-identical on every iteration and every turn, yet without caching we
+# re-bill it at full 1x on each call. Measured 2026-06-13: a 21.8:1
+# input:output token ratio with sonnet-4-6 = 95%+ of gateway spend, almost
+# all of it this repeated prefix. An ephemeral cache breakpoint makes
+# repeat calls within the ~5-min TTL read the prefix at ~0.1x. This is a
+# pure billing/latency optimization: the model receives the IDENTICAL
+# tokens, so tool-calling / build behavior is unchanged. Gated to Anthropic
+# models only (cache_control is an Anthropic feature; LiteLLM >=1.81
+# translates the OpenAI-format marker). Flag off OR non-Anthropic model =>
+# byte-identical to the previous uncached path that produced the 20/20.
+# Default OFF: deploying this code is a no-op until the flag is flipped, so
+# pushing can't touch the proven build path. Turn on with ORIGAMI_PROMPT_CACHE=1
+# in the Railway env (no redeploy) once you're ready to watch it under load;
+# the cache_creation/cache_read telemetry below confirms engagement, and
+# flipping back to 0 reverts instantly.
+ORIGAMI_PROMPT_CACHE = os.getenv("ORIGAMI_PROMPT_CACHE", "0") in (
+    "1", "true", "True", "yes", "on",
+)
+
+
+def _is_anthropic_model(model_id: str) -> bool:
+    """True when the model routes to Anthropic (where cache_control applies)."""
+    m = (model_id or "").lower()
+    return any(k in m for k in ("claude", "anthropic", "sonnet", "haiku", "opus"))
 # Bumped 5 → 8 (2026-06-12) to give headroom for up to 3
 # committed-without-invoke corrections PLUS plan-validation retries
 # PLUS the actual plan emission, all within one turn. The model
@@ -387,13 +413,37 @@ def _build_gateway_body(
     stream: bool,
 ) -> dict[str, Any]:
     """Common request body builder for streaming + non-streaming gateway calls."""
-    full_messages = [{"role": "system", "content": system}] + messages
+    # Cache the static prefix (tools + system) on Anthropic. Marking the END
+    # of the system block as an ephemeral breakpoint caches everything up to
+    # it — Anthropic processes tools first, then system, so this one marker
+    # covers both. Belt-and-suspenders: also mark the last tool so the tool
+    # schemas are cached even if the upstream orders them after system.
+    # Behaviour-neutral: the model still receives the identical tokens.
+    use_cache = ORIGAMI_PROMPT_CACHE and _is_anthropic_model(ORIGAMI_MODEL)
+    if use_cache:
+        system_msg: dict[str, Any] = {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+        }
+    else:
+        system_msg = {"role": "system", "content": system}
+    full_messages = [system_msg] + messages
     body: dict[str, Any] = {
         "model": ORIGAMI_MODEL,
         "max_tokens": ORIGAMI_MAX_TOKENS,
         "messages": full_messages,
     }
     if tools:
+        if use_cache and tools:
+            # Copy so we never mutate the shared TOOL_REGISTRY schemas.
+            tools = [dict(t) for t in tools]
+            tools[-1] = {**tools[-1], "cache_control": {"type": "ephemeral"}}
         body["tools"] = tools
     if stream:
         body["stream"] = True
@@ -1112,6 +1162,28 @@ async def run_origami_turn(
         total_output_tokens += completion_tokens
         if not last_model_used:
             last_model_used = ORIGAMI_MODEL
+
+        # Prompt-cache telemetry. Anthropic (via LiteLLM) returns
+        # cache_creation_input_tokens (prefix written this call, billed 1.25x)
+        # and cache_read_input_tokens (prefix reused, billed ~0.1x). A
+        # non-zero read on iteration 1+ is the proof the static prefix cached.
+        cache_write = int(
+            chunk_usage.get("cache_creation_input_tokens")
+            or (chunk_usage.get("prompt_tokens_details") or {}).get("cache_creation_tokens")
+            or 0
+        )
+        cache_read = int(
+            chunk_usage.get("cache_read_input_tokens")
+            or (chunk_usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+            or 0
+        )
+        if cache_write or cache_read:
+            logger.info(
+                "Origami prompt-cache iter=%d write=%d read=%d prompt=%d "
+                "(cache=%s)",
+                iteration, cache_write, cache_read, prompt_tokens,
+                "on" if (ORIGAMI_PROMPT_CACHE and _is_anthropic_model(ORIGAMI_MODEL)) else "off",
+            )
 
         # Emit a `message_complete` so the frontend can reconcile the
         # streamed tokens with the final (possibly stripped) text. ALWAYS

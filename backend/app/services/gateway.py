@@ -43,6 +43,80 @@ litellm.drop_params = True  # silently drop unsupported params per provider
 litellm.modify_params = True
 
 
+# ─── Cost computation with fallback pricing ───
+#
+# LiteLLM's cost map lags new models. Notably the Claude 4.6 generation on
+# Bedrock — ids like "bedrock/us.anthropic.claude-sonnet-4-6-v1" — raises
+# "This model isn't mapped yet", which the call sites caught and recorded as
+# $0.00. Result: the bulk of Bedrock Claude-4.6 spend was logged as FREE
+# while AWS billed it for real, hiding a ~$700/mo line item from the
+# dashboard (the whole point of Bonito's cost intelligence). This table is a
+# last-resort fallback keyed by model family; substring-matched against the
+# normalised model id. Prices are USD per 1M tokens (input, output) at
+# Anthropic's published rates (Bedrock matches them).
+_FALLBACK_PRICE_PER_M: list[tuple[str, tuple[float, float]]] = [
+    # order matters — most specific first
+    ("claude-opus-4", (15.0, 75.0)),
+    ("claude-sonnet-4", (3.0, 15.0)),
+    ("claude-haiku-4", (1.0, 5.0)),
+    ("claude-3-7-sonnet", (3.0, 15.0)),
+    ("claude-3-5-sonnet", (3.0, 15.0)),
+    ("claude-3-5-haiku", (0.8, 4.0)),
+    ("claude-3-opus", (15.0, 75.0)),
+    ("claude-3-haiku", (0.25, 1.25)),
+]
+
+
+def _fallback_price(model_used: str) -> Optional[tuple[float, float]]:
+    """Per-1M (input, output) price for a model LiteLLM can't price, by family."""
+    m = (model_used or "").lower()
+    for key, price in _FALLBACK_PRICE_PER_M:
+        if key in m:
+            return price
+    return None
+
+
+def compute_request_cost(
+    model_used: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> float:
+    """Best-effort USD cost for a request, robust to LiteLLM map gaps.
+
+    1. Try LiteLLM with a Bedrock-prefixed id (so it uses the right table).
+    2. If LiteLLM can't price it ("isn't mapped yet"), fall back to a static
+       per-family table so new Bedrock models aren't silently logged at $0.
+    """
+    if not (prompt_tokens or completion_tokens):
+        return 0.0
+    # Normalise a Bedrock-style id so LiteLLM looks in the bedrock table.
+    cost_model = model_used or ""
+    low = cost_model.lower()
+    if not any(p in low for p in ("bedrock/", "azure/", "vertex_ai/", "anthropic/")):
+        if re.match(r"^(us|eu|apac|us-gov)\.", low) or any(
+            ns in low for ns in ("anthropic.claude", "amazon.", "meta.llama", "mistral.", "cohere.")
+        ):
+            cost_model = f"bedrock/{cost_model}"
+    try:
+        pc, cc = litellm.cost_per_token(
+            model=cost_model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+        total = (pc or 0.0) + (cc or 0.0)
+        if total > 0:
+            return total
+    except Exception:
+        pass
+    # LiteLLM couldn't price it (new model / unmapped Bedrock id). Use the
+    # static family table so the spend is visible instead of $0.
+    fb = _fallback_price(model_used)
+    if fb:
+        pin, pout = fb
+        return prompt_tokens / 1_000_000 * pin + completion_tokens / 1_000_000 * pout
+    return 0.0
+
+
 # ─── Provider credential mapping ───
 
 import httpx
@@ -1003,16 +1077,35 @@ async def _resolve_provider_for_log(
             return provider
     except Exception:
         pass
-    # Heuristic fallback
-    if any(k in model_used for k in ("bedrock", "amazon", "nova", "titan")):
+    # Heuristic fallback.
+    # CRITICAL: Bedrock model IDs are provider-namespaced and/or region-
+    # prefixed — e.g. "anthropic.claude-sonnet-4-6-v1",
+    # "us.anthropic.claude-...", "meta.llama3-...", "amazon.titan-...",
+    # often with a ":0" version suffix. They contain "claude"/"llama" but
+    # NEVER the literal string "bedrock". The old check only looked for
+    # "bedrock"/"amazon"/"nova"/"titan", so every Bedrock-routed Claude/
+    # Llama call fell through to the bare "claude"/"llama" branches and was
+    # mis-labelled "anthropic"/"groq" instead of "aws". That made Bedrock
+    # spend invisible in Bonito's cost dashboard while AWS billed it for
+    # real. Detect the Bedrock id shape (region/provider namespace prefix
+    # or ":0" suffix) BEFORE the bare model-family checks.
+    if (
+        re.match(r"^(us|eu|apac|us-gov)\.", model_used)
+        or re.match(
+            r"^(anthropic|amazon|meta|mistral|cohere|ai21|deepseek|stability|writer|luma)\.",
+            model_used,
+        )
+        or model_used.endswith(":0")
+        or any(k in model_used for k in ("bedrock", "nova", "titan"))
+    ):
         return "aws"
-    elif any(k in model_used for k in ("azure",)):
+    elif "azure" in model_used:
         return "azure"
     elif any(k in model_used for k in ("vertex", "gemini", "palm")):
         return "gcp"
     elif any(k in model_used for k in ("gpt-", "o1-", "o3-", "o4-", "dall-e", "chatgpt")):
         return "openai"
-    elif any(k in model_used for k in ("claude",)):
+    elif "claude" in model_used:
         return "anthropic"
     elif any(k in model_used for k in ("llama", "mixtral", "gemma")):
         return "groq"
@@ -1101,14 +1194,36 @@ async def chat_completion(
             log_entry.input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
             log_entry.output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
             log_entry.latency_ms = elapsed_ms
+            # Cost via LiteLLM, falling back to a static family table when
+            # LiteLLM can't price the model (e.g. unmapped Bedrock Claude-4.6
+            # ids that otherwise log as $0 and hide real AWS spend).
+            cost = 0.0
             try:
-                log_entry.cost = litellm.completion_cost(completion_response=response) or 0.0
+                cost = litellm.completion_cost(completion_response=response) or 0.0
             except Exception:
-                log_entry.cost = 0.0
+                cost = 0.0
+            if cost <= 0:
+                cost = compute_request_cost(
+                    log_entry.model_used or attempt_model,
+                    log_entry.input_tokens or 0,
+                    log_entry.output_tokens or 0,
+                )
+            log_entry.cost = cost
 
-            # Determine provider from DB lookup, fallback to heuristic
+            # Determine provider. PREFER the authoritative router model-list
+            # mapping (primary_provider, computed above from the actual
+            # litellm deployment) — it knows a "claude-sonnet-4-6" alias that
+            # routes to "bedrock/..." is AWS, which the model-id heuristic
+            # can't reliably tell from the response model string. Only fall
+            # back to the DB-lookup + heuristic when the router can't resolve
+            # it. Without this, Bedrock-routed Claude was logged as
+            # "anthropic" and AWS/Bedrock spend was invisible in the dashboard.
             model_used = log_entry.model_used or ""
-            log_entry.provider = await _resolve_provider_for_log(db, org_id, model_used)
+            log_entry.provider = (
+                _detect_provider_from_model(attempt_model, router.model_list)
+                or primary_provider
+                or await _resolve_provider_for_log(db, org_id, model_used)
+            )
 
             # If this was a failover, log the original error
             if attempt_idx > 0 and failover_from:
