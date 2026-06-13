@@ -1396,17 +1396,30 @@ async def run_origami_turn(
                         "tool_call_id": tc.get("id", ""),
                         "content": json.dumps(placeholder),
                     })
-                # Nudge the model to emit any REMAINING build steps (or to
-                # finish if there are none).
+                # Nudge the model to emit any REMAINING build steps. Re-
+                # anchor HARD on the original request + list what's queued
+                # so the model checks completeness instead of losing track
+                # across the round-trip.
+                queued_summary = ", ".join(
+                    f"step_{i+1}={c.action}({(c.params or {}).get('name', '')})"
+                    for i, c in enumerate(accumulated_plan_changes)
+                )
                 messages.append({
                     "role": "user",
                     "content": (
-                        "Those are queued in the plan. If the original "
-                        "request needs MORE steps (e.g. link_kb_to_agent, "
-                        "connect_agents, additional agents), emit them now "
-                        "as tool calls using ${step_N.field} refs to the "
-                        "resources above. If the plan is complete, just say "
-                        "so briefly — do not repeat tool calls already made."
+                        f"The user's FULL request was:\n\"{message}\"\n\n"
+                        f"So far you've queued: {queued_summary}.\n\n"
+                        "Check that request carefully. Have you emitted a "
+                        "tool call for EVERY resource AND every link / "
+                        "connection / handoff in it? If anything is still "
+                        "missing (a link_kb_to_agent, a connect_agents, "
+                        "another agent, etc.), emit those tool calls NOW "
+                        "using ${step_N.field} refs to the queued resources "
+                        "above — e.g. link_kb_to_agent(agent_id="
+                        "${step_3.agent_id}, kb_id=${step_2.kb_id}). "
+                        "Do NOT repeat calls already queued. If and only if "
+                        "every part of the request is covered, reply with a "
+                        "one-line confirmation and no tool calls."
                     ),
                 })
                 continue  # collect the next batch
