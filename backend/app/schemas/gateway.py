@@ -37,6 +37,20 @@ class ChatCompletionRequest(BaseModel):
     presence_penalty: Optional[float] = None
     frequency_penalty: Optional[float] = None
     user: Optional[str] = None
+    # Function / tool calling. CRITICAL: without these fields, Pydantic
+    # silently DROPS `tools` / `tool_choice` from the request body, so the
+    # model never receives the tool definitions and can only produce text.
+    # That broke every function-calling caller through the gateway —
+    # including Bonito Studio / Origami, which depend on structured
+    # tool_calls to build plan cards. (Root-caused 2026-06-12.)
+    tools: Optional[List[Any]] = None
+    tool_choice: Optional[Any] = None
+    parallel_tool_calls: Optional[bool] = None
+    # Other standard OpenAI chat params we were also silently dropping.
+    response_format: Optional[Any] = None
+    stream_options: Optional[Any] = None
+    seed: Optional[int] = None
+    logit_bias: Optional[Any] = None
 
 
 class CompletionRequest(BaseModel):
