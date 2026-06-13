@@ -935,6 +935,13 @@ async def run_origami_turn(
     # system_prompt to write), so we may need to push more than once.
     completion_checks_used = 0
     MAX_COMPLETION_CHECKS = 2
+    # Dependency self-heal: when a wiring tool (connect_agents,
+    # link_kb_to_agent) fails with a *_not_found error, the model skipped a
+    # prerequisite (emitted connect_agents(hub→spoke) for a spoke it never
+    # created). Rather than finalize a half-built topology, nudge it to
+    # create the missing resource and retry. Bounded to avoid loops.
+    dep_retry_count = 0
+    MAX_DEP_RETRIES = 3
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1554,6 +1561,43 @@ async def run_origami_turn(
             # finalize the executed-build receipt now.
             iters_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
             if finish_reason == "tool_calls" and iters_left > 0:
+                continue
+
+            # ── DEPENDENCY SELF-HEAL ───────────────────────────────────
+            # If a wiring tool in this batch failed because its target
+            # didn't exist (the model emitted connect_agents(hub→spoke)
+            # for a spoke it never created, or list_org_state instead of
+            # creating the missing agents), don't finalize a half-built
+            # topology. Tell the model exactly which references are dangling
+            # and have it create them + re-wire. Common on hub-and-spoke
+            # team builds where the model skips a spoke. Bounded retries.
+            dep_failures = [
+                (c, r)
+                for (c, r, ok) in executed_changes
+                if not ok
+                and isinstance(r, dict)
+                and str(r.get("error", "")).endswith("_not_found")
+            ]
+            if dep_failures and dep_retry_count < MAX_DEP_RETRIES and iters_left > 0:
+                dep_retry_count += 1
+                missing_refs = []
+                for _c, r in dep_failures:
+                    msg_txt = r.get("message", "")
+                    # message looks like "target agent 'x-spoke' not found ..."
+                    m = re.search(r"'([^']+)'", msg_txt)
+                    if m:
+                        missing_refs.append(m.group(1))
+                missing_list = ", ".join(sorted(set(missing_refs))) or "the missing agents"
+                nudge = (
+                    f"Some wiring failed because the referenced agents don't "
+                    f"exist yet: {missing_list}. You must create_agent for each "
+                    f"of those FIRST (write a short system_prompt yourself, use "
+                    f"model_id='claude-sonnet-4-6' unless the user named another "
+                    f"model), THEN re-emit the connect_agents calls to wire them. "
+                    f"Do it now as tool calls — do not call list_org_state, do "
+                    f"not reply with text."
+                )
+                messages.append({"role": "user", "content": nudge})
                 continue
 
             async for ev in _emit_executed_build(
