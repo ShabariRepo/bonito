@@ -139,51 +139,60 @@ class CreateAgentTool(OrigamiTool):
                 "message": "Both name and system_prompt are required.",
             }
 
-        # Resolve project_id: UUID > project_name > user's first project
+        # Resolve project_id robustly. The model isn't reliable about
+        # which field it uses, so accept the project reference from EITHER
+        # `project_id` or `project_name`, and treat a non-UUID project_id
+        # as a name (the common failure: model passes the display name in
+        # the project_id field, or an unresolved ${step_N.project_id}
+        # template that should be a name). Resolution order:
+        #   1. project_id that's a valid UUID, owned by the org
+        #   2. any non-UUID project reference (from project_id OR
+        #      project_name) resolved as a display name
+        #   3. fall back to the org's most-recently-created project
         project_id_raw = params.get("project_id")
         project_name = (params.get("project_name") or "").strip()
         project_id: Optional[uuid.UUID] = None
+
+        # Treat a non-UUID project_id as a name candidate.
+        name_candidate = project_name
         if project_id_raw:
             try:
-                project_id = uuid.UUID(str(project_id_raw))
-            except ValueError:
-                return {
-                    "success": False,
-                    "error": "invalid_project_id",
-                    "message": f"project_id '{project_id_raw}' is not a valid UUID.",
-                }
-            owner_check = await db.execute(
-                select(Project.id).where(
-                    Project.id == project_id,
-                    Project.org_id == org_id,
+                candidate_uuid = uuid.UUID(str(project_id_raw))
+                owner_check = await db.execute(
+                    select(Project.id).where(
+                        Project.id == candidate_uuid,
+                        Project.org_id == org_id,
+                    )
                 )
-            )
-            if not owner_check.scalar_one_or_none():
-                return {
-                    "success": False,
-                    "error": "project_not_found",
-                    "message": "Project not found in your organization.",
-                }
-        elif project_name:
+                if owner_check.scalar_one_or_none():
+                    project_id = candidate_uuid
+                # If the UUID is well-formed but not in this org, fall
+                # through to name/fallback resolution rather than erroring.
+            except (ValueError, TypeError):
+                # project_id wasn't a UUID — treat its string as a name.
+                if not name_candidate:
+                    name_candidate = str(project_id_raw).strip()
+
+        if project_id is None and name_candidate:
             row = await db.execute(
                 select(Project.id).where(
-                    Project.name == project_name,
+                    Project.name == name_candidate,
                     Project.org_id == org_id,
                 )
             )
             project_id = row.scalar_one_or_none()
-            if not project_id:
-                return {
-                    "success": False,
-                    "error": "project_not_found",
-                    "message": f"Project '{project_name}' not found in your organization.",
-                }
-        else:
-            first_project = await db.execute(
-                select(Project.id).where(Project.org_id == org_id).limit(1)
+
+        if project_id is None:
+            # Last resort: the org's most recent project. Better to put
+            # the agent SOMEWHERE deployable than to hard-fail a build.
+            fallback = await db.execute(
+                select(Project.id)
+                .where(Project.org_id == org_id)
+                .order_by(Project.created_at.desc())
+                .limit(1)
             )
-            project_id = first_project.scalar_one_or_none()
-            if not project_id:
+            project_id = fallback.scalar_one_or_none()
+            if project_id is None:
                 return {
                     "success": False,
                     "error": "no_project",

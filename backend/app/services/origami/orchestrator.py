@@ -1212,18 +1212,35 @@ async def run_origami_turn(
             plan_changes: list[PlanChange] = []
             for tc in tool_calls:
                 fn = tc.get("function", {})
-                tname = _resolve_tool_name(fn.get("name", ""))
+                raw_name = fn.get("name", "")
+                tname = _resolve_tool_name(raw_name)
+                tcls = TOOL_REGISTRY.get(tname)
+                # DEFENSIVE: skip tool calls whose resolved name isn't a
+                # real tool. The model occasionally emits a malformed
+                # call whose `name` is a RESOURCE NAME instead of a tool
+                # (e.g. name="code-reviewer-12729"). If we let that become
+                # a plan step, it (a) fails at execute time as unknown_tool
+                # and (b) — worse — shifts every later step's index by one,
+                # which breaks ${step_N.field} template refs downstream.
+                # Dropping it keeps the plan clean and the indices aligned.
+                if tcls is None:
+                    logger.warning(
+                        "Origami: dropping non-tool plan change name=%r "
+                        "(resolved=%r) — not in TOOL_REGISTRY. Likely a "
+                        "resource name the model mislabeled as a tool.",
+                        raw_name, tname,
+                    )
+                    continue
                 try:
                     p = json.loads(fn.get("arguments") or "{}")
                 except json.JSONDecodeError:
                     p = {}
                 p = sanitize_params(p)
-                tcls = TOOL_REGISTRY.get(tname)
                 plan_changes.append(PlanChange(
                     action=tname,
                     params=p,
-                    is_write=bool(tcls and tcls.is_write),
-                    summary=(tcls.description if tcls else None),
+                    is_write=bool(tcls.is_write),
+                    summary=tcls.description,
                 ))
 
             # ── Validate plan dependencies BEFORE emitting plan_ready.
@@ -1590,9 +1607,13 @@ async def execute_plan(
             # Resolve ${step_N.field} / ${prev.field} references from earlier
             # tool results before sending params downstream.
             params = _resolve_template_params(params, step_results)
-            # Heuristic: if a link tool still has unset ids, infer from the
-            # most recent matching create result.
+            # Heuristic: if a coupled-id tool still has unset / unresolved
+            # ids, infer them from the most recent matching create result.
+            # Covers link_kb_to_agent (agent_id/kb_id) AND create_agent
+            # (project_id) — both are the common chained-build failure
+            # where the model's ${step_N} ref didn't resolve cleanly.
             params = _heuristic_fill_link_params(change.action, params, step_results)
+            params = _heuristic_fill_project_id(change.action, params, step_results)
             result = await instance.execute(
                 org_id=user.org_id,  # ← STILL from auth, even on replay
                 user=user,
@@ -2137,6 +2158,45 @@ def _heuristic_fill_link_params(
                 out["kb_id"] = sr["kb_id"]
                 break
     return out
+
+
+def _heuristic_fill_project_id(
+    tool_name: str,
+    params: dict[str, Any],
+    step_results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Fill create_agent.project_id from a create_project step in the plan.
+
+    The common chained-build failure: create_agent has
+    project_id="${step_1.project_id}" but the ref didn't resolve (model
+    miscounted, or the field stayed a literal template / display name).
+    If project_id isn't a valid UUID, scan step_results for the most
+    recent create_project result and use its project_id. create_agent's
+    own tool also handles name-resolution + fallback, but filling the
+    real UUID here is cleaner and keeps the audit log accurate.
+    """
+    if tool_name != "create_agent":
+        return params
+    pid = params.get("project_id")
+
+    def _is_uuid(v: Any) -> bool:
+        if not isinstance(v, str):
+            return False
+        try:
+            uuid.UUID(v.strip())
+            return True
+        except ValueError:
+            return False
+
+    if _is_uuid(pid):
+        return params  # already a real UUID — leave it
+    # Unresolved template, name, or missing — find the project we just made.
+    for sr in reversed(step_results):
+        if isinstance(sr, dict) and sr.get("project_id"):
+            out = dict(params)
+            out["project_id"] = sr["project_id"]
+            return out
+    return params
 
 
 def _repair_failed_step(
