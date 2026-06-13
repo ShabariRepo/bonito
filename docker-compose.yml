@@ -55,6 +55,7 @@ services:
       # a healthy deployment in dev. Override in prod via env.
       - ORIGAMI_GATEWAY_KEY=${ORIGAMI_GATEWAY_KEY:-bn-19cfe4c7b04f7ef0053553ab3e882fb738d6ec556c61ab5f29b53fa0d6022ac7}
       - ORIGAMI_MODEL=${ORIGAMI_MODEL:-anthropic.claude-opus-4-6-v1}
+      - ORIGAMI_PROMPT_CACHE=${ORIGAMI_PROMPT_CACHE:-0}
       - BONITO_GATEWAY_URL=${BONITO_GATEWAY_URL:-http://backend:8000}
     depends_on:
       postgres:
