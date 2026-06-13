@@ -1036,11 +1036,18 @@ async def run_origami_turn(
             # without needing a phrase list. The phrase + TS-leak helpers
             # remain for diagnostic logging.
             is_q = _is_clarifying_question(accumulated_content)
+            claims_done = _claims_false_completion(accumulated_content)
+            # Retry when the user wanted a build and the model didn't
+            # invoke, UNLESS it asked a genuine clarifying question with
+            # NO false completion claim. A reply that both claims
+            # completion AND asks a follow-up ("Project is ready — want
+            # me to add agents?") is a lie + an offer; the resource was
+            # never created, so we retry despite the trailing question.
             if (
                 iteration == 0
                 and iterations_left > 0
                 and _user_wants_build(message)
-                and not is_q
+                and (claims_done or not is_q)
             ):
                 logger.warning(
                     "Origami committed-without-invoke retry "
@@ -1992,6 +1999,33 @@ def _is_clarifying_question(text: str) -> bool:
         "which would you", "what should", "what's the",
     )
     return any(c in tail_lower for c in confirm_tails)
+
+
+# Phrases that CLAIM a resource was created/wired. If the model says one
+# of these but emitted no tool call, the claim is a lie — the resource
+# doesn't exist. These override the is-a-clarifying-question gate, because
+# the model loves to false-complete AND tack on a follow-up question
+# ("Project is ready — want me to add agents?") which would otherwise
+# look like a legit clarifying turn.
+_FALSE_COMPLETION_CLAIMS = (
+    "is ready", "are ready", "is created", "are created", "is live",
+    "are live", "is set up", "are set up", "is wired", "are wired",
+    "is minted", "is deployed", "are deployed", "is up and", "all set",
+    "ready to go", "good to go", "all wired", "created and", "minted and",
+    "wired up", "is done", "are done", "queued up", "is queued",
+    "set up and", "spun up", "now live", "has been created",
+    "have been created", "i've created", "i've set up", "i've spun up",
+    "i've minted", "i've wired", "i've built",
+)
+
+
+def _claims_false_completion(text: str) -> bool:
+    """True if the reply claims a build completed. In the no-tool-calls
+    branch this claim is always false — retry to actually do the work."""
+    if not text:
+        return False
+    t = text.lower()
+    return any(c in t for c in _FALSE_COMPLETION_CLAIMS)
 
 
 def _sanitize_tool_call_leaks(text: str) -> str:
