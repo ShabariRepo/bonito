@@ -928,6 +928,10 @@ async def run_origami_turn(
     # plan-card-as-receipt the frontend renders.
     executed_step_results: list[dict[str, Any]] = []
     executed_changes: list[tuple[Any, dict[str, Any], bool]] = []
+    # One completion check per turn: when the model wraps up after a
+    # build, re-anchor it on the original request to catch the common
+    # "created the project + KB but forgot the agent" under-delivery.
+    completion_check_done = False
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1113,6 +1117,46 @@ async def run_origami_turn(
             emitted_visible_text = True
 
         if not tool_calls:
+            # ── COMPLETION CHECK ───────────────────────────────────
+            # The model frequently under-delivers on multi-resource
+            # builds — it creates the project + KB, then wraps up in text
+            # WITHOUT creating the agent the user asked for. Before
+            # finalizing, do ONE re-anchor pass: show the model what it
+            # actually executed and the original request, and ask it to
+            # emit anything still missing. With real results in hand it
+            # reliably fills the gap. Gated to fire at most once per turn.
+            if (
+                executed_changes
+                and not completion_check_done
+                and _user_wants_build(message)
+                and (ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration) > 0
+            ):
+                completion_check_done = True
+                done_summary = ", ".join(
+                    f"{c.action}({(c.params or {}).get('name', '')})"
+                    for (c, _r, ok) in executed_changes if ok
+                )
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        f"You've executed: {done_summary}.\n\n"
+                        f"The user's ORIGINAL request was:\n\"{message}\"\n\n"
+                        "Re-read it carefully. Have you created EVERY "
+                        "resource it asks for — every project, KB, agent, "
+                        "gateway key — AND every link / connection / "
+                        "handoff between them? If ANYTHING is still missing "
+                        "(very commonly the agent itself, or the "
+                        "link_kb_to_agent / connect_agents wiring), emit "
+                        "those tool calls NOW. The resources above already "
+                        "exist — reference them by name (e.g. "
+                        "create_agent with project_name / link_kb_to_agent "
+                        "with agent_name + kb_name). If and ONLY if every "
+                        "part of the request is genuinely done, reply with "
+                        "a one-line confirmation and no tool calls."
+                    ),
+                })
+                continue
+
             # ── FINALIZE INLINE-EXECUTED BUILD ─────────────────────
             # If we executed write tools inline this turn and the model
             # just wrapped up in text, emit the completed plan-card-as-
