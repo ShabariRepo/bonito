@@ -839,6 +839,16 @@ async def run_origami_turn(
     # leave iteration budget for the actual build + any plan-validation
     # retry that follows.
     committed_retry_count = 0
+    # Accumulate write tool_calls ACROSS iterations into one plan. The
+    # model uses the standard tool-use protocol: it emits a batch of tool
+    # calls with finish_reason="tool_calls" and waits for results before
+    # emitting the rest (e.g. create_project + create_kb + create_agent,
+    # then expects results before emitting link_kb_to_agent). Origami's
+    # plan-card flow doesn't execute inline, so we inject SYNTHETIC
+    # results and keep looping to collect the remaining calls — building
+    # ONE complete plan from all batches. Without this the trailing tool
+    # calls (link/connect/the last agents) silently vanish from the plan.
+    accumulated_plan_changes: list[PlanChange] = []
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1242,7 +1252,7 @@ async def run_origami_turn(
         )
 
         if has_write_tool:
-            plan_changes: list[PlanChange] = []
+            current_changes: list[PlanChange] = []
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 raw_name = fn.get("name", "")
@@ -1269,12 +1279,79 @@ async def run_origami_turn(
                 except json.JSONDecodeError:
                     p = {}
                 p = sanitize_params(p)
-                plan_changes.append(PlanChange(
+                current_changes.append(PlanChange(
                     action=tname,
                     params=p,
                     is_write=bool(tcls.is_write),
                     summary=tcls.description,
                 ))
+
+            # Accumulate this batch into the running plan. The model emits
+            # tool calls in batches and waits for results; we collect them
+            # all into one plan instead of finalizing on the first batch.
+            # Dedup against what's already accumulated — the model
+            # sometimes re-emits a call it already made when it continues.
+            def _change_key(c: PlanChange) -> tuple:
+                name = (c.params or {}).get("name")
+                return (c.action, name) if name else (c.action, json.dumps(c.params, sort_keys=True))
+            seen_keys = {_change_key(c) for c in accumulated_plan_changes}
+            for c in current_changes:
+                k = _change_key(c)
+                if k not in seen_keys:
+                    accumulated_plan_changes.append(c)
+                    seen_keys.add(k)
+
+            # ── CONTINUE-COLLECTING gate ──────────────────────────────
+            # finish_reason == "tool_calls" means the model emitted tool
+            # calls and EXPECTS results before continuing — it may have
+            # more calls to make (e.g. link_kb_to_agent after the agent).
+            # Inject synthetic success results for THIS batch and loop so
+            # the model can emit the rest. Cap by iteration budget. When
+            # the model is truly done it emits finish_reason != tool_calls
+            # (a plain text wrap-up) and we fall through to finalize.
+            iters_left_collect = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
+            if finish_reason == "tool_calls" and iters_left_collect > 0:
+                # Synthetic result per tool_call: success with a placeholder
+                # id keyed by step so downstream ${step_N.field} refs the
+                # model writes still make sense. Real ids are assigned at
+                # execute time; planning only needs the shape.
+                for off, tc in enumerate(tool_calls):
+                    step_no = len(accumulated_plan_changes) - len(tool_calls) + off + 1
+                    fname = _resolve_tool_name(tc.get("function", {}).get("name", ""))
+                    placeholder = {
+                        "success": True,
+                        "status": "queued_in_plan",
+                        "note": (
+                            "Queued in the plan card — will execute on deploy. "
+                            "Reference my outputs with template refs like "
+                            f"${{step_{step_no}.project_id}} / "
+                            f"${{step_{step_no}.kb_id}} / "
+                            f"${{step_{step_no}.agent_id}}."
+                        ),
+                    }
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "content": json.dumps(placeholder),
+                    })
+                # Nudge the model to emit any REMAINING build steps (or to
+                # finish if there are none).
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "Those are queued in the plan. If the original "
+                        "request needs MORE steps (e.g. link_kb_to_agent, "
+                        "connect_agents, additional agents), emit them now "
+                        "as tool calls using ${step_N.field} refs to the "
+                        "resources above. If the plan is complete, just say "
+                        "so briefly — do not repeat tool calls already made."
+                    ),
+                })
+                continue  # collect the next batch
+
+            # Model is done emitting tool calls — finalize from the FULL
+            # accumulated set (all batches), not just this iteration's.
+            plan_changes = accumulated_plan_changes
 
             # ── Validate plan dependencies BEFORE emitting plan_ready.
             #
@@ -1314,6 +1391,10 @@ async def run_origami_turn(
                             "reason": "plan_validation_pending",
                         }),
                     })
+                # The model is being asked to RE-EMIT the full plan, so
+                # clear the accumulator — the next batch replaces it
+                # rather than appending (avoids double-counting).
+                accumulated_plan_changes = []
                 messages.append({
                     "role": "user",
                     "content": (
