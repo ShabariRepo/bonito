@@ -1034,6 +1034,20 @@ async def run_origami_turn(
         tool_calls = [accumulated_tool_calls[i] for i in sorted(accumulated_tool_calls)]
         content = accumulated_content
 
+        # ── TEMP DIAG: trace per-iteration tool emission to diagnose why
+        # multi-step builds stall at project+KB and never reach create_agent.
+        yield OrigamiEvent("_diag", {
+            "iteration": iteration,
+            "finish_reason": finish_reason,
+            "tool_names": [
+                _resolve_tool_name(tc.get("function", {}).get("name", ""))
+                for tc in tool_calls
+            ],
+            "content_len": len(content or ""),
+            "executed_so_far": [c.action for (c, _r, ok) in executed_changes if ok],
+            "completion_checks_used": completion_checks_used,
+        })
+
         # Step 1: ALWAYS strip <thinking> blocks from the content first.
         # The model uses these for chain-of-thought reasoning but the user
         # should never see them. Also strip BEFORE the tool-call parser
