@@ -15,6 +15,7 @@ import uuid
 from typing import Any, Optional
 
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -121,6 +122,33 @@ class CreateKbTool(OrigamiTool):
         if not name:
             return {"success": False, "error": "missing_name", "message": "KB name is required."}
 
+        # IDEMPOTENCY: the model occasionally re-emits create_kb with a name
+        # it already created earlier this build (it loses track across
+        # tool-result round-trips). (org_id, name) is UNIQUE, so a second
+        # INSERT raises IntegrityError mid-flush — which poisons the
+        # SQLAlchemy session and cascades failures onto every later tool in
+        # the same batch (create_agent, link_kb_to_agent). Instead, if a KB
+        # with this name already exists for the org, return it as success so
+        # downstream steps still resolve. Makes the call safely repeatable.
+        existing_kb = await db.execute(
+            select(KnowledgeBase)
+            .where(KnowledgeBase.org_id == org_id, KnowledgeBase.name == name)
+            .order_by(KnowledgeBase.created_at.desc())
+            .limit(1)
+        )
+        prior = existing_kb.scalars().first()
+        if prior is not None:
+            return {
+                "success": True,
+                "kb_id": str(prior.id),
+                "name": prior.name,
+                "status": prior.status,
+                "embedding_model": prior.embedding_model,
+                "project_id": (prior.source_config or {}).get("project_id"),
+                "idempotent": True,
+                "next_step": "Upload documents via upload_to_kb, or link to an agent via link_kb_to_agent.",
+            }
+
         # Resolve project association hint (KBs are org-scoped at the DB
         # level — this is a soft association stored in source_config so
         # the UI and Origami can show "scoped to project X").
@@ -169,8 +197,38 @@ class CreateKbTool(OrigamiTool):
             status="pending",
         )
         db.add(kb)
-        await db.flush()
-        await db.commit()
+        try:
+            await db.flush()
+            await db.commit()
+        except IntegrityError:
+            # Race: another call (or a re-emit) inserted the same
+            # (org_id, name) between our pre-check and flush. Roll back to
+            # un-poison the session, then return the now-existing KB so the
+            # build continues cleanly instead of cascading failures.
+            await db.rollback()
+            again = await db.execute(
+                select(KnowledgeBase)
+                .where(KnowledgeBase.org_id == org_id, KnowledgeBase.name == name)
+                .order_by(KnowledgeBase.created_at.desc())
+                .limit(1)
+            )
+            won = again.scalars().first()
+            if won is not None:
+                return {
+                    "success": True,
+                    "kb_id": str(won.id),
+                    "name": won.name,
+                    "status": won.status,
+                    "embedding_model": won.embedding_model,
+                    "project_id": (won.source_config or {}).get("project_id"),
+                    "idempotent": True,
+                    "next_step": "Upload documents via upload_to_kb, or link to an agent via link_kb_to_agent.",
+                }
+            return {
+                "success": False,
+                "error": "create_failed",
+                "message": "Could not create the KB due to a naming conflict.",
+            }
 
         return {
             "success": True,
