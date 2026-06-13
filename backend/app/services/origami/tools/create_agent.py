@@ -22,12 +22,16 @@ from app.services.origami.tools.base import OrigamiTool, register_tool
 class CreateAgentTool(OrigamiTool):
     name = "create_agent"
     description = (
-        "Create a new Bonobot agent for the user's organization. Agents are "
-        "Bonito's persona-driven LLM workers — pick a model, give it a system "
-        "prompt and (optionally) knowledge bases, and the customer can hit it "
-        "via the gateway. Requires an existing project_id (call create_project "
-        "first if the user doesn't have one). Returns agent_id for downstream "
-        "wiring (link_kb_to_agent, etc)."
+        "Create a new Bonobot agent. CALL THIS DIRECTLY whenever the user "
+        "asks to build/create/spin up an agent — do NOT call list_org_state "
+        "or any read tool first to 'check' anything; just create it. "
+        "project_id / project_name are OPTIONAL — if omitted, the agent "
+        "lands in the user's most recent project (or one created earlier in "
+        "this same turn). If you don't have a system_prompt from the user, "
+        "write a sensible one yourself based on what they described. "
+        "Agents are Bonito's persona-driven LLM workers (model + system "
+        "prompt + optional KBs), callable via the gateway. Returns agent_id "
+        "for downstream wiring (link_kb_to_agent, connect_agents)."
     )
     input_schema = {
         "type": "object",
