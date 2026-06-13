@@ -1027,11 +1027,20 @@ async def run_origami_turn(
             # time. Gated on iteration == 0 so this can only fire once
             # per turn (no infinite loops).
             iterations_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
+            # Retry condition: user wanted to build AND the response isn't
+            # a clarifying question. There's no third valid state — the
+            # model either built (tool_calls non-empty, handled below)
+            # OR asked a question (correct, no retry) OR dead-chatted
+            # (this branch). Inverting the gate from "looks committal"
+            # to "isn't a question" catches every false-completion shape
+            # without needing a phrase list. The phrase + TS-leak helpers
+            # remain for diagnostic logging.
+            is_q = _is_clarifying_question(accumulated_content)
             if (
                 iteration == 0
                 and iterations_left > 0
                 and _user_wants_build(message)
-                and _looks_committal_to_build(accumulated_content)
+                and not is_q
             ):
                 logger.warning(
                     "Origami committed-without-invoke retry "
@@ -1933,6 +1942,35 @@ def _looks_committal_to_build(text: str) -> bool:
     if _TS_IMPORT_LEAK_RE.search(text):
         return True
     return False
+
+
+def _is_clarifying_question(text: str) -> bool:
+    """Roughly: did the model end its reply with a clarifying question?
+
+    Used as the inverse gate for the committed-without-invoking retry.
+    When the user asked to build something and the model didn't emit
+    any tool calls, the response is EITHER (a) a clarifying question
+    (correct behavior, no retry) OR (b) a dead chat masquerading as
+    completion ("On it", "Done — X is created", code blocks, anything
+    else). Any non-question reply triggers the retry.
+    """
+    if not text:
+        return False
+    stripped = text.strip()
+    if not stripped:
+        return False
+    # Standard question mark anywhere in the last quarter of the reply
+    tail = stripped[-max(len(stripped) // 4, 80):]
+    if "?" in tail:
+        return True
+    # Conversational confirmations that aren't punctuated as questions
+    tail_lower = tail.lower()
+    confirm_tails = (
+        " right?", " correct?", " yes?", " instead?",
+        "let me know", "tell me", "share with me",
+        "which would you", "what should", "what's the",
+    )
+    return any(c in tail_lower for c in confirm_tails)
 
 
 def _sanitize_tool_call_leaks(text: str) -> str:
