@@ -1830,6 +1830,33 @@ _CODE_FENCED_TOOL_CALL_RE = re.compile(
 _TOOL_FUNCTION_CALL_RE = re.compile(
     rf"\b(?:{_PLATFORM_TOOL_NAMES})\s*\([^)]*\)",
 )
+# TypeScript / JavaScript code-block leak. The model sometimes role-plays
+# as a developer and emits something like:
+#   ```typescript
+#   import { createKb, createAgent, linkKbToAgent } from '@bonito/sdk';
+#   await createKb({ name: 'x' });
+#   ```
+# instead of structured tool_calls. camelCase variants of platform tool
+# names are the tell. We don't gate on the platform-name whitelist here
+# because the regex is anchored to a code-fence — false positives on
+# random TS snippets the user pasted are extremely unlikely.
+_TS_TOOL_NAMES_CAMEL = (
+    "createProject|createKb|createAgent|connectAgents|linkKbToAgent|"
+    "uploadToKb|updateAgent|updateKb|mintGatewayKey|deleteProject|"
+    "viewUsage|viewLogs|listOrgState|listAvailableModels|invokeAgent"
+)
+_TS_CODE_BLOCK_LEAK_RE = re.compile(
+    rf"```(?:typescript|ts|javascript|js|tsx|jsx)?\s*"
+    rf".*?(?:{_TS_TOOL_NAMES_CAMEL}|{_PLATFORM_TOOL_NAMES}).*?```",
+    re.DOTALL | re.IGNORECASE,
+)
+# Standalone TS import line (without code fence) — the model sometimes
+# emits just the import statement as plain text.
+_TS_IMPORT_LEAK_RE = re.compile(
+    rf"import\s*\{{[^}}]*(?:{_TS_TOOL_NAMES_CAMEL}|{_PLATFORM_TOOL_NAMES})"
+    rf"[^}}]*\}}\s*from\s*['\"][^'\"]+['\"];?",
+    re.IGNORECASE,
+)
 
 
 # Pattern detection for the "model committed to action but didn't
@@ -1895,7 +1922,17 @@ def _looks_committal_to_build(text: str) -> bool:
     if not text:
         return False
     t = text.lower()
-    return any(p in t for p in _COMMITTAL_BUILD_PHRASES)
+    # Conventional commitment phrases ("On it", "I'll create", …)
+    if any(p in t for p in _COMMITTAL_BUILD_PHRASES):
+        return True
+    # OR the model role-played a developer and emitted TS/JS code that
+    # references platform tools. Same outcome: response committed but
+    # didn't actually invoke. Retry should fire.
+    if _TS_CODE_BLOCK_LEAK_RE.search(text):
+        return True
+    if _TS_IMPORT_LEAK_RE.search(text):
+        return True
+    return False
 
 
 def _sanitize_tool_call_leaks(text: str) -> str:
@@ -1923,11 +1960,13 @@ def _sanitize_tool_call_leaks(text: str) -> str:
     """
     if not text:
         return text
+    text = _TS_CODE_BLOCK_LEAK_RE.sub("", text)
     text = _CODE_FENCED_TOOL_CALL_RE.sub("", text)
     text = _TOOL_CALL_JSON_RE.sub("", text)
     text = _INVOKE_BLOCK_RE.sub("", text)
     text = _PARAMETERIZED_FUNCTION_RE.sub("", text)
     text = _BARE_JSON_TOOL_CALL_RE.sub("", text)
+    text = _TS_IMPORT_LEAK_RE.sub("", text)
     text = _TOOL_FUNCTION_CALL_RE.sub("", text)
     return text.strip()
 
