@@ -1013,6 +1013,58 @@ async def run_origami_turn(
             emitted_visible_text = True
 
         if not tool_calls:
+            # ── COMMITTED-WITHOUT-INVOKE RETRY ─────────────────────
+            # The dominant Claude multi-step failure: the model emits
+            # "On it — creating the KB, the agent, then wiring them
+            # together" with no actual tool calls. Measured 80% failure
+            # rate on multi-step builds (test 2026-06-12). Prompt-list
+            # whack-a-mole doesn't fix it; the model finds new commit-
+            # without-invoke phrasings faster than we can list them.
+            # Code-level fix: when the user asked to build AND the
+            # response sounds committal AND we have iteration budget,
+            # inject a synthetic correction message and re-run. The
+            # model corrects itself on the next iteration most of the
+            # time. Gated on iteration == 0 so this can only fire once
+            # per turn (no infinite loops).
+            iterations_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
+            if (
+                iteration == 0
+                and iterations_left > 0
+                and _user_wants_build(message)
+                and _looks_committal_to_build(accumulated_content)
+            ):
+                logger.warning(
+                    "Origami committed-without-invoke retry "
+                    "(iter=%d, user=%s): content=%r message=%r",
+                    iteration,
+                    str(user.id),
+                    accumulated_content[:120],
+                    message[:120],
+                )
+                # Inject the model's prior reply + a correction prompt.
+                messages.append(
+                    {"role": "assistant", "content": accumulated_content}
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "You committed to building but emitted no tool "
+                            "calls — the plan card won't render and the user "
+                            "has nothing to deploy. Emit the tool calls NOW "
+                            "as structured tool_calls. Per the dependency "
+                            "rule, all create_* invocations come first, then "
+                            "connect_agents / link_kb_to_agent / upload_to_kb "
+                            "invocations referencing them with "
+                            "${step_N.field} template refs. Use the "
+                            "structured tool_calls field — do NOT write the "
+                            "calls as ```json``` blocks or function-call "
+                            "syntax in the visible reply."
+                        ),
+                    }
+                )
+                continue  # Re-enter loop with the correction
+
             # Synthesize a friendly summary if the model went silent after a
             # tool ran, OR if the content we got back looks like nothing but
             # tool-call markup that couldn't be parsed (Bedrock + Opus
@@ -1778,6 +1830,72 @@ _CODE_FENCED_TOOL_CALL_RE = re.compile(
 _TOOL_FUNCTION_CALL_RE = re.compile(
     rf"\b(?:{_PLATFORM_TOOL_NAMES})\s*\([^)]*\)",
 )
+
+
+# Pattern detection for the "model committed to action but didn't
+# invoke any tool" failure mode. Lowercased substring match for speed;
+# both detectors run independently and the orchestrator only retries
+# when BOTH fire (user wanted a build AND response sounds committal).
+
+_BUILD_VERBS_USER = (
+    "create",
+    "build",
+    "make",
+    "spin up",
+    "spin-up",
+    "mint",
+    "deploy",
+    "wire",
+    "link",
+    "connect",
+    "set up",
+    "set-up",
+    "add a",
+    "upload",
+    "attach",
+)
+
+_COMMITTAL_BUILD_PHRASES = (
+    # Acknowledgment heads
+    "on it",
+    "i'll create",
+    "i'll spin up",
+    "i'll set up",
+    "i'll mint",
+    "i'll build",
+    "i'll wire",
+    "i'll link",
+    "let me create",
+    "let me spin",
+    "let me set",
+    "let me mint",
+    "let me build",
+    "let me wire",
+    "let me link",
+    # Future-tense build descriptions
+    "creating the",
+    "spinning up the",
+    "wiring them",
+    "linking the",
+    "building the",
+    "setting up the",
+    "minting the",
+    "wiring them together",
+)
+
+
+def _user_wants_build(message: str) -> bool:
+    if not message:
+        return False
+    m = message.lower()
+    return any(v in m for v in _BUILD_VERBS_USER)
+
+
+def _looks_committal_to_build(text: str) -> bool:
+    if not text:
+        return False
+    t = text.lower()
+    return any(p in t for p in _COMMITTAL_BUILD_PHRASES)
 
 
 def _sanitize_tool_call_leaks(text: str) -> str:
