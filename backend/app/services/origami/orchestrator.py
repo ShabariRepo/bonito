@@ -674,6 +674,81 @@ async def _kb_exists_in_org(
     return row.scalar_one_or_none() is not None
 
 
+# ──────────────────── Inline-executed build receipt ────────────────────
+
+
+async def _emit_executed_build(
+    *,
+    executed_changes: list[tuple[Any, dict[str, Any], bool]],
+    session_id: uuid.UUID,
+    message: str,
+    user: User,
+    org_id: uuid.UUID,
+    project_id: Optional[uuid.UUID],
+    conversation_id: Optional[str],
+    effective_conversation_id: str,
+    db: AsyncSession,
+    wrap_up_text: str,
+) -> AsyncIterator[OrigamiEvent]:
+    """Emit the plan-card-as-receipt for an inline-executed build.
+
+    The write tools already ran (real resources exist). This renders the
+    completed build as a plan card the frontend shows as DONE. The
+    `pre_executed` flag tells the frontend NOT to call execute_plan (the
+    work is already done) — it just displays the result.
+    """
+    changes = [c for (c, _r, _ok) in executed_changes]
+    results = [_summarize_result(r) for (_c, r, _ok) in executed_changes]
+    succeeded = sum(1 for (_c, _r, ok) in executed_changes if ok)
+    failed = len(executed_changes) - succeeded
+    any_failed = failed > 0
+
+    plan = PlanCard(
+        id=uuid.uuid4(),
+        session_id=session_id,
+        intent=message[:500] if message else "(build)",
+        changes=changes,
+        status=PlanCardStatus.FAILED if any_failed else PlanCardStatus.DONE,
+    )
+    try:
+        await plan_store.save_plan(
+            plan=plan, user_id=user.id, org_id=org_id,
+            project_id=project_id, conversation_id=conversation_id,
+            user_message=message,
+        )
+        await plan_store.update_status(
+            str(plan.id),
+            PlanCardStatus.FAILED if any_failed else PlanCardStatus.DONE,
+        )
+    except Exception:
+        logger.exception("save executed-build plan failed (non-fatal)")
+
+    plan_dict = plan.model_dump(mode="json")
+    plan_dict["pre_executed"] = True
+    plan_dict["step_results"] = results
+
+    # plan_ready renders the card; pre_executed=True suppresses auto-deploy.
+    yield OrigamiEvent("plan_ready", {"plan_card": plan_dict})
+    # execution_done gives the frontend the final summary so it can mark
+    # the card complete without ever calling execute_plan.
+    yield OrigamiEvent("execution_done", {
+        "plan_card_id": str(plan.id),
+        "status": "failed" if any_failed else ("partial" if failed else "success"),
+        "succeeded_count": succeeded,
+        "failed_count": failed,
+        "results": results,
+    })
+
+    try:
+        await origami_messages.record_plan_message(
+            db=db, org_id=org_id, user_id=user.id, project_id=project_id,
+            conversation_id=effective_conversation_id,
+            session_id=session_id, plan_card=plan_dict,
+        )
+    except Exception:
+        logger.exception("record executed-build plan message failed (non-fatal)")
+
+
 # ────────────────────────── Orchestrator entry point ──────────────────────────
 
 
@@ -839,16 +914,20 @@ async def run_origami_turn(
     # leave iteration budget for the actual build + any plan-validation
     # retry that follows.
     committed_retry_count = 0
-    # Accumulate write tool_calls ACROSS iterations into one plan. The
-    # model uses the standard tool-use protocol: it emits a batch of tool
-    # calls with finish_reason="tool_calls" and waits for results before
-    # emitting the rest (e.g. create_project + create_kb + create_agent,
-    # then expects results before emitting link_kb_to_agent). Origami's
-    # plan-card flow doesn't execute inline, so we inject SYNTHETIC
-    # results and keep looping to collect the remaining calls — building
-    # ONE complete plan from all batches. Without this the trailing tool
-    # calls (link/connect/the last agents) silently vanish from the plan.
-    accumulated_plan_changes: list[PlanChange] = []
+    # INLINE EXECUTION state. The model uses the standard tool-use
+    # protocol: emit a batch of tool calls, wait for REAL results, then
+    # emit the next batch referencing the results. So we execute write
+    # tools for real as the model emits them, feed the real results back,
+    # and let the model continue until the whole build is done. This is
+    # the model's natural loop and is far more reliable than trying to
+    # collect a complete multi-tool plan up front (the model emits in
+    # unreliable partial batches and won't reliably finish on a nudge).
+    # `executed_step_results` holds each write tool's real result (so
+    # ${step_N.field} refs + the heuristics resolve against real ids).
+    # `executed_changes` is [(PlanChange, result_dict, ok)] for the final
+    # plan-card-as-receipt the frontend renders.
+    executed_step_results: list[dict[str, Any]] = []
+    executed_changes: list[tuple[Any, dict[str, Any], bool]] = []
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1034,56 +1113,24 @@ async def run_origami_turn(
             emitted_visible_text = True
 
         if not tool_calls:
-            # ── FINALIZE ACCUMULATED MULTI-BATCH PLAN ──────────────
-            # If we've been collecting write tool calls across batches
-            # and the model just emitted a text wrap-up (no new tools),
-            # the build is complete — finalize the plan from everything
-            # accumulated. Without this, a multi-batch build's text
-            # "all done!" wrap-up would fall through to the retry/
-            # fallback path and the plan would never render.
-            if accumulated_plan_changes:
-                plan_changes = accumulated_plan_changes
-                validation_errors = await _validate_plan_dependencies(
-                    plan_changes, db=db, org_id=org_id,
-                )
-                if validation_errors:
-                    logger.warning(
-                        "Origami multi-batch plan has dependency warnings "
-                        "(%d) at finalize. Emitting anyway. errors=%s",
-                        len(validation_errors), validation_errors[:5],
-                    )
-                    yield OrigamiEvent("plan_warning", {
-                        "code": "dependency_errors",
-                        "errors": validation_errors,
-                        "message": (
-                            "Some plan steps reference resources not created "
-                            "in this plan. The affected steps may fail on "
-                            "deploy."
-                        ),
-                    })
-                plan = PlanCard(
-                    id=uuid.uuid4(),
+            # ── FINALIZE INLINE-EXECUTED BUILD ─────────────────────
+            # If we executed write tools inline this turn and the model
+            # just wrapped up in text, emit the completed plan-card-as-
+            # receipt so the frontend renders the finished build.
+            if executed_changes:
+                async for ev in _emit_executed_build(
+                    executed_changes=executed_changes,
                     session_id=session_id,
-                    intent=message[:500] if message else "(no intent recorded)",
-                    changes=plan_changes,
-                    status=PlanCardStatus.AWAITING_CONFIRMATION,
-                )
-                await plan_store.save_plan(
-                    plan=plan, user_id=user.id, org_id=org_id,
-                    project_id=project_id, conversation_id=conversation_id,
-                    user_message=message,
-                )
-                plan_dict = plan.model_dump(mode="json")
-                yield OrigamiEvent("plan_ready", {"plan_card": plan_dict})
-                yield OrigamiEvent("awaiting_confirmation", {
-                    "plan_card_id": str(plan.id),
-                })
-                await origami_messages.record_plan_message(
-                    db=db, org_id=org_id, user_id=user.id,
+                    message=message,
+                    user=user,
+                    org_id=org_id,
                     project_id=project_id,
-                    conversation_id=effective_conversation_id,
-                    session_id=session_id, plan_card=plan_dict,
-                )
+                    conversation_id=conversation_id,
+                    effective_conversation_id=effective_conversation_id,
+                    db=db,
+                    wrap_up_text=content,
+                ):
+                    yield ev
                 await _record_turn(
                     db=db, user=user, org_id=org_id, project_id=project_id,
                     session_id=session_id, conversation_id=conversation_id,
@@ -1091,7 +1138,7 @@ async def run_origami_turn(
                     output_tokens=total_output_tokens,
                     tool_calls_count=total_tool_calls,
                     model_used=last_model_used, status="success",
-                    finish_reason="plan_ready", tier=tier,
+                    finish_reason="build_executed", tier=tier,
                     started_at_ms=started_at_ms,
                 )
                 return
@@ -1314,257 +1361,126 @@ async def run_origami_turn(
         )
 
         if has_write_tool:
-            current_changes: list[PlanChange] = []
+            # ── INLINE EXECUTION ──────────────────────────────────────
+            # Run each write tool FOR REAL now, feed the real result back
+            # to the model, and let it continue (the model emits in
+            # batches and waits for results before the next batch). This
+            # matches the model's natural tool-use protocol — far more
+            # reliable than collecting a complete multi-tool plan up
+            # front. org_id always from auth, never the model's args.
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 raw_name = fn.get("name", "")
                 tname = _resolve_tool_name(raw_name)
                 tcls = TOOL_REGISTRY.get(tname)
-                # DEFENSIVE: skip tool calls whose resolved name isn't a
-                # real tool. The model occasionally emits a malformed
-                # call whose `name` is a RESOURCE NAME instead of a tool
-                # (e.g. name="code-reviewer-12729"). If we let that become
-                # a plan step, it (a) fails at execute time as unknown_tool
-                # and (b) — worse — shifts every later step's index by one,
-                # which breaks ${step_N.field} template refs downstream.
-                # Dropping it keeps the plan clean and the indices aligned.
+                tc_id = tc.get("id", "")
+                # Garbage tool name (model mislabeled a resource name as a
+                # tool). Inject an error result so the model can recover,
+                # and skip — never execute an unknown tool.
                 if tcls is None:
                     logger.warning(
-                        "Origami: dropping non-tool plan change name=%r "
-                        "(resolved=%r) — not in TOOL_REGISTRY. Likely a "
-                        "resource name the model mislabeled as a tool.",
+                        "Origami: skipping non-tool call name=%r (resolved=%r)",
                         raw_name, tname,
                     )
-                    continue
-                try:
-                    p = json.loads(fn.get("arguments") or "{}")
-                except json.JSONDecodeError:
-                    p = {}
-                p = sanitize_params(p)
-                current_changes.append(PlanChange(
-                    action=tname,
-                    params=p,
-                    is_write=bool(tcls.is_write),
-                    summary=tcls.description,
-                ))
-
-            # Accumulate this batch into the running plan. The model emits
-            # tool calls in batches and waits for results; we collect them
-            # all into one plan instead of finalizing on the first batch.
-            # Dedup against what's already accumulated — the model
-            # sometimes re-emits a call it already made when it continues.
-            def _change_key(c: PlanChange) -> tuple:
-                name = (c.params or {}).get("name")
-                return (c.action, name) if name else (c.action, json.dumps(c.params, sort_keys=True))
-            seen_keys = {_change_key(c) for c in accumulated_plan_changes}
-            for c in current_changes:
-                k = _change_key(c)
-                if k not in seen_keys:
-                    accumulated_plan_changes.append(c)
-                    seen_keys.add(k)
-
-            # ── CONTINUE-COLLECTING gate ──────────────────────────────
-            # finish_reason == "tool_calls" means the model emitted tool
-            # calls and EXPECTS results before continuing — it may have
-            # more calls to make (e.g. link_kb_to_agent after the agent).
-            # Inject synthetic success results for THIS batch and loop so
-            # the model can emit the rest. Cap by iteration budget. When
-            # the model is truly done it emits finish_reason != tool_calls
-            # (a plain text wrap-up) and we fall through to finalize.
-            iters_left_collect = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
-            yield OrigamiEvent("_diag", {
-                "iter": iteration,
-                "batch": [c.action for c in current_changes],
-                "finish_reason": finish_reason,
-                "accumulated": [c.action for c in accumulated_plan_changes],
-                "iters_left": iters_left_collect,
-                "raw_tool_names": [
-                    _resolve_tool_name(tc.get("function", {}).get("name", ""))
-                    for tc in tool_calls
-                ],
-            })
-            if finish_reason == "tool_calls" and iters_left_collect > 0:
-                # Synthetic result per tool_call: success with a placeholder
-                # id keyed by step so downstream ${step_N.field} refs the
-                # model writes still make sense. Real ids are assigned at
-                # execute time; planning only needs the shape.
-                for off, tc in enumerate(tool_calls):
-                    step_no = len(accumulated_plan_changes) - len(tool_calls) + off + 1
-                    fname = _resolve_tool_name(tc.get("function", {}).get("name", ""))
-                    placeholder = {
-                        "success": True,
-                        "status": "queued_in_plan",
-                        "note": (
-                            "Queued in the plan card — will execute on deploy. "
-                            "Reference my outputs with template refs like "
-                            f"${{step_{step_no}.project_id}} / "
-                            f"${{step_{step_no}.kb_id}} / "
-                            f"${{step_{step_no}.agent_id}}."
-                        ),
-                    }
                     messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
-                        "content": json.dumps(placeholder),
-                    })
-                # Nudge the model to emit any REMAINING build steps. Re-
-                # anchor HARD on the original request + list what's queued
-                # so the model checks completeness instead of losing track
-                # across the round-trip.
-                queued_summary = ", ".join(
-                    f"step_{i+1}={c.action}({(c.params or {}).get('name', '')})"
-                    for i, c in enumerate(accumulated_plan_changes)
-                )
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        f"The user's FULL request was:\n\"{message}\"\n\n"
-                        f"So far you've queued: {queued_summary}.\n\n"
-                        "Check that request carefully. Have you emitted a "
-                        "tool call for EVERY resource AND every link / "
-                        "connection / handoff in it? If anything is still "
-                        "missing (a link_kb_to_agent, a connect_agents, "
-                        "another agent, etc.), emit those tool calls NOW "
-                        "using ${step_N.field} refs to the queued resources "
-                        "above — e.g. link_kb_to_agent(agent_id="
-                        "${step_3.agent_id}, kb_id=${step_2.kb_id}). "
-                        "Do NOT repeat calls already queued. If and only if "
-                        "every part of the request is covered, reply with a "
-                        "one-line confirmation and no tool calls."
-                    ),
-                })
-                continue  # collect the next batch
-
-            # Model is done emitting tool calls — finalize from the FULL
-            # accumulated set (all batches), not just this iteration's.
-            plan_changes = accumulated_plan_changes
-
-            # ── Validate plan dependencies BEFORE emitting plan_ready.
-            #
-            # Catches the failure mode where the model emitted
-            # connect_agents / link_kb_to_agent calls that reference
-            # agents/KBs by name without emitting the corresponding
-            # create_agent / create_kb calls (typically because the
-            # output budget got tight and the longer create_agent calls
-            # were dropped). When that happens, inject synthetic
-            # tool_result messages plus a user-message describing the
-            # errors and let the model retry within the remaining
-            # iteration budget. The model corrects itself most of the
-            # time on the very next iteration.
-            validation_errors = await _validate_plan_dependencies(
-                plan_changes, db=db, org_id=org_id,
-            )
-            iterations_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
-            if validation_errors and iterations_left > 0:
-                logger.info(
-                    "Origami plan validation failed (iteration %d, %d errors); "
-                    "injecting feedback for model retry. errors=%s",
-                    iteration, len(validation_errors), validation_errors[:3],
-                )
-                yield OrigamiEvent("plan_revision", {
-                    "iteration": iteration,
-                    "errors": validation_errors,
-                    "iterations_left": iterations_left,
-                })
-                # Inject one tool_result per tool_call so the conversation
-                # state stays valid for the next iteration.
-                for tc in tool_calls:
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc.get("id", ""),
+                        "role": "tool", "tool_call_id": tc_id,
                         "content": json.dumps({
-                            "status": "deferred",
-                            "reason": "plan_validation_pending",
+                            "success": False, "error": "unknown_tool",
+                            "message": f"'{raw_name}' is not a tool.",
                         }),
                     })
-                # The model is being asked to RE-EMIT the full plan, so
-                # clear the accumulator — the next batch replaces it
-                # rather than appending (avoids double-counting).
-                accumulated_plan_changes = []
+                    continue
+                try:
+                    params = json.loads(fn.get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    params = {}
+                params = sanitize_params(params)
+                # Resolve ${step_N.field} refs + coupled-id heuristics
+                # against the REAL results of tools already run this turn.
+                params = _resolve_template_params(params, executed_step_results)
+                params = _heuristic_fill_link_params(tname, params, executed_step_results)
+                params = _heuristic_fill_project_id(tname, params, executed_step_results)
+
+                step_idx = len(executed_changes)
+                yield OrigamiEvent("tool_started", {
+                    "tool_name": tname, "step": step_idx,
+                })
+                try:
+                    result = await tcls().execute(
+                        org_id=org_id, user=user, params=params, db=db,
+                    )
+                except Exception as exc:
+                    logger.exception("Origami inline exec failed: %s", tname)
+                    result = {
+                        "success": False, "error": "execution_error",
+                        "message": str(exc),
+                    }
+                result_dict = result if isinstance(result, dict) else {}
+                ok = result_dict.get("success", True)
+                executed_step_results.append(result_dict)
+                change = PlanChange(
+                    action=tname, params=params,
+                    is_write=bool(tcls.is_write), summary=tcls.description,
+                )
+                executed_changes.append((change, result_dict, ok))
+
+                if ok:
+                    yield OrigamiEvent("tool_completed", {
+                        "tool_name": tname, "step": step_idx,
+                        "result_summary": _summarize_result(result_dict),
+                    })
+                    # Audit the successful write.
+                    try:
+                        await metering.record_origami_audit(
+                            db=db, org_id=org_id, user_id=user.id,
+                            og_token_id=None, project_id=project_id,
+                            session_id=session_id, plan_card_id=None,
+                            intent_summary=message[:200] if message else "",
+                            tool_name=tname, tool_params=params,
+                            tier_at_time=tier, confirmation="inline_auto",
+                            status="success", error=None,
+                        )
+                    except Exception:
+                        logger.debug("inline audit failed (non-fatal)")
+                else:
+                    yield OrigamiEvent("tool_failed", {
+                        "tool_name": tname, "step": step_idx,
+                        "error": result_dict.get("error")
+                        or result_dict.get("message") or "failed",
+                    })
+
+                # Feed the result back so the model can chain / continue.
                 messages.append({
-                    "role": "user",
-                    "content": (
-                        "Your plan has dependency errors — it references "
-                        "agents or KBs by name that no create_* call in the "
-                        "same response makes:\n\n"
-                        + "\n".join(f"  • {e}" for e in validation_errors)
-                        + "\n\nRe-emit the FULL plan including the missing "
-                        "create_agent / create_kb calls. Per the dependency "
-                        "rules, ALL create_* calls must come BEFORE any "
-                        "connect_agents / link_kb_to_agent calls in the same "
-                        "response. If fitting them all would force you to "
-                        "truncate, emit a smaller plan covering fewer agents "
-                        "and tell me what's left for a follow-up."
+                    "role": "tool", "tool_call_id": tc_id,
+                    "content": json.dumps(
+                        _summarize_result(result_dict) if ok else result_dict
                     ),
                 })
-                # Continue the iteration loop; model gets the feedback.
+
+            # If the model signalled it wants results before continuing,
+            # loop — it'll emit the next batch with real ids. Otherwise
+            # finalize the executed-build receipt now.
+            iters_left = ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration
+            if finish_reason == "tool_calls" and iters_left > 0:
                 continue
 
-            if validation_errors:
-                # Out of iteration budget — log and emit a warning event
-                # but still surface the plan so the user sees the attempt.
-                logger.warning(
-                    "Origami plan validation failed on final iteration "
-                    "(%d errors, no retries left). Emitting plan with "
-                    "warnings. errors=%s",
-                    len(validation_errors), validation_errors[:5],
-                )
-                yield OrigamiEvent("plan_warning", {
-                    "code": "dependency_errors",
-                    "errors": validation_errors,
-                    "message": (
-                        "This plan references agents or KBs that aren't "
-                        "created in the same plan. Deploy will fail on "
-                        "the affected steps. Ask me to re-emit the plan "
-                        "with explicit create_agent / create_kb calls."
-                    ),
-                })
-
-            plan = PlanCard(
-                id=uuid.uuid4(),
-                session_id=session_id,
-                intent=message[:500] if message else "(no intent recorded)",
-                changes=plan_changes,
-                status=PlanCardStatus.AWAITING_CONFIRMATION,
-            )
-            await plan_store.save_plan(
-                plan=plan,
-                user_id=user.id,
-                org_id=org_id,
-                project_id=project_id,
+            async for ev in _emit_executed_build(
+                executed_changes=executed_changes,
+                session_id=session_id, message=message, user=user,
+                org_id=org_id, project_id=project_id,
                 conversation_id=conversation_id,
-                user_message=message,
-            )
-
-            plan_dict = plan.model_dump(mode="json")
-            yield OrigamiEvent("plan_ready", {
-                "plan_card": plan_dict,
-            })
-            yield OrigamiEvent("awaiting_confirmation", {
-                "plan_card_id": str(plan.id),
-            })
-            # Persist the plan so it shows up in history
-            await origami_messages.record_plan_message(
-                db=db,
-                org_id=org_id,
-                user_id=user.id,
-                project_id=project_id,
-                conversation_id=effective_conversation_id,
-                session_id=session_id,
-                plan_card=plan_dict,
-            )
-
-            # Record the turn now — the LLM's planning work is over.
-            # When execute_plan runs, it logs its OWN turn for the
-            # downstream tool dispatch.
-            final_finish_reason = "plan_ready"
+                effective_conversation_id=effective_conversation_id,
+                db=db, wrap_up_text=content,
+            ):
+                yield ev
             await _record_turn(
                 db=db, user=user, org_id=org_id, project_id=project_id,
                 session_id=session_id, conversation_id=conversation_id,
                 message=message, input_tokens=total_input_tokens,
-                output_tokens=total_output_tokens, tool_calls_count=total_tool_calls,
+                output_tokens=total_output_tokens,
+                tool_calls_count=total_tool_calls,
                 model_used=last_model_used, status="success",
-                finish_reason=final_finish_reason, tier=tier,
+                finish_reason="build_executed", tier=tier,
                 started_at_ms=started_at_ms,
             )
             return

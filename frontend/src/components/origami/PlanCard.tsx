@@ -36,6 +36,12 @@ export type PlanCardData = {
   } | null;
   estimated_cost_usd_monthly?: number | null;
   status: string;
+  // True when the backend already executed every step inline (the
+  // resources exist). The card renders as DONE and must NOT auto-deploy
+  // or call execute_plan — the work is already done.
+  pre_executed?: boolean;
+  // Per-step result summaries when pre_executed (gateway key value, ids, …).
+  step_results?: Record<string, unknown>[];
 };
 
 type Props = {
@@ -71,13 +77,22 @@ function StepIcon({ state }: { state: StepState }) {
 export function PlanCard({ plan, onExecuted, onCancelled, onEvent, autoDeploy = false }: Props) {
   const [deploying, setDeploying] = useState(false);
   const [cancelled, setCancelled] = useState(false);
-  const [finalStatus, setFinalStatus] = useState<string | null>(null);
+  // When the backend already executed every step inline, the card opens
+  // in its DONE state — no deploy, no execute_plan call.
+  const [finalStatus, setFinalStatus] = useState<string | null>(
+    plan.pre_executed ? (plan.status === "failed" ? "failed" : "done") : null,
+  );
   // Track whether the auto-deploy mount effect has already fired so React's
   // strict-mode double-invoke (and any future state churn) can't re-trigger
   // the deploy POST.
   const autoDeployedRef = useRef(false);
   const [stepStates, setStepStates] = useState<StepState[]>(() =>
-    plan.changes.map(() => "queued" as StepState),
+    plan.changes.map(() =>
+      // Pre-executed plans render every step as done immediately.
+      plan.pre_executed
+        ? (plan.status === "failed" ? "failed" : "done")
+        : ("queued" as StepState),
+    ),
   );
   const [stepErrors, setStepErrors] = useState<(string | null)[]>(() =>
     plan.changes.map(() => null),
@@ -221,6 +236,8 @@ export function PlanCard({ plan, onExecuted, onCancelled, onEvent, autoDeploy = 
   // and against re-renders that might otherwise re-trigger the POST.
   useEffect(() => {
     if (!autoDeploy) return;
+    // Pre-executed plans are already done — never call execute_plan.
+    if (plan.pre_executed) return;
     if (autoDeployedRef.current) return;
     if (deploying || cancelled || finalStatus) return;
     autoDeployedRef.current = true;
