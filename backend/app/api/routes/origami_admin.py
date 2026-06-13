@@ -110,6 +110,113 @@ async def usage_by_org(
     }
 
 
+@router.get("/billing")
+async def studio_billing(
+    period: Optional[str] = Query(
+        None, description="Billing period YYYY-MM. Defaults to current month.",
+        regex=r"^\d{4}-\d{2}$",
+    ),
+    user: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-org Studio/Origami billing rollup for a period.
+
+    For each org using Studio/Origami: turns used vs tier cap, over/under,
+    overage turns + revenue, Bonito's REAL (cache-discounted) cost to serve,
+    and the resulting margin. This is the "are we making money" view.
+
+    cost_real_usd applies the prompt-cache discount (cached reads ~0.1x) using
+    the per-turn cache token split — so it reflects the actual Bedrock/Anthropic
+    bill, NOT the conservative full-price `cost_tracked_usd` that feeds the cap.
+    """
+    from app.services.origami.metering import (
+        cache_aware_cost, get_turn_cap, get_overage_rate,
+    )
+
+    if not period:
+        now = datetime.now(timezone.utc)
+        period = f"{now.year:04d}-{now.month:02d}"
+
+    # group by (org, model, tier) so cache-aware cost uses the right price
+    result = await db.execute(
+        select(
+            OrigamiTurnLog.org_id,
+            OrigamiTurnLog.model_used,
+            OrigamiTurnLog.tier_at_time,
+            func.count(OrigamiTurnLog.id).label("turns"),
+            func.coalesce(func.sum(OrigamiTurnLog.input_tokens), 0).label("inp"),
+            func.coalesce(func.sum(OrigamiTurnLog.output_tokens), 0).label("out"),
+            func.coalesce(func.sum(OrigamiTurnLog.cache_read_tokens), 0).label("cr"),
+            func.coalesce(func.sum(OrigamiTurnLog.cache_write_tokens), 0).label("cw"),
+            func.coalesce(func.sum(OrigamiTurnLog.cost_usd), 0).label("tracked"),
+        )
+        .where(OrigamiTurnLog.billing_period_month == period)
+        .group_by(OrigamiTurnLog.org_id, OrigamiTurnLog.model_used, OrigamiTurnLog.tier_at_time)
+    )
+    # roll up per org
+    per_org: dict = {}
+    for r in result:
+        o = per_org.setdefault(str(r.org_id), {
+            "turns": 0, "tracked": 0.0, "real": 0.0, "tier": r.tier_at_time or "free",
+        })
+        o["turns"] += int(r.turns or 0)
+        o["tracked"] += float(r.tracked or 0)
+        o["real"] += cache_aware_cost(
+            r.model_used, int(r.inp or 0), int(r.out or 0),
+            int(r.cr or 0), int(r.cw or 0),
+        )
+        # keep the highest tier seen (most generous cap)
+        o["tier"] = r.tier_at_time or o["tier"]
+
+    org_ids = [uuid.UUID(k) for k in per_org]
+    names = {}
+    if org_ids:
+        nr = await db.execute(select(Organization.id, Organization.name).where(
+            Organization.id.in_(org_ids)))
+        names = {str(row.id): row.name for row in nr}
+
+    orgs = []
+    for oid, d in per_org.items():
+        tier = d["tier"]
+        cap = get_turn_cap(tier)
+        cap_num = None if cap == float("inf") else int(cap)
+        over = max(0, d["turns"] - cap_num) if cap_num is not None else 0
+        rate = get_overage_rate(tier)
+        overage_rev = round(over * rate, 2)
+        real = round(d["real"], 4)
+        orgs.append({
+            "org_id": oid,
+            "org_name": names.get(oid, "(unknown)"),
+            "tier": tier,
+            "turns_used": d["turns"],
+            "turn_cap": cap_num,
+            "over_cap": cap_num is not None and d["turns"] > cap_num,
+            "overage_turns": over,
+            "overage_rate_usd": rate,
+            "overage_revenue_usd": overage_rev,
+            "cost_tracked_usd": round(d["tracked"], 4),   # full-price (cap basis)
+            "cost_real_usd": real,                          # cache-discounted (true)
+            "margin_usd": round(overage_rev - real, 4),
+        })
+    orgs.sort(key=lambda x: x["overage_revenue_usd"], reverse=True)
+
+    return {
+        "period": period,
+        "orgs": orgs,
+        "totals": {
+            "orgs_using": len(orgs),
+            "orgs_over_cap": sum(1 for o in orgs if o["over_cap"]),
+            "total_turns": sum(o["turns_used"] for o in orgs),
+            "total_overage_revenue_usd": round(sum(o["overage_revenue_usd"] for o in orgs), 2),
+            "total_real_cost_usd": round(sum(o["cost_real_usd"] for o in orgs), 4),
+            "total_tracked_cost_usd": round(sum(o["cost_tracked_usd"] for o in orgs), 4),
+            "total_margin_usd": round(
+                sum(o["overage_revenue_usd"] for o in orgs)
+                - sum(o["cost_real_usd"] for o in orgs), 2),
+        },
+    }
+
+
 @router.get("/recent-activity")
 async def recent_activity(
     limit: int = Query(50, ge=1, le=500),

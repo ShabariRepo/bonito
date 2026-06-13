@@ -97,6 +97,15 @@ class OrigamiTurnLog(Base):
     user_message_preview: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Cache token split (Anthropic prompt caching). Used by the admin billing
+    # dashboard to compute the REAL cache-discounted cost / margin. cost_usd
+    # below stays full-price (conservative) for the spend cap.
+    cache_read_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    cache_write_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     cost_usd: Mapped[Decimal] = mapped_column(
         Numeric(12, 6), nullable=False, default=Decimal(0)
     )

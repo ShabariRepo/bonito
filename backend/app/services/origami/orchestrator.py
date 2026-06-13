@@ -1049,6 +1049,8 @@ async def run_origami_turn(
     # Accumulators for the turn-level metering row
     total_input_tokens = 0
     total_output_tokens = 0
+    total_cache_read_tokens = 0
+    total_cache_write_tokens = 0
     total_tool_calls = 0
     # Track whether ANY iteration in this turn has already emitted user-
     # visible text. Used to suppress the silent-prompt fallback on iter 2+
@@ -1188,6 +1190,8 @@ async def run_origami_turn(
                 finish_reason=final_finish_reason,
                 tier=tier,
                 started_at_ms=started_at_ms,
+                cache_read_tokens=total_cache_read_tokens,
+                cache_write_tokens=total_cache_write_tokens,
             )
             return
 
@@ -1281,6 +1285,8 @@ async def run_origami_turn(
             or (chunk_usage.get("prompt_tokens_details") or {}).get("cached_tokens")
             or 0
         )
+        total_cache_read_tokens += cache_read
+        total_cache_write_tokens += cache_write
         if cache_write or cache_read:
             logger.info(
                 "Origami prompt-cache iter=%d write=%d read=%d prompt=%d "
@@ -1388,6 +1394,8 @@ async def run_origami_turn(
                     model_used=last_model_used, status="success",
                     finish_reason="build_executed", tier=tier,
                     started_at_ms=started_at_ms,
+                    cache_read_tokens=total_cache_read_tokens,
+                    cache_write_tokens=total_cache_write_tokens,
                 )
                 return
 
@@ -1583,6 +1591,8 @@ async def run_origami_turn(
                 finish_reason=final_finish_reason,
                 tier=tier,
                 started_at_ms=started_at_ms,
+                cache_read_tokens=total_cache_read_tokens,
+                cache_write_tokens=total_cache_write_tokens,
             )
             return
 
@@ -1794,6 +1804,8 @@ async def run_origami_turn(
                 model_used=last_model_used, status="success",
                 finish_reason="build_executed", tier=tier,
                 started_at_ms=started_at_ms,
+                cache_read_tokens=total_cache_read_tokens,
+                cache_write_tokens=total_cache_write_tokens,
             )
             return
 
@@ -1932,6 +1944,8 @@ async def run_origami_turn(
         finish_reason=final_finish_reason,
         tier=tier,
         started_at_ms=started_at_ms,
+        cache_read_tokens=total_cache_read_tokens,
+        cache_write_tokens=total_cache_write_tokens,
     )
 
 
@@ -2190,6 +2204,8 @@ async def _record_turn(
     finish_reason: Optional[str],
     tier: str,
     started_at_ms: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
 ) -> None:
     """Write the per-turn metering row. Best-effort, swallows errors."""
     duration_ms = int(time.time() * 1000) - started_at_ms
@@ -2212,6 +2228,8 @@ async def _record_turn(
         finish_reason=finish_reason,
         tier_at_time=tier,
         duration_ms=duration_ms,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
     )
 
 

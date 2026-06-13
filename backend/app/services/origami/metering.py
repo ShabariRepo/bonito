@@ -81,6 +81,8 @@ async def record_origami_turn(
     tier_at_time: str,
     duration_ms: Optional[int],
     gateway_request_ids: Optional[list[str]] = None,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
 ) -> Optional[uuid.UUID]:
     """Insert one OrigamiTurnLog row. Returns the new id or None on failure.
 
@@ -99,6 +101,8 @@ async def record_origami_turn(
             user_message_preview=user_message_preview[:500] if user_message_preview else None,
             input_tokens=int(input_tokens or 0),
             output_tokens=int(output_tokens or 0),
+            cache_read_tokens=int(cache_read_tokens or 0),
+            cache_write_tokens=int(cache_write_tokens or 0),
             cost_usd=Decimal(str(cost_usd or 0)),
             tool_calls_count=int(tool_calls_count or 0),
             model_used=model_used,
@@ -166,6 +170,52 @@ async def record_origami_audit(
     except Exception:
         logger.exception("record_origami_audit failed (non-fatal)")
         return None
+
+
+# ────────────────────────── Cost (cache-aware) ──────────────────────────
+#
+# Per-1M (input, output) USD pricing by model family — Anthropic published
+# rates (Bedrock matches). Used by the admin billing dashboard to compute the
+# REAL cost with caching applied. cost_usd on the turn row stays full-price.
+_FAMILY_PRICE_PER_M = [
+    ("opus", (15.0, 75.0)),
+    ("sonnet", (3.0, 15.0)),
+    ("haiku", (1.0, 5.0)),
+]
+
+
+def _family_price(model_used: Optional[str]) -> tuple[float, float]:
+    m = (model_used or "").lower()
+    for key, price in _FAMILY_PRICE_PER_M:
+        if key in m:
+            return price
+    return (3.0, 15.0)  # default to Sonnet
+
+
+def cache_aware_cost(
+    model_used: Optional[str],
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_tokens: int = 0,
+    cache_write_tokens: int = 0,
+) -> float:
+    """REAL USD cost with Anthropic prompt-cache discounts applied.
+
+    cache reads bill ~0.1x, cache writes ~1.25x, the rest (fresh) at 1x.
+    `input_tokens` is the TOTAL prompt tokens (cached reads/writes are a
+    subset), so fresh = input - read - write.
+    """
+    pin, pout = _family_price(model_used)
+    inp = int(input_tokens or 0)
+    cr = int(cache_read_tokens or 0)
+    cw = int(cache_write_tokens or 0)
+    fresh = max(0, inp - cr - cw)
+    return (
+        fresh / 1_000_000 * pin
+        + cr / 1_000_000 * pin * 0.1
+        + cw / 1_000_000 * pin * 1.25
+        + int(output_tokens or 0) / 1_000_000 * pout
+    )
 
 
 # ────────────────────────── Read helpers ──────────────────────────
