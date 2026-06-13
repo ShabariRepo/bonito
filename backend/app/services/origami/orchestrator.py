@@ -65,7 +65,12 @@ ORIGAMI_MODEL = os.getenv("ORIGAMI_MODEL", "claude-sonnet-4-6")
 # plan" output with no tool_use blocks at all. 8192 is the current cap on
 # Claude Sonnet output; we use the full budget on planning.
 ORIGAMI_MAX_TOKENS = int(os.getenv("ORIGAMI_MAX_TOKENS", "8192"))
-ORIGAMI_MAX_TOOL_ITERATIONS = 5
+# Bumped 5 → 8 (2026-06-12) to give headroom for up to 3
+# committed-without-invoke corrections PLUS plan-validation retries
+# PLUS the actual plan emission, all within one turn. The model
+# false-completes several times in a row on multi-step builds; the
+# retry loop needs room to keep correcting until it actually invokes.
+ORIGAMI_MAX_TOOL_ITERATIONS = 8
 ORIGAMI_HTTP_TIMEOUT = 60.0  # seconds
 
 # Sonnet 4.5 / 4.6 published pricing — used for our internal cost estimate when
@@ -828,6 +833,12 @@ async def run_origami_turn(
     # when iter 1 already gave the user something — otherwise we'd render
     # two bubbles (real reply + "I didn't quite catch that") for the same turn.
     emitted_visible_text = False
+    # How many times we've injected a "you committed but didn't invoke"
+    # correction this turn. The model sometimes false-completes 2-3 times
+    # in a row, so a single retry isn't enough — allow several, capped to
+    # leave iteration budget for the actual build + any plan-validation
+    # retry that follows.
+    committed_retry_count = 0
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1043,42 +1054,57 @@ async def run_origami_turn(
             # completion AND asks a follow-up ("Project is ready — want
             # me to add agents?") is a lie + an offer; the resource was
             # never created, so we retry despite the trailing question.
+            # Allow up to MAX_COMMITTED_RETRIES corrections because the
+            # model sometimes false-completes several times in a row.
+            MAX_COMMITTED_RETRIES = 3
             if (
-                iteration == 0
+                committed_retry_count < MAX_COMMITTED_RETRIES
                 and iterations_left > 0
                 and _user_wants_build(message)
                 and (claims_done or not is_q)
             ):
+                committed_retry_count += 1
                 logger.warning(
-                    "Origami committed-without-invoke retry "
+                    "Origami committed-without-invoke retry #%d "
                     "(iter=%d, user=%s): content=%r message=%r",
+                    committed_retry_count,
                     iteration,
                     str(user.id),
                     accumulated_content[:120],
                     message[:120],
                 )
                 # Inject the model's prior reply + a correction prompt.
+                # Escalate the firmness on repeat failures.
+                if committed_retry_count == 1:
+                    correction = (
+                        "You committed to building but emitted no tool "
+                        "calls — the plan card won't render and the user "
+                        "has nothing to deploy. Emit the tool calls NOW "
+                        "as structured tool_calls. Per the dependency "
+                        "rule, all create_* invocations come first, then "
+                        "connect_agents / link_kb_to_agent / upload_to_kb "
+                        "invocations referencing them with "
+                        "${step_N.field} template refs. Use the "
+                        "structured tool_calls field — do NOT write the "
+                        "calls as ```json``` blocks or function-call "
+                        "syntax in the visible reply."
+                    )
+                else:
+                    correction = (
+                        "STOP. You STILL haven't emitted any tool calls. "
+                        "Do not write ANY prose this turn. Your ENTIRE "
+                        "response must be structured tool_calls and nothing "
+                        "else. Emit one tool call per resource the user "
+                        f"asked for in: '{message[:200]}'. create_* first, "
+                        "then connect/link. No 'I'll', no 'done', no "
+                        "explanation — just the tool calls."
+                    )
+                # Inject the original user request again so the model
+                # re-anchors on what to build (not just on the scolding).
                 messages.append(
                     {"role": "assistant", "content": accumulated_content}
                 )
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            "You committed to building but emitted no tool "
-                            "calls — the plan card won't render and the user "
-                            "has nothing to deploy. Emit the tool calls NOW "
-                            "as structured tool_calls. Per the dependency "
-                            "rule, all create_* invocations come first, then "
-                            "connect_agents / link_kb_to_agent / upload_to_kb "
-                            "invocations referencing them with "
-                            "${step_N.field} template refs. Use the "
-                            "structured tool_calls field — do NOT write the "
-                            "calls as ```json``` blocks or function-call "
-                            "syntax in the visible reply."
-                        ),
-                    }
-                )
+                messages.append({"role": "user", "content": correction})
                 continue  # Re-enter loop with the correction
 
             # Synthesize a friendly summary if the model went silent after a
