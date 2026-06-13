@@ -928,10 +928,13 @@ async def run_origami_turn(
     # plan-card-as-receipt the frontend renders.
     executed_step_results: list[dict[str, Any]] = []
     executed_changes: list[tuple[Any, dict[str, Any], bool]] = []
-    # One completion check per turn: when the model wraps up after a
-    # build, re-anchor it on the original request to catch the common
-    # "created the project + KB but forgot the agent" under-delivery.
-    completion_check_done = False
+    # Completion checks: when the model wraps up after a build, re-anchor
+    # it on the original request to catch the common "created project +
+    # KB but reluctant to create the agent" under-delivery. The model
+    # creates projects/KBs readily but balks at agents (unsure what
+    # system_prompt to write), so we may need to push more than once.
+    completion_checks_used = 0
+    MAX_COMPLETION_CHECKS = 2
     final_status = "success"
     final_finish_reason: Optional[str] = None
     last_model_used: Optional[str] = None
@@ -1127,34 +1130,52 @@ async def run_origami_turn(
             # reliably fills the gap. Gated to fire at most once per turn.
             if (
                 executed_changes
-                and not completion_check_done
+                and completion_checks_used < MAX_COMPLETION_CHECKS
                 and _user_wants_build(message)
                 and (ORIGAMI_MAX_TOOL_ITERATIONS - 1 - iteration) > 0
             ):
-                completion_check_done = True
+                completion_checks_used += 1
+                done_actions = [
+                    c.action for (c, _r, ok) in executed_changes if ok
+                ]
                 done_summary = ", ".join(
                     f"{c.action}({(c.params or {}).get('name', '')})"
                     for (c, _r, ok) in executed_changes if ok
                 )
-                messages.append({
-                    "role": "user",
-                    "content": (
+                # Detect the common gap: user asked for an agent but no
+                # create_agent ran. The model is reluctant about agents
+                # because it's unsure what system_prompt to write — so we
+                # tell it explicitly to write one and call create_agent NOW.
+                wants_agent = any(
+                    w in message.lower()
+                    for w in ("agent", "bot", "hub", "spoke", "assistant")
+                )
+                made_agent = "create_agent" in done_actions
+                if wants_agent and not made_agent:
+                    nudge = (
+                        f"You've executed: {done_summary}.\n\n"
+                        f"The user asked for an AGENT in: \"{message}\"\n\n"
+                        "You have NOT created it yet. Call create_agent NOW "
+                        "as a tool call. Do NOT reply with text, do NOT call "
+                        "list_org_state, do NOT ask questions. WRITE A "
+                        "SYSTEM_PROMPT YOURSELF (2-3 sentences describing the "
+                        "agent's job based on the request) and use "
+                        "model_id='claude-sonnet-4-6'. If a KB was created "
+                        "above, also emit link_kb_to_agent with the agent and "
+                        "KB names afterward. The project already exists — "
+                        "create_agent will auto-scope to it. GO."
+                    )
+                else:
+                    nudge = (
                         f"You've executed: {done_summary}.\n\n"
                         f"The user's ORIGINAL request was:\n\"{message}\"\n\n"
-                        "Re-read it carefully. Have you created EVERY "
-                        "resource it asks for — every project, KB, agent, "
-                        "gateway key — AND every link / connection / "
-                        "handoff between them? If ANYTHING is still missing "
-                        "(very commonly the agent itself, or the "
-                        "link_kb_to_agent / connect_agents wiring), emit "
-                        "those tool calls NOW. The resources above already "
-                        "exist — reference them by name (e.g. "
-                        "create_agent with project_name / link_kb_to_agent "
-                        "with agent_name + kb_name). If and ONLY if every "
-                        "part of the request is genuinely done, reply with "
-                        "a one-line confirmation and no tool calls."
-                    ),
-                })
+                        "Re-read it. Have you created EVERY resource AND every "
+                        "link / connection / handoff it asks for? If ANYTHING "
+                        "is missing, emit those tool calls NOW (reference "
+                        "existing resources by name). If genuinely complete, "
+                        "reply with one line and no tool calls."
+                    )
+                messages.append({"role": "user", "content": nudge})
                 continue
 
             # ── FINALIZE INLINE-EXECUTED BUILD ─────────────────────
