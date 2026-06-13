@@ -226,6 +226,7 @@ cd frontend && vercel --prod
 - **System Observer** — Two-layer observability: L1 wires `emit_agent_event` into agent engine (execution, tool_use, delegation, error lifecycle events with agent_id). L2 is a Bonito-internal Haiku/Groq agent per org (6h schedule) that reads aggregated metrics and produces structured health/governance findings. See `docs/SYSTEM-OBSERVER-ROADMAP.md`.
 - SOC-2 Type II certification
 - Smart routing (complexity-aware model selection)
+- **Haiku-primary for prod Studio orchestration (post-Tech-Week, 2026-06-13):** Haiku 4.5 measured to match Sonnet/Opus build reliability on simple/RAG builds at ~3x cheaper than Sonnet ($1/$5 vs $3/$15), but ~90% on complex multi-agent team builds (under-delivery, which failover does NOT rescue). Prod stays Sonnet-primary through Tech Week for front-door reliability (20/20). After the event: A/B Haiku-primary + Sonnet/Opus fallback, ideally gated by build complexity (ties into smart routing above) — simple builds on Haiku, multi-agent teams on Sonnet. Local dev already runs Haiku-primary.
 - VPC Gateway Agent (enterprise self-hosted data plane)
 - Additional provider integrations (Cohere, Mistral, custom endpoints)
 - Advanced audit log export & SIEM integration
