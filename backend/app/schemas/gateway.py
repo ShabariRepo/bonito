@@ -23,6 +23,18 @@ class ChatMessage(BaseModel):
     name: Optional[str] = None
     function_call: Optional[dict] = None
     tool_calls: Optional[List[dict]] = None
+    # CRITICAL: tool-result messages ({"role":"tool", ...}) carry a
+    # `tool_call_id` that matches the result to the assistant's tool call.
+    # Without this field, Pydantic SILENTLY DROPS it, so every multi-step
+    # continuation sends an ORPHANED tool result — Anthropic/LiteLLM can't
+    # match it and the upstream returns an empty completion (finish_reason
+    # None, no content, no tool_calls). That broke every agentic multi-tool
+    # build through the gateway: the first resource lands in iteration 0,
+    # then every follow-up turn comes back empty, so resource #2+ never
+    # gets created. Single-step builds were unaffected (no continuation).
+    # Same lossy-schema class as the `tools` drop above. (Root-caused
+    # 2026-06-12.)
+    tool_call_id: Optional[str] = None
 
 
 class ChatCompletionRequest(BaseModel):
