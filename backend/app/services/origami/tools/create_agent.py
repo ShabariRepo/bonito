@@ -174,13 +174,15 @@ class CreateAgentTool(OrigamiTool):
                     name_candidate = str(project_id_raw).strip()
 
         if project_id is None and name_candidate:
+            # Names aren't unique — take the most recent match instead of
+            # crashing on scalar_one_or_none when duplicates exist.
             row = await db.execute(
                 select(Project.id).where(
                     Project.name == name_candidate,
                     Project.org_id == org_id,
-                )
+                ).order_by(Project.created_at.desc()).limit(1)
             )
-            project_id = row.scalar_one_or_none()
+            project_id = row.scalars().first()
 
         if project_id is None:
             # Last resort: the org's most recent project. Better to put

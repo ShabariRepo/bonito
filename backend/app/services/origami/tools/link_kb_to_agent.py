@@ -123,9 +123,9 @@ class LinkKbToAgentTool(OrigamiTool):
                 select(KnowledgeBase).where(
                     KnowledgeBase.org_id == org_id,
                     KnowledgeBase.name == kb_name,
-                )
+                ).order_by(KnowledgeBase.created_at.desc()).limit(1)
             )
-            named_kb = check_kb.scalar_one_or_none()
+            named_kb = check_kb.scalars().first()
             if named_kb and str(named_kb.id) != str(kb_id_raw):
                 logger.info(
                     "link_kb_to_agent: kb_id '%s' and kb_name '%s' "
@@ -149,9 +149,9 @@ class LinkKbToAgentTool(OrigamiTool):
             kb_row = await db.execute(
                 select(KnowledgeBase).where(
                     KnowledgeBase.name == kb_name, KnowledgeBase.org_id == org_id
-                )
+                ).order_by(KnowledgeBase.created_at.desc()).limit(1)
             )
-            kb = kb_row.scalar_one_or_none()
+            kb = kb_row.scalars().first()
         else:
             return {"success": False, "error": "missing_kb_reference",
                     "message": "Provide either kb_id (UUID) or kb_name."}

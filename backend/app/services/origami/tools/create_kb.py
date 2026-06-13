@@ -143,13 +143,15 @@ class CreateKbTool(OrigamiTool):
             except (TypeError, ValueError):
                 pass
         elif project_name:
+            # Names aren't unique — pick the most recent match rather than
+            # crashing on scalar_one_or_none when duplicates exist.
             check = await db.execute(
                 select(ProjectModel).where(
                     ProjectModel.name == project_name,
                     ProjectModel.org_id == org_id,
-                )
+                ).order_by(ProjectModel.created_at.desc()).limit(1)
             )
-            row = check.scalar_one_or_none()
+            row = check.scalars().first()
             if row:
                 project_hint = row.id
 
